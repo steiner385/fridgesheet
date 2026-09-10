@@ -96,11 +96,18 @@ def collect(s: Settings, include_hac: bool = True, include_canvas: bool = True, 
                         continue
                     entry = snap["students"].setdefault(_entry_key(snap["students"], fn), {"name": kid["name"], "canvas_id": kid["id"], "canvas": {"courses": []}, "hac": None})
                     for cid in kid["courses"]:
-                        course = cv.course(cid)
-                        course["grade"] = cv.course_grade(cid, kid["id"])
-                        course["assignments"] = cv.assignments(cid, kid["id"])
-                        course["staff"] = cv.people(cid)
-                        entry["canvas"]["courses"].append(course)
+                        # Isolate per-course failures. Canvas refuses observers on some
+                        # endpoints for some courses; without this, one 403 discarded every
+                        # course for every kid and the whole Canvas source reported "error".
+                        try:
+                            course = cv.course(cid)
+                            course["grade"] = cv.course_grade(cid, kid["id"])
+                            course["assignments"] = cv.assignments(cid, kid["id"])
+                            course["staff"] = cv.people(cid)
+                            entry["canvas"]["courses"].append(course)
+                        except Exception as ce:
+                            log.warning("Canvas course %s for %s failed: %s", cid, fn, ce)
+                            entry["canvas"].setdefault("errors", []).append({"course_id": cid, "error": str(ce)[:200]})
                 snap["sources"]["canvas"] = "ok"
             except LoginRequired as e:
                 snap["sources"]["canvas"] = f"login_required: {e}"

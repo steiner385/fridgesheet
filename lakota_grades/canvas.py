@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime
 from urllib.parse import urlencode
@@ -10,6 +11,8 @@ from zoneinfo import ZoneInfo
 from playwright.sync_api import BrowserContext
 
 from .config import Settings
+
+log = logging.getLogger("lakota.canvas")
 
 
 _NEXT_LINK_RE = re.compile(r'<([^>]+)>\s*;\s*rel="next"')
@@ -137,9 +140,27 @@ class Canvas:
         return rows
 
     def people(self, cid: int) -> list[dict]:
-        """Teachers and TAs for a course (for the contacts table)."""
-        out = []
-        for u in self.get_all(f"/api/v1/courses/{cid}/users", **{"enrollment_type[]": ["teacher", "ta"], "include[]": ["enrollments", "email"]}):
-            roles = sorted({e.get("type", "") for e in u.get("enrollments", [])})
-            out.append({"name": u.get("name"), "email": u.get("email"), "roles": roles})
-        return out
+        """Teachers and TAs for a course (for the contacts table).
+
+        Observer accounts are refused /courses/:id/users with a 403 (same restriction the
+        README notes for /users/:id/courses), so fall back to the course object's `teachers`
+        include, which observers may read. Never raises: staff contacts are a nicety and must
+        not cost us the entire Canvas pull.
+        """
+        try:
+            out = []
+            for u in self.get_all(f"/api/v1/courses/{cid}/users", **{"enrollment_type[]": ["teacher", "ta"], "include[]": ["enrollments", "email"]}):
+                roles = sorted({e.get("type", "") for e in u.get("enrollments", [])})
+                out.append({"name": u.get("name"), "email": u.get("email"), "roles": roles})
+            return out
+        except RuntimeError as e:
+            log.info("course %s: /users unavailable (%s); using the course teachers include", cid, str(e)[-60:])
+        try:
+            c = self.get(f"/api/v1/courses/{cid}", **{"include[]": "teachers"})
+            return [
+                {"name": t.get("display_name") or t.get("name"), "email": None, "roles": ["TeacherEnrollment"]}
+                for t in (c.get("teachers") or [])
+            ]
+        except RuntimeError as e:
+            log.warning("course %s: no staff list available (%s)", cid, str(e)[-60:])
+            return []
