@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import logging
 import sys
 import time
 
 from . import collector
-from .config import Settings, load_settings
+from .config import KEYRING_SERVICE, Settings, keyring_write, load_settings
 from .session import browser, ensure_canvas, ensure_hac
 
 
@@ -67,6 +68,33 @@ def cmd_login(args) -> int:
     return cmd_check(args)
 
 
+def cmd_set_credentials(args) -> int:
+    """Store the OneLogin username/password in the GNOME keyring (encrypted at rest,
+    unlocked by PAM at login, readable by the unattended refresh timer)."""
+    load_settings()
+    if not sys.stdin.isatty():
+        print("set-credentials needs a terminal so the password is never echoed or logged.", file=sys.stderr)
+        print("Run it yourself in a shell, or pipe a value straight from your password", file=sys.stderr)
+        print("manager into secret-tool, e.g.:", file=sys.stderr)
+        print(f"  op read --no-newline 'op://Vault/<uuid>/password' | \\", file=sys.stderr)
+        print(f"    secret-tool store --label 'Lakota OneLogin' service {KEYRING_SERVICE} key password", file=sys.stderr)
+        return 2
+    user = args.username or input("OneLogin username: ").strip()
+    if not user:
+        print("No username given.", file=sys.stderr)
+        return 2
+    pw = getpass.getpass("OneLogin password (not echoed): ")
+    if not pw:
+        print("No password given.", file=sys.stderr)
+        return 2
+    keyring_write("username", user)
+    keyring_write("password", pw)
+    del pw
+    print(f"Stored under Secret Service service={KEYRING_SERVICE!r} (keys: username, password).")
+    print("Verify with:  lakota-grades check")
+    return 0
+
+
 def cmd_check(args) -> int:
     s = load_settings()
     ok = True
@@ -108,6 +136,9 @@ def main(argv=None) -> None:
     lg = sub.add_parser("login", help="one-time headed login to seed the browser profile")
     lg.add_argument("--wait-minutes", type=int, default=15, help="how long to watch for sign-in when no terminal is attached")
     lg.set_defaults(fn=cmd_login)
+    sc = sub.add_parser("set-credentials", help="store OneLogin credentials in the GNOME keyring")
+    sc.add_argument("--username", help="prompted for if omitted; the password is always prompted")
+    sc.set_defaults(fn=cmd_set_credentials)
     sub.add_parser("check", help="verify headless Canvas + HAC access").set_defaults(fn=cmd_check)
     r = sub.add_parser("refresh", help="pull everything now into the cache")
     r.add_argument("--no-hac", action="store_true")

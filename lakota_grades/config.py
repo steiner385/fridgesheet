@@ -1,10 +1,18 @@
 """Configuration. Secrets are never stored here.
 
 Credentials are read, in order of preference:
-  1. From the environment (populated by a 1Password Environments mounted .env file,
-     or by `op run --env-file=.env -- lakota-grades ...`).
-  2. From `op read` secret references (op://Vault/Item/field) if LAKOTA_OP_USERNAME_REF /
-     LAKOTA_OP_PASSWORD_REF are set. Requires the 1Password CLI with desktop-app integration.
+  1. From the environment (LAKOTA_ONELOGIN_USERNAME / _PASSWORD), populated by a 1Password
+     Environments mounted .env file, `op run --env-file=.env -- lakota-grades ...`, or a
+     plain .env you manage yourself.
+  2. From the GNOME keyring / freedesktop Secret Service, via `secret-tool`. This is the
+     default local store: encrypted at rest under the login password, unlocked by PAM at
+     desktop login, and readable by an unattended systemd --user timer because the user
+     manager already exports DBUS_SESSION_BUS_ADDRESS. If nobody has logged into the
+     desktop session the keyring is locked and this source fails loudly rather than
+     hanging on a prompt that no one can answer.
+  3. From `op read` secret references (op://Vault/Item/field) if LAKOTA_OP_USERNAME_REF /
+     LAKOTA_OP_PASSWORD_REF are set. Requires the 1Password CLI with desktop-app integration,
+     so it needs someone present to approve the prompt -- fine interactively, not for a timer.
      Note: op:// references reject punctuation such as '(' in an item title, and percent-
      encoding does not help -- address such items by UUID (op://Vault/<uuid>/password).
 
@@ -12,6 +20,7 @@ Nothing in this module writes a secret to disk or logs it.
 """
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from dataclasses import dataclass, field
@@ -19,7 +28,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+log = logging.getLogger("lakota.config")
+
 DEFAULT_HOME = Path(os.environ.get("LAKOTA_GRADES_HOME", Path.home() / ".lakota-grades"))
+
+#: Secret Service attributes used for the keyring entries: service=<this>, key=username|password
+KEYRING_SERVICE = os.environ.get("LAKOTA_KEYRING_SERVICE", "lakota-grades")
+KEYRING_LABEL = "Lakota OneLogin (lakota-grades)"
 
 
 def _load_env_files() -> None:
@@ -47,6 +62,39 @@ def _op_read(ref: str) -> str:
     if not out.stdout:
         raise RuntimeError(f"`op read` returned an empty value for {ref!r}")
     return out.stdout
+
+
+def _keyring_read(key: str) -> str | None:
+    """Read one field from the GNOME keyring. Returns None when unavailable, so the caller
+    can fall through to the next source; never raises on a plain cache miss.
+
+    A locked keyring makes secret-tool block on a GUI unlock prompt, which would hang a
+    timer forever -- hence the timeout.
+    """
+    try:
+        p = subprocess.run(
+            ["secret-tool", "lookup", "service", KEYRING_SERVICE, "key", key],
+            capture_output=True, text=True, timeout=20,
+        )
+    except FileNotFoundError:
+        return None  # libsecret not installed
+    except subprocess.TimeoutExpired:
+        log.warning("secret-tool timed out reading %r; is the login keyring locked?", key)
+        return None
+    if p.returncode != 0 or not p.stdout:
+        return None
+    return p.stdout.rstrip("\n")
+
+
+def keyring_write(key: str, value: str) -> None:
+    """Store one field in the GNOME keyring. `value` is passed on stdin, never argv, so it
+    cannot leak through the process table."""
+    p = subprocess.run(
+        ["secret-tool", "store", "--label", KEYRING_LABEL, "service", KEYRING_SERVICE, "key", key],
+        input=value, capture_output=True, text=True, timeout=60,
+    )
+    if p.returncode != 0:
+        raise RuntimeError(f"`secret-tool store` failed for {key!r}: {p.stderr.strip()[:200]}")
 
 
 @dataclass
@@ -80,14 +128,18 @@ class Settings:
         user = os.environ.get("LAKOTA_ONELOGIN_USERNAME")
         pw = os.environ.get("LAKOTA_ONELOGIN_PASSWORD")
         if not (user and pw):
+            user = user or _keyring_read("username")
+            pw = pw or _keyring_read("password")
+        if not (user and pw):
             uref = os.environ.get("LAKOTA_OP_USERNAME_REF")
             pref = os.environ.get("LAKOTA_OP_PASSWORD_REF")
             if uref and pref:
-                user, pw = _op_read(uref), _op_read(pref)
+                user, pw = user or _op_read(uref), pw or _op_read(pref)
         if not (user and pw):
             raise RuntimeError(
-                "No credentials available. Provide LAKOTA_ONELOGIN_USERNAME/PASSWORD via a 1Password "
-                "mounted .env, `op run`, or set LAKOTA_OP_USERNAME_REF/LAKOTA_OP_PASSWORD_REF."
+                "No credentials available. Run `lakota-grades set-credentials` to store them in "
+                "the GNOME keyring, or provide LAKOTA_ONELOGIN_USERNAME/PASSWORD in the environment, "
+                "or set LAKOTA_OP_USERNAME_REF/LAKOTA_OP_PASSWORD_REF for the 1Password CLI."
             )
         self._username, self._password = user, pw
         return user, pw
