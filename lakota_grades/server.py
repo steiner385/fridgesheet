@@ -4,7 +4,9 @@ Tools return plain JSON. The agent never sees credentials: logins happen inside 
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -209,13 +211,45 @@ def _same_item(a: str, b: str) -> bool:
 # Trim both tails so the two systems' names for one class compare equal.
 _COURSE_TAIL_RE = re.compile(r"\s*(?:-\s*\d+|\bS[12]\b|\bSem\s*[12]\b|-\s*20\d\d.*)$", re.I)
 
+# The two systems abbreviate differently -- Canvas' "ENGLISH LANGUAGE ARTS" is HAC's
+# "ELA Plus 5th Gr", which share no words at all. Expand both sides to a common long form.
+_ABBREV = {
+    "soc std": "social studies",
+    "soc studies": "social studies",
+    "lang arts": "language arts",
+    "ela": "english language arts",
+    "adv": "advanced",
+    "hnrs": "honors",
+    "hon": "honors",
+    "gr": "grade",
+    "alg": "algebra",
+    "bio": "biology",
+    "lit": "literature",
+}
+
+#: Escape hatch for pairs no rule can infer, e.g.
+#: LAKOTA_COURSE_ALIASES='{"ENGLISH LANGUAGE ARTS": "ELA Plus 5th Gr"}'
+#: Both sides are rewritten to the alias target before matching.
+try:
+    _ALIASES = {k.strip().lower(): v for k, v in json.loads(os.environ.get("LAKOTA_COURSE_ALIASES", "{}")).items()}
+except (ValueError, AttributeError):
+    log.warning("LAKOTA_COURSE_ALIASES is not a JSON object; ignoring it")
+    _ALIASES = {}
+
+
+def _expand(s: str) -> str:
+    for abbr in sorted(_ABBREV, key=len, reverse=True):   # multi-word entries first
+        s = re.sub(rf"\b{re.escape(abbr)}\b", _ABBREV[abbr], s)
+    return " ".join(s.split())
+
 
 def _course_base(name: str) -> str:
     b = " ".join((name or "").split())
+    b = _ALIASES.get(b.strip().lower(), b)
     prev = None
     while prev != b:
         prev, b = b, _COURSE_TAIL_RE.sub("", b).strip()
-    return b.lower()
+    return _expand(b.lower())
 
 
 def _match(base: str, table: dict):
@@ -245,7 +279,13 @@ def _match(base: str, table: dict):
         # disagreement on digits disqualifies the pair however alike the words are.
         if {x for x in tb if x.isdigit()} != {x for x in tk if x.isdigit()}:
             continue
-        score = len(tb & tk) / len(tb | tk)
+        if (b in kl and len(tb) >= 2) or (kl in b and len(tk) >= 2):
+            # One name is the other plus qualifiers: "english language arts" inside
+            # "english language arts plus 5th grade". The >=2 word floor stops a bare
+            # "Math" from swallowing "Math Plus".
+            score = 0.95
+        else:
+            score = len(tb & tk) / len(tb | tk)
         if score > best_score:
             best, best_score = v, score
     return best if best_score >= 0.7 else None
