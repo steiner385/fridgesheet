@@ -114,7 +114,7 @@ def missing_work(student: str) -> dict:
     e = _kid(_snap(), student)
     now = datetime.now(ZoneInfo(_settings.timezone))
     rows = []
-    flagged_by_course: dict[str, set[str]] = {}
+    flagged_by_course: dict[str, list[str]] = {}
     for c in ((e.get("canvas") or {}).get("courses") or []):
         for a in c["assignments"]:
             due = datetime.fromisoformat(a["due_at"]) if a["due_at"] else None
@@ -133,8 +133,8 @@ def missing_work(student: str) -> dict:
             if flag:
                 is_assessment = bool(a["group"] and any(k in a["group"].lower() for k in ("quiz", "test", "assess", "exam")))
                 rows.append({"source": "canvas", "course": c["name"], "assignment": a["name"], "due": a["due_at"], "points": a["points_possible"], "score": a["score"], "flag": flag, "is_assessment": is_assessment, "submission_types": a["submission_types"]})
-                flagged_by_course.setdefault(c["name"], set()).add(_norm_name(a["name"]))
-    all_flagged = set().union(*flagged_by_course.values()) if flagged_by_course else set()
+                flagged_by_course.setdefault(c["name"], []).append(a["name"])
+    all_flagged = [n for names in flagged_by_course.values() for n in names]
     for h in ((e.get("hac") or {}).get("classes") or []):
         # Dedupe within the matching Canvas course when we can pair them up; two different
         # courses legitimately both have a "Quiz 1", and the old global name set dropped the
@@ -142,7 +142,7 @@ def missing_work(student: str) -> dict:
         peer = _match(h.get("name") or "", flagged_by_course)
         already = peer if peer is not None else all_flagged
         for a in h["assignments"]:
-            if _norm_name(a["name"]) in already:
+            if any(_same_item(a["name"], seen) for seen in already):
                 continue  # same item already reported from Canvas
             try:
                 due = datetime.strptime(a["due"], "%m/%d/%Y").replace(tzinfo=ZoneInfo(_settings.timezone))
@@ -185,6 +185,24 @@ def hac_classwork(student: str, course: str | None = None) -> dict:
 def _norm_name(s: str) -> str:
     """Compare assignment titles across systems ignoring case, punctuation and spacing."""
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+def _same_item(a: str, b: str) -> bool:
+    """Whether two titles from Canvas and HAC name the same piece of work.
+
+    Teachers rarely type the title identically in both gradebooks -- Canvas' "MakeMusic Cloud
+    Assignment #1" is HAC's "MakeMusic Assignment #1" -- so exact matching let real duplicates
+    through. Compare word sets instead, but treat numbers as decisive: "Quiz 1" must never
+    merge with "Quiz 2", nor "Chapter 1.3" with "Chapter 1.4", however similar the words.
+    """
+    ta, tb = set(_norm_name(a).split()), set(_norm_name(b).split())
+    if not ta or not tb:
+        return False
+    if ta == tb:
+        return True
+    if {x for x in ta if x.isdigit()} != {x for x in tb if x.isdigit()}:
+        return False
+    return len(ta & tb) / len(ta | tb) >= 0.7
 
 
 # HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1" (term).
