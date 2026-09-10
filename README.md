@@ -4,62 +4,71 @@ A local MCP server that gives Claude clean JSON from **Canvas** (assignments, du
 
 Design goals:
 
-- **Claude never sees a password.** Logins happen inside this server's process. Credentials come from 1Password at the moment they're typed and are not written anywhere.
+- **Claude never sees a password.** Logins happen inside this server's process. Credentials come from the OS keyring at the moment they're typed and are not written anywhere.
 - **Log in rarely.** One persistent Chromium profile holds the OneLogin, Canvas and HAC cookies; a login only happens when a site bounces us to a login page.
 - **One pull, many tools.** A refresh writes a JSON snapshot; the tools read from it (cache TTL 3 h by default), so Thursday's report doesn't hit the sites more than once.
+- **No one has to be present.** Everything runs unattended, including the scheduled refresh.
 
 ## 1. Install (Linux)
 
 ```bash
-git clone <this folder> ~/lakota-grades-mcp   # or just copy it
+git clone https://github.com/steiner385/lakota-grades-mcp ~/lakota-grades-mcp
 cd ~/lakota-grades-mcp
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 playwright install chromium
 ```
 
-## 2. Credentials via 1Password
+Requires `secret-tool` (libsecret) and a running `gnome-keyring-daemon` for the default credential store.
 
-You have two good options. Both keep the password out of Claude, out of the repo, and off disk.
+## 2. Credentials
 
-### Option A — 1Password Environments (uses the official 1Password MCP)
-
-1. In the 1Password desktop app: **Settings → Labs → Enable local MCP server**, and **Settings → Developer → Integrate with MCP clients** (you already have this one on).
-2. Add the official server to Claude Desktop (see step 4). Then, in Claude, ask it to create an Environment named `lakota-grades` with two variables, `LAKOTA_ONELOGIN_USERNAME` and `LAKOTA_ONELOGIN_PASSWORD`. Enter the values yourself in the 1Password app when it prompts — the 1Password MCP is built so the agent cannot read secret values back, which is exactly what we want.
-3. Ask Claude (or do it in the app) to create a **locally mounted `.env`** for that Environment at `~/.lakota-grades/.env`. The file resolves secrets on demand through the desktop app; nothing plaintext lands on disk.
-4. `lakota-grades` loads that file automatically (it also honors `LAKOTA_ENV_FILE=/path/to/.env`).
-
-### Option B — `op` CLI secret references
-
-If you'd rather point at an existing Login item:
+Credentials live in the **GNOME keyring** (freedesktop Secret Service):
 
 ```bash
-export LAKOTA_OP_USERNAME_REF="op://Private/Lakota OneLogin/username"
-export LAKOTA_OP_PASSWORD_REF="op://Private/Lakota OneLogin/password"
+lakota-grades set-credentials     # prompts; the password is never echoed
 ```
 
-The server calls `op read` when a login is actually needed (desktop-app integration prompts to unlock if locked). For fully unattended runs, use a **1Password service account** instead: set `OP_SERVICE_ACCOUNT_TOKEN` in the systemd unit's environment from your OS keyring, scoped to a vault that holds only this item.
+They are stored under `service=lakota-grades`, keys `username` and `password`, encrypted at rest under your login password and unlocked by PAM when you log into the desktop. The scheduled refresh can read them because systemd's user manager already exports `DBUS_SESSION_BUS_ADDRESS`.
 
-You can also run any command through 1Password without a mount: `op run --env-file=env.tpl -- lakota-grades refresh` where `env.tpl` contains `LAKOTA_ONELOGIN_USERNAME="op://..."` lines.
-
-## 3. First login and check
+Inspect or rotate:
 
 ```bash
-lakota-grades login    # opens a visible browser; sign in to OneLogin once; Enter; Enter
+secret-tool search service lakota-grades    # prints the secret too -- careful
+lakota-grades set-credentials               # overwrite
+```
+
+> **Caveat.** The login keyring is unlocked at desktop login. If the machine boots and nobody signs into the GUI, the keyring stays locked and the refresh fails (loudly) rather than running. For a truly headless box, use a 1Password service account instead — see Alternative B below.
+
+`Settings.credentials()` resolves, in order:
+
+1. `LAKOTA_ONELOGIN_USERNAME` / `LAKOTA_ONELOGIN_PASSWORD` from the environment — a 1Password Environments mount, `op run --env-file=... -- lakota-grades ...`, or a plain `.env` you manage. **Alternative A.** Plaintext at rest if you use a plain file.
+2. The GNOME keyring, as above. **Default.**
+3. `op read` secret references, if `LAKOTA_OP_USERNAME_REF` / `LAKOTA_OP_PASSWORD_REF` are set. **Alternative B.** The 1Password desktop app prompts for approval on every login, so this suits interactive use, not the timer; for unattended runs set `OP_SERVICE_ACCOUNT_TOKEN` in the unit's environment, scoped to a vault holding only this item.
+
+`op://` references reject punctuation such as `(` in an item title, and percent-encoding does not help — address such items by UUID: `op://Private/<item-uuid>/password`.
+
+Nothing here ever prints or logs a credential.
+
+## 3. First check
+
+```bash
 lakota-grades check    # headless: "Canvas: OK", "HAC: OK"
 lakota-grades refresh  # pulls all three kids into ~/.lakota-grades/cache/snapshot.json
+lakota-grades status   # cache age and last source health
 ```
 
-`login` is optional — `check`/`refresh` will log in automatically using the credentials — but doing it once by hand is the easiest way to confirm the OneLogin form selectors work for your tenant. If OneLogin ever changes its form, override with `LAKOTA_ONELOGIN_USER_SELECTOR`, `LAKOTA_ONELOGIN_PASS_SELECTOR`.
+`check` and `refresh` log in by themselves. `lakota-grades login` opens a visible browser if you ever want to sign in by hand — useful for diagnosing a tenant whose OneLogin form has changed. With no terminal attached it watches the session and exits when both sites authenticate (`--wait-minutes`, default 15) instead of blocking on stdin.
+
+If OneLogin ever changes its form, override `LAKOTA_ONELOGIN_USER_SELECTOR`, `LAKOTA_ONELOGIN_PASS_SELECTOR`, `LAKOTA_ONELOGIN_SUBMIT_SELECTOR`.
 
 ## 4. Point Claude Desktop at it
 
-Add both servers to `~/.config/Claude/claude_desktop_config.json` (see `claude_desktop_config.example.json`):
+Add to `~/.config/Claude/claude_desktop_config.json` (see `claude_desktop_config.example.json`). Quit Claude Desktop first — it rewrites this file on exit.
 
 ```json
 {
   "mcpServers": {
-    "1password": { "command": "1password-mcp" },
     "lakota-grades": {
       "command": "/home/tony/lakota-grades-mcp/.venv/bin/lakota-grades",
       "args": ["serve"],
@@ -69,9 +78,11 @@ Add both servers to `~/.config/Claude/claude_desktop_config.json` (see `claude_d
 }
 ```
 
-Restart Claude Desktop. In a linked Cowork session the tools appear as `lakota-grades: grades`, `missing_work`, `upcoming`, `assignments`, `hac_classwork`, `list_students`, `status`, `refresh`.
+On Linux the official 1Password MCP binary is `/opt/1Password/onepassword-mcp`, not `1password-mcp`; it is not needed by this server.
 
-## 5. Pre-fetch on a schedule (optional, recommended)
+Restart Claude Desktop. The tools appear as `lakota-grades: grades`, `missing_work`, `upcoming`, `assignments`, `hac_classwork`, `list_students`, `status`, `refresh`.
+
+## 5. Pre-fetch on a schedule
 
 So the noon Thursday task finds a fresh snapshot and doesn't wait on logins:
 
@@ -83,7 +94,7 @@ systemctl --user enable --now lakota-grades-refresh.timer
 systemctl --user list-timers | grep lakota
 ```
 
-Edit the `.service` file if your venv or env-file path differs.
+Thursday 11:30 and daily 06:00. The unit sets `TimeoutStartSec=900`: a full pull takes 1–3 minutes and systemd's 90 s default would kill it partway through.
 
 ## Tools
 
@@ -103,12 +114,20 @@ All dates are `America/New_York` ISO strings (Canvas `due_at` is UTC and is conv
 
 - Canvas API token generation is disabled for parent accounts, which is why this uses the browser session's cookies against the REST API instead.
 - `/api/v1/users/<kid>/courses` returns 403 for observers; enrollments with `include[]=observed_users` is the working route.
+- `/api/v1/courses/<id>/users` **also** returns 403 for observers, so teacher/TA contacts fall back to the course object's `include[]=teachers` (names only, no emails). A per-course failure is recorded in the snapshot rather than aborting the whole Canvas pull.
+- **HAC has no login form.** `/HomeAccess/Account/LogOn` is now just a notice pointing at the OneLogin portal, so HAC can only be entered by launching its portal app tile, which performs the SSO hand-off. The tile is found by name (`LAKOTA_HAC_APP_PATTERN`); pin it with `LAKOTA_HAC_ONELOGIN_APP_URL` if discovery ever breaks.
+- The HAC student switcher has no "Change" button: the banner element showing the current student (`.sg-banner-chooser`) opens `#StudentPicker`, a POST form that only commits via its **Submit** button.
+- HAC Classwork renders inside an iframe named `sg-legacy-iframe`; class blocks are `.AssignmentClass`, rows `tr.sg-asp-table-data-row`. The frame's document renders after `domcontentloaded`, so the frame must be polled, not scanned once.
 - Algebra II's Canvas grade is hidden by the teacher; Band and parts of Latin/Biology are graded only in HAC. HAC is the gradebook of record.
-- HAC Classwork renders inside an iframe; class blocks are `.AssignmentClass`, rows `tr.sg-asp-table-data-row`.
 - Honors English 9 closes late work one week after the due date.
+- `mcp` is pinned `<3`: version 2.0 renamed `FastMCP` to `MCPServer`. The server imports either.
 
 ## Security notes
 
-- The browser profile in `~/.lakota-grades/browser-profile` contains session cookies. Treat it like a password: `chmod 700 ~/.lakota-grades`.
-- The snapshot JSON contains the kids' grades. Same treatment.
+- The browser profile in `~/.lakota-grades/browser-profile` contains session cookies. Treat it like a password: the tree is created `0700`.
+- The snapshot JSON contains the kids' grades; it is written `0600` and atomically.
 - Nothing here ever prints or logs a credential. `Settings.credentials()` is the only reader.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
