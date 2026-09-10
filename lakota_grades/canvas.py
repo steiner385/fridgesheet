@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from playwright.sync_api import BrowserContext
@@ -10,8 +12,32 @@ from playwright.sync_api import BrowserContext
 from .config import Settings
 
 
+_NEXT_LINK_RE = re.compile(r'<([^>]+)>\s*;\s*rel="next"')
+
+
 def _strip(text: str):
     return json.loads(text[len("while(1);"):] if text.startswith("while(1);") else text)
+
+
+def _qs(params: dict) -> str | None:
+    """Encode params, expanding list values into repeated keys.
+
+    Canvas array params look like include[]=a&include[]=b. Playwright's `params` only accepts
+    str/float/bool values, so a list silently produced a broken query; we hand it a query
+    string instead.
+    """
+    pairs = []
+    for k, v in params.items():
+        if v is None:
+            continue
+        for item in (v if isinstance(v, (list, tuple)) else [v]):
+            pairs.append((k, item if isinstance(item, str) else json.dumps(item) if isinstance(item, bool) else str(item)))
+    return urlencode(pairs) if pairs else None
+
+
+def _next_link(link_header: str | None) -> str | None:
+    m = _NEXT_LINK_RE.search(link_header or "")
+    return m.group(1) if m else None
 
 
 class Canvas:
@@ -20,21 +46,29 @@ class Canvas:
         self.s = settings
         self.tz = ZoneInfo(settings.timezone)
 
-    def get(self, path: str, **params):
-        url = self.s.canvas_base + path
-        r = self.ctx.request.get(url, params=params or None, headers={"Accept": "application/json"})
+    def _request(self, url: str, query: str | None):
+        r = self.ctx.request.get(url, params=query, headers={"Accept": "application/json"})
         if r.status != 200:
-            raise RuntimeError(f"Canvas GET {path} -> HTTP {r.status}: {r.text()[:200]}")
-        return _strip(r.text())
+            raise RuntimeError(f"Canvas GET {url} -> HTTP {r.status}: {r.text()[:200]}")
+        return r
+
+    def get(self, path: str, **params):
+        return _strip(self._request(self.s.canvas_base + path, _qs(params)).text())
 
     def get_all(self, path: str, **params):
-        out, page = [], 1
-        while True:
-            chunk = self.get(path, per_page=100, page=page, **params)
+        """Follow Canvas' Link-header pagination (rel="next") rather than guessing page numbers."""
+        url, query, out = self.s.canvas_base + path, _qs({**params, "per_page": 100}), []
+        for _ in range(100):  # backstop against a server that always advertises a next page
+            r = self._request(url, query)
+            chunk = _strip(r.text())
+            if not isinstance(chunk, list):
+                raise RuntimeError(f"Canvas GET {path} returned {type(chunk).__name__}, expected a list")
             out.extend(chunk)
-            if len(chunk) < 100:
+            nxt = _next_link(r.headers.get("link"))
+            if not nxt or nxt == url:
                 return out
-            page += 1
+            url, query = nxt, None  # the next link already carries the query
+        return out
 
     def local(self, iso: str | None) -> str | None:
         if not iso:
@@ -62,8 +96,9 @@ class Canvas:
 
     # ---- per-course data -------------------------------------------------
     def course_grade(self, cid: int, student_id: int) -> dict:
-        enr = self.get(f"/api/v1/courses/{cid}/enrollments", user_id=student_id, **{"type[]": "StudentEnrollment"})
-        g = (enr[0].get("grades") if enr else None) or {}
+        enr = self.get_all(f"/api/v1/courses/{cid}/enrollments", user_id=student_id, **{"type[]": "StudentEnrollment"})
+        active = [e for e in enr if e.get("enrollment_state") == "active"] or enr
+        g = (active[0].get("grades") if active else None) or {}
         return {
             "current_score": g.get("current_score"),
             "final_score": g.get("final_score"),
@@ -104,7 +139,7 @@ class Canvas:
     def people(self, cid: int) -> list[dict]:
         """Teachers and TAs for a course (for the contacts table)."""
         out = []
-        for u in self.get_all(f"/api/v1/courses/{cid}/users", **{"enrollment_type[]": ["teacher", "ta"], "include[]": "enrollments"}):
+        for u in self.get_all(f"/api/v1/courses/{cid}/users", **{"enrollment_type[]": ["teacher", "ta"], "include[]": ["enrollments", "email"]}):
             roles = sorted({e.get("type", "") for e in u.get("enrollments", [])})
             out.append({"name": u.get("name"), "email": u.get("email"), "roles": roles})
         return out
