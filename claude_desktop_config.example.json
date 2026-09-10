@@ -7,9 +7,6 @@
         "LAKOTA_ENV_FILE": "/home/tony/.lakota-grades/.env",
         "LAKOTA_CACHE_TTL_MINUTES": "180"
       }
-    },
-    "1password": {
-      "command": "/opt/1Password/onepassword-mcp"
     }
   }
 }

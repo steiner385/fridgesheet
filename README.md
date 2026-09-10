@@ -78,7 +78,9 @@ Add to `~/.config/Claude/claude_desktop_config.json` (see `claude_desktop_config
 }
 ```
 
-On Linux the official 1Password MCP binary is `/opt/1Password/onepassword-mcp`, not `1password-mcp`; it is not needed by this server.
+Claude Desktop rewrites this file on exit and can drop keys it does not recognise. If `lakota-grades` disappears from the server list, re-apply the block with Desktop closed.
+
+(For reference, the official 1Password MCP binary on Linux is `/opt/1Password/onepassword-mcp`, not `1password-mcp` — but this server does not need it.)
 
 Restart Claude Desktop. The tools appear as `lakota-grades: grades`, `missing_work`, `upcoming`, `assignments`, `hac_classwork`, `list_students`, `status`, `refresh`.
 
