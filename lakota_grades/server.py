@@ -219,18 +219,36 @@ def _course_base(name: str) -> str:
 
 
 def _match(base: str, table: dict):
-    """Pair a course name against the other system's differently-formatted name."""
+    """Pair a course name against the other system's differently-formatted name.
+
+    Scores every candidate and takes the best, rather than returning the first that clears a
+    loose test. The original fell back to "first word and last word both appear", which for a
+    7th-grade schedule means "adv" and "7" -- true of Adv Math 7, Adv Science 7, Adv Social
+    Studies 7 and Adv Language Arts 7 alike, so all four paired with whichever came first in
+    the dict and the rest were reported a second time as HAC-only classes.
+    """
     b = _course_base(base)
     if len(b) < 3:  # base.split()[0] raised IndexError on an empty name
         return None
-    parts = b.split()
+    tb = set(b.split())
+    best, best_score = None, 0.0
     for k, v in table.items():
         kl = _course_base(k)
         if len(kl) < 3:
             continue
-        if b in kl or kl in b or (parts[0] in kl and parts[-1] in kl):
+        if b == kl:
             return v
-    return None
+        tk = set(kl.split())
+        if not tk:
+            continue
+        # Course numbers distinguish siblings ("Adv Math 7" vs "Adv Math 8"), so a
+        # disagreement on digits disqualifies the pair however alike the words are.
+        if {x for x in tb if x.isdigit()} != {x for x in tk if x.isdigit()}:
+            continue
+        score = len(tb & tk) / len(tb | tk)
+        if score > best_score:
+            best, best_score = v, score
+    return best if best_score >= 0.7 else None
 
 
 def run() -> None:
