@@ -110,6 +110,12 @@ class Settings:
     onelogin_user_selector: str = "input#username, input[name='username'], input[type='email']"
     onelogin_pass_selector: str = "input#password, input[name='password'], input[type='password']"
     onelogin_submit_selector: str = "button[type='submit'], input[type='submit']"
+    # Lakota removed HAC's native login form; HAC is entered by launching its OneLogin
+    # portal tile. Leave hac_app_url blank to discover the tile by name each run (app ids
+    # are tenant-specific and change), or pin it once discovery is confirmed.
+    onelogin_portal_path: str = "/portal/"
+    hac_app_url: str = ""
+    hac_app_pattern: str = r"home ?access|\bhac\b"
     _username: str | None = field(default=None, repr=False)
     _password: str | None = field(default=None, repr=False)
 
@@ -153,6 +159,8 @@ def load_settings() -> Settings:
     s.onelogin_host = os.environ.get("LAKOTA_ONELOGIN_HOST", s.onelogin_host)
     s.headless = os.environ.get("LAKOTA_HEADLESS", "1") not in ("0", "false", "no")
     s.cache_ttl_minutes = int(os.environ.get("LAKOTA_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
+    s.hac_app_url = os.environ.get("LAKOTA_HAC_ONELOGIN_APP_URL", s.hac_app_url)
+    s.hac_app_pattern = os.environ.get("LAKOTA_HAC_APP_PATTERN", s.hac_app_pattern)
     for k in ("onelogin_user_selector", "onelogin_pass_selector", "onelogin_submit_selector"):
         v = os.environ.get("LAKOTA_" + k.upper())
         if v:

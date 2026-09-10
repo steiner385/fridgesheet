@@ -7,6 +7,7 @@ Settings.credentials() at the moment they are typed and are not kept anywhere el
 from __future__ import annotations
 
 import logging
+import re
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -173,6 +174,36 @@ def ensure_canvas(ctx: BrowserContext, settings: Settings) -> Page:
     return page
 
 
+_APP_TILE_SELECTOR = "a[href*='/client/apps/select/']"
+
+
+def onelogin_app_url(page: Page, settings: Settings, pattern: str) -> str | None:
+    """Find an app's launch URL on the OneLogin portal by matching its tile text.
+
+    App ids are tenant-specific and change when an admin re-creates the app, so the tile is
+    located by name rather than pinned. Set LAKOTA_HAC_ONELOGIN_APP_URL to skip this.
+    """
+    portal = "https://" + settings.onelogin_host + settings.onelogin_portal_path
+    _goto(page, portal)
+    if _is_onelogin(page, settings) and "/portal" not in page.url:
+        onelogin_login(page, settings)
+        _goto(page, portal)
+    try:
+        page.wait_for_selector(_APP_TILE_SELECTOR, timeout=25000)
+    except PWTimeout:
+        return None
+    rx = re.compile(pattern, re.I)
+    for a in page.locator(_APP_TILE_SELECTOR).all():
+        try:
+            txt = " ".join(a.inner_text().split())
+        except Exception:
+            continue
+        if rx.search(txt):
+            log.info("Found OneLogin app tile %r", txt)
+            return a.get_attribute("href")
+    return None
+
+
 def ensure_hac(ctx: BrowserContext, settings: Settings) -> Page:
     """Return a page that is signed in to Home Access Center (on the Home/WeekView page)."""
     page = ctx.new_page()
@@ -183,14 +214,34 @@ def ensure_hac(ctx: BrowserContext, settings: Settings) -> Page:
             _goto(page, settings.hac_base + "/Home/WeekView")
             continue
         if "/Account/LogOn" in page.url:
-            # HAC's own form (if SSO is bypassed). Same credentials.
-            user, pw = settings.credentials()
-            if _fill_first(page, "#LogOnDetails_UserName", user) and _fill_first(page, "#LogOnDetails_Password", pw):
-                page.keyboard.press("Enter")
-                page.wait_for_load_state("domcontentloaded")
-                _goto(page, settings.hac_base + "/Home/WeekView")
-                continue
-            raise LoginRequired(f"HAC login page shown but form not recognised (at {page.url})")
+            user_field = _first_visible(page, "#LogOnDetails_UserName, input[name='LogOnDetails.UserName']", timeout=3000)
+            if user_field is not None:
+                # HAC's own eSchoolPlus form, where a district still allows direct login.
+                user, pw = settings.credentials()
+                user_field.fill(user)
+                if _fill_first(page, "#LogOnDetails_Password, input[name='LogOnDetails.Password']", pw):
+                    page.keyboard.press("Enter")
+                    page.wait_for_load_state("domcontentloaded")
+                    _goto(page, settings.hac_base + "/Home/WeekView")
+                    continue
+                raise LoginRequired(f"HAC login form found but no password field (at {page.url})")
+            # Lakota's /Account/LogOn has no form at all -- it is now just a notice pointing
+            # at the OneLogin portal. HAC must be entered by launching its portal tile, which
+            # performs the SSO hand-off; navigating straight to /Home/WeekView never can.
+            app_url = settings.hac_app_url or onelogin_app_url(page, settings, settings.hac_app_pattern)
+            if not app_url:
+                raise LoginRequired(
+                    "HAC has no login form and no matching OneLogin app tile was found. "
+                    "Set LAKOTA_HAC_ONELOGIN_APP_URL to the tile's launch URL, or adjust "
+                    f"LAKOTA_HAC_APP_PATTERN (currently {settings.hac_app_pattern!r})."
+                )
+            settings.hac_app_url = app_url  # reuse within this run
+            log.info("Launching HAC through the OneLogin portal")
+            _goto(page, app_url)
+            if _is_onelogin(page, settings):
+                onelogin_login(page, settings)
+            _goto(page, settings.hac_base + "/Home/WeekView")
+            continue
         break
     if "/Home/WeekView" not in page.url:
         raise LoginRequired(f"HAC did not land on WeekView (at {page.url})")
