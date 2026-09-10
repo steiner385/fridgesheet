@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh Canvas + HAC snapshot for lakota-grades-mcp
+
+[Service]
+Type=oneshot
+Environment=LAKOTA_ENV_FILE=%h/.lakota-grades/.env
+ExecStart=%h/lakota-grades-mcp/.venv/bin/lakota-grades refresh

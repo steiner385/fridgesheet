@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "1password": {
+      "command": "1password-mcp"
+    },
+    "lakota-grades": {
+      "command": "/home/tony/lakota-grades-mcp/.venv/bin/lakota-grades",
+      "args": ["serve"],
+      "env": {
+        "LAKOTA_ENV_FILE": "/home/tony/.lakota-grades/.env",
+        "LAKOTA_CACHE_TTL_MINUTES": "180"
+      }
+    }
+  }
+}
