@@ -5,6 +5,7 @@ Tools return plain JSON. The agent never sees credentials: logins happen inside 
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -70,9 +71,8 @@ def grades(student: str) -> dict:
     hac_week = {w["class"]: w for w in (e.get("hac") or {}).get("week_view", [])}
     seen = set()
     for c in ((e.get("canvas") or {}).get("courses") or []):
-        base = c["name"].split(" S1")[0].split("-20")[0].strip()
-        h = _match(base, hac_classes) or {}
-        w = _match(base, hac_week) or {}
+        h = _match(c["name"], hac_classes) or {}
+        w = _match(c["name"], hac_week) or {}
         seen.add(h.get("name"))
         out["classes"].append({
             "course": c["name"],
@@ -114,6 +114,7 @@ def missing_work(student: str) -> dict:
     e = _kid(_snap(), student)
     now = datetime.now(ZoneInfo(_settings.timezone))
     rows = []
+    flagged_by_course: dict[str, set[str]] = {}
     for c in ((e.get("canvas") or {}).get("courses") or []):
         for a in c["assignments"]:
             due = datetime.fromisoformat(a["due_at"]) if a["due_at"] else None
@@ -132,10 +133,16 @@ def missing_work(student: str) -> dict:
             if flag:
                 is_assessment = bool(a["group"] and any(k in a["group"].lower() for k in ("quiz", "test", "assess", "exam")))
                 rows.append({"source": "canvas", "course": c["name"], "assignment": a["name"], "due": a["due_at"], "points": a["points_possible"], "score": a["score"], "flag": flag, "is_assessment": is_assessment, "submission_types": a["submission_types"]})
-    already = {r["assignment"].strip().lower() for r in rows}
+                flagged_by_course.setdefault(c["name"], set()).add(_norm_name(a["name"]))
+    all_flagged = set().union(*flagged_by_course.values()) if flagged_by_course else set()
     for h in ((e.get("hac") or {}).get("classes") or []):
+        # Dedupe within the matching Canvas course when we can pair them up; two different
+        # courses legitimately both have a "Quiz 1", and the old global name set dropped the
+        # second one. Fall back to the global set for HAC-only classes.
+        peer = _match(h.get("name") or "", flagged_by_course)
+        already = peer if peer is not None else all_flagged
         for a in h["assignments"]:
-            if a["name"].strip().lower() in already:
+            if _norm_name(a["name"]) in already:
                 continue  # same item already reported from Canvas
             try:
                 due = datetime.strptime(a["due"], "%m/%d/%Y").replace(tzinfo=ZoneInfo(_settings.timezone))
@@ -175,11 +182,35 @@ def hac_classwork(student: str, course: str | None = None) -> dict:
     return {"student": e["name"], "classes": classes}
 
 
+def _norm_name(s: str) -> str:
+    """Compare assignment titles across systems ignoring case, punctuation and spacing."""
+    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+
+# HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1" (term).
+# Trim both tails so the two systems' names for one class compare equal.
+_COURSE_TAIL_RE = re.compile(r"\s*(?:-\s*\d+|\bS[12]\b|\bSem\s*[12]\b|-\s*20\d\d.*)$", re.I)
+
+
+def _course_base(name: str) -> str:
+    b = " ".join((name or "").split())
+    prev = None
+    while prev != b:
+        prev, b = b, _COURSE_TAIL_RE.sub("", b).strip()
+    return b.lower()
+
+
 def _match(base: str, table: dict):
-    b = base.lower()
+    """Pair a course name against the other system's differently-formatted name."""
+    b = _course_base(base)
+    if len(b) < 3:  # base.split()[0] raised IndexError on an empty name
+        return None
+    parts = b.split()
     for k, v in table.items():
-        kl = k.lower()
-        if b in kl or kl in b or b.split()[0] in kl and b.split()[-1] in kl:
+        kl = _course_base(k)
+        if len(kl) < 3:
+            continue
+        if b in kl or kl in b or (parts[0] in kl and parts[-1] in kl):
             return v
     return None
 
