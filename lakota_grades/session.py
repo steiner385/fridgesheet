@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 from contextlib import contextmanager
+from functools import lru_cache
 from typing import Iterator
 
 from playwright.sync_api import BrowserContext, Locator, Page, TimeoutError as PWTimeout, sync_playwright
@@ -21,8 +23,32 @@ log = logging.getLogger("lakota.session")
 _ERROR_SELECTORS = "[role='alert'], .error, .alert-error, .login-error, #error_message"
 
 
+_UA_TEMPLATE = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{v} Safari/537.36"
+_FALLBACK_CHROME_VERSION = "151.0.0.0"
+
+
 class LoginRequired(RuntimeError):
     """Raised when a site needs a login and automatic login failed."""
+
+
+@lru_cache(maxsize=4)
+def _default_user_agent(executable_path: str) -> str:
+    """Present as ordinary Chrome rather than HeadlessChrome.
+
+    Chromium's default UA carries a "HeadlessChrome/<v>" token. Vendor sniffers that do not
+    know it fall through to the trailing "Safari/537.36" and mis-detect the browser --
+    ParentSquare serves /browser_unsupported?browser=Safari&version= on exactly this. Report
+    the real version of the binary we are running, without the Headless marker.
+    """
+    version = _FALLBACK_CHROME_VERSION
+    try:
+        out = subprocess.run([executable_path, "--version"], capture_output=True, text=True, timeout=10).stdout
+        m = re.search(r"(\d+\.\d+\.\d+\.\d+)", out or "")
+        if m:
+            version = m.group(1)
+    except Exception:
+        log.debug("could not read Chromium version; using fallback UA")
+    return _UA_TEMPLATE.format(v=version)
 
 
 @contextmanager
@@ -34,6 +60,7 @@ def browser(settings: Settings, headless: bool | None = None) -> Iterator[Browse
             headless=hl,
             viewport={"width": 1400, "height": 900},
             timezone_id=settings.timezone,
+            user_agent=settings.user_agent or _default_user_agent(p.chromium.executable_path),
         )
         try:
             yield ctx

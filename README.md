@@ -122,6 +122,8 @@ All dates are `America/New_York` ISO strings (Canvas `due_at` is UTC and is conv
 - HAC Classwork renders inside an iframe named `sg-legacy-iframe`; class blocks are `.AssignmentClass`, rows `tr.sg-asp-table-data-row`. The frame's document renders after `domcontentloaded`, so the frame must be polled, not scanned once.
 - Algebra II's Canvas grade is hidden by the teacher; Band and parts of Latin/Biology are graded only in HAC. HAC is the gradebook of record.
 - Honors English 9 closes late work one week after the due date.
+- The browser reports an ordinary Chrome UA, not Chromium's default `HeadlessChrome/<v>`. ParentSquare's sniffer does not recognise that token, falls through to the trailing `Safari/537.36` and serves `/browser_unsupported?browser=Safari&version=`. The version is read from the Chromium binary so it tracks Playwright upgrades; override with `LAKOTA_USER_AGENT`.
+- Other apps on the OneLogin portal, reachable with the same `onelogin_app_url()` helper: ParentSquare/StudentSquare (posts, messages, alerts — carries things no gradebook has, e.g. "Science quiz tomorrow"), PaySchools (cafeteria balances), FinalForms Parent, SchooLinks.
 - `mcp` is pinned `<3`: version 2.0 renamed `FastMCP` to `MCPServer`. The server imports either.
 
 ## Security notes

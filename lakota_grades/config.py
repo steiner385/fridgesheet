@@ -105,6 +105,7 @@ class Settings:
     onelogin_host: str = "lakota.onelogin.com"
     timezone: str = "America/New_York"
     headless: bool = True
+    user_agent: str = ""   # blank => derive real Chrome UA from the Chromium binary
     cache_ttl_minutes: int = 180
     # Optional selector overrides if OneLogin changes its login page
     onelogin_user_selector: str = "input#username, input[name='username'], input[type='email']"
@@ -158,6 +159,7 @@ def load_settings() -> Settings:
     s.hac_base = os.environ.get("LAKOTA_HAC_BASE", s.hac_base).rstrip("/")
     s.onelogin_host = os.environ.get("LAKOTA_ONELOGIN_HOST", s.onelogin_host)
     s.headless = os.environ.get("LAKOTA_HEADLESS", "1") not in ("0", "false", "no")
+    s.user_agent = os.environ.get("LAKOTA_USER_AGENT", s.user_agent)
     s.cache_ttl_minutes = int(os.environ.get("LAKOTA_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
     s.hac_app_url = os.environ.get("LAKOTA_HAC_ONELOGIN_APP_URL", s.hac_app_url)
     s.hac_app_pattern = os.environ.get("LAKOTA_HAC_APP_PATTERN", s.hac_app_pattern)
