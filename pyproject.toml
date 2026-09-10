@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Local MCP server exposing Canvas + Home Access Center (HAC) data for the Stein kids, authenticated via 1Password."
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.2.0",
+    "mcp>=1.2,<3",
     "playwright>=1.45",
     "python-dotenv>=1.0",
 ]

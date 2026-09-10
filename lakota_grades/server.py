@@ -8,14 +8,17 @@ import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from mcp.server.fastmcp import FastMCP
+try:  # mcp >= 2.0 renamed FastMCP to MCPServer; the tool/run API is otherwise identical
+    from mcp.server.mcpserver import MCPServer as _McpServer
+except ModuleNotFoundError:  # mcp 1.x
+    from mcp.server.fastmcp import FastMCP as _McpServer
 
 from . import collector
 from .config import load_settings
 
 log = logging.getLogger("lakota.server")
 
-mcp = FastMCP("lakota-grades")
+mcp = _McpServer("lakota-grades")
 _settings = load_settings()
 
 
