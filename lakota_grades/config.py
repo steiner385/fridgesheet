@@ -5,6 +5,8 @@ Credentials are read, in order of preference:
      or by `op run --env-file=.env -- lakota-grades ...`).
   2. From `op read` secret references (op://Vault/Item/field) if LAKOTA_OP_USERNAME_REF /
      LAKOTA_OP_PASSWORD_REF are set. Requires the 1Password CLI with desktop-app integration.
+     Note: op:// references reject punctuation such as '(' in an item title, and percent-
+     encoding does not help -- address such items by UUID (op://Vault/<uuid>/password).
 
 Nothing in this module writes a secret to disk or logs it.
 """
@@ -33,8 +35,17 @@ def _load_env_files() -> None:
 
 
 def _op_read(ref: str) -> str:
-    """Resolve an op:// secret reference with the 1Password CLI."""
-    out = subprocess.run(["op", "read", "--no-newline", ref], capture_output=True, text=True, check=True)
+    """Resolve an op:// secret reference with the 1Password CLI.
+
+    On failure, surface op's own stderr. CalledProcessError alone reports just an exit code,
+    which turned every cause (locked app, bad vault, unusable item title) into the same
+    unactionable message. Only stderr is quoted -- the secret is on stdout and is never shown.
+    """
+    out = subprocess.run(["op", "read", "--no-newline", ref], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise RuntimeError(f"`op read` failed for {ref!r}: {out.stderr.strip() or f'exit {out.returncode}'}")
+    if not out.stdout:
+        raise RuntimeError(f"`op read` returned an empty value for {ref!r}")
     return out.stdout
 
 
