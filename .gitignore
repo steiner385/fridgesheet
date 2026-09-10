@@ -1,4 +1,12 @@
 .venv/
-.env
 __pycache__/
 *.egg-info/
+
+# Never commit anything that can identify or authenticate the family.
+.env
+.env.*
+*.env
+browser-profile/
+cache/
+snapshot*.json
+*.log

@@ -94,7 +94,9 @@ def load_settings() -> Settings:
         v = os.environ.get("LAKOTA_" + k.upper())
         if v:
             setattr(s, k, v)
-    s.home.mkdir(parents=True, exist_ok=True)
-    s.profile_dir.mkdir(parents=True, exist_ok=True)
-    s.cache_dir.mkdir(parents=True, exist_ok=True)
+    # 0700 from creation: this tree holds the browser profile's session cookies and the
+    # kids' grades. mkdir's mode is masked by umask, so chmod explicitly as well.
+    for d in (s.home, s.profile_dir, s.cache_dir):
+        d.mkdir(parents=True, exist_ok=True, mode=0o700)
+        d.chmod(0o700)
     return s
