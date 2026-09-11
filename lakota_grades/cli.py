@@ -1,10 +1,11 @@
-"""Command line: `lakota-grades login|refresh|status|serve`."""
+"""Command line: `lakota-grades login|check|refresh|status|serve|print-sheet`."""
 from __future__ import annotations
 
 import argparse
 import getpass
 import json
 import logging
+import os
 import sys
 import time
 
@@ -128,6 +129,13 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def cmd_print_sheet(args) -> int:
+    from . import print_sheet
+    opts = print_sheet.Options(dry_run=args.dry_run, kid=args.kid, date=args.date, days=args.days, overdue_days=args.overdue_days,
+                               force=args.force, printer=args.printer, no_refresh=args.no_refresh)
+    return print_sheet.run(opts, load_settings())
+
+
 def main(argv=None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s", stream=sys.stderr)
     p = argparse.ArgumentParser(prog="lakota-grades")
@@ -146,6 +154,16 @@ def main(argv=None) -> None:
     r.set_defaults(fn=cmd_refresh)
     sub.add_parser("status", help="show cache age and last source status").set_defaults(fn=cmd_status)
     sub.add_parser("serve", help="run the MCP server on stdio").set_defaults(fn=cmd_serve)
+    ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it (CUPS)")
+    ps.add_argument("--dry-run", action="store_true", help="build the PDF under ~/.lakota-grades/sheets/ but do not print or record")
+    ps.add_argument("--kid", help="one student only (first name or nickname prefix)")
+    ps.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the 2 PM window")
+    ps.add_argument("--days", type=int, default=14, help="how far ahead to look (default 14)")
+    ps.add_argument("--overdue-days", type=int, default=14, help="how far back an overdue item may be (default 14)")
+    ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the 2 PM window (never reprints a day)")
+    ps.add_argument("--printer", default=os.environ.get("LAKOTA_PRINTER", "Brother_MFC_J4335DW"), help="CUPS destination (LAKOTA_PRINTER)")
+    ps.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
+    ps.set_defaults(fn=cmd_print_sheet)
     args = p.parse_args(argv)
     sys.exit(args.fn(args))
 

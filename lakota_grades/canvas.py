@@ -122,6 +122,11 @@ class Canvas:
                 "id": a["id"],
                 "name": a["name"],
                 "due_at": self.local(a.get("due_at")),
+                # Canvas has no "assigned on" field. unlock_at ("Available from") is the
+                # closest when a teacher sets it; created_at is when the item appeared
+                # (which for a course copied from last year is the copy date).
+                "unlock_at": self.local(a.get("unlock_at")),
+                "created_at": self.local(a.get("created_at")),
                 "points_possible": a.get("points_possible"),
                 "submission_types": a.get("submission_types") or [],
                 "group": groups.get(a.get("assignment_group_id"), {}).get("name"),

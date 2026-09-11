@@ -8,7 +8,7 @@ Design goals:
 - **Log in rarely.** One persistent Chromium profile holds the OneLogin, Canvas and HAC cookies; a login only happens when a site bounces us to a login page.
 - **One pull, many tools.** A refresh writes a JSON snapshot; the tools read from it (cache TTL 3 h by default), so Thursday's report doesn't hit the sites more than once.
 - **A bad pull never erases a good one.** If Canvas or HAC fails (or is skipped) on a refresh, that source's data is carried over from the last successful pull and `status()` reports it as `stale` with the time it was actually fetched.
-- **No one has to be present.** Everything runs unattended, including the scheduled refresh.
+- **No one has to be present.** Everything runs unattended, including the scheduled refresh and the weekday 2 PM printed sheet (section 6).
 
 ## 1. Install (Linux)
 
@@ -101,14 +101,49 @@ systemctl --user list-timers | grep lakota
 
 Thursday 11:30 and daily 06:00. The unit sets `TimeoutStartSec=900`: a full pull takes 1–3 minutes and systemd's 90 s default would kill it partway through.
 
+## 6. The printed sheet (weekdays 2:00 PM)
+
+`lakota-grades print-sheet` refreshes, builds one letter-portrait PDF with a section per kid, and sends it to CUPS as one duplex job. No Claude involved: Python, a systemd user timer, and `lp`.
+
+```bash
+lakota-grades print-sheet --dry-run          # build ~/.lakota-grades/sheets/<today>/sheet.pdf, print nothing
+lakota-grades print-sheet --dry-run --kid Doug --date 2026-09-09
+lakota-grades print-sheet                    # refresh, build, print, record
+```
+
+Each row: checkbox · **NEW** / *was …* (against the previous sheet) · due and assigned dates · course · assignment · points · where it was read (Canvas / HAC / Both) and how it is turned in (online / paper / in class) · status. Status words: `MISSING`, `ZERO`, `LATE` (turned in late, not graded), `PAPER — CHECK` (on-paper, no grade: ask), `HAC — NO GRADE`, `DUE TODAY`, `DUE TOMORROW`, `DUE <weekday>`. Overdue rows show the last day the teacher still takes the work and for what credit; rows past that day, or more than `--overdue-days` (14) old, are counted in a one-line "Not shown" instead. `--days` (14) is the forward window. A kid with nothing open still gets a section.
+
+Files under `~/.lakota-grades/`, all created on first run and never overwritten:
+
+| File | Purpose |
+|---|---|
+| `late-rules.toml` | The late-work register: per kid/class, how many days after the due date work is still accepted (`late_days`, or `until = "quarter_end"`) and for what `credit`. First matching rule wins. Seeded from the 2026-27 Canvas syllabi; edit as you learn more. |
+| `no-print-days.txt` | One `YYYY-MM-DD` or `YYYY-MM-DD..YYYY-MM-DD` per line, optional note. Seeded with the district's 2026-27 no-school days. `--force` ignores it. |
+| `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is never printed again, even with `--force`; delete the file to reprint. |
+| `print-sheet.log` | One line per run. The same line goes to stderr, so `journalctl --user -u lakota-print-sheet` has it too. |
+
+If the refresh fails, the sheet still prints from the snapshot when its data is under 24 hours old, with a note in the footer; older than that, one log line and exit 1. A source carried forward from an earlier pull counts by its own fetch time.
+
+Schedule it:
+
+```bash
+cp systemd/lakota-print-sheet.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now lakota-print-sheet.timer
+loginctl enable-linger "$USER"      # so it runs when you are not logged in
+systemctl --user list-timers | grep lakota
+```
+
+`OnCalendar=Mon..Fri 14:00 America/New_York` with `Persistent=true`: a run missed while the machine slept fires on wake, and the command refuses to print before 2 PM, so a catch-up the next morning logs "outside print window" and exits instead of printing yesterday's sheet. The printer is set explicitly in the unit (`LAKOTA_PRINTER`; `--printer` on the command line), never the CUPS default.
+
 ## Tools
 
 | Tool | Returns |
 |---|---|
 | `list_students()` | Kids on the account, Canvas IDs, which sources have data |
 | `grades(student)` | Per class: HAC marking-period average (official), HAC last-updated, category subtotals, Canvas current/final, teacher/TA contacts |
-| `missing_work(student)` | Missing, late, zero, past-due-unsubmitted (Canvas) + blank-score past-due rows (HAC); assessments first; total points at stake |
-| `upcoming(student, days=7)` | Unsubmitted items due in the window, Eastern time |
+| `missing_work(student)` | Overdue work the kid can still act on: missing, zero, ungraded-late, past-due-unsubmitted (Canvas; paper items as PAPER — CHECK) + blank-score past-due rows (HAC), deduped; each with `late_until` and `credit` from `late-rules.toml`; assessments first |
+| `upcoming(student, days=14)` | Unsubmitted items due in the window, Eastern time, with DUE TODAY / DUE TOMORROW / DUE <weekday> statuses |
 | `assignments(student, course=None)` | Full Canvas assignment list with flags |
 | `hac_classwork(student, course=None)` | Raw HAC rows and category subtotals |
 | `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, and `stale` (sources served from an older pull, with that pull's time) / pull now |
