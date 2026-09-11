@@ -112,14 +112,13 @@ def cmd_check(args) -> int:
 def cmd_refresh(args) -> int:
     s = load_settings()
     snap = collector.collect(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
-    print(json.dumps({"fetched_at": snap["fetched_at"], "sources": snap["sources"], "students": list(snap["students"])}, indent=2))
+    print(json.dumps(collector.summary(s, snap), indent=2))
     return 0 if all(v == "ok" for v in snap["sources"].values() if v) else 1
 
 
 def cmd_status(args) -> int:
     s = load_settings()
-    snap = collector.load_snapshot(s)
-    print(json.dumps({"fresh": collector.snapshot_is_fresh(s, snap), **({k: snap[k] for k in ("fetched_at", "sources")} if snap else {})}, indent=2))
+    print(json.dumps(collector.summary(s, collector.load_snapshot(s)), indent=2))
     return 0
 
 

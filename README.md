@@ -7,6 +7,7 @@ Design goals:
 - **Claude never sees a password.** Logins happen inside this server's process. Credentials come from the OS keyring at the moment they're typed and are not written anywhere.
 - **Log in rarely.** One persistent Chromium profile holds the OneLogin, Canvas and HAC cookies; a login only happens when a site bounces us to a login page.
 - **One pull, many tools.** A refresh writes a JSON snapshot; the tools read from it (cache TTL 3 h by default), so Thursday's report doesn't hit the sites more than once.
+- **A bad pull never erases a good one.** If Canvas or HAC fails (or is skipped) on a refresh, that source's data is carried over from the last successful pull and `status()` reports it as `stale` with the time it was actually fetched.
 - **No one has to be present.** Everything runs unattended, including the scheduled refresh.
 
 ## 1. Install (Linux)
@@ -58,6 +59,8 @@ lakota-grades refresh  # pulls all three kids into ~/.lakota-grades/cache/snapsh
 lakota-grades status   # cache age and last source health
 ```
 
+Optional settings go in `~/.lakota-grades/.env` (see `env.example`); it is read automatically. Set `LAKOTA_ENV_FILE` only to point somewhere else, e.g. a 1Password Environments mount.
+
 `check` and `refresh` log in by themselves. `lakota-grades login` opens a visible browser if you ever want to sign in by hand — useful for diagnosing a tenant whose OneLogin form has changed. With no terminal attached it watches the session and exits when both sites authenticate (`--wait-minutes`, default 15) instead of blocking on stdin.
 
 If OneLogin ever changes its form, override `LAKOTA_ONELOGIN_USER_SELECTOR`, `LAKOTA_ONELOGIN_PASS_SELECTOR`, `LAKOTA_ONELOGIN_SUBMIT_SELECTOR`.
@@ -78,7 +81,7 @@ Add to `~/.config/Claude/claude_desktop_config.json` (see `claude_desktop_config
 }
 ```
 
-Claude Desktop rewrites this file on exit and can drop keys it does not recognise. If `lakota-grades` disappears from the server list, re-apply the block with Desktop closed.
+Claude Desktop rewrites this file on exit and can drop keys it does not recognise. If `lakota-grades` disappears from the server list, re-apply the block with Desktop closed. The `env` block is optional: `LAKOTA_ENV_FILE` already defaults to `~/.lakota-grades/.env`, so losing it no longer changes anything.
 
 (For reference, the official 1Password MCP binary on Linux is `/opt/1Password/onepassword-mcp`, not `1password-mcp` — but this server does not need it.)
 
@@ -108,9 +111,18 @@ Thursday 11:30 and daily 06:00. The unit sets `TimeoutStartSec=900`: a full pull
 | `upcoming(student, days=7)` | Unsubmitted items due in the window, Eastern time |
 | `assignments(student, course=None)` | Full Canvas assignment list with flags |
 | `hac_classwork(student, course=None)` | Raw HAC rows and category subtotals |
-| `status()` / `refresh(kids, hac, canvas)` | Snapshot age & source health / pull now |
+| `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, and `stale` (sources served from an older pull, with that pull's time) / pull now |
 
 All dates are `America/New_York` ISO strings (Canvas `due_at` is UTC and is converted).
+
+A refresh on which a source fails, or is skipped with `hac=false` / `canvas=false`, keeps that source's data from the previous snapshot rather than writing it out empty; `sources` still shows the error, and `stale` names the source, the reason, and when its data was last actually fetched. Kids left out with `kids=[...]` are likewise kept from the previous snapshot. There is nothing to keep on the very first pull, so a source that fails then is simply absent.
+
+## Tests
+
+```bash
+pip install -e '.[dev]'
+pytest
+```
 
 ## Notes and known quirks (Lakota, Sept 2026)
 

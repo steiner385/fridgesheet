@@ -30,6 +30,20 @@ def snapshot_is_fresh(s: Settings, snap: dict | None) -> bool:
     return bool(snap) and (time.time() - snap.get("fetched_at_epoch", 0)) < s.cache_ttl_minutes * 60
 
 
+def summary(s: Settings, snap: dict | None) -> dict:
+    """What `status`, `refresh` and the CLI report: age, per-source health, which sources
+    are being served from an older pull (and how old), and the kids in the snapshot."""
+    if not snap:
+        return {"snapshot": None, "fresh": False}
+    return {
+        "fetched_at": snap["fetched_at"],
+        "fresh": snapshot_is_fresh(s, snap),
+        "sources": snap["sources"],
+        "stale": {src: {"fetched_at": m["fetched_at"], "reason": m["reason"]} for src, m in (snap.get("stale") or {}).items()},
+        "students": list(snap["students"]),
+    }
+
+
 def _first_name(full: str) -> str:
     """First name from either 'Douglas Stein' (Canvas) or 'STEIN, DOUGLAS' (HAC).
 
@@ -78,11 +92,50 @@ def _write_snapshot(s: Settings, snap: dict) -> None:
     tmp.replace(p)
 
 
+#: Per source, the keys of a student entry that come from it and travel with it.
+_SOURCE_FIELDS = {"canvas": ("canvas", "canvas_id"), "hac": ("hac", "hac_name")}
+
+
+def _carry_forward(snap: dict, prev: dict | None, kids_filter: list[str] | None) -> None:
+    """Fill in, from the previous snapshot, whatever this run did not pull.
+
+    A source that failed (or was skipped) leaves its half of every kid's entry as None, and
+    writing that out as the new snapshot meant one HAC outage or lapsed login wiped the
+    official grades from every tool until the next successful pull. Keep the last good data
+    instead and record under "stale" when it was pulled and why it was not refreshed, so
+    status() can say so. Kids excluded by the filter are kept whole for the same reason.
+    """
+    if not prev:
+        return
+    for name, pe in prev["students"].items():
+        if not _wanted(name, kids_filter) and _entry_key(snap["students"], name) not in snap["students"]:
+            snap["students"][name] = pe
+    prev_stale = prev.get("stale") or {}
+    for src, status in snap["sources"].items():
+        if status == "ok":
+            continue
+        origin = prev_stale.get(src) or (prev if prev.get("sources", {}).get(src) == "ok" else None)
+        if origin is None:
+            continue  # the previous run had nothing for this source either
+        for name, pe in prev["students"].items():
+            if pe.get(src) is None:
+                continue
+            entry = snap["students"].setdefault(_entry_key(snap["students"], name), {"name": pe["name"], "canvas_id": None, "canvas": None, "hac": None})
+            if entry.get(src) is not None:
+                continue
+            for k in _SOURCE_FIELDS[src]:
+                if pe.get(k) is not None:
+                    entry[k] = pe[k]
+        snap["stale"][src] = {"fetched_at": origin["fetched_at"], "fetched_at_epoch": origin["fetched_at_epoch"], "reason": status or "skipped"}
+
+
 def collect(s: Settings, include_hac: bool = True, include_canvas: bool = True, kids_filter: list[str] | None = None) -> dict:
+    prev = load_snapshot(s)
     snap: dict = {
         "fetched_at": datetime.now().astimezone().isoformat(),
         "fetched_at_epoch": time.time(),
         "sources": {"canvas": None, "hac": None},
+        "stale": {},
         "students": {},
     }
     with browser(s) as ctx:
@@ -136,5 +189,8 @@ def collect(s: Settings, include_hac: bool = True, include_canvas: bool = True, 
                 snap["sources"]["hac"] = f"error: {e}"
                 log.exception("HAC failed")
 
+    _carry_forward(snap, prev, kids_filter)
+    for src, m in snap["stale"].items():
+        log.warning("%s not refreshed (%s); serving data from %s", src, m["reason"], m["fetched_at"])
     _write_snapshot(s, snap)
     return snap
