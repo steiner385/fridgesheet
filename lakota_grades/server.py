@@ -42,18 +42,17 @@ def _kid(snap: dict, student: str) -> dict:
 @mcp.tool()
 def refresh(kids: list[str] | None = None, hac: bool = True, canvas: bool = True) -> dict:
     """Re-pull Canvas and/or HAC now (logs in if a session expired) and return the source status.
-    Use before building a report so numbers are current. Takes ~1-3 minutes."""
+    Use before building a report so numbers are current. Takes ~1-3 minutes. A source that
+    fails keeps its data from the last good pull; `stale` says which and how old."""
     snap = collector.collect(_settings, include_hac=hac, include_canvas=canvas, kids_filter=kids)
-    return {"fetched_at": snap["fetched_at"], "sources": snap["sources"], "students": list(snap["students"])}
+    return collector.summary(_settings, snap)
 
 
 @mcp.tool()
 def status() -> dict:
-    """Snapshot age and whether each source (Canvas, HAC) was reachable on the last pull."""
-    snap = collector.load_snapshot(_settings)
-    if not snap:
-        return {"snapshot": None, "fresh": False}
-    return {"fetched_at": snap["fetched_at"], "fresh": collector.snapshot_is_fresh(_settings, snap), "sources": snap["sources"], "students": list(snap["students"])}
+    """Snapshot age, whether each source (Canvas, HAC) was reachable on the last pull, and
+    which sources are being served from an older pull (`stale`, with that pull's time)."""
+    return collector.summary(_settings, collector.load_snapshot(_settings))
 
 
 @mcp.tool()

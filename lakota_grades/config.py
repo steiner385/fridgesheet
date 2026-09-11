@@ -37,15 +37,22 @@ KEYRING_SERVICE = os.environ.get("LAKOTA_KEYRING_SERVICE", "lakota-grades")
 KEYRING_LABEL = "Lakota OneLogin (lakota-grades)"
 
 
+def env_file() -> Path:
+    """The .env to load: LAKOTA_ENV_FILE if set, else <home>/.env (~/.lakota-grades/.env).
+
+    The default exists so that nothing has to export the variable. Claude Desktop rewrites
+    its config on exit and can drop a server's `env` block, and a hand-copied unit file can
+    lose its Environment= line; either way the server used to come up without its settings
+    and nothing said so.
+    """
+    return Path(os.environ.get("LAKOTA_ENV_FILE") or DEFAULT_HOME / ".env")
+
+
 def _load_env_files() -> None:
-    """Load a mounted 1Password .env (or a plain one) if present. Later files do not override earlier ones."""
-    candidates = [
-        os.environ.get("LAKOTA_ENV_FILE"),
-        str(Path.cwd() / ".env"),
-        str(DEFAULT_HOME / ".env"),
-    ]
-    for c in candidates:
-        if c and Path(c).is_file():
+    """Load the configured .env (a mounted 1Password one or a plain one) if present, then a
+    .env in the working directory at lower priority. Later files do not override earlier ones."""
+    for c in (env_file(), Path.cwd() / ".env"):
+        if c.is_file():
             load_dotenv(c, override=False)
 
 
