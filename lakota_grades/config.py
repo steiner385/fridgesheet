@@ -114,6 +114,9 @@ class Settings:
     headless: bool = True
     user_agent: str = ""   # blank => derive real Chrome UA from the Chromium binary
     cache_ttl_minutes: int = 180
+    # Where print-sheet also saves each PDF for people to find (e.g. a Google Drive mount).
+    # Blank = local only. The machine's own copy stays under <home>/sheets/ regardless.
+    sheets_archive: str = ""
     # Optional selector overrides if OneLogin changes its login page
     onelogin_user_selector: str = "input#username, input[name='username'], input[type='email']"
     onelogin_pass_selector: str = "input#password, input[name='password'], input[type='password']"
@@ -168,6 +171,7 @@ def load_settings() -> Settings:
     s.headless = os.environ.get("LAKOTA_HEADLESS", "1") not in ("0", "false", "no")
     s.user_agent = os.environ.get("LAKOTA_USER_AGENT", s.user_agent)
     s.cache_ttl_minutes = int(os.environ.get("LAKOTA_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
+    s.sheets_archive = os.environ.get("LAKOTA_SHEETS_ARCHIVE", s.sheets_archive).strip()
     s.hac_app_url = os.environ.get("LAKOTA_HAC_ONELOGIN_APP_URL", s.hac_app_url)
     s.hac_app_pattern = os.environ.get("LAKOTA_HAC_APP_PATTERN", s.hac_app_pattern)
     for k in ("onelogin_user_selector", "onelogin_pass_selector", "onelogin_submit_selector"):

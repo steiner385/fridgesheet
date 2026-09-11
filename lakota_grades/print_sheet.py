@@ -7,6 +7,9 @@ Files under the lakota-grades home (~/.lakota-grades):
     sheets/YYYY-MM-DD/       sheet.pdf, rows.json (what was on it), printed.txt (the CUPS job)
     print-sheet.log          one line per run; the same line goes to stderr for journalctl
 
+With LAKOTA_SHEETS_ARCHIVE set (a Google Drive mount, say), each PDF is also copied to
+<archive>/<school year>/<date> Open Work.pdf, and the log line says where (saved=...).
+
 Guards, in order: skip list (--force overrides), already printed today (only an explicit
 --reprint overrides; --force never does), the 2 PM-to-midnight window so a Persistent= catch-up after
 a wake does not print yesterday's sheet at 9 AM (--force, --dry-run and --date override).
@@ -16,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -106,6 +110,20 @@ def _wanted(key: str, kid: str | None) -> bool:
         return True
     a, b = key.lower(), kid.lower()
     return a.startswith(b) or b.startswith(a) or nicknames().get(key, "").lower().startswith(b)
+
+
+def school_year(d: date) -> str:
+    """'2026-27' for any date from Aug 1 2026 through Jul 31 2027."""
+    start = d.year if d.month >= 8 else d.year - 1
+    return f"{start}-{(start + 1) % 100:02d}"
+
+
+def archive_copy(pdf: Path, archive_root: str, day: date) -> Path:
+    """Copy the PDF where people look for it: <archive>/<school year>/<date> Open Work.pdf."""
+    dest = Path(archive_root).expanduser() / school_year(day) / f"{day.isoformat()} Open Work.pdf"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(pdf, dest)
+    return dest
 
 
 def data_as_of(snap: dict) -> datetime:
@@ -216,6 +234,11 @@ def run(opts: Options, settings: Settings, *, now: datetime | None = None, refre
     pages = sheet.build_pdf(sheets, pdf, data_as_of=as_of, days_ahead=opts.days, overdue_days=opts.overdue_days, stale_note=stale_note, printed_at=at)
     (day_dir / "rows.json").write_text(json.dumps(rows_out, indent=1))
     summary = f"{pages}p {' '.join(counts)} data={as_of:%-m/%-d %H:%M}" + (f" NOTE refresh failed: {refresh_error}" if refresh_error else "")
+    if settings.sheets_archive:
+        try:
+            summary += f" saved={archive_copy(pdf, settings.sheets_archive, day)}"
+        except OSError as e:  # a missing Drive mount must not stop the print
+            log("WARN", f"could not copy the sheet to the archive {settings.sheets_archive}: {e}")
 
     if opts.dry_run:
         log("OK", f"dry-run built {pdf} {summary}")

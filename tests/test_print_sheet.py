@@ -199,3 +199,29 @@ def test_reprint_flag_prints_an_already_printed_day_again(env):
     assert print_sheet.run(_args(reprint=True), s, now=FRI_2PM + timedelta(hours=1), refresh=refresh, lp=lp) == 0
     assert len(calls["lp"]) == 2
     assert (s.home / "sheets" / "2026-09-11" / "printed.txt").read_text().count("\n") == 2  # both runs recorded
+
+
+def test_pdf_is_also_saved_to_the_archive_folder_by_school_year(env):
+    """The hidden ~/.lakota-grades/sheets/ tree is for the machine; people look in Drive."""
+    s, calls, refresh, lp = env
+    s.sheets_archive = str(s.home / "drive" / "Open Work Sheets")
+    assert print_sheet.run(_args(dry_run=True), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
+    saved = s.home / "drive" / "Open Work Sheets" / "2026-27" / "2026-09-11 Open Work.pdf"
+    assert saved.is_file() and saved.read_bytes()[:4] == b"%PDF"
+    assert f"saved={saved}" in (s.home / "print-sheet.log").read_text()
+
+
+def test_unreachable_archive_is_a_warning_not_a_failure(env):
+    s, calls, refresh, lp = env
+    (s.home / "blocker").write_text("a file where a directory should be")
+    s.sheets_archive = str(s.home / "blocker" / "sheets")
+    assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
+    assert len(calls["lp"]) == 1
+    log = (s.home / "print-sheet.log").read_text()
+    assert "WARN" in log and "archive" in log.lower()
+
+
+def test_school_year_label():
+    assert print_sheet.school_year(date(2026, 9, 11)) == "2026-27"
+    assert print_sheet.school_year(date(2027, 3, 1)) == "2026-27"
+    assert print_sheet.school_year(date(2027, 8, 20)) == "2027-28"

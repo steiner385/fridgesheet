@@ -59,3 +59,12 @@ def test_missing_default_env_file_is_not_an_error(isolated):
     (home / ".env").unlink()
     config._load_env_files()  # falls through to cwd/.env, silently
     assert os.environ[MARKER] == "cwd"
+
+
+def test_sheets_archive_comes_from_the_environment(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    monkeypatch.setenv("LAKOTA_SHEETS_ARCHIVE", "/mnt/drive/Sheets")
+    assert config.load_settings().sheets_archive == "/mnt/drive/Sheets"
+    monkeypatch.delenv("LAKOTA_SHEETS_ARCHIVE")
+    assert config.load_settings().sheets_archive == ""

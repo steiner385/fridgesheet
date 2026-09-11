@@ -122,6 +122,8 @@ Files under `~/.lakota-grades/`, all created on first run and never overwritten:
 | `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is not printed again, even with `--force`; only an explicit `--reprint` does. |
 | `print-sheet.log` | One line per run. The same line goes to stderr, so `journalctl --user -u lakota-print-sheet` has it too. |
 
+Set `LAKOTA_SHEETS_ARCHIVE` in `~/.lakota-grades/.env` to a folder people actually look in, such as a Google Drive mount, and every PDF is also saved there as `<school year>/<date> Open Work.pdf` (for example `2026-27/2026-09-11 Open Work.pdf`). The log line then ends with `saved=<path>`. If that folder is unreachable the run logs a warning and still prints; the local copy under `sheets/` is always written.
+
 If the refresh fails, the sheet still prints from the snapshot when its data is under 24 hours old, with a note in the footer; older than that, one log line and exit 1. A source carried forward from an earlier pull counts by its own fetch time.
 
 Schedule it:
