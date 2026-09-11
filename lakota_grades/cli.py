@@ -132,7 +132,7 @@ def cmd_serve(args) -> int:
 def cmd_print_sheet(args) -> int:
     from . import print_sheet
     opts = print_sheet.Options(dry_run=args.dry_run, kid=args.kid, date=args.date, days=args.days, overdue_days=args.overdue_days,
-                               force=args.force, printer=args.printer, no_refresh=args.no_refresh)
+                               force=args.force, printer=args.printer, no_refresh=args.no_refresh, reprint=args.reprint)
     return print_sheet.run(opts, load_settings())
 
 
@@ -163,6 +163,7 @@ def main(argv=None) -> None:
     ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the 2 PM window (never reprints a day)")
     ps.add_argument("--printer", default=os.environ.get("LAKOTA_PRINTER", "Brother_MFC_J4335DW"), help="CUPS destination (LAKOTA_PRINTER)")
     ps.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
+    ps.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
     ps.set_defaults(fn=cmd_print_sheet)
     args = p.parse_args(argv)
     sys.exit(args.fn(args))

@@ -119,7 +119,7 @@ Files under `~/.lakota-grades/`, all created on first run and never overwritten:
 |---|---|
 | `late-rules.toml` | The late-work register: per kid/class, how many days after the due date work is still accepted (`late_days`, or `until = "quarter_end"`) and for what `credit`. First matching rule wins. Seeded from the 2026-27 Canvas syllabi; edit as you learn more. |
 | `no-print-days.txt` | One `YYYY-MM-DD` or `YYYY-MM-DD..YYYY-MM-DD` per line, optional note. Seeded with the district's 2026-27 no-school days. `--force` ignores it. |
-| `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is never printed again, even with `--force`; delete the file to reprint. |
+| `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is not printed again, even with `--force`; only an explicit `--reprint` does. |
 | `print-sheet.log` | One line per run. The same line goes to stderr, so `journalctl --user -u lakota-print-sheet` has it too. |
 
 If the refresh fails, the sheet still prints from the snapshot when its data is under 24 hours old, with a note in the footer; older than that, one log line and exit 1. A source carried forward from an earlier pull counts by its own fetch time.
@@ -133,6 +133,17 @@ systemctl --user enable --now lakota-print-sheet.timer
 loginctl enable-linger "$USER"      # so it runs when you are not logged in
 systemctl --user list-timers | grep lakota
 ```
+
+Two desktop shortcuts for running it by hand, whenever:
+
+```bash
+cp desktop/lakota-sheet-{pdf,print}.desktop ~/Desktop/ ~/.local/share/applications/
+chmod +x ~/Desktop/lakota-sheet-*.desktop
+gio set ~/Desktop/lakota-sheet-pdf.desktop metadata::trusted true
+gio set ~/Desktop/lakota-sheet-print.desktop metadata::trusted true
+```
+
+**Kids' Sheet (PDF only)** refreshes, builds today's sheet, and opens it in Evince without printing. **Kids' Sheet (Send to Printer)** refreshes, builds, and prints, even on a no-school day and even if the 2 PM run already printed (`--force --reprint`). Both open a terminal window so the 1–3 minute refresh shows progress, and both go through `scripts/lakota-sheet-desktop.sh`. A manual print before 2 PM records the day as printed, so the timer's run that afternoon skips.
 
 `OnCalendar=Mon..Fri 14:00 America/New_York` with `Persistent=true`: a run missed while the machine slept fires on wake, and the command refuses to print before 2 PM, so a catch-up the next morning logs "outside print window" and exits instead of printing yesterday's sheet. The printer is set explicitly in the unit (`LAKOTA_PRINTER`; `--printer` on the command line), never the CUPS default.
 

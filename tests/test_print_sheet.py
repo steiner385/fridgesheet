@@ -186,6 +186,16 @@ def test_cli_maps_flags_to_options(monkeypatch):
     monkeypatch.setattr(print_sheet, "run", fake_run)
     monkeypatch.setattr(cli, "load_settings", lambda: Settings())
     with pytest.raises(SystemExit) as e:
-        cli.main(["print-sheet", "--dry-run", "--kid", "Doug", "--date", "2026-09-09", "--days", "7", "--overdue-days", "5", "--force", "--printer", "X", "--no-refresh"])
+        cli.main(["print-sheet", "--dry-run", "--kid", "Doug", "--date", "2026-09-09", "--days", "7", "--overdue-days", "5", "--force", "--printer", "X", "--no-refresh", "--reprint"])
     assert e.value.code == 0
-    assert seen["opts"] == print_sheet.Options(dry_run=True, kid="Doug", date="2026-09-09", days=7, overdue_days=5, force=True, printer="X", no_refresh=True)
+    assert seen["opts"] == print_sheet.Options(dry_run=True, kid="Doug", date="2026-09-09", days=7, overdue_days=5, force=True, printer="X", no_refresh=True, reprint=True)
+
+
+def test_reprint_flag_prints_an_already_printed_day_again(env):
+    """A deliberate second print from the desktop shortcut. --reprint is separate from
+    --force so that the timer's retries and a reflexive --force still cannot double-print."""
+    s, calls, refresh, lp = env
+    assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
+    assert print_sheet.run(_args(reprint=True), s, now=FRI_2PM + timedelta(hours=1), refresh=refresh, lp=lp) == 0
+    assert len(calls["lp"]) == 2
+    assert (s.home / "sheets" / "2026-09-11" / "printed.txt").read_text().count("\n") == 2  # both runs recorded

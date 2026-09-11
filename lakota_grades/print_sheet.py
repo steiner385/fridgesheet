@@ -7,8 +7,8 @@ Files under the lakota-grades home (~/.lakota-grades):
     sheets/YYYY-MM-DD/       sheet.pdf, rows.json (what was on it), printed.txt (the CUPS job)
     print-sheet.log          one line per run; the same line goes to stderr for journalctl
 
-Guards, in order: skip list (--force overrides), already printed today (nothing overrides;
-delete printed.txt to reprint), the 2 PM-to-midnight window so a Persistent= catch-up after
+Guards, in order: skip list (--force overrides), already printed today (only an explicit
+--reprint overrides; --force never does), the 2 PM-to-midnight window so a Persistent= catch-up after
 a wake does not print yesterday's sheet at 9 AM (--force, --dry-run and --date override).
 """
 from __future__ import annotations
@@ -67,6 +67,7 @@ class Options:
     force: bool = False
     printer: str = DEFAULT_PRINTER
     no_refresh: bool = False
+    reprint: bool = False           # a deliberate second print of a day; --force never implies it
 
 
 def parse_skip_days(text: str) -> dict[date, str]:
@@ -160,8 +161,8 @@ def run(opts: Options, settings: Settings, *, now: datetime | None = None, refre
     if day in skips and not opts.force:
         log("SKIP", f"{day} is in no-print-days.txt ({skips[day] or 'no note'}); nothing printed")
         return 0
-    if not opts.dry_run and (day_dir / "printed.txt").is_file():
-        log("SKIP", f"{day} already printed ({(day_dir / 'printed.txt').read_text().strip()}); delete printed.txt to reprint")
+    if not opts.dry_run and not opts.reprint and (day_dir / "printed.txt").is_file():
+        log("SKIP", f"{day} already printed ({(day_dir / 'printed.txt').read_text().strip().splitlines()[-1]}); use --reprint to print again")
         return 0
     if not (opts.force or opts.dry_run or opts.date) and now.hour < WINDOW_START_HOUR:
         log("SKIP", f"outside print window (before {WINDOW_START_HOUR}:00); this is a catch-up run, not printing")
@@ -228,6 +229,7 @@ def run(opts: Options, settings: Settings, *, now: datetime | None = None, refre
         return 1
     m = re.search(r"request id is (\S+)", r.stdout or "")
     job = m.group(1) if m else (r.stdout or "").strip()
-    (day_dir / "printed.txt").write_text(f"{now.isoformat()} {job}\n")
+    with (day_dir / "printed.txt").open("a") as f:   # append: a --reprint keeps the earlier job on record
+        f.write(f"{now.isoformat()} {job}\n")
     log("OK", f"printed job={job} {summary}")
     return 0
