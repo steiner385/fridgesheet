@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -68,10 +69,15 @@ def migrate_home(new: Path, old: Path | None, *, link_old: bool) -> str | None:
     """
     if old is None or old == new:
         return None
-    if new.exists() or new.is_symlink():
+    if new.is_symlink() or not old.is_dir() or old.is_symlink():
         return None
-    if not old.is_dir() or old.is_symlink():
-        return None
+    if new.exists():
+        # A start that logged before this ran (the frozen exe opens app.log first) leaves a
+        # directory holding nothing but that log. That is not a second install to protect;
+        # anything else there is, and the old directory is then left where it was.
+        if not _disposable(new):
+            return None
+        shutil.rmtree(new)
     new.parent.mkdir(parents=True, exist_ok=True)
     os.replace(old, new)
     what = f"moved {old} to {new}"
@@ -83,6 +89,14 @@ def migrate_home(new: Path, old: Path | None, *, link_old: bool) -> str | None:
             what += f" (could not leave a link at {old}: {e})"
     log.info(what)
     return what
+
+
+def _disposable(new: Path) -> bool:
+    """True when `new` holds only files the app writes before reading anything: its own log
+    (and rotations) and a doctor report. Nothing a parent would miss."""
+    if not new.is_dir():
+        return False
+    return all(c.is_file() and (c.name.startswith("app.log") or c.name == "doctor.txt") for c in new.iterdir())
 
 
 def migrate_db(home: Path, new_name: str) -> str | None:

@@ -101,6 +101,11 @@ def launch(settings: Settings, *, answers=None, spawn=None, opener=None, wait=No
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     frozen_environment()
+    # The move from the old data directory comes first: setup_logging creates the new home
+    # for app.log, and a home that already exists is one the move leaves alone -- on the
+    # first real upgrade (graphy, 2026-09-18) that ordering left every note, flag and run
+    # behind in the old data directory while the app started over in an empty folder.
+    config.migrate_home_once()
     # `config.DEFAULT_HOME` read here, not imported by value: a value import binds a copy into
     # this module's own namespace at import time, so a test (or anything else) that redirects
     # `config.DEFAULT_HOME` afterwards would have no way to reach it (#35 fix round 2).

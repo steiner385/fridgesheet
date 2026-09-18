@@ -256,7 +256,7 @@ The Windows app ("Fridge Sheet") is built by `.github/workflows/release.yml` on 
 
 1. Bump `version` in `pyproject.toml` and merge to `main`.
 2. Optionally, after step 1 has merged (GitHub only offers the Run workflow button for workflows on the default branch), run the workflow by hand first (Actions → release → Run workflow) and download the `FridgeSheet-Setup` artifact to try it.
-3. Tag and push: `git tag v0.3.1 && git push origin v0.3.1`. The job refuses a tag that does not match `pyproject.toml`, and on success attaches `FridgeSheet-Setup-0.3.1.exe` to a GitHub release. Installed copies notice the new release within a day (Settings shows *Fridge Sheet 0.3.1 is available* with a download link; the header carries a badge) and the installer upgrades over the running app.
+3. Tag and push: `git tag v0.4.1 && git push origin v0.4.1`. The job refuses a tag that does not match `pyproject.toml`, and on success attaches `FridgeSheet-Setup-0.4.1.exe` to a GitHub release. Installed copies notice the new release within a day (Settings shows *Fridge Sheet 0.4.1 is available* with a download link; the header carries a badge) and the installer upgrades over the running app.
 
 Before that tag, work through [docs/release-checklist.md](docs/release-checklist.md) by hand on a real Windows PC with a real printer and a real phone — it covers what CI cannot.
 

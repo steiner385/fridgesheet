@@ -91,8 +91,12 @@ def _load_env_files() -> None:
     migrate.alias_legacy_env()          # the .env may be an old one, written as LAKOTA_*
 
 
-def _migrate_home_once() -> None:
+def migrate_home_once() -> None:
     """The old app's data directory becomes this one's, once (migrate.py, spec section 3).
+
+    Called from `load_settings`, and by the frozen entry point *before* it opens its log
+    file in the new home -- a directory that exists is one the move must respect, so the
+    log must not be what creates it.
 
     Only when the home in use is the OS default. An override (`FRIDGESHEET_HOME`) or a
     test's redirected `DEFAULT_HOME` names a directory the old app never used, and the
@@ -358,7 +362,7 @@ def load_settings() -> Settings:
         v = os.environ.get("FRIDGESHEET_" + k.upper())
         if v:
             setattr(s, k, v)
-    _migrate_home_once()
+    migrate_home_once()
     for d in (s.home, s.profile_dir, s.cache_dir):
         d.mkdir(parents=True, exist_ok=True, mode=0o700)
         d.chmod(0o700)

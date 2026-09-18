@@ -60,9 +60,9 @@ def test_home_move_refuses_when_both_exist_or_nothing_old(tmp_path):
     assert migrate.migrate_home(new, None, link_old=True) is None
     assert migrate.migrate_home(new, old, link_old=True) is None          # no old dir
     old.mkdir(); new.mkdir()
-    (old / "keep").write_text("x")
-    assert migrate.migrate_home(new, old, link_old=True) is None          # both there: untouched
-    assert (old / "keep").is_file() and not old.is_symlink()
+    (old / "keep").write_text("x"); (new / "config.toml").write_text("[web]\n")
+    assert migrate.migrate_home(new, old, link_old=True) is None          # both real: untouched
+    assert (old / "keep").is_file() and not old.is_symlink() and (new / "config.toml").is_file()
 
 
 def test_home_move_ignores_an_old_path_that_is_already_a_link(tmp_path):
@@ -160,3 +160,40 @@ def test_doctor_lists_what_still_goes_by_the_old_name(tmp_path):
     assert any("lakota-grades" in line for line in lines)
     assert any("link" in line for line in lines)
     assert migrate.legacy_in_use(environ={}, home=new, legacy_home_path=tmp_path / "missing") == []
+
+
+# --- the frozen entry point must move before it logs ---------------------------------------------
+
+def test_a_new_home_holding_only_a_log_does_not_block_the_move(tmp_path):
+    """The exe opens app.log before anything reads the home; that must not count as a second
+    install worth protecting. Seen on the first real upgrade: an empty new folder, a full old one."""
+    old, new = tmp_path / "old", tmp_path / "new"
+    old.mkdir(); (old / "config.toml").write_text("[web]\n"); (old / "fridgesheet.db").write_bytes(b"x")
+    new.mkdir(); (new / "app.log").write_text("started\n"); (new / "app.log.1").write_text("")
+    assert "moved" in migrate.migrate_home(new, old, link_old=False)
+    assert (new / "config.toml").is_file() and not (new / "app.log.1").exists() and not old.exists()
+
+
+def test_a_new_home_with_anything_else_in_it_is_respected(tmp_path):
+    old, new = tmp_path / "old", tmp_path / "new"
+    old.mkdir(); (old / "config.toml").write_text("[web]\n")
+    new.mkdir(); (new / "app.log").write_text(""); (new / "notes.txt").write_text("mine")
+    assert migrate.migrate_home(new, old, link_old=False) is None
+    assert (new / "notes.txt").is_file() and (old / "config.toml").is_file()
+
+
+def test_the_frozen_entry_point_moves_the_home_before_it_opens_its_log(monkeypatch, tmp_path):
+    from fridgesheet import config
+    from fridgesheet.web import __main__ as entry
+    old, new = tmp_path / "lakota-grades", tmp_path / "fridgesheet"
+    old.mkdir(); (old / "config.toml").write_text("[web]\nport = 8499\n")
+    monkeypatch.setattr(config, "DEFAULT_HOME", new)
+    monkeypatch.setattr(config, "_default_home", lambda: new)          # the OS default, not an override
+    monkeypatch.setattr(migrate, "legacy_home", lambda **kw: old)
+    seen = []
+    monkeypatch.setattr(entry, "setup_logging", lambda home, stderr=None: seen.append(sorted(p.name for p in home.iterdir())))
+    monkeypatch.setattr(entry, "launch", lambda s: 0)
+    monkeypatch.setattr(entry, "load_settings", lambda: None)
+    assert entry.main([]) == 0
+    assert seen == [["config.toml"]]                    # the log opened in the *moved* home
+    assert old.is_symlink() or not old.exists()         # a link on Linux, gone on Windows

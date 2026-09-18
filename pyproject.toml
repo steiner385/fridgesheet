@@ -1,6 +1,6 @@
 [project]
 name = "fridgesheet"
-version = "0.4.0"
+version = "0.4.1"
 description = "Fridge Sheet: a parent's daily open-work sheet from Canvas + Home Access Center, a browser app, and a local MCP server for Claude."
 requires-python = ">=3.11"
 license = "MIT"
