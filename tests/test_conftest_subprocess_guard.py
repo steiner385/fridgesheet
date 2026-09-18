@@ -196,3 +196,18 @@ def test_blocked_program_matches_a_path_typed_executable():
 
 def test_blocked_program_allows_a_harmless_path_typed_executable():
     assert conftest_module._blocked_program(["systemctl"], executable=Path("/usr/bin/echo")) is None
+
+
+def test_the_suite_never_sees_a_real_legacy_home(monkeypatch):
+    """`load_settings` moves the old data directory on first sight. The suite must never do that
+    to the developer's own home: the override set before the package is imported keeps the
+    default home in tmp, and the autouse fixture makes the legacy lookup answer None even when
+    a test clears the override to assert on a default."""
+    import conftest as c
+    from pathlib import Path
+    from fridgesheet import config, migrate
+    assert Path(c.TEST_HOME).name.startswith("fridgesheet-tests-")     # set before the package imported
+    assert config.DEFAULT_HOME != Path.home() / ".fridgesheet"           # and every test's home is tmp
+    assert migrate.legacy_home(is_windows=False) is None and migrate.legacy_home(is_windows=True) is None
+    monkeypatch.delenv("FRIDGESHEET_HOME", raising=False)
+    assert migrate.legacy_home(is_windows=False) is None       # the fixture, not just the env

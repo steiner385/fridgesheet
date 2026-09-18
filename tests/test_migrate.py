@@ -30,11 +30,12 @@ def test_no_old_names_is_a_no_op():
 
 # --- the data directory -----------------------------------------------------------------------
 
-def test_legacy_home_per_os_and_none_under_an_override(tmp_path):
-    assert migrate.legacy_home(is_windows=False, environ={}) == Path.home() / ".lakota-grades"
-    assert migrate.legacy_home(is_windows=True, environ={"LOCALAPPDATA": str(tmp_path)}) == tmp_path / "lakota-grades"
-    assert migrate.legacy_home(is_windows=False, environ={"FRIDGESHEET_HOME": "/x"}) is None
-    assert migrate.legacy_home(is_windows=False, environ={"LAKOTA_GRADES_HOME": "/x"}) is None
+def test_legacy_home_per_os_and_none_under_an_override(tmp_path, real_legacy_home):
+    legacy_home = real_legacy_home                              # conftest stubs the live one out
+    assert legacy_home(is_windows=False, environ={}) == Path.home() / ".lakota-grades"
+    assert legacy_home(is_windows=True, environ={"LOCALAPPDATA": str(tmp_path)}) == tmp_path / "lakota-grades"
+    assert legacy_home(is_windows=False, environ={"FRIDGESHEET_HOME": "/x"}) is None
+    assert legacy_home(is_windows=False, environ={"LAKOTA_GRADES_HOME": "/x"}) is None
 
 
 def test_home_is_moved_once_and_a_link_is_left_on_linux(tmp_path):

@@ -14,10 +14,22 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 
 import pytest
 
-from fridgesheet import config
+# Before anything from the package is imported: point the home at a throwaway directory.
+# `server.py` calls `load_settings()` at import, and `load_settings` moves the *real* old data
+# directory to the real new one on first sight (fridgesheet/migrate.py). Collected once with
+# no override, the suite migrated the developer's own ~/.lakota-grades (2026-09-18). With an
+# override in force `migrate.legacy_home` answers None and nothing outside tmp is touched.
+TEST_HOME = os.environ["FRIDGESHEET_HOME"] = tempfile.mkdtemp(prefix="fridgesheet-tests-")
+
+from fridgesheet import config, migrate
+
+#: The unpatched lookup, for the one test that checks what it computes (paths only; it
+#: never touches the filesystem). Every other test sees the None from `_no_real_migration`.
+REAL_LEGACY_HOME = migrate.legacy_home
 
 #: Executable names (case-folded, `.exe`-stripped) that must never actually launch during a
 #: test run. `systemctl --user` reaches this machine's live units --
@@ -79,6 +91,18 @@ def _blocked_program(args, executable=None) -> str | None:
 
 
 needs_pdftotext = pytest.mark.skipif(shutil.which("pdftotext") is None, reason="pdftotext (poppler-utils) not installed")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_migration(monkeypatch):
+    """No test may move a real data directory. The env override above covers import time;
+    this covers every test, including one that clears FRIDGESHEET_HOME to assert a default."""
+    monkeypatch.setattr(migrate, "legacy_home", lambda **kw: None)
+
+
+@pytest.fixture
+def real_legacy_home():
+    return REAL_LEGACY_HOME
 
 
 @pytest.fixture(autouse=True)
