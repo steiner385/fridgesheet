@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import cli, doctor, host
-from lakota_grades.config import ReportConfig, Settings
-from lakota_grades.host import ScheduleInfo, printing, scheduling
+from fridgesheet import cli, doctor, host
+from fridgesheet.config import ReportConfig, Settings
+from fridgesheet.host import ScheduleInfo, printing, scheduling
 
 
 def _probes():
@@ -43,7 +43,7 @@ def test_real_probes_run_on_this_machine(tmp_path):
     no keyring) but each must produce a Check."""
     out = doctor.checks(Settings(home=tmp_path), tmp_path)
     names = [c.name for c in out]
-    assert names == ["python", "home", "database", "timezone", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server"]
+    assert names == ["python", "home", "database", "timezone", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server", "old names"]
     assert all(isinstance(c.detail, str) and c.detail for c in out)
     by = {c.name: c for c in out}
     assert by["python"].ok and by["home"].ok and by["database"].ok and by["timezone"].ok and by["pdf"].ok
@@ -53,7 +53,7 @@ def test_real_probes_run_on_this_machine(tmp_path):
 
 
 def test_database_probe_reports_counts(tmp_path):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     conn = db.open_db(tmp_path)
     with conn:
         conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES ('t', '{}', 1)")
@@ -157,11 +157,11 @@ def test_credential_probe_raises_and_still_cleans_up_on_mismatch(monkeypatch, tm
 
 
 def test_web_server_probe(monkeypatch, tmp_path):
-    from lakota_grades.host import ServiceInfo
+    from fridgesheet.host import ServiceInfo
     s = Settings(home=tmp_path)
     monkeypatch.setattr(doctor, "_describe_service", lambda: ServiceInfo("systemd", False, False, "not installed"))
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: False)
-    assert "not running" in doctor._web_server(s, tmp_path) and "lakota-grades web" in doctor._web_server(s, tmp_path)
+    assert "not running" in doctor._web_server(s, tmp_path) and "fridgesheet web" in doctor._web_server(s, tmp_path)
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: True)
     assert "http://127.0.0.1:8433/" in doctor._web_server(s, tmp_path)
     monkeypatch.setattr(doctor, "_describe_service", lambda: ServiceInfo("systemd", True, True, "enabled, active"))

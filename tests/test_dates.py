@@ -5,7 +5,7 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 
-from lakota_grades import dates
+from fridgesheet import dates
 
 D = datetime(2026, 9, 14, 14, 5)
 

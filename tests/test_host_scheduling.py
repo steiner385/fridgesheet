@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import host
-from lakota_grades.host import NotSupported, scheduling, scheduling_linux, scheduling_windows, service_windows
+from fridgesheet import host
+from fridgesheet.host import NotSupported, scheduling, scheduling_linux, scheduling_windows, service_windows
 
 
 class _R:
@@ -23,7 +23,7 @@ def test_safe_key_makes_a_name_both_operating_systems_accept():
     assert host.safe_key("a/b\\c d") == "a-b-c-d"
     assert host.safe_key("...") == "report"                   # nothing usable left
     assert host.safe_key("") == "report"
-    assert host.task_name("view:7") == "Lakota Sheet - view 7"
+    assert host.task_name("view:7") == "Fridge Sheet - view 7"
 
 
 def test_check_schedule_speaks_once_for_both_platforms():
@@ -55,9 +55,9 @@ def test_day_tags_keys_come_from_day_names_not_a_second_spelling():
 
 
 def test_task_xml_description_can_be_the_reports_title():
-    xml = scheduling_windows.render_task_xml("Lakota Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
-                                             description="Lakota Sheet: Weekly summary")
-    assert "<Description>Lakota Sheet: Weekly summary</Description>" in xml
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
+                                             description="Fridge Sheet: Weekly summary")
+    assert "<Description>Fridge Sheet: Weekly summary</Description>" in xml
 
 
 def test_windows_install_takes_the_same_keywords_as_the_linux_one():
@@ -72,12 +72,12 @@ def test_windows_install_takes_the_same_keywords_as_the_linux_one():
 
     scheduling_windows.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run,
                                title="Weekly summary", home="/anything", timezone="America/New_York")
-    assert "<Description>Lakota Sheet: Weekly summary</Description>" in seen["xml"]
+    assert "<Description>Fridge Sheet: Weekly summary</Description>" in seen["xml"]
 
 
 def test_task_xml_has_the_trigger_settings_and_action():
-    xml = scheduling_windows.render_task_xml("Lakota Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
-                                             r"C:\Apps\LakotaSheet.exe", "run open-work", r"C:\Apps")
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                                             r"C:\Apps\FridgeSheet.exe", "run open-work", r"C:\Apps")
     assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
     assert "<Monday />" in xml and "<Friday />" in xml and "<Saturday />" not in xml
     assert "<StartWhenAvailable>true</StartWhenAvailable>" in xml
@@ -87,9 +87,9 @@ def test_task_xml_has_the_trigger_settings_and_action():
     assert "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>" in xml
     assert "<WakeToRun>false</WakeToRun>" in xml
     assert "<LogonType>InteractiveToken</LogonType>" in xml and "<RunLevel>LeastPrivilege</RunLevel>" in xml
-    assert r"<Command>C:\Apps\LakotaSheet.exe</Command>" in xml and "<Arguments>run open-work</Arguments>" in xml
+    assert r"<Command>C:\Apps\FridgeSheet.exe</Command>" in xml and "<Arguments>run open-work</Arguments>" in xml
     assert r"<WorkingDirectory>C:\Apps</WorkingDirectory>" in xml
-    assert "<Description>Lakota Sheet: open-work</Description>" in xml
+    assert "<Description>Fridge Sheet: open-work</Description>" in xml
 
 
 def test_task_xml_escapes_paths_with_ampersands():
@@ -127,7 +127,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
         return _R(0, "SUCCESS: The scheduled task has been created.")
 
     scheduling_windows.install("open-work", "14:00", ["Mon"], r"C:\x.exe", "run open-work", "C:\\", run=run)
-    assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Lakota Sheet - open-work"] and seen["cmd"][-1] == "/F"
+    assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - open-work"] and seen["cmd"][-1] == "/F"
     assert seen["xml"].startswith(b"\xff\xfe") and seen["xml"].decode("utf-16").startswith('<?xml version="1.0" encoding="UTF-16"?>')
     assert seen["kw"]["creationflags"] == scheduling_windows.CREATE_NO_WINDOW
     assert not Path(seen["cmd"][seen["cmd"].index("/XML") + 1]).exists()      # temp file cleaned up
@@ -145,13 +145,13 @@ def test_windows_remove_and_describe():
         seen.append(cmd)
         if cmd[1] == "/Delete":
             return _R(0)
-        return _R(0, "Folder: \\\nHostName:      PC\nTaskName:      \\Lakota Sheet - open-work\nNext Run Time: 9/15/2026 2:00:00 PM\n"
+        return _R(0, "Folder: \\\nHostName:      PC\nTaskName:      \\Fridge Sheet - open-work\nNext Run Time: 9/15/2026 2:00:00 PM\n"
                      "Status:        Ready\nLast Run Time: 9/14/2026 2:00:03 PM\nLast Result:   0\n")
 
     scheduling_windows.remove("open-work", run=run)
-    assert seen[0] == ["schtasks", "/Delete", "/TN", "Lakota Sheet - open-work", "/F"]
+    assert seen[0] == ["schtasks", "/Delete", "/TN", "Fridge Sheet - open-work", "/F"]
     info = scheduling_windows.describe("open-work", run=run)
-    assert seen[1] == ["schtasks", "/Query", "/TN", "Lakota Sheet - open-work", "/FO", "LIST", "/V"]
+    assert seen[1] == ["schtasks", "/Query", "/TN", "Fridge Sheet - open-work", "/FO", "LIST", "/V"]
     assert info == scheduling.ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0")
     missing = scheduling_windows.describe("open-work", run=lambda c, **k: _R(1, "", "ERROR: The system cannot find the file specified."))
     assert missing == scheduling.ScheduleInfo("task-scheduler", False, None, None)
@@ -168,10 +168,10 @@ def test_linux_install_and_remove_are_no_longer_refused(tmp_path):
         calls.append(argv)
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
     scheduling_linux.install("view:3", "14:00", ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
-    assert (tmp_path / "lakota-view-3.timer").is_file()
+    assert (tmp_path / "fridgesheet-view-3.timer").is_file()
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],
-        ["systemctl", "--user", "enable", "--now", "lakota-view-3.timer"],
+        ["systemctl", "--user", "enable", "--now", "fridgesheet-view-3.timer"],
     ]
 
 
@@ -195,14 +195,14 @@ def test_windows_refuses_the_web_servers_own_logon_task_before_any_schtasks_call
 
 
 def test_windows_refuses_the_logon_task_however_the_key_is_cased():
-    """Task Scheduler's namespace is case-insensitive: "Lakota Sheet - Web" and "Lakota Sheet -
+    """Task Scheduler's namespace is case-insensitive: "Fridge Sheet - Web" and "Fridge Sheet -
     web" are one and the same task. An exact-string `_FOREIGN_TASKS` membership test therefore
     guarded only one spelling, and `[reports.Web]` hand-edited into config.toml went straight
-    through to `schtasks /Delete /TN "Lakota Sheet - Web" /F` -- the web server's own logon
+    through to `schtasks /Delete /TN "Fridge Sheet - Web" /F` -- the web server's own logon
     task, gone until someone reinstalls.
 
     Linux needs no equivalent and must not grow one: systemd unit names really are
-    case-sensitive, so `lakota-Web.timer` is a genuinely different unit."""
+    case-sensitive, so `fridgesheet-Web.timer` is a genuinely different unit."""
     def run(cmd, **kw):
         raise AssertionError("schtasks must not run for a task this app did not schedule")
 
@@ -214,24 +214,24 @@ def test_windows_refuses_the_logon_task_however_the_key_is_cased():
 
 
 def test_display_name_is_what_this_platform_actually_installed(tmp_path):
-    """`task_name` is documented as *the Windows task's display name*, and says "Lakota Sheet -
+    """`task_name` is documented as *the Windows task's display name*, and says "Fridge Sheet -
     open-work" on both platforms -- so a Linux `schedule remove --all` printed a Windows task
     name once per report while what it removed was a pair of systemd units. `blocking_name` was
     platform-dispatched in this branch for exactly this reason; `display_name` is the other
     half of it, and `scheduling` re-exports whichever one this host is running."""
-    assert scheduling_windows.display_name("open-work") == "Lakota Sheet - open-work"
-    assert scheduling_windows.display_name("view:7") == "Lakota Sheet - view 7"
-    assert scheduling_linux.display_name("open-work") == "lakota-open-work.{service,timer}"
-    assert scheduling_linux.display_name("view:7") == "lakota-view-7.{service,timer}"
+    assert scheduling_windows.display_name("open-work") == "Fridge Sheet - open-work"
+    assert scheduling_windows.display_name("view:7") == "Fridge Sheet - view 7"
+    assert scheduling_linux.display_name("open-work") == "fridgesheet-open-work.{service,timer}"
+    assert scheduling_linux.display_name("view:7") == "fridgesheet-view-7.{service,timer}"
     expected = scheduling_windows if host.IS_WINDOWS else scheduling_linux
     assert scheduling.display_name("open-work") == expected.display_name("open-work")
 
 
 def test_schedule_remove_refuses_a_key_that_is_not_a_report(monkeypatch, capsys, tmp_path):
-    """The `install` branch resolves the key first; `remove` did not, so `lakota-grades
+    """The `install` branch resolves the key first; `remove` did not, so `fridgesheet
     schedule remove web` went straight to the scheduler with a key no report answers to."""
-    from lakota_grades import cli
-    from lakota_grades.config import Settings
+    from fridgesheet import cli
+    from fridgesheet.config import Settings
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
 
     def boom(*a, **k):
@@ -254,9 +254,9 @@ def test_schedule_remove_all_removes_every_available_reports_schedule(monkeypatc
     `config.DEFAULT_HOME` is what points the command at `tmp_path`, not a stub for
     `cli.load_settings`: the `--all` path finds its own settings (`_removal_settings`) and a
     test that replaces that function tests the stub instead of the code."""
-    from lakota_grades import cli, config
-    from lakota_grades.web import db, views
-    from lakota_grades.web.stores import reports as store
+    from fridgesheet import cli, config
+    from fridgesheet.web import db, views
+    from fridgesheet.web.stores import reports as store
 
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")
@@ -278,9 +278,9 @@ def test_schedule_remove_all_keeps_going_past_one_reports_refusal(monkeypatch, t
     """A `SchedulingError` for one report (e.g. a hand-written namesake unit) must not stop the
     uninstaller from still trying every other report -- but the exit code says something was
     left behind."""
-    from lakota_grades import cli, config
-    from lakota_grades.web import db, views
-    from lakota_grades.web.stores import reports as store
+    from fridgesheet import cli, config
+    from fridgesheet.web import db, views
+    from fridgesheet.web.stores import reports as store
 
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")
@@ -290,7 +290,7 @@ def test_schedule_remove_all_keeps_going_past_one_reports_refusal(monkeypatch, t
 
     def flaky_remove(key, **kw):
         if key == "open-work":
-            raise scheduling.SchedulingError("lakota-open-work.timer was not written by this app")
+            raise scheduling.SchedulingError("fridgesheet-open-work.timer was not written by this app")
         removed.append(key)
 
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
@@ -308,13 +308,13 @@ def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys
     there rather than trying (and failing identically on) every remaining key.
 
     What this pins is the *handler's* contract against an injected `remove` that raises, not a
-    path any shipped code takes: nothing under `lakota_grades/host/` raises `NotSupported` for
+    path any shipped code takes: nothing under `fridgesheet/host/` raises `NotSupported` for
     scheduling -- both platforms have a real implementation -- so the branch is unreachable in
     production and is kept as insurance for a third platform. Read this as "if a scheduler ever
     says it cannot schedule, stop and exit 2", not as coverage of live behaviour."""
-    from lakota_grades import cli, config
-    from lakota_grades.web import db, views
-    from lakota_grades.web.stores import reports as store
+    from fridgesheet import cli, config
+    from fridgesheet.web import db, views
+    from fridgesheet.web.stores import reports as store
 
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")
@@ -340,7 +340,7 @@ def test_schedule_remove_all_is_refused_with_install_or_show(monkeypatch, capsys
     """`--all` only makes sense with `remove`; the uninstaller is the only caller, and pairing
     it with `install` or `show` would either schedule everything at once or say nothing
     useful."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
 
     def boom(*a, **k):
@@ -355,7 +355,7 @@ def test_schedule_remove_all_is_refused_with_install_or_show(monkeypatch, capsys
 
 
 def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there(monkeypatch, tmp_path):
-    """A parent who deleted `%LOCALAPPDATA%\\lakota-grades` before uninstalling must not get it
+    """A parent who deleted `%LOCALAPPDATA%\\fridgesheet` before uninstalling must not get it
     back. Two side effects would hand it back: `reports.available`'s `db.open_db` (which
     `_schedule_removal_keys` avoids by gating on `db_path.is_file()`), and `load_settings`'s
     closing `for d in (s.home, s.profile_dir, s.cache_dir): d.mkdir(...)`. Both are wrong here,
@@ -368,8 +368,8 @@ def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there
     so its `assert not home.exists()` was a property of the stub and passed against the bug.
     `config.DEFAULT_HOME` is the honest seam: it is what `config_file()` and a bare
     `Settings()` both read, and nothing on this path is faked."""
-    from lakota_grades import cli, config
-    from lakota_grades.web import db as web_db
+    from fridgesheet import cli, config
+    from fridgesheet.web import db as web_db
 
     home = tmp_path / "fresh-home"           # deliberately not created by anything above
     removed = []
@@ -387,7 +387,7 @@ def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there
     assert e.value.code == 0
     assert removed == ["open-work"]          # no config.toml, no database: only the code report
     assert not home.exists()                 # neither the folder...
-    assert not web_db.db_path(home).exists() # ...nor lakota.db was created to check for more
+    assert not web_db.db_path(home).exists() # ...nor fridgesheet.db was created to check for more
 
 
 def test_schedule_remove_all_still_removes_what_it_can_when_config_toml_will_not_parse(monkeypatch, capsys, tmp_path):
@@ -400,7 +400,7 @@ def test_schedule_remove_all_still_removes_what_it_can_when_config_toml_will_not
     so. `_schedule_removal_keys` already degrades gracefully for an unreadable *database*; the
     config file -- which its own docstring calls the source that works "database or no
     database" -- cannot be the fatal one."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     home = tmp_path / "home"
     home.mkdir()
@@ -435,13 +435,13 @@ def test_schedule_remove_all_survives_a_reports_value_of_the_wrong_shape(monkeyp
     before a single schedule is removed, orphaning every task including the code reports.
 
     Both are now fixed at the root, in `settings_from_doc`, so every caller gets it (a plain
-    `lakota-grades status` died on these too). A value of the wrong shape is ignored the way
+    `fridgesheet status` died on these too). A value of the wrong shape is ignored the way
     `[web].port` and `[kids].nicknames` already ignore one, which means this run is not
     degraded at all: the removal list is complete -- a file with no readable `[reports.<key>]`
     table has no schedule to miss -- so it exits 0, where the first draft of this test wanted
     the 1 an unreadable *file* gives. That is deliberate; an exit 1 here claimed an
     incompleteness that never existed."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     home = tmp_path / "home"
     home.mkdir()
@@ -465,7 +465,7 @@ def test_removal_settings_degrades_for_any_shape_settings_from_doc_can_raise(mon
     where an escaping exception costs the parent every scheduled task with nothing on screen.
     Whatever the reader raises, the keys are still taken off the raw document and the caller is
     told the settings are degraded."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     home = tmp_path / "home"
     home.mkdir()
@@ -488,7 +488,7 @@ def test_schedule_remove_all_survives_a_config_toml_it_cannot_even_open(monkeypa
     and an uninstall that dies on those is the same silent failure as one that dies on a
     missing bracket. Injected rather than chmod'd, so it behaves the same on Windows and when
     the suite is run as root."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
 
@@ -506,7 +506,7 @@ def test_schedule_remove_all_survives_one_unusable_report_time(monkeypatch, caps
     edited, or written by a build that allowed something this one does not). It used to kill
     the whole uninstall; now the other tables are still removed, taken off the raw document
     that parsed perfectly well, and the exit code says the run was incomplete."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     home = tmp_path / "home"
     home.mkdir()
@@ -528,12 +528,12 @@ def test_schedule_remove_all_survives_one_unusable_report_time(monkeypatch, caps
 def test_schedule_remove_all_leaves_alone_a_config_key_that_is_not_a_report(monkeypatch, capsys, tmp_path):
     """`--all` drops the single-key path's `reports.resolve` gate by design, and feeds raw
     `[reports.<key>]` table names off disk to `scheduling.remove`. `[reports.Web]` hand-edited
-    into config.toml renders to "Lakota Sheet - Web", and Task Scheduler's namespace is
+    into config.toml renders to "Fridge Sheet - Web", and Task Scheduler's namespace is
     case-insensitive: that is the web server's own logon task, and deleting it takes the server
     away until someone reinstalls. `--all` cannot call `resolve` (it would open, and so create,
     a database), so it gates on the key's spelling instead -- exactly the spellings `resolve`
     accepts, and no others."""
-    from lakota_grades import cli, config
+    from fridgesheet import cli, config
 
     home = tmp_path / "home"
     home.mkdir()
@@ -555,18 +555,18 @@ def test_schedule_remove_all_leaves_alone_a_config_key_that_is_not_a_report(monk
 
 
 def test_schedule_remove_all_still_removes_everything_it_knows_about_when_the_database_cannot_be_read(monkeypatch, tmp_path):
-    """#36 fix-round-1, Important 1: a parent installs a build that migrates `lakota.db` to a
+    """#36 fix-round-1, Important 1: a parent installs a build that migrates `fridgesheet.db` to a
     newer schema, then rolls back to this build and uninstalls. `db.migrate` raises for a
     schema newer than this build understands; `reports.available` would swallow that (right for
     a page render, wrong for an uninstaller) and silently report zero saved reports, leaving
-    "Lakota Sheet - view 7" firing forever with exit code 0.
+    "Fridge Sheet - view 7" firing forever with exit code 0.
 
     `config.toml`'s `[reports."view:7"]` table -- the Schedules page's own record, independent
     of the database -- is what actually saves this: `scheduling.remove("view:7")` still gets
     called even though the database that would explain what report 7 *is* cannot be read. The
     exit code says the run was incomplete anyway, so the failure is not silent."""
-    from lakota_grades import cli, config
-    from lakota_grades.web import db as web_db
+    from fridgesheet import cli, config
+    from fridgesheet.web import db as web_db
 
     home = tmp_path
     (home / "config.toml").write_text('[reports."view:7"]\nenabled = true\ntime = "16:00"\ndays = ["Fri"]\n',
@@ -594,16 +594,16 @@ def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     import sys
     monkeypatch.delattr(sys, "frozen", raising=False)
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe == sys.executable and args == "-m lakota_grades.cli run open-work" and wd == str(Path.cwd())
+    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work" and wd == str(Path.cwd())
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "LakotaSheet.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "FridgeSheet.exe"))
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe.endswith("LakotaSheet.exe") and args == "run open-work" and wd == str(tmp_path)
+    assert exe.endswith("FridgeSheet.exe") and args == "run open-work" and wd == str(tmp_path)
 
 
 def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
-    from lakota_grades import cli
-    from lakota_grades.config import Settings
+    from fridgesheet import cli
+    from fridgesheet.config import Settings
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
     monkeypatch.setattr(scheduling, "describe", lambda key, run=None: scheduling.ScheduleInfo("systemd", True, "Tue 14:00", None))
     with pytest.raises(SystemExit) as e:

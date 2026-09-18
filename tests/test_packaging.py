@@ -12,10 +12,10 @@ WIN = ROOT / "packaging" / "windows"
 
 #: The argument list both stop paths pass to taskkill, as one contiguous string. Checking the
 #: flags separately does not work here: every `/T` check is satisfied by the `/TN` of the
-#: `schtasks /End /TN "Lakota Sheet - web"` call sitting one line away, so `"/T" in body` says
+#: `schtasks /End /TN "Fridge Sheet - web"` call sitting one line away, so `"/T" in body` says
 #: nothing about taskkill at all. `/T` (kill the process tree) is the whole point -- {app} also
 #: holds the Chromium under ms-playwright\ and SumatraPDF.exe open.
-TASKKILL_ARGS = "/IM LakotaSheet.exe /T /F"
+TASKKILL_ARGS = "/IM FridgeSheet.exe /T /F"
 
 
 def test_sumatra_pin_is_complete_and_hashes_look_like_sha256():
@@ -40,10 +40,10 @@ def test_fixture_snapshot_loads_and_has_one_student_with_nothing_open():
 
 
 def test_pyinstaller_spec_names_the_entry_point_and_the_package_data():
-    spec = (WIN / "LakotaSheet.spec").read_text(encoding="utf-8")
-    assert 'name="LakotaSheet"' in spec and "console=False" in spec
-    assert "lakota_grades/web/__main__.py" in spec.replace("\\", "/")
-    assert "task.xml" in spec and "tzdata" in spec and 'copy_metadata("lakota-grades-mcp")' in spec and 'copy_metadata("keyring")' in spec
+    spec = (WIN / "FridgeSheet.spec").read_text(encoding="utf-8")
+    assert 'name="FridgeSheet"' in spec and "console=False" in spec
+    assert "fridgesheet/web/__main__.py" in spec.replace("\\", "/")
+    assert "task.xml" in spec and "tzdata" in spec and 'copy_metadata("fridgesheet")' in spec and 'copy_metadata("keyring")' in spec
     assert "keyring.backends.Windows" in spec
     assert 'collect_submodules("tzdata")' in spec
     # the browser app: the logon task's XML, the templates and the assets must ride along,
@@ -55,8 +55,8 @@ def test_pyinstaller_spec_names_the_entry_point_and_the_package_data():
 
 def test_build_script_does_every_spec_step_in_order():
     ps = (WIN / "build.ps1").read_text(encoding="utf-8")
-    order = ["pyproject.toml", "[windows]", "playwright install chromium", "sumatra.json", "Get-FileHash", "LakotaSheet.spec",
-             "dist\\LakotaSheet\\ms-playwright", "SumatraPDF.exe", "SumatraPDF-LICENSE.txt", "smoke.ps1", "ISCC.exe", "installer.iss"]
+    order = ["pyproject.toml", "[windows]", "playwright install chromium", "sumatra.json", "Get-FileHash", "FridgeSheet.spec",
+             "dist\\FridgeSheet\\ms-playwright", "SumatraPDF.exe", "SumatraPDF-LICENSE.txt", "smoke.ps1", "ISCC.exe", "installer.iss"]
     positions = [ps.index(k) for k in order]
     assert positions == sorted(positions), "build.ps1 steps are out of the spec's order"
     assert "$ErrorActionPreference" in ps and '"Stop"' in ps
@@ -65,7 +65,7 @@ def test_build_script_does_every_spec_step_in_order():
 
 def test_smoke_script_runs_doctor_dry_run_the_server_and_a_no_args_launch():
     ps = (WIN / "smoke.ps1").read_text(encoding="utf-8")
-    assert "LAKOTA_GRADES_HOME" in ps and "fixture-snapshot.json" in ps
+    assert "FRIDGESHEET_HOME" in ps and "fixture-snapshot.json" in ps
     assert '"doctor"' in ps and "doctor.txt" in ps
     assert '"run"' in ps and '"--dry-run"' in ps and '"--no-refresh"' in ps and "sheet.pdf" in ps
     assert "app.log" in ps and "finally" in ps
@@ -77,7 +77,7 @@ def test_smoke_script_runs_doctor_dry_run_the_server_and_a_no_args_launch():
     assert '"schedule","install"' in ps and '"schedule","remove","--all"' in ps
     # the browser app: serve real pages, then prove the no-args launch and the logon task
     assert '"web","--no-browser"' in ps and "/health" in ps and "/diagnostics" in ps
-    assert "LAKOTA_WEB_NO_BROWSER" in ps
+    assert "FRIDGESHEET_WEB_NO_BROWSER" in ps
     assert '"service","install"' in ps and '"service","remove"' in ps
 
 
@@ -91,14 +91,14 @@ def test_spike_files_are_gone():
 def test_installer_script_matches_the_spec():
     iss = (WIN / "installer.iss").read_text(encoding="utf-8")
     assert "PrivilegesRequired=lowest" in iss
-    assert "DefaultDirName={localappdata}\\Programs\\Lakota Sheet" in iss
-    assert 'AppUserModelID: "Cairnea.LakotaSheet"' in iss
+    assert "DefaultDirName={localappdata}\\Programs\\Fridge Sheet" in iss
+    assert 'AppUserModelID: "Cairnea.FridgeSheet"' in iss
     assert 'Parameters: "schedule remove --all"' in iss and "[UninstallRun]" in iss
     assert 'Parameters: "service install"' in iss and 'Parameters: "service remove"' in iss
     assert "postinstall" in iss and "desktopicon" in iss
-    assert "lakota-grades" in iss and "usPostUninstall" in iss          # the "your data was kept" message
-    assert "lakota.db" in iss                                          # ... and it names the database
-    assert "OutputBaseFilename=LakotaSheet-Setup-{#AppVersion}" in iss
+    assert "fridgesheet" in iss and "usPostUninstall" in iss          # the "your data was kept" message
+    assert "fridgesheet.db" in iss                                          # ... and it names the database
+    assert "OutputBaseFilename=FridgeSheet-Setup-{#AppVersion}" in iss
 
 
 def test_the_uninstall_farewell_message_can_be_suppressed():
@@ -122,24 +122,24 @@ def test_the_uninstall_farewell_message_can_be_suppressed():
 
 
 def test_installer_stops_the_running_app_before_overwriting_it():
-    from lakota_grades.host.service_windows import NAME
+    from fridgesheet.host.service_windows import NAME
     iss = (WIN / "installer.iss").read_text(encoding="utf-8")
-    # An upgrade lands on a running app: the logon task holds LakotaSheet.exe and its
+    # An upgrade lands on a running app: the logon task holds FridgeSheet.exe and its
     # _internal DLLs open, so Inno hits locked files unless setup stops it first. #33.
     assert "PrepareToInstall" in iss
-    # Scoped to PrepareToInstall's own body, not the whole file: LakotaSheet.exe, NAME and
+    # Scoped to PrepareToInstall's own body, not the whole file: FridgeSheet.exe, NAME and
     # "taskkill"/"schtasks" as bare substrings all appear elsewhere too (e.g. [UninstallRun]),
     # so checking the unscoped file would still pass if the stop moved there instead of
     # running before [Files] copies anything.
     body = iss.split("function PrepareToInstall", 1)[1].split("\nend;", 1)[0]
     assert "schtasks" in body and "/End" in body and NAME in body
-    # /T: kill LakotaSheet.exe's descendants too. {app} ships Chromium under ms-playwright\
+    # /T: kill FridgeSheet.exe's descendants too. {app} ships Chromium under ms-playwright\
     # (driven by a Refresh in progress) and SumatraPDF.exe (driven by a print in progress);
     # killing only the parent by image name leaves those winding down on their own, which is
     # exactly the locked-file window this function exists to close.
     #
     # One contiguous string, not `"taskkill" in body and ... and "/T" in body`. That spelling
-    # was vacuous: the `schtasks` call one line above passes `/TN "Lakota Sheet - web"`, whose
+    # was vacuous: the `schtasks` call one line above passes `/TN "Fridge Sheet - web"`, whose
     # `/TN` contains "/T", so the taskkill flag was never pinned at all -- dropping it left
     # this file green. Pin the argument list the installer actually passes.
     assert "taskkill" in body and TASKKILL_ARGS in body
@@ -160,7 +160,7 @@ def test_uninstaller_stops_the_running_app_before_deleting_its_folder():
     """The install side of this was fixed (`PrepareToInstall`); the uninstall side had the same
     hole. `[UninstallRun]`'s `service remove` ends the logon task, but a copy the parent started
     from the desktop shortcut is not that task's child and outlives it, holding `{app}` --
-    LakotaSheet.exe, its `_internal` DLLs, the Chromium under `ms-playwright\\` and
+    FridgeSheet.exe, its `_internal` DLLs, the Chromium under `ms-playwright\\` and
     SumatraPDF.exe -- open while Inno tries to delete the folder.
 
     `usUninstall` is the hook that runs before `[UninstallRun]` and before any file is removed,
@@ -180,18 +180,18 @@ def test_uninstaller_stops_the_running_app_before_deleting_its_folder():
 
 def test_release_checklist_describes_the_kill_the_installer_actually_runs():
     """The checklist is what a human debugging a failed upgrade reads. It quoted
-    `taskkill /IM LakotaSheet.exe /F` without the `/T` that the script, its comment and
+    `taskkill /IM FridgeSheet.exe /F` without the `/T` that the script, its comment and
     `test_installer_stops_the_running_app_before_overwriting_it` all treat as the essential
     part -- so a reader would not know to look for orphaned Chromium/SumatraPDF children."""
     page = (ROOT / "docs" / "release-checklist.md").read_text(encoding="utf-8")
-    assert "/IM LakotaSheet.exe /F" not in page.replace("/IM LakotaSheet.exe /T /F", "")
-    assert "/IM LakotaSheet.exe /T /F" in page
+    assert "/IM FridgeSheet.exe /F" not in page.replace("/IM FridgeSheet.exe /T /F", "")
+    assert "/IM FridgeSheet.exe /T /F" in page
     # ... and the uninstall side, which is new, unverified, and only a human can prove.
     assert "uninstall" in page.lower() and "usUninstall" in page
 
 
 def test_app_user_model_id_matches_the_toast_code():
-    from lakota_grades.host.notify_windows import APP_ID
+    from fridgesheet.host.notify_windows import APP_ID
     iss = (WIN / "installer.iss").read_text(encoding="utf-8")
     assert f'AppUserModelID: "{APP_ID}"' in iss
 
@@ -211,7 +211,7 @@ def test_release_workflow_triggers_and_gates():
 
 def test_windows_page_exists_and_names_the_limitations():
     page = (ROOT / "docs" / "windows.md").read_text(encoding="utf-8")
-    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\lakota-grades",
+    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\fridgesheet",
                    "Test login", "Print now", "no-print-days.txt", "late-rules.toml", "doctor.txt", "Task Scheduler", "Uninstall",
                    "Schedules", "PDF only", "installed itself"):
         assert phrase in page, phrase
@@ -232,9 +232,9 @@ def test_windows_page_exists_and_names_the_limitations():
     # The installer's [UninstallRun] used to run a bare `schedule remove`, which only ever
     # named the default report's task (cli.py's `report` positional defaults to "open-work");
     # a parent who scheduled another report on the Schedules page kept that task after
-    # uninstalling. It now runs `schedule remove --all` (lakota_grades/cli.py's
+    # uninstalling. It now runs `schedule remove --all` (fridgesheet/cli.py's
     # `_cmd_schedule_remove_all`), which enumerates the built-in reports, config.toml's
-    # `[reports.<key>]` tables and -- only if `lakota.db` is already there -- the saved views
+    # `[reports.<key>]` tables and -- only if `fridgesheet.db` is already there -- the saved views
     # in it. Deliberately *not* `reports.available(home)`: that call's `db.open_db` would
     # recreate a database the parent deleted before uninstalling (commit bdac9e4). Whoever
     # narrows that enumeration again, or drops back to a bare `schedule remove`, must come
@@ -246,15 +246,15 @@ def test_windows_page_exists_and_names_the_limitations():
     # The Host check (web/app.py's `same_origin_only`) refuses a parent who reaches the app by
     # this PC's computer name or through a port-forward -- something that worked before it
     # existed. The refusal page names the address that does work; this page has to say the same
-    # thing, and has to document the one knob that changes it. `LAKOTA_WEB_HOST` was in no
+    # thing, and has to document the one knob that changes it. `FRIDGESHEET_WEB_HOST` was in no
     # user-facing document at all.
-    assert "Lakota Sheet only answers at http://127.0.0.1:8433/" in page
-    assert "LAKOTA_WEB_HOST" in page and ".env" in page
+    assert "Fridge Sheet only answers at http://127.0.0.1:8433/" in page
+    assert "FRIDGESHEET_WEB_HOST" in page and ".env" in page
     # ...and honestly. Pinning it to a name or a LAN IP takes uvicorn off loopback, which
     # breaks `server.run`'s already-running check, `web/__main__.py`'s launcher probe and
     # `doctor.py`'s web-server probe -- all three hardcode 127.0.0.1. A page that sells it as
     # the fix for the computer-name case sends a parent into exactly that.
-    hatch = page.split("`LAKOTA_WEB_HOST`", 1)[1].split("\n- **\"Login failed\"", 1)[0]
+    hatch = page.split("`FRIDGESHEET_WEB_HOST`", 1)[1].split("\n- **\"Login failed\"", 1)[0]
     assert "Diagnostics" in hatch and "already running" in hatch
     assert "not a way to make" in hatch
 
@@ -267,5 +267,38 @@ def test_an_upgrade_removes_the_previous_versions_dist_info():
     assert "[InstallDelete]" in iss
     # The section header at line start: the [InstallDelete] comment itself mentions "[Files]".
     block = iss.split("\n[InstallDelete]\n", 1)[1].split("\n[Files]\n", 1)[0]
-    assert 'Type: filesandordirs; Name: "{app}\\_internal\\lakota_grades_mcp-*.dist-info"' in block
+    assert 'Type: filesandordirs; Name: "{app}\\_internal\\fridgesheet-*.dist-info"' in block
     assert iss.index("\n[InstallDelete]\n") < iss.index("\n[Files]\n")
+
+
+def test_installer_removes_the_lakota_sheet_install_it_replaces():
+    """0.4.0 renamed the app and its AppId. Inno only upgrades in place over the *same* AppId,
+    so without this a parent ends up with both apps installed, two logon tasks and one port.
+    Setup must find the old app by its old AppId and run its uninstaller silently first."""
+    iss = (WIN / "installer.iss").read_text(encoding="utf-8")
+    assert "AppId={{E2163872-16AD-4E68-B034-78F8DA763A69}" in iss
+    assert "OldAppId = '{B7E1C0E2-5C1D-4E8B-9C2A-7D3F0A1B2C3D}'" in iss
+    body = iss.split("procedure RemoveOldLakotaSheet", 1)[1].split("\nend;", 1)[0]
+    assert "RegQueryStringValue(HKCU" in body and "_is1" in body and "UninstallString" in body
+    assert "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" in body
+    assert '/End /TN "Lakota Sheet - web"' in body and "/IM LakotaSheet.exe /T /F" in body
+    # ... and it runs from PrepareToInstall, before [Files] copies anything.
+    prepare = iss.split("function PrepareToInstall", 1)[1].split("\nend;", 1)[0]
+    assert "RemoveOldLakotaSheet();" in prepare
+    # The old distribution's dist-info goes too, or importlib.metadata may report 0.3.x.
+    block = iss.split("\n[InstallDelete]\n", 1)[1].split("\n[Files]\n", 1)[0]
+    assert "lakota_grades_mcp-*.dist-info" in block
+
+
+def test_the_mark_is_rendered_into_the_icon_the_exe_and_installer_use():
+    from PIL import Image
+    ico = WIN / "FridgeSheet.ico"
+    assert ico.is_file()
+    sizes = sorted(Image.open(ico).info.get("sizes", []))
+    assert (16, 16) in sizes and (256, 256) in sizes
+    iss = (WIN / "installer.iss").read_text(encoding="utf-8")
+    spec = (WIN / "FridgeSheet.spec").read_text(encoding="utf-8")
+    assert "SetupIconFile=FridgeSheet.ico" in iss and 'icon=os.path.join(SPECPATH, "FridgeSheet.ico")' in spec
+    static = ROOT / "fridgesheet" / "web" / "static"
+    assert (static / "mark.svg").read_text(encoding="utf-8") == (static / "favicon.svg").read_text(encoding="utf-8")
+    assert (static / "mark-32.png").is_file() and (static / "mark-180.png").is_file()

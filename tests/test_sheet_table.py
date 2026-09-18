@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import re
 
-from lakota_grades import sheet
-from lakota_grades.web.views import Column, Group, Rendered
+from fridgesheet import sheet
+from fridgesheet.web.views import Column, Group, Rendered
 from tests.conftest import needs_pdftotext
 from tests.web_fixtures import NOW
 

@@ -5,10 +5,10 @@ import tomllib
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config, host
-from lakota_grades.web import app as webapp, db, views
-from lakota_grades.web.routes import schedules as routes_schedules
-from lakota_grades.web.stores import reports as store
+from fridgesheet import config, host
+from fridgesheet.web import app as webapp, db, views
+from fridgesheet.web.routes import schedules as routes_schedules
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import LOCAL_HOST_HEADERS, FakeScheduling, seed
 
 
@@ -28,8 +28,8 @@ def _client(tmp_path, sched=None):
     (tmp_path / "login-ok.txt").write_text("ok")
     s = config.Settings(home=tmp_path)
     application = webapp.create_app(s, worker=False)
-    application.state.lakota.extra["scheduling"] = sched or FakeScheduling()
-    application.state.lakota.extra["printers"] = ["Brother", "Canon"]
+    application.state.fridgesheet.extra["scheduling"] = sched or FakeScheduling()
+    application.state.fridgesheet.extra["printers"] = ["Brother", "Canon"]
     return TestClient(application, headers=LOCAL_HOST_HEADERS), application
 
 
@@ -73,7 +73,7 @@ def test_a_bad_time_comes_back_as_an_error_not_a_crash(tmp_path):
 
 
 def test_a_hand_written_timer_is_shown_but_not_offered_for_removal(tmp_path):
-    """The app reports Tony's own lakota-print-sheet.timer and gives no button that would
+    """The app reports Tony's own fridgesheet-print-sheet.timer and gives no button that would
     delete a unit it did not write."""
     sched = FakeScheduling({"open-work": host.ScheduleInfo("systemd (hand-written)", True, "Wed 14:00", None, False)})
     c, _ = _client(tmp_path, sched)

@@ -6,14 +6,23 @@ from datetime import timedelta
 
 import pytest
 
-from lakota_grades.web import updates
+from fridgesheet.web import updates
 from web_fixtures import NOW, app_for, seed
+
+
+@pytest.fixture(autouse=True)
+def _installed_version(monkeypatch):
+    """What these tests exercise is the comparison, the cache and the page -- not whether the
+    venv running them has this distribution installed under its current name (a venv that
+    still carries the pre-rename metadata answers "dev", which is never newer than
+    anything)."""
+    monkeypatch.setattr(updates, "current_version", lambda: "0.3.1")
 
 
 def release(tag="v0.9.0", asset=True):
     body = {"tag_name": tag, "html_url": f"https://github.com/x/releases/tag/{tag}",
-            "assets": [{"name": f"LakotaSheet-Setup-{tag[1:]}.exe",
-                        "browser_download_url": f"https://github.com/x/releases/download/{tag}/LakotaSheet-Setup-{tag[1:]}.exe"}] if asset else []}
+            "assets": [{"name": f"FridgeSheet-Setup-{tag[1:]}.exe",
+                        "browser_download_url": f"https://github.com/x/releases/download/{tag}/FridgeSheet-Setup-{tag[1:]}.exe"}] if asset else []}
     return lambda url: json.dumps(body).encode()
 
 
@@ -25,7 +34,7 @@ def test_versions_compare_as_numbers_and_dev_is_never_newer():
 
 
 def test_latest_release_prefers_the_installer_asset_and_falls_back_to_the_page():
-    assert updates.latest_release(release()) == ("0.9.0", "https://github.com/x/releases/download/v0.9.0/LakotaSheet-Setup-0.9.0.exe")
+    assert updates.latest_release(release()) == ("0.9.0", "https://github.com/x/releases/download/v0.9.0/FridgeSheet-Setup-0.9.0.exe")
     assert updates.latest_release(release(asset=False)) == ("0.9.0", "https://github.com/x/releases/tag/v0.9.0")
     with pytest.raises(ValueError):
         updates.latest_release(lambda url: b'{"tag_name": "nightly"}')
@@ -34,7 +43,7 @@ def test_latest_release_prefers_the_installer_asset_and_falls_back_to_the_page()
 def _state(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    return c, c.app.state.lakota
+    return c, c.app.state.fridgesheet
 
 
 def test_check_caches_for_a_day_and_a_failure_for_an_hour(tmp_path):
@@ -75,10 +84,10 @@ def test_settings_says_what_it_found_and_the_header_carries_the_badge(tmp_path):
     c, state = _state(tmp_path)
     state.extra["update_fetch"] = release("v0.9.0")
     page = c.get("/settings", headers={"host": "127.0.0.1"}).text
-    assert "Lakota Sheet 0.9.0 is available" in page and 'href="https://github.com/x/releases/download/v0.9.0/LakotaSheet-Setup-0.9.0.exe"' in page
+    assert "Fridge Sheet 0.9.0 is available" in page and 'href="https://github.com/x/releases/download/v0.9.0/FridgeSheet-Setup-0.9.0.exe"' in page
     assert 'name="check_updates" checked' in page
     dash = c.get("/", headers={"host": "127.0.0.1"}).text       # other pages read the cache, no call
-    assert "Lakota Sheet 0.9.0 is available" in dash and 'href="/settings"' in dash
+    assert "Fridge Sheet 0.9.0 is available" in dash and 'href="/settings"' in dash
 
     state.extra.pop(updates.CACHE_KEY)
     state.extra["update_fetch"] = release("v0.0.1")           # older than anything running
@@ -87,7 +96,7 @@ def test_settings_says_what_it_found_and_the_header_carries_the_badge(tmp_path):
 
 
 def test_saving_settings_round_trips_the_checkbox(tmp_path):
-    from lakota_grades import config
+    from fridgesheet import config
     c, state = _state(tmp_path)
 
     class Cred:                                   # a new username needs a password; keep it out of any file

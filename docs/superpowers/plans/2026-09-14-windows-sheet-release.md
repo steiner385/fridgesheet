@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Turn the code from Plans 1 and 2 into `LakotaSheet-Setup-<version>.exe`, built by GitHub Actions from a version tag, that another Lakota parent installs per-user on Windows, plus the page that tells him how.
+**Goal:** Turn the code from Plans 1 and 2 into `FridgeSheet-Setup-<version>.exe`, built by GitHub Actions from a version tag, that another Lakota parent installs per-user on Windows, plus the page that tells him how.
 
-**Architecture:** A PyInstaller one-folder bundle of `lakota_grades/app/__main__.py` (windowed) with Chromium and SumatraPDF copied in beside it, wrapped by an Inno Setup per-user installer whose uninstaller removes the scheduled task. A `build.ps1` does every step and runs a smoke test on the built exe (a `doctor` self-check, a dry-run sheet from a fixture snapshot, and a no-arguments launch), so the release job fails before it publishes a broken bundle. A new `lakota-grades doctor` command doubles as the friend's first troubleshooting step.
+**Architecture:** A PyInstaller one-folder bundle of `fridgesheet/app/__main__.py` (windowed) with Chromium and SumatraPDF copied in beside it, wrapped by an Inno Setup per-user installer whose uninstaller removes the scheduled task. A `build.ps1` does every step and runs a smoke test on the built exe (a `doctor` self-check, a dry-run sheet from a fixture snapshot, and a no-arguments launch), so the release job fails before it publishes a broken bundle. A new `fridgesheet doctor` command doubles as the friend's first troubleshooting step.
 
 **Tech Stack:** PyInstaller 6 (one-folder, `console=False`), Playwright Chromium, SumatraPDF 3.5.2 portable (GPL-3.0, pinned by SHA-256), Inno Setup 6 (preinstalled on `windows-latest`), GitHub Actions (`softprops/action-gh-release@v2`), PowerShell 7.
 
@@ -12,30 +12,30 @@
 
 ## Global Constraints
 
-- The Windows executable is `LakotaSheet.exe`, windowed (`console=False`), built from `lakota_grades/app/__main__.py`; no arguments opens the window, anything else is the CLI (Plan 2 built this; Plan 3 only packages it).
+- The Windows executable is `FridgeSheet.exe`, windowed (`console=False`), built from `fridgesheet/app/__main__.py`; no arguments opens the window, anything else is the CLI (Plan 2 built this; Plan 3 only packages it).
 - Chromium lives in `<install dir>\ms-playwright\`; `frozen_environment()` already points `PLAYWRIGHT_BROWSERS_PATH` there. SumatraPDF lives at `<install dir>\SumatraPDF.exe` next to `SumatraPDF-LICENSE.txt`; `host.printing_windows.sumatra_path()` already looks there.
-- The installer is per-user: `PrivilegesRequired=lowest`, `DefaultDirName={localappdata}\Programs\Lakota Sheet`, Start menu shortcut with `AppUserModelID` `Cairnea.LakotaSheet` (must equal `host.notify_windows.APP_ID`), optional desktop shortcut, "Launch Lakota Sheet" on finish, `[UninstallRun]` `LakotaSheet.exe schedule remove`, data under `%LOCALAPPDATA%\lakota-grades` kept on uninstall and the uninstaller says so.
+- The installer is per-user: `PrivilegesRequired=lowest`, `DefaultDirName={localappdata}\Programs\Fridge Sheet`, Start menu shortcut with `AppUserModelID` `Cairnea.FridgeSheet` (must equal `host.notify_windows.APP_ID`), optional desktop shortcut, "Launch Fridge Sheet" on finish, `[UninstallRun]` `FridgeSheet.exe schedule remove`, data under `%LOCALAPPDATA%\fridgesheet` kept on uninstall and the uninstaller says so.
 - Version has one source, `pyproject.toml`; `build.ps1` reads it and passes it to Inno Setup; on a tag build the tag must equal `v<version>` or the job fails.
 - SumatraPDF is pinned: version 3.5.2, `https://www.sumatrapdfreader.org/dl/rel/3.5.2/SumatraPDF-3.5.2-64.zip`, SHA-256 `66ccb395c9184dce6822dfbb9970c877383b3ead6d9417b5106a844aac512989`, containing `SumatraPDF-3.5.2-64.exe`; licence `https://raw.githubusercontent.com/sumatrapdfreader/sumatrapdf/master/COPYING`, SHA-256 `3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986`. A checksum mismatch fails the build.
-- No credential is ever written by any smoke step; the smoke test uses `LAKOTA_GRADES_HOME` pointed at a temp folder and `--no-refresh`.
+- No credential is ever written by any smoke step; the smoke test uses `FRIDGESHEET_HOME` pointed at a temp folder and `--no-refresh`.
 - Nothing in this plan tags a release. Task 4 runs the release workflow by `workflow_dispatch` (artifact only). Creating the `v0.2.0` tag is the user's action, documented in the README.
-- Suite command on this box: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q` (167 passed, 1 skipped at the start of this plan). Windows-only artefacts (`.spec`, `.ps1`, `.iss`) are verified by the workflow run in Task 4, not locally.
+- Suite command on this box: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q` (167 passed, 1 skipped at the start of this plan). Windows-only artefacts (`.spec`, `.ps1`, `.iss`) are verified by the workflow run in Task 4, not locally.
 - Commit after every task with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Pushing this branch is approved; tagging is not.
 
 ## File map
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/doctor.py` (new) | `checks(settings, home)` and `run(settings, home)`: the self-check behind `lakota-grades doctor`, the window's Help menu, and the build smoke test |
-| `lakota_grades/cli.py` (modify) | `doctor` command |
-| `lakota_grades/app/actions.py` (modify) | `run_doctor(home, log, settings=None, run=None)` |
-| `lakota_grades/app/__main__.py` (modify) | refuse `login`/`set-credentials` when there is no stdin; GUI import inside the crash guard |
-| `lakota_grades/app/gui.py` (modify) | close-window prompt while a job runs; Help → Run diagnostics |
+| `fridgesheet/doctor.py` (new) | `checks(settings, home)` and `run(settings, home)`: the self-check behind `fridgesheet doctor`, the window's Help menu, and the build smoke test |
+| `fridgesheet/cli.py` (modify) | `doctor` command |
+| `fridgesheet/app/actions.py` (modify) | `run_doctor(home, log, settings=None, run=None)` |
+| `fridgesheet/app/__main__.py` (modify) | refuse `login`/`set-credentials` when there is no stdin; GUI import inside the crash guard |
+| `fridgesheet/app/gui.py` (modify) | close-window prompt while a job runs; Help → Run diagnostics |
 | `packaging/windows/sumatra.json` (new) | the pin above |
 | `packaging/windows/fixture-snapshot.json` (new) | one-student, no-assignments snapshot for the smoke dry run |
-| `packaging/windows/LakotaSheet.spec` (new) | PyInstaller spec |
+| `packaging/windows/FridgeSheet.spec` (new) | PyInstaller spec |
 | `packaging/windows/build.ps1` (new) | the whole build; calls `smoke.ps1` |
-| `packaging/windows/smoke.ps1` (new) | doctor + dry run + no-args launch against `dist\LakotaSheet\LakotaSheet.exe` |
+| `packaging/windows/smoke.ps1` (new) | doctor + dry run + no-args launch against `dist\FridgeSheet\FridgeSheet.exe` |
 | `packaging/windows/installer.iss` (new) | Inno Setup script |
 | `.github/workflows/release.yml` (new) | tag `v*` or manual dispatch → build → artifact → release on tags |
 | `.github/workflows/spike-pyinstaller.yml`, `packaging/windows/spike_entry.py` (delete) | superseded |
@@ -48,8 +48,8 @@
 ### Task 1: `doctor`, and the frozen-exe hardening carried over from Plan 2
 
 **Files:**
-- Create: `lakota_grades/doctor.py`
-- Modify: `lakota_grades/cli.py` (add `doctor`), `lakota_grades/app/actions.py` (add `run_doctor`), `lakota_grades/app/__main__.py` (stdin guard; import inside try), `lakota_grades/app/gui.py` (close prompt; Help menu item)
+- Create: `fridgesheet/doctor.py`
+- Modify: `fridgesheet/cli.py` (add `doctor`), `fridgesheet/app/actions.py` (add `run_doctor`), `fridgesheet/app/__main__.py` (stdin guard; import inside try), `fridgesheet/app/gui.py` (close prompt; Help menu item)
 - Test: `tests/test_doctor.py`, `tests/test_app_main.py` (append), `tests/test_app_actions.py` (append)
 
 **Interfaces:**
@@ -61,7 +61,7 @@
   - `doctor.run(settings, home, *, probes=None) -> tuple[str, bool]` — writes the report to `<home>/doctor.txt` and returns `(report, all_ok)`.
   - `cli doctor` → prints the report, exit 0 when all OK else 1.
   - `actions.run_doctor(*, home, log, settings=None, run=None) -> bool` — streams each report line to `log`, returns `all_ok`.
-  - `app.__main__.TERMINAL_ONLY = ("login", "set-credentials")`; `main([...])` returns 2 and logs `"<cmd> needs a terminal; use the Lakota Sheet window instead"` when `sys.stdin is None` and `argv[0]` is in that tuple.
+  - `app.__main__.TERMINAL_ONLY = ("login", "set-credentials")`; `main([...])` returns 2 and logs `"<cmd> needs a terminal; use the Fridge Sheet window instead"` when `sys.stdin is None` and `argv[0]` is in that tuple.
 
 - [ ] **Step 1: Write the failing doctor tests**
 
@@ -75,8 +75,8 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import cli, doctor
-from lakota_grades.config import Settings
+from fridgesheet import cli, doctor
+from fridgesheet.config import Settings
 
 
 def _probes():
@@ -154,7 +154,7 @@ def test_terminal_only_commands_are_refused_without_stdin(monkeypatch, tmp_path,
 
 def test_gui_import_failure_is_logged_not_raised(monkeypatch, tmp_path):
     monkeypatch.setattr(appmain, "DEFAULT_HOME", tmp_path)
-    monkeypatch.setitem(sys.modules, "lakota_grades.app.gui", None)      # import raises ImportError
+    monkeypatch.setitem(sys.modules, "fridgesheet.app.gui", None)      # import raises ImportError
     assert appmain.main([]) == 1
     for h in logging.getLogger().handlers:
         h.flush()
@@ -163,14 +163,14 @@ def test_gui_import_failure_is_logged_not_raised(monkeypatch, tmp_path):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_doctor.py tests/test_app_actions.py tests/test_app_main.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_doctor.py tests/test_app_actions.py tests/test_app_main.py -q`
 Expected: `test_doctor.py` fails at import; the three appended tests fail with `AttributeError`/assertion errors.
 
 - [ ] **Step 3: Write `doctor.py`**
 
 ```python
-# lakota_grades/doctor.py
-"""`lakota-grades doctor`: nine quick probes that tell a user (or the build's smoke test)
+# fridgesheet/doctor.py
+"""`fridgesheet doctor`: nine quick probes that tell a user (or the build's smoke test)
 whether this installation can do its job. Every probe is isolated; a probe that raises
 becomes a FAIL line rather than a crash. Nothing here reads or prints a credential."""
 from __future__ import annotations
@@ -337,18 +337,18 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     frozen_environment()
     setup_logging(DEFAULT_HOME)
-    log = logging.getLogger("lakota.app")
+    log = logging.getLogger("fridgesheet.app")
     if not argv:
         try:
-            from lakota_grades.app.gui import run_app
+            from fridgesheet.app.gui import run_app
             return run_app()
         except Exception:
             log.exception("the window could not start")
             return 1
     if argv[0] in TERMINAL_ONLY and sys.stdin is None:
-        log.error("%s needs a terminal; use the Lakota Sheet window instead", argv[0])
+        log.error("%s needs a terminal; use the Fridge Sheet window instead", argv[0])
         return 2
-    from lakota_grades import cli
+    from fridgesheet import cli
     try:
         cli.main(argv)
     except SystemExit as e:
@@ -370,7 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         return ("doctor", actions.run_doctor(home=self.home, log=self._log))
 
     def _on_close(self) -> None:
-        if self._busy and not messagebox.askyesno("Lakota Sheet", "A job is still running. Close anyway?"):
+        if self._busy and not messagebox.askyesno("Fridge Sheet", "A job is still running. Close anyway?"):
             return
         self.root.destroy()
 ```
@@ -379,10 +379,10 @@ and in `_finish` add a branch: `elif kind == "doctor" and not value: messagebox.
 
 - [ ] **Step 5: Run the suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q` — expect 175 passed, 1 skipped (the `chromium` probe launches Playwright's driver once; it is fine if that probe reports FAIL locally, the test only requires a `Check`). Also `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m py_compile lakota_grades/app/gui.py`.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q` — expect 175 passed, 1 skipped (the `chromium` probe launches Playwright's driver once; it is fine if that probe reports FAIL locally, the test only requires a `Check`). Also `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m py_compile fridgesheet/app/gui.py`.
 
 ```bash
-git add lakota_grades/doctor.py lakota_grades/cli.py lakota_grades/app tests/test_doctor.py tests/test_app_actions.py tests/test_app_main.py
+git add fridgesheet/doctor.py fridgesheet/cli.py fridgesheet/app tests/test_doctor.py tests/test_app_actions.py tests/test_app_main.py
 git commit -m "doctor self-check; refuse terminal-only commands without stdin; close-window prompt; Help → Run diagnostics
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -393,13 +393,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 Nothing in this task can be executed on the Linux dev box. The tests check that the packaging files say what the spec says; Task 4 runs them for real on a Windows runner.
 
 **Files:**
-- Create: `packaging/windows/sumatra.json`, `packaging/windows/fixture-snapshot.json`, `packaging/windows/LakotaSheet.spec`, `packaging/windows/build.ps1`, `packaging/windows/smoke.ps1`
+- Create: `packaging/windows/sumatra.json`, `packaging/windows/fixture-snapshot.json`, `packaging/windows/FridgeSheet.spec`, `packaging/windows/build.ps1`, `packaging/windows/smoke.ps1`
 - Delete: `packaging/windows/spike_entry.py`, `.github/workflows/spike-pyinstaller.yml`
 - Test: `tests/test_packaging.py`
 
 **Interfaces:**
-- Consumes: `lakota_grades/app/__main__.py` (entry script), `lakota_grades/host/task.xml` (package data), `lakota-grades doctor` (Task 1), `run open-work --dry-run --no-refresh --force`, `LAKOTA_GRADES_HOME`.
-- Produces: `dist\LakotaSheet\` containing `LakotaSheet.exe`, `_internal\`, `ms-playwright\`, `SumatraPDF.exe`, `SumatraPDF-LICENSE.txt`; `build.ps1 [-SkipSmoke] [-SkipInstaller]` and `smoke.ps1` (both runnable by hand from any cwd); `$env:LAKOTA_APP_VERSION` is not used, the version is read from `pyproject.toml`.
+- Consumes: `fridgesheet/app/__main__.py` (entry script), `fridgesheet/host/task.xml` (package data), `fridgesheet doctor` (Task 1), `run open-work --dry-run --no-refresh --force`, `FRIDGESHEET_HOME`.
+- Produces: `dist\FridgeSheet\` containing `FridgeSheet.exe`, `_internal\`, `ms-playwright\`, `SumatraPDF.exe`, `SumatraPDF-LICENSE.txt`; `build.ps1 [-SkipSmoke] [-SkipInstaller]` and `smoke.ps1` (both runnable by hand from any cwd); `$env:FRIDGESHEET_APP_VERSION` is not used, the version is read from `pyproject.toml`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -436,17 +436,17 @@ def test_fixture_snapshot_loads_and_has_one_student_with_nothing_open():
 
 
 def test_pyinstaller_spec_names_the_entry_point_and_the_package_data():
-    spec = (WIN / "LakotaSheet.spec").read_text(encoding="utf-8")
-    assert 'name="LakotaSheet"' in spec and "console=False" in spec
-    assert "lakota_grades/app/__main__.py" in spec.replace("\\", "/")
-    assert "task.xml" in spec and "tzdata" in spec and 'copy_metadata("lakota-grades-mcp")' in spec and 'copy_metadata("keyring")' in spec
+    spec = (WIN / "FridgeSheet.spec").read_text(encoding="utf-8")
+    assert 'name="FridgeSheet"' in spec and "console=False" in spec
+    assert "fridgesheet/app/__main__.py" in spec.replace("\\", "/")
+    assert "task.xml" in spec and "tzdata" in spec and 'copy_metadata("fridgesheet")' in spec and 'copy_metadata("keyring")' in spec
     assert "keyring.backends.Windows" in spec
 
 
 def test_build_script_does_every_spec_step_in_order():
     ps = (WIN / "build.ps1").read_text(encoding="utf-8")
-    order = ["pyproject.toml", "[windows]", "playwright install chromium", "sumatra.json", "Get-FileHash", "LakotaSheet.spec",
-             "dist\\LakotaSheet\\ms-playwright", "SumatraPDF.exe", "SumatraPDF-LICENSE.txt", "smoke.ps1", "ISCC.exe", "installer.iss"]
+    order = ["pyproject.toml", "[windows]", "playwright install chromium", "sumatra.json", "Get-FileHash", "FridgeSheet.spec",
+             "dist\\FridgeSheet\\ms-playwright", "SumatraPDF.exe", "SumatraPDF-LICENSE.txt", "smoke.ps1", "ISCC.exe", "installer.iss"]
     positions = [ps.index(k) for k in order]
     assert positions == sorted(positions), "build.ps1 steps are out of the spec's order"
     assert "$ErrorActionPreference" in ps and '"Stop"' in ps
@@ -454,7 +454,7 @@ def test_build_script_does_every_spec_step_in_order():
 
 def test_smoke_script_runs_doctor_dry_run_and_a_no_args_launch():
     ps = (WIN / "smoke.ps1").read_text(encoding="utf-8")
-    assert "LAKOTA_GRADES_HOME" in ps and "fixture-snapshot.json" in ps
+    assert "FRIDGESHEET_HOME" in ps and "fixture-snapshot.json" in ps
     assert '"doctor"' in ps and "doctor.txt" in ps
     assert '"run"' in ps and '"--dry-run"' in ps and '"--no-refresh"' in ps and "sheet.pdf" in ps
     assert "HasExited" in ps and "app.log" in ps
@@ -468,7 +468,7 @@ def test_spike_files_are_gone():
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_packaging.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_packaging.py -q`
 Expected: five FAIL with `FileNotFoundError`, one FAIL (`test_spike_files_are_gone`) on the assertion.
 
 - [ ] **Step 3: Write the pin and the fixture**
@@ -501,11 +501,11 @@ Expected: five FAIL with `FileNotFoundError`, one FAIL (`test_spike_files_are_go
 - [ ] **Step 4: Write the PyInstaller spec**
 
 ```python
-# packaging/windows/LakotaSheet.spec
+# packaging/windows/FridgeSheet.spec
 # -*- mode: python ; coding: utf-8 -*-
-"""One-folder, windowed bundle of lakota_grades/app/__main__.py.
+"""One-folder, windowed bundle of fridgesheet/app/__main__.py.
 
-Run from the repo root: pyinstaller --noconfirm --clean packaging/windows/LakotaSheet.spec
+Run from the repo root: pyinstaller --noconfirm --clean packaging/windows/FridgeSheet.spec
 Chromium (ms-playwright/) and SumatraPDF.exe are copied in afterwards by build.ps1; the
 code finds them next to the exe (frozen_environment, sumatra_path).
 """
@@ -514,9 +514,9 @@ from PyInstaller.utils.hooks import collect_data_files, copy_metadata
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 
-datas = [(os.path.join(ROOT, "lakota_grades", "host", "task.xml"), os.path.join("lakota_grades", "host"))]
+datas = [(os.path.join(ROOT, "fridgesheet", "host", "task.xml"), os.path.join("fridgesheet", "host"))]
 datas += collect_data_files("tzdata")                 # Windows has no system zoneinfo
-datas += copy_metadata("lakota-grades-mcp")          # importlib.metadata.version() for the About box
+datas += copy_metadata("fridgesheet")          # importlib.metadata.version() for the About box
 datas += copy_metadata("keyring")                    # keyring discovers backends through entry points
 
 hiddenimports = [
@@ -526,7 +526,7 @@ hiddenimports = [
 ]
 
 a = Analysis(
-    [os.path.join(ROOT, "lakota_grades", "app", "__main__.py")],
+    [os.path.join(ROOT, "fridgesheet", "app", "__main__.py")],
     pathex=[ROOT],
     binaries=[],
     datas=datas,
@@ -540,33 +540,33 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
-    name="LakotaSheet",
+    name="FridgeSheet",
     debug=False,
     strip=False,
     upx=False,
     console=False,
 )
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="LakotaSheet")
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="FridgeSheet")
 ```
 
 - [ ] **Step 5: Write `build.ps1`**
 
 ```powershell
 # packaging/windows/build.ps1
-# Builds dist\LakotaSheet\ and dist\LakotaSheet-Setup-<version>.exe. Runnable by hand on
+# Builds dist\FridgeSheet\ and dist\FridgeSheet-Setup-<version>.exe. Runnable by hand on
 # any Windows box with Python 3.12 and Inno Setup 6; this is exactly what release.yml runs.
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
     [switch]$SkipSmoke,        # skip smoke.ps1 (faster local iteration)
-    [switch]$SkipInstaller     # stop after dist\LakotaSheet\ (no Inno Setup needed)
+    [switch]$SkipInstaller     # stop after dist\FridgeSheet\ (no Inno Setup needed)
 )
 $ErrorActionPreference = "Stop"
 Set-Location (Resolve-Path (Join-Path $PSScriptRoot "..\.."))
 
 $version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
 if (-not $version) { throw "could not read version from pyproject.toml" }
-Write-Host "== Lakota Sheet $version"
+Write-Host "== Fridge Sheet $version"
 
 Write-Host "== Python packages"
 python -m pip install --upgrade pip
@@ -588,11 +588,11 @@ $lhash = (Get-FileHash build\sumatra\COPYING -Algorithm SHA256).Hash.ToLower()
 if ($lhash -ne $pin.license_sha256) { throw "SumatraPDF licence checksum mismatch: got $lhash" }
 
 Write-Host "== PyInstaller"
-Remove-Item -Recurse -Force dist\LakotaSheet -ErrorAction SilentlyContinue
-pyinstaller --noconfirm --clean packaging\windows\LakotaSheet.spec
-Copy-Item -Recurse build\ms-playwright dist\LakotaSheet\ms-playwright
-Copy-Item (Join-Path build\sumatra $pin.exe_in_zip) dist\LakotaSheet\SumatraPDF.exe
-Copy-Item build\sumatra\COPYING dist\LakotaSheet\SumatraPDF-LICENSE.txt
+Remove-Item -Recurse -Force dist\FridgeSheet -ErrorAction SilentlyContinue
+pyinstaller --noconfirm --clean packaging\windows\FridgeSheet.spec
+Copy-Item -Recurse build\ms-playwright dist\FridgeSheet\ms-playwright
+Copy-Item (Join-Path build\sumatra $pin.exe_in_zip) dist\FridgeSheet\SumatraPDF.exe
+Copy-Item build\sumatra\COPYING dist\FridgeSheet\SumatraPDF-LICENSE.txt
 Remove-Item Env:\PLAYWRIGHT_BROWSERS_PATH -ErrorAction SilentlyContinue   # the exe must find Chromium by itself
 
 if (-not $SkipSmoke) {
@@ -605,16 +605,16 @@ if ($SkipInstaller) { Write-Host "== done (no installer)"; exit 0 }
 Write-Host "== Inno Setup"
 $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
 if (-not (Test-Path $iscc)) { throw "Inno Setup 6 not found at $iscc" }
-& $iscc "/DAppVersion=$version" "/DSourceDir=$PWD\dist\LakotaSheet" "/O$PWD\dist" packaging\windows\installer.iss
+& $iscc "/DAppVersion=$version" "/DSourceDir=$PWD\dist\FridgeSheet" "/O$PWD\dist" packaging\windows\installer.iss
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
-Get-ChildItem dist\LakotaSheet-Setup-*.exe | ForEach-Object { Write-Host "== built $($_.FullName) ($([math]::Round($_.Length / 1MB)) MB)" }
+Get-ChildItem dist\FridgeSheet-Setup-*.exe | ForEach-Object { Write-Host "== built $($_.FullName) ($([math]::Round($_.Length / 1MB)) MB)" }
 ```
 
 - [ ] **Step 6: Write `smoke.ps1`**
 
 ```powershell
 # packaging/windows/smoke.ps1
-# Three checks on the built exe, all against a throwaway LAKOTA_GRADES_HOME so nothing
+# Three checks on the built exe, all against a throwaway FRIDGESHEET_HOME so nothing
 # touches the builder's real settings and no credential is involved:
 #   1. doctor           every probe must pass inside the bundle (Chromium, SumatraPDF, keyring, tzdata...)
 #   2. dry-run sheet    run open-work --dry-run --no-refresh --force from a fixture snapshot -> a PDF exists
@@ -622,12 +622,12 @@ Get-ChildItem dist\LakotaSheet-Setup-*.exe | ForEach-Object { Write-Host "== bui
 #                       one failure the friend would otherwise be first to see)
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
-$exe = Join-Path $root "dist\LakotaSheet\LakotaSheet.exe"
+$exe = Join-Path $root "dist\FridgeSheet\FridgeSheet.exe"
 if (-not (Test-Path $exe)) { throw "no built exe at $exe" }
-$smokeHome = Join-Path $env:TEMP ("lakota-smoke-" + [guid]::NewGuid().ToString("N"))
+$smokeHome = Join-Path $env:TEMP ("fridgesheet-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force (Join-Path $smokeHome "cache") | Out-Null
 Copy-Item (Join-Path $root "packaging\windows\fixture-snapshot.json") (Join-Path $smokeHome "cache\snapshot.json")
-$env:LAKOTA_GRADES_HOME = $smokeHome
+$env:FRIDGESHEET_HOME = $smokeHome
 Write-Host "smoke home: $smokeHome"
 
 # 1. doctor (a windowed exe has no stdout; the report is in doctor.txt)
@@ -652,7 +652,7 @@ if ($w.HasExited) {
 }
 Stop-Process -Id $w.Id -Force
 if (-not (Test-Path (Join-Path $smokeHome "app.log"))) { throw "app.log was not written" }
-Remove-Item Env:\LAKOTA_GRADES_HOME
+Remove-Item Env:\FRIDGESHEET_HOME
 Write-Host "smoke OK"
 ```
 
@@ -660,7 +660,7 @@ Write-Host "smoke OK"
 
 ```bash
 git rm -q packaging/windows/spike_entry.py .github/workflows/spike-pyinstaller.yml
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q          # expect 181 passed, 1 skipped
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q          # expect 181 passed, 1 skipped
 git add packaging/windows tests/test_packaging.py
 git commit -m "Windows bundle: pinned SumatraPDF, PyInstaller spec, build.ps1 and smoke.ps1; drop the spike
 
@@ -676,8 +676,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Modify: `README.md` (add a "## Releasing" section before "## License"), `tests/test_packaging.py` (append)
 
 **Interfaces:**
-- Consumes: `dist\LakotaSheet\` and `build.ps1` (Task 2); `LakotaSheet.exe schedule remove` (Plan 1); `APP_ID = "Cairnea.LakotaSheet"` (Plan 1, `host/notify_windows.py`).
-- Produces: `dist\LakotaSheet-Setup-<version>.exe`; the `release` workflow (`workflow_dispatch` builds and uploads an artifact; a `v*` tag additionally creates a GitHub release with the installer attached, after checking the tag equals `v<pyproject version>`).
+- Consumes: `dist\FridgeSheet\` and `build.ps1` (Task 2); `FridgeSheet.exe schedule remove` (Plan 1); `APP_ID = "Cairnea.FridgeSheet"` (Plan 1, `host/notify_windows.py`).
+- Produces: `dist\FridgeSheet-Setup-<version>.exe`; the `release` workflow (`workflow_dispatch` builds and uploads an artifact; a `v*` tag additionally creates a GitHub release with the installer attached, after checking the tag equals `v<pyproject version>`).
 
 - [ ] **Step 1: Append the failing tests**
 
@@ -685,16 +685,16 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 def test_installer_script_matches_the_spec():
     iss = (WIN / "installer.iss").read_text(encoding="utf-8")
     assert "PrivilegesRequired=lowest" in iss
-    assert "DefaultDirName={localappdata}\\Programs\\Lakota Sheet" in iss
-    assert 'AppUserModelID: "Cairnea.LakotaSheet"' in iss
+    assert "DefaultDirName={localappdata}\\Programs\\Fridge Sheet" in iss
+    assert 'AppUserModelID: "Cairnea.FridgeSheet"' in iss
     assert 'Parameters: "schedule remove"' in iss and "[UninstallRun]" in iss
     assert "postinstall" in iss and "desktopicon" in iss
-    assert "lakota-grades" in iss and "usPostUninstall" in iss          # the "your data was kept" message
-    assert "OutputBaseFilename=LakotaSheet-Setup-{#AppVersion}" in iss
+    assert "fridgesheet" in iss and "usPostUninstall" in iss          # the "your data was kept" message
+    assert "OutputBaseFilename=FridgeSheet-Setup-{#AppVersion}" in iss
 
 
 def test_app_user_model_id_matches_the_toast_code():
-    from lakota_grades.host.notify_windows import APP_ID
+    from fridgesheet.host.notify_windows import APP_ID
     iss = (WIN / "installer.iss").read_text(encoding="utf-8")
     assert f'AppUserModelID: "{APP_ID}"' in iss
 
@@ -710,42 +710,42 @@ def test_release_workflow_triggers_and_gates():
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_packaging.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_packaging.py -q`
 Expected: the three new tests FAIL with `FileNotFoundError`.
 
 - [ ] **Step 3: Write `installer.iss`**
 
 ```iss
 ; packaging/windows/installer.iss
-; Per-user installer for Lakota Sheet. Built by build.ps1:
-;   ISCC.exe /DAppVersion=<version> /DSourceDir=<repo>\dist\LakotaSheet /O<repo>\dist installer.iss
+; Per-user installer for Fridge Sheet. Built by build.ps1:
+;   ISCC.exe /DAppVersion=<version> /DSourceDir=<repo>\dist\FridgeSheet /O<repo>\dist installer.iss
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
 #ifndef SourceDir
-  #define SourceDir "..\..\dist\LakotaSheet"
+  #define SourceDir "..\..\dist\FridgeSheet"
 #endif
 
 [Setup]
 AppId={{B7E1C0E2-5C1D-4E8B-9C2A-7D3F0A1B2C3D}
-AppName=Lakota Sheet
+AppName=Fridge Sheet
 AppVersion={#AppVersion}
-AppVerName=Lakota Sheet {#AppVersion}
+AppVerName=Fridge Sheet {#AppVersion}
 AppPublisher=Tony Stein
 AppPublisherURL=https://github.com/steiner385/fridgesheet
 AppSupportURL=https://github.com/steiner385/fridgesheet/blob/main/docs/windows.md
-DefaultDirName={localappdata}\Programs\Lakota Sheet
+DefaultDirName={localappdata}\Programs\Fridge Sheet
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-OutputBaseFilename=LakotaSheet-Setup-{#AppVersion}
+OutputBaseFilename=FridgeSheet-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=Lakota Sheet
-UninstallDisplayIcon={app}\LakotaSheet.exe
+UninstallDisplayName=Fridge Sheet
+UninstallDisplayIcon={app}\FridgeSheet.exe
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
@@ -754,24 +754,24 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Lakota Sheet"; Filename: "{app}\LakotaSheet.exe"; AppUserModelID: "Cairnea.LakotaSheet"
-Name: "{autodesktop}\Lakota Sheet"; Filename: "{app}\LakotaSheet.exe"; AppUserModelID: "Cairnea.LakotaSheet"; Tasks: desktopicon
+Name: "{autoprograms}\Fridge Sheet"; Filename: "{app}\FridgeSheet.exe"; AppUserModelID: "Cairnea.FridgeSheet"
+Name: "{autodesktop}\Fridge Sheet"; Filename: "{app}\FridgeSheet.exe"; AppUserModelID: "Cairnea.FridgeSheet"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\LakotaSheet.exe"; Description: "Launch Lakota Sheet"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FridgeSheet.exe"; Description: "Launch Fridge Sheet"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 ; Remove the scheduled task while the exe still exists. RunOnceId keeps Inno from running it twice.
-Filename: "{app}\LakotaSheet.exe"; Parameters: "schedule remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveSchedule"
+Filename: "{app}\FridgeSheet.exe"; Parameters: "schedule remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveSchedule"
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
-    MsgBox('Lakota Sheet has been removed.' + #13#10 + #13#10 +
+    MsgBox('Fridge Sheet has been removed.' + #13#10 + #13#10 +
            'Your settings, printed sheets and logs were kept in' + #13#10 +
-           ExpandConstant('{localappdata}\lakota-grades') + #13#10 + #13#10 +
-           'Delete that folder yourself if you no longer want them. Your OneLogin password stays in Windows Credential Manager under "lakota-grades".',
+           ExpandConstant('{localappdata}\fridgesheet') + #13#10 + #13#10 +
+           'Delete that folder yourself if you no longer want them. Your OneLogin password stays in Windows Credential Manager under "fridgesheet".',
            mbInformation, MB_OK);
 end;
 ```
@@ -805,14 +805,14 @@ jobs:
         run: .\packaging\windows\build.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: LakotaSheet-Setup
-          path: dist/LakotaSheet-Setup-*.exe
+          name: FridgeSheet-Setup
+          path: dist/FridgeSheet-Setup-*.exe
           if-no-files-found: error
       - name: Publish the GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/LakotaSheet-Setup-*.exe
+          files: dist/FridgeSheet-Setup-*.exe
           generate_release_notes: true
 ```
 
@@ -823,11 +823,11 @@ Insert before `## License`:
 ```markdown
 ## Releasing the Windows installer
 
-The Windows app ("Lakota Sheet") is built by `.github/workflows/release.yml` on a Windows runner, from `packaging/windows/build.ps1`, which bundles Chromium and a pinned SumatraPDF, smoke-tests the built exe, and wraps it with Inno Setup.
+The Windows app ("Fridge Sheet") is built by `.github/workflows/release.yml` on a Windows runner, from `packaging/windows/build.ps1`, which bundles Chromium and a pinned SumatraPDF, smoke-tests the built exe, and wraps it with Inno Setup.
 
 1. Bump `version` in `pyproject.toml` and merge to `main`.
-2. Optionally run the workflow by hand first (Actions → release → Run workflow) and download the `LakotaSheet-Setup` artifact to try it.
-3. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`. The job refuses a tag that does not match `pyproject.toml`, and on success attaches `LakotaSheet-Setup-0.2.0.exe` to a GitHub release.
+2. Optionally run the workflow by hand first (Actions → release → Run workflow) and download the `FridgeSheet-Setup` artifact to try it.
+3. Tag and push: `git tag v0.2.0 && git push origin v0.2.0`. The job refuses a tag that does not match `pyproject.toml`, and on success attaches `FridgeSheet-Setup-0.2.0.exe` to a GitHub release.
 
 The page to send along with it is [docs/windows.md](docs/windows.md).
 ```
@@ -835,7 +835,7 @@ The page to send along with it is [docs/windows.md](docs/windows.md).
 - [ ] **Step 6: Run the tests, commit**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q          # expect 184 passed, 1 skipped
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q          # expect 184 passed, 1 skipped
 git add packaging/windows/installer.iss .github/workflows/release.yml README.md tests/test_packaging.py
 git commit -m "Inno Setup installer and the release workflow (manual dispatch builds an artifact; a v* tag publishes)
 
@@ -847,12 +847,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 This is where Tasks 2 and 3 are actually exercised. Expect iteration: PyInstaller hidden imports, a PowerShell quoting slip, an Inno Setup directive rejected by the installed version. Each fix is its own commit and push.
 
 **Files:**
-- Modify (only as fixes require): `packaging/windows/*`, `.github/workflows/release.yml`, `lakota_grades/**` if the built exe fails a smoke step for a code reason.
+- Modify (only as fixes require): `packaging/windows/*`, `.github/workflows/release.yml`, `fridgesheet/**` if the built exe fails a smoke step for a code reason.
 - Modify: `docs/superpowers/plans/2026-09-14-windows-sheet-release.md` (Step 6 records the outcome).
 
 **Interfaces:**
 - Consumes: everything from Tasks 1 to 3.
-- Produces: a green `release` run on this branch with the `LakotaSheet-Setup` artifact, and the recorded run URL.
+- Produces: a green `release` run on this branch with the `FridgeSheet-Setup` artifact, and the recorded run URL.
 
 - [ ] **Step 1: Push and dispatch**
 
@@ -874,8 +874,8 @@ gh run view "$RUN" --log-failed 2>&1 | tail -80
 ```
 
 Known failure classes and the fix for each; apply one per commit, push, re-dispatch, re-watch:
-1. `ModuleNotFoundError` inside the exe (seen in `doctor.txt` or `app.log` echoed by `smoke.ps1`): add the module to `hiddenimports` in `LakotaSheet.spec`.
-2. `doctor` FAIL on `chromium`: `ms-playwright` was not copied where the driver expects; compare `Get-ChildItem dist\LakotaSheet\ms-playwright` with what `playwright install` printed, and fix the `Copy-Item` in `build.ps1`.
+1. `ModuleNotFoundError` inside the exe (seen in `doctor.txt` or `app.log` echoed by `smoke.ps1`): add the module to `hiddenimports` in `FridgeSheet.spec`.
+2. `doctor` FAIL on `chromium`: `ms-playwright` was not copied where the driver expects; compare `Get-ChildItem dist\FridgeSheet\ms-playwright` with what `playwright install` printed, and fix the `Copy-Item` in `build.ps1`.
 3. `doctor` FAIL on `credential store`: keyring backend not found in the bundle; confirm `copy_metadata("keyring")` landed in `_internal` and add `keyring.backends.Windows` (already there) or `win32ctypes` submodules to `hiddenimports`.
 4. `doctor` FAIL on `timezone`: `tzdata` data files missing; confirm `collect_data_files("tzdata")` produced files (add `print(datas)` temporarily in the spec if needed).
 5. The no-args launch exits early: read `app.log` (echoed by `smoke.ps1`); a `tkinter`/`_tkinter` import error means Python on the runner lacks Tk, which `actions/setup-python` does include, so the more likely cause is a code path; fix in `gui.py`/`__main__.py`.
@@ -892,7 +892,7 @@ gh api "repos/steiner385/fridgesheet/actions/runs/$RUN/artifacts" --jq '.artifac
 gh run view "$RUN" --log 2>/dev/null | grep -E "smoke OK|built .*sheet.pdf|== built|OK    |FAIL  " | head -30
 ```
 
-Expected: `conclusion: success`; one artifact `LakotaSheet-Setup` of roughly 150 to 250 MB; the log shows nine `OK` doctor lines, `built ...sheet.pdf`, `smoke OK`, and `== built ...LakotaSheet-Setup-0.2.0.exe (<n> MB)`.
+Expected: `conclusion: success`; one artifact `FridgeSheet-Setup` of roughly 150 to 250 MB; the log shows nine `OK` doctor lines, `built ...sheet.pdf`, `smoke OK`, and `== built ...FridgeSheet-Setup-0.2.0.exe (<n> MB)`.
 
 - [ ] **Step 4: Confirm nothing was tagged or released**
 
@@ -907,7 +907,7 @@ Expected: no `v0.2.0` tag, no release. (The manual dispatch only uploads an arti
 
 - [ ] **Step 6: Record the outcome here**
 
-**Fix-wave build (after the final review):** run https://github.com/steiner385/fridgesheet/actions/runs/34889884757 green on commit `6fac3d0`, artifact `LakotaSheet-Setup` 279,411,365 bytes; installed tree 863 MB, installer 267 MB. Two runner-side fixes were needed: SumatraPDF's GitHub tag for 3.5.2 is `3.5.2rel` (`efa310d`), and the now-honest `printers` probe fails without a configured printer, so `smoke.ps1` exports `LAKOTA_PRINTER` from the first printer `Get-Printer` reports ("Microsoft Print to PDF" on the runner) for the duration of the smoke run (`6fac3d0`). The nine doctor lines on the runner: python, home, timezone, pdf, chromium (151.0.7922.34 from `ms-playwright`), credential store (`WinVaultKeyring: round trip OK`), printers, print engine, scheduler — all OK; then `scheduled task installed and removed` and `smoke OK`. Temporary branch trigger removed afterwards.
+**Fix-wave build (after the final review):** run https://github.com/steiner385/fridgesheet/actions/runs/34889884757 green on commit `6fac3d0`, artifact `FridgeSheet-Setup` 279,411,365 bytes; installed tree 863 MB, installer 267 MB. Two runner-side fixes were needed: SumatraPDF's GitHub tag for 3.5.2 is `3.5.2rel` (`efa310d`), and the now-honest `printers` probe fails without a configured printer, so `smoke.ps1` exports `FRIDGESHEET_PRINTER` from the first printer `Get-Printer` reports ("Microsoft Print to PDF" on the runner) for the duration of the smoke run (`6fac3d0`). The nine doctor lines on the runner: python, home, timezone, pdf, chromium (151.0.7922.34 from `ms-playwright`), credential store (`WinVaultKeyring: round trip OK`), printers, print engine, scheduler — all OK; then `scheduled task installed and removed` and `smoke OK`. Temporary branch trigger removed afterwards.
 
 **First build (Task 4):** `gh workflow run release.yml --ref ccswitch/main-418b5ee1` (and a direct `gh api
 .../dispatches`) 404'd: GitHub only registers `workflow_dispatch` workflows from files
@@ -922,11 +922,11 @@ Two runs on this branch:
 - Run [34884568097](https://github.com/steiner385/fridgesheet/actions/runs/34884568097) — **failed** after 2m1s. All nine `doctor` probes and the dry-run PDF
   passed; the no-args launch step then threw `"app.log did not grow during the window
   launch"` even though the process had not exited within the 8 s wait. Cause:
-  `run_app()` (`lakota_grades/app/gui.py`) only logs on an unhandled exception, so a
+  `run_app()` (`fridgesheet/app/gui.py`) only logs on an unhandled exception, so a
   clean startup never grows `app.log` — the smoke-script assertion was vacuous by
   construction, not a sign of a broken launch (this is the brief's failure class 9,
   presenting as a log-growth false negative rather than an early `HasExited`).
-- Run [34884940633](https://github.com/steiner385/fridgesheet/actions/runs/34884940633) — **green**, build job succeeded in 7m22s. Artifact `LakotaSheet-Setup`,
+- Run [34884940633](https://github.com/steiner385/fridgesheet/actions/runs/34884940633) — **green**, build job succeeded in 7m22s. Artifact `FridgeSheet-Setup`,
   279,402,045 bytes (~267 MB), within the expected 150-300 MB range.
 
 One fix commit (`bce9e4a`, `smoke.ps1: check the no-args launch by window handle, not
@@ -937,19 +937,19 @@ GUI window came up — and updated the matching pinned string in
 
 The nine `doctor` lines from the green run (`34884940633`):
 ```
-OK    python: 3.12.10 frozen at D:\a\lakota-grades-mcp\lakota-grades-mcp\dist\LakotaSheet\LakotaSheet.exe
-OK    home: C:\Users\RUNNER~1\AppData\Local\Temp\lakota-smoke-677fbb492fe54150bea7b6193a10e10e is writable
+OK    python: 3.12.10 frozen at D:\a\fridgesheet\fridgesheet\dist\FridgeSheet\FridgeSheet.exe
+OK    home: C:\Users\RUNNER~1\AppData\Local\Temp\fridgesheet-smoke-677fbb492fe54150bea7b6193a10e10e is writable
 OK    timezone: America/New_York
 OK    pdf: reportlab wrote a 1344-byte PDF
-OK    chromium: Chromium 151.0.7922.34 at D:\a\lakota-grades-mcp\lakota-grades-mcp\dist\LakotaSheet\ms-playwright\chromium-1234\chrome-win64\chrome.exe
+OK    chromium: Chromium 151.0.7922.34 at D:\a\fridgesheet\fridgesheet\dist\FridgeSheet\ms-playwright\chromium-1234\chrome-win64\chrome.exe
 OK    credential store: keyring backend WinVaultKeyring
 OK    printers: 1 printer(s), default none, configured system default
-OK    print engine: D:\a\lakota-grades-mcp\lakota-grades-mcp\dist\LakotaSheet\SumatraPDF.exe
+OK    print engine: D:\a\fridgesheet\fridgesheet\dist\FridgeSheet\SumatraPDF.exe
 OK    scheduler: task-scheduler: not scheduled
 ```
 followed by the dry-run build (`open-work dry-run built ...sheet.pdf 1p Sample=0
 data=9/14 08:00`), `smoke OK`, and `== built
-D:\a\lakota-grades-mcp\lakota-grades-mcp\dist\LakotaSheet-Setup-0.2.0.exe (267 MB)`.
+D:\a\fridgesheet\fridgesheet\dist\FridgeSheet-Setup-0.2.0.exe (267 MB)`.
 
 `git tag --list 'v*'` and `gh release list --limit 3` were both empty after the green
 run.
@@ -971,7 +971,7 @@ run.
 ```python
 def test_windows_page_exists_and_names_the_limitations():
     page = (ROOT / "docs" / "windows.md").read_text(encoding="utf-8")
-    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\lakota-grades",
+    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\fridgesheet",
                    "Test login", "Print now", "no-print-days.txt", "late-rules.toml", "doctor.txt", "Task Scheduler", "Uninstall"):
         assert phrase in page, phrase
 ```
@@ -979,9 +979,9 @@ def test_windows_page_exists_and_names_the_limitations():
 - [ ] **Step 2: Write `docs/windows.md`**
 
 ```markdown
-# Lakota Sheet for Windows
+# Fridge Sheet for Windows
 
-Lakota Sheet prints a one-page-per-kid list of open schoolwork every school day at a time you choose, pulled from Canvas and Home Access Center with your own Lakota OneLogin parent login. Everything runs on your PC. The app talks only to OneLogin, Canvas and Home Access Center, and nothing about your kids leaves your computer.
+Fridge Sheet prints a one-page-per-kid list of open schoolwork every school day at a time you choose, pulled from Canvas and Home Access Center with your own Lakota OneLogin parent login. Everything runs on your PC. The app talks only to OneLogin, Canvas and Home Access Center, and nothing about your kids leaves your computer.
 
 ## Before you start
 
@@ -991,9 +991,9 @@ Lakota Sheet prints a one-page-per-kid list of open schoolwork every school day 
 
 ## Install
 
-1. Download `LakotaSheet-Setup-<version>.exe` from the Releases page.
+1. Download `FridgeSheet-Setup-<version>.exe` from the Releases page.
 2. Run it. Windows **SmartScreen** will say "Windows protected your PC" because the installer is not code-signed. Click **More info**, then **Run anyway**.
-3. The installer needs no administrator password; it installs for your Windows user only and offers a desktop shortcut. It opens Lakota Sheet when it finishes.
+3. The installer needs no administrator password; it installs for your Windows user only and offers a desktop shortcut. It opens Fridge Sheet when it finishes.
 
 ## First run
 
@@ -1004,11 +1004,11 @@ Lakota Sheet prints a one-page-per-kid list of open schoolwork every school day 
 
 ## What happens every day
 
-At the time you chose, on school days, Windows Task Scheduler runs Lakota Sheet in the background while you are **logged in** (a locked screen is fine; a signed-out or powered-off PC skips that day, and the next day's run does not print the old sheet). It refreshes Canvas and Home Access Center, builds the sheet, prints it two-sided, and shows a small notification saying it printed, or why it did not. If the refresh fails, it prints from the last good data if that is under a day old and says so on the sheet.
+At the time you chose, on school days, Windows Task Scheduler runs Fridge Sheet in the background while you are **logged in** (a locked screen is fine; a signed-out or powered-off PC skips that day, and the next day's run does not print the old sheet). It refreshes Canvas and Home Access Center, builds the sheet, prints it two-sided, and shows a small notification saying it printed, or why it did not. If the refresh fails, it prints from the last good data if that is under a day old and says so on the sheet.
 
 ## Your files
 
-Everything lives in `%LOCALAPPDATA%\lakota-grades` (paste that into File Explorer's address bar):
+Everything lives in `%LOCALAPPDATA%\fridgesheet` (paste that into File Explorer's address bar):
 
 | File | What it is |
 |---|---|
@@ -1024,28 +1024,28 @@ Everything lives in `%LOCALAPPDATA%\lakota-grades` (paste that into File Explore
 
 - **Help → Run diagnostics** in the app checks Chromium, the PDF engine, the credential store, printers and the scheduler, and writes `doctor.txt`. Any `FAIL` line is the place to look.
 - **"Login failed"**: the username or password is wrong, or OneLogin wants multi-factor sign-in. Fix the Settings tab, Save, and Test login again.
-- **Nothing printed at the scheduled time**: open the Run tab; the status line shows the last result. Common causes: the PC was off or you were signed out; the printer was off (the sheet is kept as a PDF in `sheets\<date>`); it was a no-print day. You can also open Windows **Task Scheduler** and look for "Lakota Sheet - open-work".
+- **Nothing printed at the scheduled time**: open the Run tab; the status line shows the last result. Common causes: the PC was off or you were signed out; the printer was off (the sheet is kept as a PDF in `sheets\<date>`); it was a no-print day. You can also open Windows **Task Scheduler** and look for "Fridge Sheet - open-work".
 - **Wrong printer**: pick another on the Settings tab and Save; the app never uses the Windows default unless you leave the choice at "System default".
 
 ## Uninstall
 
-Settings → Apps → Lakota Sheet → **Uninstall**. The uninstaller removes the scheduled task and the program, and leaves your sheets, settings and logs in `%LOCALAPPDATA%\lakota-grades` for you to delete if you wish. Your password stays in Credential Manager under "lakota-grades" until you remove it there.
+Settings → Apps → Fridge Sheet → **Uninstall**. The uninstaller removes the scheduled task and the program, and leaves your sheets, settings and logs in `%LOCALAPPDATA%\fridgesheet` for you to delete if you wish. Your password stays in Credential Manager under "fridgesheet" until you remove it there.
 
 ## Credits and licences
 
-Lakota Sheet is MIT-licensed: https://github.com/steiner385/fridgesheet. It bundles Chromium via Playwright (BSD-3-Clause) and SumatraPDF for printing (GPL-3.0; source at https://www.sumatrapdfreader.org; the licence text is installed as `SumatraPDF-LICENSE.txt`).
+Fridge Sheet is MIT-licensed: https://github.com/steiner385/fridgesheet. It bundles Chromium via Playwright (BSD-3-Clause) and SumatraPDF for printing (GPL-3.0; source at https://www.sumatrapdfreader.org; the licence text is installed as `SumatraPDF-LICENSE.txt`).
 ```
 
 - [ ] **Step 3: README pointer and spec touch-ups**
 
-In `README.md`'s intro list of design goals, add a final bullet: `- **Other parents can install it.** A Windows build ("Lakota Sheet") with a settings window and a per-user installer: see [docs/windows.md](docs/windows.md) and "Releasing" below.`
+In `README.md`'s intro list of design goals, add a final bullet: `- **Other parents can install it.** A Windows build ("Fridge Sheet") with a settings window and a per-user installer: see [docs/windows.md](docs/windows.md) and "Releasing" below.`
 
-In the spec, section 9: after the six-step list add `7. The build runs \`packaging/windows/smoke.ps1\` on the bundle before packaging: \`LakotaSheet.exe doctor\` (all probes must pass), a dry-run sheet from a fixture snapshot, and a no-arguments launch that must survive eight seconds.` and mention `lakota-grades doctor` in section 5's command list. Apply any further deviation Task 4 forced (a changed directive, a renamed file).
+In the spec, section 9: after the six-step list add `7. The build runs \`packaging/windows/smoke.ps1\` on the bundle before packaging: \`FridgeSheet.exe doctor\` (all probes must pass), a dry-run sheet from a fixture snapshot, and a no-arguments launch that must survive eight seconds.` and mention `fridgesheet doctor` in section 5's command list. Apply any further deviation Task 4 forced (a changed directive, a renamed file).
 
 - [ ] **Step 4: Run the tests, commit, push, and watch CI**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q          # expect 185 passed, 1 skipped
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q          # expect 185 passed, 1 skipped
 git add docs/windows.md README.md docs/superpowers/specs/2026-09-14-windows-sheet-app-design.md tests/test_packaging.py
 git commit -m "docs: the Windows page for other parents; README pointer; spec records the smoke test and doctor
 
@@ -1058,8 +1058,8 @@ gh run watch "$(gh run list --workflow ci.yml --branch "$(git rev-parse --abbrev
 
 ## Done when
 
-- The `release` workflow has one green manual run on this branch with a `LakotaSheet-Setup` artifact, and Task 4 Step 6 records it.
-- `lakota-grades doctor` runs on Linux and inside the bundle; the smoke test proves the bundle can build a sheet and open its window.
+- The `release` workflow has one green manual run on this branch with a `FridgeSheet-Setup` artifact, and Task 4 Step 6 records it.
+- `fridgesheet doctor` runs on Linux and inside the bundle; the smoke test proves the bundle can build a sheet and open its window.
 - No tag and no GitHub release exist; the README tells Tony how to create them.
 - `docs/windows.md` covers install, first run, the daily run, files, troubleshooting, limitations and uninstall.
 - CI green on both runners.

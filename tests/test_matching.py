@@ -2,7 +2,7 @@
 printed sheet can use it without importing the MCP server."""
 from __future__ import annotations
 
-from lakota_grades.matching import match_course, same_item, short_course
+from fridgesheet.matching import match_course, same_item, short_course
 
 
 def test_short_course_strips_term_year_and_teacher_tails():

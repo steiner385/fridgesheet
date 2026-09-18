@@ -6,10 +6,10 @@ from datetime import date
 
 import pytest
 
-from lakota_grades import config, reports, runner
-from lakota_grades.reports import ReportError
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports as reportstore
+from fridgesheet import config, reports, runner
+from fridgesheet.reports import ReportError
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports as reportstore
 from tests.conftest import needs_pdftotext
 from tests.web_fixtures import NOW, seed
 
@@ -39,7 +39,7 @@ def test_resolve_finds_code_and_view_reports(tmp_path):
 
 def test_only_plain_digits_name_a_saved_report(tmp_path):
     """`int()` takes "+7", " 7 " and "7_0". Every one of those resolves to a report, renders to
-    the same `lakota-view-7` unit, and stores its own `[reports."view:+7"]` table -- three keys
+    the same `fridgesheet-view-7` unit, and stores its own `[reports."view:+7"]` table -- three keys
     for one timer, two of which the Schedules page never shows."""
     seed(tmp_path).close()
     rid = _save(tmp_path)
@@ -52,7 +52,7 @@ def test_only_plain_digits_name_a_saved_report(tmp_path):
 def test_a_leading_zero_is_also_rejected_though_it_passes_isdigit(tmp_path):
     """#36: `"007".isdigit()` is true, so the plain-digits check above let it through. It
     resolves to report 7 -- same as `"7"` -- but renders to a *different* unit
-    (`lakota-view-007.timer`, distinct from `lakota-view-7.timer`, since `safe_key` does not
+    (`fridgesheet-view-007.timer`, distinct from `fridgesheet-view-7.timer`, since `safe_key` does not
     normalize numerals) and stores a second `[reports."view:007"]` table that the Schedules
     page can never show or remove. `_VIEW_KEY_RE`'s `(0|[1-9][0-9]*)` catches it the same way
     it catches every other non-canonical spelling above."""
@@ -111,7 +111,7 @@ def test_archive_name_strips_unsafe_characters_from_the_report_name(tmp_path):
     """`reports.name` is user-editable and reaches the filesystem through `archive_name`: a
     name with a path separator, a `..`, or a quote must not survive into the file name."""
     seed(tmp_path).close()
-    rid = _save(tmp_path, name='../../../../tmp/lakota-escaped "Report"')
+    rid = _save(tmp_path, name='../../../../tmp/fridgesheet-escaped "Report"')
     r = reports.resolve(f"view:{rid}", tmp_path)
     name = r.archive_name(date(2026, 9, 16))
     assert "/" not in name and ".." not in name and '"' not in name
@@ -135,7 +135,7 @@ def _ctx(home, out):
 
 @needs_pdftotext
 def test_build_writes_a_pdf_and_rows(tmp_path):
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     seed(tmp_path).close()
     rid = _save(tmp_path)
     r = reports.resolve(f"view:{rid}", tmp_path)

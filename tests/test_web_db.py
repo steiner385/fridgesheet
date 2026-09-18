@@ -5,12 +5,12 @@ import sqlite3
 
 import pytest
 
-from lakota_grades.web import db
+from fridgesheet.web import db
 
 
 def test_open_db_creates_file_and_schema(tmp_path):
     conn = db.open_db(tmp_path / "home")
-    assert (tmp_path / "home" / "lakota.db").is_file()
+    assert (tmp_path / "home" / "fridgesheet.db").is_file()
     assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION

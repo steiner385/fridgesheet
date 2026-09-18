@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Kids' Sheet (Send to Printer)
-Comment=Refresh Canvas + HAC, build today's open-work sheet, and print it
-Exec=bash -c '"$HOME/lakota-grades-mcp/scripts/lakota-sheet-desktop.sh" print'
-Icon=document-print
-Terminal=true
-Categories=Office;
-Keywords=lakota;canvas;grades;homework;print;

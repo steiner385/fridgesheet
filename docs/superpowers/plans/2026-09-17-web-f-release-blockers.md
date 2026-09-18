@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, FastAPI + Jinja2 + htmx (no build step), Inno Setup, uPlot 1.6.31 (vendored), pytest.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md` — sections 5 (Trends), 8 (access and security), 9 (jobs), 11 (packaging).
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md` — sections 5 (Trends), 8 (access and security), 9 (jobs), 11 (packaging).
 
 **Issues:** clears the lead items of **#33** and **#34**, the two one-liners in **#37**, and unblocks **#30** (the tag).
 
@@ -16,9 +16,9 @@
 
 - Python 3.12, standard library only for anything new. No new runtime dependency.
 - **There is no JavaScript test harness in this repo** (#34 names this explicitly, and every plan so far has refused to add one). `static/app.js` is therefore verified by **measuring a real browser**, not by a test. Chrome DevTools tooling is available in this environment; Task 2 requires real measurements and refuses eyeballing.
-- **Never run a real `systemctl` or `schtasks`; never touch `~/.lakota-grades`; never tag anything.** The machine has the owner's live units — `lakota-print-sheet.{service,timer}` prints a real household's school work every weekday at 2 PM. `tests/conftest.py`'s `_no_real_scheduler` fixture enforces the first; do not weaken, bypass or "simplify" it. Any real server run uses `LAKOTA_GRADES_HOME=/tmp/lakota-plan-f` on a free port and is stopped afterwards.
+- **Never run a real `systemctl` or `schtasks`; never touch `~/.fridgesheet`; never tag anything.** The machine has the owner's live units — `fridgesheet-print-sheet.{service,timer}` prints a real household's school work every weekday at 2 PM. `tests/conftest.py`'s `_no_real_scheduler` fixture enforces the first; do not weaken, bypass or "simplify" it. Any real server run uses `FRIDGESHEET_HOME=/tmp/fridgesheet-plan-f` on a free port and is stopped afterwards.
 - **No Windows machine is available here.** Task 1 changes the installer and cannot be run; its verification is the packaging test plus a careful reading, and its real proof is the release checklist a human works through. Say so rather than implying otherwise.
-- The test command is `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`. Baseline is **578 passing**.
+- The test command is `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`. Baseline is **578 passing**.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
 ---
@@ -27,7 +27,7 @@
 
 **Decision 1 — scope is impact, not issue number.** Issues #31–#37 hold roughly a hundred items. This plan takes the ones that block the tag or that a parent sees, and leaves the rest where they are. A plan promising to close seven issues is a plan that runs out of budget inside the second one.
 
-**Decision 2 — the child-name question is settled here, having been surfaced twice without an answer.** `lakota_grades/collector.py` carries real children's full names in a docstring; the same names are the test fixture across seven files. **Ruling: scrub the shipped-source docstring, leave the test fixtures.** The docstring ships to another family inside the installer; the fixtures do not ship and renaming them across seven files is churn with no recipient. If the owner wants the fixtures scrubbed too, that is a separate mechanical change. `packaging/windows/installer.iss`'s `AppPublisher` and the `LICENSE` copyright line stay — deliberate attribution, not leaked identifiers.
+**Decision 2 — the child-name question is settled here, having been surfaced twice without an answer.** `fridgesheet/collector.py` carries real children's full names in a docstring; the same names are the test fixture across seven files. **Ruling: scrub the shipped-source docstring, leave the test fixtures.** The docstring ships to another family inside the installer; the fixtures do not ship and renaming them across seven files is churn with no recipient. If the owner wants the fixtures scrubbed too, that is a separate mechanical change. `packaging/windows/installer.iss`'s `AppPublisher` and the `LICENSE` copyright line stay — deliberate attribution, not leaked identifiers.
 
 **Decision 3 — the `Host` allowlist is in scope even though the spec accepts network isolation as the boundary.** #33 argues it belongs beside the QR code, and the QR code shipped in Plan E. A page on an attacker domain that resolves to `127.0.0.1` currently passes both the same-origin check and the loopback password gate. Closing it is a handful of lines against a threat the spec calls out of scope, which is a good trade when the app is about to be given to someone else.
 
@@ -37,18 +37,18 @@
 
 **Modified:**
 - `packaging/windows/installer.iss` — a `[Code]` `PrepareToInstall` that stops the running app.
-- `lakota_grades/web/static/app.js`, `lakota_grades/web/static/app.css`, `lakota_grades/web/templates/_chart.html` — chart sizing and resize redraw.
-- `lakota_grades/web/app.py` — the `Host` allowlist in `same_origin_only`.
-- `lakota_grades/runner.py` — the lock's staleness guarantee.
-- `lakota_grades/cli.py`, `lakota_grades/reports/__init__.py` — the two #37 one-liners.
-- `lakota_grades/collector.py` — Decision 2.
+- `fridgesheet/web/static/app.js`, `fridgesheet/web/static/app.css`, `fridgesheet/web/templates/_chart.html` — chart sizing and resize redraw.
+- `fridgesheet/web/app.py` — the `Host` allowlist in `same_origin_only`.
+- `fridgesheet/runner.py` — the lock's staleness guarantee.
+- `fridgesheet/cli.py`, `fridgesheet/reports/__init__.py` — the two #37 one-liners.
+- `fridgesheet/collector.py` — Decision 2.
 - `tests/test_packaging.py`, `tests/test_web_app.py`, `tests/test_runner.py`, `tests/test_host_scheduling.py` — the covering tests.
 
 ---
 
 ### Task 1: the installer stops the app before overwriting it
 
-**This is the item blocking the tag.** The logon task keeps `LakotaSheet.exe` and its `_internal` DLLs open around the clock, so every upgrade over a working install hits locked files. Inno's Restart Manager will at best show "Setup was unable to close the following applications", at worst demand a reboot. Release run 35002354271 proved only a clean first install, and the smoke test cannot catch it.
+**This is the item blocking the tag.** The logon task keeps `FridgeSheet.exe` and its `_internal` DLLs open around the clock, so every upgrade over a working install hits locked files. Inno's Restart Manager will at best show "Setup was unable to close the following applications", at worst demand a reboot. Release run 35002354271 proved only a clean first install, and the smoke test cannot catch it.
 
 **Files:**
 - Modify: `packaging/windows/installer.iss` (`[Code]` section, line 57 onward)
@@ -67,15 +67,15 @@ Read `packaging/windows/installer.iss` end to end, and `tests/test_packaging.py:
 Extend the packaging test, which is how every other installer invariant in this repo is pinned:
 
 ```python
-    # An upgrade lands on a running app: the logon task holds LakotaSheet.exe and its
+    # An upgrade lands on a running app: the logon task holds FridgeSheet.exe and its
     # _internal DLLs open, so Inno hits locked files unless setup stops it first. #33.
     assert "PrepareToInstall" in iss
-    assert 'schtasks' in iss and '/End' in iss and 'Lakota Sheet - web' in iss
+    assert 'schtasks' in iss and '/End' in iss and 'Fridge Sheet - web' in iss
 ```
 
 - [ ] **Step 3: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_packaging.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_packaging.py -q`
 Expected: FAIL — `assert "PrepareToInstall" in iss`.
 
 - [ ] **Step 4: Implement**
@@ -88,14 +88,14 @@ var
   ResultCode: Integer;
 begin
   Result := '';
-  // The logon task holds LakotaSheet.exe and its _internal DLLs open around the clock, so an
+  // The logon task holds FridgeSheet.exe and its _internal DLLs open around the clock, so an
   // upgrade over a working install would hit locked files. Ending the task stops the server
   // it started; the [Run] section re-registers and restarts it after the files are in place.
-  Exec('schtasks.exe', '/End /TN "Lakota Sheet - web"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('schtasks.exe', '/End /TN "Fridge Sheet - web"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   // A copy the parent started from the shortcut is not the task's child, so end it too. Both
   // calls are best-effort: a missing task or no running process is the ordinary case on a
   // first install, and neither should stop the installer.
-  Exec('taskkill.exe', '/IM LakotaSheet.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/IM FridgeSheet.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 ```
 
@@ -129,7 +129,7 @@ The most visible defect in the app. Plan C's review measured it in Chrome: the g
 The cause is precise and worth stating: `app.js` measures the holder's content box and hands that height to uPlot as the **plot** height, but uPlot then adds a title and a legend *around* the plot. The holder is told to be 220px by an inline style in `_chart.html`; uPlot draws 220px of plot plus ~88px of furniture.
 
 **Files:**
-- Modify: `lakota_grades/web/static/app.js`, `lakota_grades/web/static/app.css`, `lakota_grades/web/templates/_chart.html`
+- Modify: `fridgesheet/web/static/app.js`, `fridgesheet/web/static/app.css`, `fridgesheet/web/templates/_chart.html`
 
 **Interfaces:**
 - Consumes: uPlot 1.6.31, vendored with a SHA-256 pin in `VENDOR.md` — do not upgrade it.
@@ -140,8 +140,8 @@ The cause is precise and worth stating: `app.js` measures the holder's content b
 Start the app against a scratch home with seeded data on a free port:
 
 ```bash
-env -u PYTHONPATH LAKOTA_GRADES_HOME=/tmp/lakota-plan-f \
-  ~/lakota-grades-mcp/.venv/bin/python -m lakota_grades.cli web --no-browser --port 8461
+env -u PYTHONPATH FRIDGESHEET_HOME=/tmp/fridgesheet-plan-f \
+  ~/fridgesheet/.venv/bin/python -m fridgesheet.cli web --no-browser --port 8461
 ```
 
 Open `/trends`, and measure — do not eyeball. Chrome DevTools tooling is available; use it to report, for **each** chart holder: the holder's `clientHeight`, the uPlot root's `offsetHeight`, and the heights of `.u-title` and `.u-legend`. Those four numbers are the before-state and your report must contain them. If the page has no data to chart, seed it or say so; a chart with nothing in it does not reproduce the bug.
@@ -165,13 +165,13 @@ Re-measure all four numbers per chart and put the before/after table in your rep
 
 - [ ] **Step 5: Run the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: 578 passing. There is no JS harness, so the suite proves only that you broke no Python; say that in your report rather than implying the suite covers this.
 
 - [ ] **Step 6: Stop the server and commit**
 
 ```bash
-git add lakota_grades/web/static/app.js lakota_grades/web/static/app.css lakota_grades/web/templates/_chart.html
+git add fridgesheet/web/static/app.js fridgesheet/web/static/app.css fridgesheet/web/templates/_chart.html
 git commit -m "web.trends: a chart fits the box it is given, and follows a resize
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -181,12 +181,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ### Task 3: a `Host` allowlist on the request guard
 
-`lakota_grades/web/app.py:240-246`'s `same_origin_only` compares `Origin` to `Host`. A page on an attacker domain whose DNS resolves to `127.0.0.1` sends `Origin: http://evil.example` and `Host: evil.example` — the two match, the check passes, and `loopback()` sees a 127.0.0.1 client address, so the OneLogin password gate opens too.
+`fridgesheet/web/app.py:240-246`'s `same_origin_only` compares `Origin` to `Host`. A page on an attacker domain whose DNS resolves to `127.0.0.1` sends `Origin: http://evil.example` and `Host: evil.example` — the two match, the check passes, and `loopback()` sees a 127.0.0.1 client address, so the OneLogin password gate opens too.
 
 Spec section 8 accepts network isolation as the security boundary, so this is inside the stated risk. It is also a handful of lines, and the app is about to be handed to someone else. Decision 3 rules it in.
 
 **Files:**
-- Modify: `lakota_grades/web/app.py:239-246`
+- Modify: `fridgesheet/web/app.py:239-246`
 - Test: `tests/test_web_app.py`
 
 **Interfaces:**
@@ -234,7 +234,7 @@ Run the focused file, then the whole suite. Then start a server with `allow_lan`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web/app.py tests/test_web_app.py
+git add fridgesheet/web/app.py tests/test_web_app.py
 git commit -m "web: answer only to the addresses this app is actually served on
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -247,7 +247,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 `web/jobs.py`'s worker docstring says `run.lock` stops an abandoned job and its replacement from both printing. That holds for 45 minutes: `runner.Lock.acquire` deletes any lock older than `LOCK_STALE_SECONDS`, and nothing refreshes the file during a run. So a job hung long enough to be displaced at 15 minutes reaches the stale threshold at 45, a second job takes the lock while the first still believes it holds it, and the first's `release()` then unlinks the *second's* lock file.
 
 **Files:**
-- Modify: `lakota_grades/runner.py` (the `Lock` class), and `lakota_grades/web/jobs.py`'s docstring
+- Modify: `fridgesheet/runner.py` (the `Lock` class), and `fridgesheet/web/jobs.py`'s docstring
 - Test: `tests/test_runner.py`
 
 **Interfaces:**
@@ -296,7 +296,7 @@ Ownership check in `release()`, plus a docstring in `web/jobs.py` that says what
 - [ ] **Step 5: Run the tests and commit**
 
 ```bash
-git add lakota_grades/runner.py lakota_grades/web/jobs.py tests/test_runner.py
+git add fridgesheet/runner.py fridgesheet/web/jobs.py tests/test_runner.py
 git commit -m "runner: a displaced job cannot delete the lock that displaced it
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -309,7 +309,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 Both were found in Plan E's own final fix wave and rated non-blocking. Both are one line.
 
 **Files:**
-- Modify: `lakota_grades/cli.py`, `lakota_grades/reports/__init__.py`
+- Modify: `fridgesheet/cli.py`, `fridgesheet/reports/__init__.py`
 - Test: `tests/test_host_scheduling.py`, `tests/test_report_view.py`
 
 - [ ] **Step 1: `_removal_settings` catches what it promises to catch**
@@ -327,7 +327,7 @@ Test `"view:7\n"`, `"view:7 "` and `"view:7"`, then change `$` to `\Z` (or use `
 - [ ] **Step 3: Run the suite and commit**
 
 ```bash
-git add lakota_grades/cli.py lakota_grades/reports/__init__.py tests/test_host_scheduling.py tests/test_report_view.py
+git add fridgesheet/cli.py fridgesheet/reports/__init__.py tests/test_host_scheduling.py tests/test_report_view.py
 git commit -m "cli, reports: catch what the docstring promises, anchor what the comment claims
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -337,10 +337,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ### Task 6: the children's names leave the shipped source
 
-Per Decision 2. `lakota_grades/collector.py`'s `_first_name` docstring explains a real parsing bug using real children's full names — "First name from either 'Alex Example' (Canvas) or 'STEIN, ALEX' (HAC)" — and that file ships inside the installer to another family.
+Per Decision 2. `fridgesheet/collector.py`'s `_first_name` docstring explains a real parsing bug using real children's full names — "First name from either 'Alex Example' (Canvas) or 'STEIN, ALEX' (HAC)" — and that file ships inside the installer to another family.
 
 **Files:**
-- Modify: `lakota_grades/collector.py`
+- Modify: `fridgesheet/collector.py`
 
 - [ ] **Step 1: Rewrite the docstring**
 
@@ -348,14 +348,14 @@ Keep the technical content exactly — the two source formats and why they diffe
 
 - [ ] **Step 2: Check the rest of the shipped source**
 
-`grep -rniE "stein|alex|katherine|jo" lakota_grades/` and report every hit. Leave the `steiner385/...` GitHub URLs (a public repo identifier) and anything under `tests/` (fixtures, which do not ship). Report what you found either way.
+`grep -rniE "stein|alex|katherine|jo" fridgesheet/` and report every hit. Leave the `steiner385/...` GitHub URLs (a public repo identifier) and anything under `tests/` (fixtures, which do not ship). Report what you found either way.
 
 - [ ] **Step 3: Run the suite and commit**
 
 The suite must still pass unchanged — this is a docstring.
 
 ```bash
-git add lakota_grades/collector.py
+git add fridgesheet/collector.py
 git commit -m "collector: a neutral example for the name-format bug
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"

@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("mcp")
 
-from lakota_grades import collector, server  # noqa: E402
+from fridgesheet import collector, server  # noqa: E402
 
 
 def _iso(days: float) -> str:

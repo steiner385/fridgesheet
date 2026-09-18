@@ -8,9 +8,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import app as webapp, db, ingest
-from lakota_grades.web.stores import refreshes, runs, students
+from fridgesheet import config
+from fridgesheet.web import app as webapp, db, ingest
+from fridgesheet.web.stores import refreshes, runs, students
 
 TZ = ZoneInfo("America/New_York")
 
@@ -81,14 +81,14 @@ def test_stores_read_the_seeded_database(home):
 
 def test_health_names_the_app_and_keeps_the_home_path_to_itself(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json()["app"] == "lakota-grades" and "version" in r.json()
+    assert r.status_code == 200 and r.json()["app"] == "fridgesheet" and "version" in r.json()
     assert "started_at" in r.json() and "home" not in r.json()     # /health can answer the LAN
 
 
 def test_dashboard_renders_with_an_empty_database(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert "No refresh yet" in r.text and "Lakota Sheet" in r.text
+    assert "No refresh yet" in r.text and "Fridge Sheet" in r.text
     assert 'href="/static/app.css"' in r.text and 'src="/static/htmx.min.js"' in r.text
 
 
@@ -134,7 +134,7 @@ def test_each_app_keeps_its_own_nicknames(home, settings):
     conn.close()
     a = webapp.create_app(settings)
     b = webapp.create_app(config.Settings(home=home, nicknames={"Alex": "Al"}))
-    assert a.state.lakota.extra["env"].filters is not b.state.lakota.extra["env"].filters
+    assert a.state.fridgesheet.extra["env"].filters is not b.state.fridgesheet.extra["env"].filters
     plain = _tc(a).get("/").text
     assert ">Alex<" in plain and ">Al<" not in plain
     labelled = _tc(b).get("/").text

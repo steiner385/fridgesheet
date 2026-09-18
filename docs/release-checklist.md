@@ -19,7 +19,7 @@ then, on a Windows runner:
 
 - [ ] *(nothing to do — already true if the release workflow run for this commit is green)*
   - Refused to build if the tag doesn't match `version` in `pyproject.toml`.
-  - Ran `packaging/windows/build.ps1`, which built the real `LakotaSheet.exe`, ran
+  - Ran `packaging/windows/build.ps1`, which built the real `FridgeSheet.exe`, ran
     `packaging/windows/smoke.ps1` against it, and only then wrapped it with Inno Setup.
     That smoke test already exercised, on a real Windows machine: `doctor` passing inside
     the frozen bundle; a `--dry-run` sheet building a real PDF from a fixture snapshot;
@@ -32,7 +32,7 @@ then, on a Windows runner:
 
 `tests/test_packaging.py` (run as part of that same suite) pins the shape of
 `installer.iss` (per-user install, no admin prompt, the `[UninstallRun]` entries, the
-"your data was kept" message naming `lakota.db`), the SumatraPDF version/URL/licence
+"your data was kept" message naming `fridgesheet.db`), the SumatraPDF version/URL/licence
 hashes, and that the temporary `ccswitch` branch trigger is not in `release.yml`. If any
 of that had drifted, the suite would already be red and you would not be looking at a
 built installer at all.
@@ -44,15 +44,15 @@ what a human adds. What only a human with this hardware can prove is everything 
 ## 0b. What a real Windows box has since proved — 2026-09-17, `graphy`
 
 The paragraphs below used to say the installer's `[Code]` had "never been run on Windows".
-That is no longer true. On **2026-09-17** the CI-built `LakotaSheet-Setup-0.2.0.exe` from
+That is no longer true. On **2026-09-17** the CI-built `FridgeSheet-Setup-0.2.0.exe` from
 run 35246094795 (`7fbba23`) was driven over SSH on **graphy**, a Windows 11 26200 desktop,
 entirely from the command line. What that pass established:
 
-- **Install** lands: 1499 files, 875 MB, under `%LOCALAPPDATA%\Programs\Lakota Sheet`, no
+- **Install** lands: 1499 files, 875 MB, under `%LOCALAPPDATA%\Programs\Fridge Sheet`, no
   admin prompt (the log records "Administrative install mode: No"), Start-menu and desktop
   shortcuts both created — the desktop one on the **OneDrive-redirected** desktop, which is
   where `{autodesktop}` correctly resolves on a machine with Known Folder Move on.
-- **The logon task registers** (`Lakota Sheet - web`, "At log on", "Interactive only").
+- **The logon task registers** (`Fridge Sheet - web`, "At log on", "Interactive only").
 - **The frozen app runs**: `/health` answers with the real version, and `/`, `/settings`,
   `/diagnostics`, `/schedules`, `/runs`, `/trends` all return 200 with content.
 - **§3's upgrade over a running app works** — issue #33's fix, executed for the first time.
@@ -61,12 +61,12 @@ entirely from the command line. What that pass established:
   applications using one of our files"* because `PrepareToInstall` had already killed it.
   The process was alive immediately before and gone immediately after.
 - **§5's Schedules page writes a real task.** With the `login-ok.txt` gate satisfied, a
-  POST to `/schedules` created `Lakota Sheet - open-work` in Task Scheduler with the right
+  POST to `/schedules` created `Fridge Sheet - open-work` in Task Scheduler with the right
   `<Command>`, `<Arguments>`, `StartBoundary` and `<Thursday/>`; the page read it back and
   recognised it as its own; saving with the box unticked deleted it again.
 - **§7's uninstall with a hand-started copy running works.** Every `_internal` DLL was
-  deleted out from under a live server, `{app}` gone, no `Lakota Sheet - ` tasks left, both
-  shortcuts gone, and `%LOCALAPPDATA%\lakota-grades` kept with `lakota.db` intact.
+  deleted out from under a live server, `{app}` gone, no `Fridge Sheet - ` tasks left, both
+  shortcuts gone, and `%LOCALAPPDATA%\fridgesheet` kept with `fridgesheet.db` intact.
 - **A stale `web.lock` is harmless.** Every upgrade now force-kills the server, which leaves
   the lock file behind with a dead pid in it. The next start takes it anyway — it is a
   kernel lock the OS releases on death, not an advisory flag — so an upgrade does not brick
@@ -95,16 +95,16 @@ One defect came out of that pass and is fixed: a silent uninstall stopped on the
 ## 1. The hazard, and what's supposed to fix it
 
 **Issue #33: an upgrade lands on a running app.** The logon task holds
-`LakotaSheet.exe` and its `_internal` DLLs open around the clock, and there is no in-app
+`FridgeSheet.exe` and its `_internal` DLLs open around the clock, and there is no in-app
 "quit" — no tray icon, no shutdown button. Until now, `installer.iss` had no `[Code]`
 step to deal with that, so running the installer a second time over an already-running
 copy would hit Inno's Restart Manager: at best "Setup was unable to close the following
 applications", at worst a demand to reboot mid-install.
 
 `installer.iss` now has a `PrepareToInstall` in `[Code]` that runs before `[Files]`
-copies anything: it ends the **"Lakota Sheet - web"** logon task
-(`schtasks /End`) and force-kills any `LakotaSheet.exe` still standing
-(`taskkill /IM LakotaSheet.exe /T /F` — the `/T` matters: it takes the process's
+copies anything: it ends the **"Fridge Sheet - web"** logon task
+(`schtasks /End`) and force-kills any `FridgeSheet.exe` still standing
+(`taskkill /IM FridgeSheet.exe /T /F` — the `/T` matters: it takes the process's
 children down with it, and `{app}` also holds the Chromium under `ms-playwright\` and
 `SumatraPDF.exe`, so killing only the parent leaves exactly the locked files this step
 exists to release), ignoring both commands' exit codes — a first
@@ -116,12 +116,12 @@ restarts the task afterward, once the new files are in place.
 only over an *idle* server. Section 3 below is where you prove it for the case that
 actually bites, an upgrade landing while a Refresh or a print is in flight. If it
 doesn't, the manual fallback is the same as it always was: open **Task Scheduler**,
-find **"Lakota Sheet - web"**, click **End**, confirm no `LakotaSheet.exe` remains in
+find **"Fridge Sheet - web"**, click **End**, confirm no `FridgeSheet.exe` remains in
 **Task Manager**, then re-run the installer.
 
 ## 2. Install as a standard user
 
-- [ ] Download `LakotaSheet-Setup-<version>.exe` from the GitHub release you just built
+- [ ] Download `FridgeSheet-Setup-<version>.exe` from the GitHub release you just built
   (not a hand-built one — the one CI produced and attached). Do this logged in as a normal
   Windows account, not an administrator.
 - [ ] Run it. **Expect:** Windows SmartScreen says "Windows protected your PC" (the
@@ -129,13 +129,13 @@ find **"Lakota Sheet - web"**, click **End**, confirm no `LakotaSheet.exe` remai
 - [ ] **Expect:** no UAC/administrator prompt appears at all — the installer runs entirely
   as your user (`PrivilegesRequired=lowest`).
 - [ ] Click through. **Expect:** no directory picker (it installs to
-  `%LOCALAPPDATA%\Programs\Lakota Sheet` without asking) and a **"Create a desktop
+  `%LOCALAPPDATA%\Programs\Fridge Sheet` without asking) and a **"Create a desktop
   shortcut"** checkbox on the tasks page.
-- [ ] Finish the wizard with **"Open Lakota Sheet"** left ticked. **Expect:** the installer
+- [ ] Finish the wizard with **"Open Fridge Sheet"** left ticked. **Expect:** the installer
   closes and a browser window opens on its own at `http://127.0.0.1:8433/`, showing the
-  Lakota Sheet dashboard.
-- [ ] Check the desktop for the **Lakota Sheet** shortcut (if you left that box ticked).
-- [ ] Open **Task Scheduler** and find **"Lakota Sheet - web"**. **Expect:** it exists,
+  Fridge Sheet dashboard.
+- [ ] Check the desktop for the **Fridge Sheet** shortcut (if you left that box ticked).
+- [ ] Open **Task Scheduler** and find **"Fridge Sheet - web"**. **Expect:** it exists,
   its trigger is "At log on", and its status is "Running" (or "Ready" if it hasn't
   actually needed to (re)start since you logged in).
 
@@ -150,7 +150,7 @@ find **"Lakota Sheet - web"**, click **End**, confirm no `LakotaSheet.exe` remai
 
 ## 3. Upgrade over a running install — prove issue #33's fix
 
-Section 2 just left Lakota Sheet running: the installer's own "Open Lakota Sheet" step
+Section 2 just left Fridge Sheet running: the installer's own "Open Fridge Sheet" step
 opened a browser at it, and its logon task should show "Running" in Task Scheduler. Do
 **not** stop it by hand — that would only prove the old manual workaround still works,
 not that the installer stops it itself.
@@ -163,16 +163,16 @@ those down with the parent rather than leave them winding down on their own. If 
 have time, repeat this section a second time with a Refresh started right before you
 launch the installer, to actually exercise that.
 
-- [ ] Run the **exact same** `LakotaSheet-Setup-<version>.exe` you just installed, a
+- [ ] Run the **exact same** `FridgeSheet-Setup-<version>.exe` you just installed, a
   second time, over the top. Click through it exactly as you did in section 2.
 - [ ] **Expect:** no "Setup was unable to close the following applications" dialog, and
   no prompt to reboot. If you see either, `PrepareToInstall` didn't stop the app in
   time — that's a real finding for issue #33, not a false alarm; note what the dialog
   named and file it.
-- [ ] Finish the wizard with **"Open Lakota Sheet"** left ticked, same as before.
+- [ ] Finish the wizard with **"Open Fridge Sheet"** left ticked, same as before.
   **Expect:** the installer closes and a browser window opens on its own, same as a
   first install.
-- [ ] Open **Task Scheduler** and find **"Lakota Sheet - web"** again. **Expect:** it
+- [ ] Open **Task Scheduler** and find **"Fridge Sheet - web"** again. **Expect:** it
   still exists, with a trigger of "At log on" and a status of "Running" (or "Ready") —
   `[Run]`'s `service install` re-registered it after `PrepareToInstall` ended it.
 - [ ] Open **Settings** and read the version at the bottom of the form. **Expect:** the
@@ -182,11 +182,11 @@ launch the installer, to actually exercise that.
   `/health`, and to the update check, which would have offered the app its own version.
   `[InstallDelete]` now clears them first; this box is what proves it on a real upgrade.
 - [ ] **Wait until the dashboard page has finished loading**, then open **Task
-  Manager**. **Expect:** exactly one `LakotaSheet.exe` process. (Checking too early can
+  Manager**. **Expect:** exactly one `FridgeSheet.exe` process. (Checking too early can
   show two or three: the no-args launcher that the shortcut/postinstall step runs is a
-  separate `LakotaSheet.exe` from the server it spawns, and it can take up to 30
+  separate `FridgeSheet.exe` from the server it spawns, and it can take up to 30
   seconds of polling before the launcher opens the browser and exits, per
-  `lakota_grades/web/__main__.py`'s `launch()`. One process is the steady state once
+  `fridgesheet/web/__main__.py`'s `launch()`. One process is the steady state once
   the page is actually up; more than one at that point is the real finding.)
 
 ## 4. First run, the way your friend will do it
@@ -226,8 +226,8 @@ section 4 first.
 - [ ] On the **Schedules** page, find the report you want to test (Open Work Sheet is
   fine), tick **"Run this on a schedule"**, set the time to a few minutes from now, tick
   today's day of the week, tick **"Print it"**, and click that section's **Save**.
-- [ ] Open **Task Scheduler** again. **Expect:** a task named **"Lakota Sheet -
-  open-work"** (or **"Lakota Sheet - view N"** if you scheduled a saved report instead)
+- [ ] Open **Task Scheduler** again. **Expect:** a task named **"Fridge Sheet -
+  open-work"** (or **"Fridge Sheet - view N"** if you scheduled a saved report instead)
   now exists, with a trigger matching the time you set.
 - [ ] **Stay logged in** (a locked screen is fine) until that time passes. Don't touch
   Print now or Preview for this report in the meantime — you want to see the scheduled
@@ -237,7 +237,7 @@ section 4 first.
   saying why).
 - [ ] Open the **Runs** page. **Expect:** a new row for that report with a timestamp
   matching when it fired. Its **How** column will read **"cli"** — that's correct, not a
-  bug: a scheduled run is Task Scheduler literally invoking `LakotaSheet.exe run
+  bug: a scheduled run is Task Scheduler literally invoking `FridgeSheet.exe run
   <key>`, the same command line as running it from a terminal, so there is no separate
   "scheduled" trigger value to look for. **Outcome** should be **OK**, and the PDF link
   should open the same sheet that came out of the printer.
@@ -260,7 +260,7 @@ The rule an administrator needs to add once, scoped to the house network rather 
 opened to whatever Wi-Fi the machine joins:
 
 ```powershell
-New-NetFirewallRule -DisplayName 'Lakota Sheet (TCP 8433)' -Direction Inbound `
+New-NetFirewallRule -DisplayName 'Fridge Sheet (TCP 8433)' -Direction Inbound `
   -Action Allow -Protocol TCP -LocalPort 8433 -Profile Any -RemoteAddress LocalSubnet
 ```
 
@@ -315,29 +315,54 @@ a Refresh actually in flight, so `/T` has children to take down. So:
   browser tab open — that is the case `service remove` alone does not cover. If you have
   time, start a **Refresh now** as well and uninstall while it is still running, so
   Chromium is live under `{app}\ms-playwright\`.
-- [ ] **Settings (Windows) → Apps → Lakota Sheet → Uninstall.**
+- [ ] **Settings (Windows) → Apps → Fridge Sheet → Uninstall.**
 - [ ] **Expect:** no "files in use"/"could not be removed" dialog, and no leftover
-  `%LOCALAPPDATA%\Programs\Lakota Sheet` folder afterwards. If either appears, the
+  `%LOCALAPPDATA%\Programs\Fridge Sheet` folder afterwards. If either appears, the
   `usUninstall` stop did not do its job — a real finding, and the manual workaround is the
-  same as section 1's: End the task in Task Scheduler, confirm no `LakotaSheet.exe` is left
+  same as section 1's: End the task in Task Scheduler, confirm no `FridgeSheet.exe` is left
   in Task Manager, then uninstall again.
-- [ ] Open **Task Manager** after the uninstall finishes. **Expect:** no `LakotaSheet.exe`,
+- [ ] Open **Task Manager** after the uninstall finishes. **Expect:** no `FridgeSheet.exe`,
   no `SumatraPDF.exe`, and no `chrome.exe` left behind from the copy you started.
-- [ ] **Expect:** a message box on completion naming `lakota.db`, the
-  `%LOCALAPPDATA%\lakota-grades` folder, and Windows Credential Manager's **"lakota-grades"**
+- [ ] **Expect:** a message box on completion naming `fridgesheet.db`, the
+  `%LOCALAPPDATA%\fridgesheet` folder, and Windows Credential Manager's **"fridgesheet"**
   entry as what was kept.
 - [ ] **Eyeball Task Scheduler yourself — do not trust a silent uninstall.** The
   uninstaller's `[UninstallRun]` entry runs `schedule remove --all` as `runhidden`, and
   Inno Setup does not check a `[UninstallRun]` entry's exit code — so if `schedule remove
   --all` fails partway through (leaves a task behind), nothing on screen will tell you.
   Open Task Scheduler and look through the **whole** list yourself for anything starting
-  with "Lakota Sheet - " (the built-in report, any custom reports you scheduled in section
+  with "Fridge Sheet - " (the built-in report, any custom reports you scheduled in section
   5, and the logon task). **Expect:** none remain. If one does, that's a real finding, not a
   false alarm — file it.
-- [ ] Confirm `%LOCALAPPDATA%\lakota-grades` still exists with your sheets, `lakota.db`,
+- [ ] Confirm `%LOCALAPPDATA%\fridgesheet` still exists with your sheets, `fridgesheet.db`,
   `config.toml`, and logs intact.
-- [ ] Open Windows Credential Manager and confirm the **"lakota-grades"** entry is still
+- [ ] Open Windows Credential Manager and confirm the **"fridgesheet"** entry is still
   there (delete it yourself now if you're done testing, or leave it for next time).
+
+## 7b. The rename: upgrading a Lakota Sheet install (0.4.0 only)
+
+0.4.0 is the first release under the new name, with a new Inno AppId. On a machine that has
+Lakota Sheet 0.3.x (`graphy`, as of 2026-09-18), the FridgeSheet installer's `[Code]` finds
+the old app by its old AppId and runs its uninstaller silently before installing; the app's
+first start then moves `%LOCALAPPDATA%\lakota-grades` to `%LOCALAPPDATA%\fridgesheet`,
+renames `lakota.db`, and copies the Credential Manager entry (`fridgesheet\migrate.py`).
+
+- [ ] Before: note the counts on Diagnostics (refreshes, items, active flags) and the number
+  of runs on Runs.
+- [ ] Run `FridgeSheet-Setup-0.4.0.exe` as the same user. **Expect:** Settings → Apps lists
+  Fridge Sheet only; no Lakota Sheet entry; `%LOCALAPPDATA%\Programs\Lakota Sheet` gone.
+- [ ] Start the app. **Expect:** `%LOCALAPPDATA%\fridgesheet` exists with `fridgesheet.db`,
+  `%LOCALAPPDATA%\lakota-grades` is gone, Diagnostics shows the same counts as before, the
+  Runs page has the same history, and `doctor.txt`'s "old names" line reads `none`.
+- [ ] Settings → Test login passes without re-entering the password (the entry was copied).
+- [ ] **The admin-registered task.** Where "Lakota Sheet - web" was registered by an
+  administrator with a stored password (§0b), the old uninstaller cannot remove it and the
+  standard-user install cannot register "Fridge Sheet - web" (#10). As the administrator:
+  `schtasks /End /TN "Lakota Sheet - web"`, `schtasks /Delete /TN "Lakota Sheet - web" /F`,
+  then register "Fridge Sheet - web" exactly as §0b describes, pointing at
+  `%LOCALAPPDATA%\Programs\Fridge Sheet\FridgeSheet.exe web --no-browser`.
+- [ ] From another machine: `/health` answers `"app":"fridgesheet"`, version 0.4.0, and the
+  header shows the fridge-magnet mark.
 
 ## 8. Only now, the tag
 

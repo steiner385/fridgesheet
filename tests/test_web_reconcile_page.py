@@ -37,8 +37,8 @@ def test_reconcile_summary_counts_and_empty_state(tmp_path):
     body = app_for(tmp_path).get("/reconcile").text
     assert "disagree 1" in body and "past credit 1" in body and "submitted ungraded 1" in body and "paper no grade 1" in body
     assert "one source 5" in body     # Participation, Lab notebook, Homework 4, Cell diagram, Safety quiz: each has a HAC twin course with no row
-    from lakota_grades.web import db
-    from lakota_grades.web.stores import flags
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import flags
     conn = db.open_db(tmp_path)
     for name in ("Quiz 1", "Essay draft", "Lab notebook", "Participation", "Homework 4"):
         iid = conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]

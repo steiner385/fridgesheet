@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from lakota_grades.web.stores import flags, students
+from fridgesheet.web.stores import flags, students
 from web_fixtures import app_for, history
 
 
@@ -25,7 +25,7 @@ def test_the_offer_names_the_count_and_takes_them_all_for_one_kid_only(tmp_path)
     assert _past_credit_count(after, "Alex") == 0                       # the offer is gone
     assert "Homework 4" not in after                                        # and so is the card
 
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     conn = db.open_db(tmp_path)
     al = students.by_key(conn, "Alex")["id"]
     ignored = conn.execute("""SELECT i.name, f.text FROM flags f JOIN items i ON i.id = f.item_id

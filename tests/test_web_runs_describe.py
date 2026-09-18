@@ -1,7 +1,7 @@
 """`runs.describe`: the runner's log line, read for a parent (#40 items 4 and 16)."""
 from __future__ import annotations
 
-from lakota_grades.web.stores import runs
+from fridgesheet.web.stores import runs
 
 
 def _row(outcome="OK", report_key="open-work", message=""):

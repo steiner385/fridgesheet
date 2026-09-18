@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from lakota_grades.web.stores import students
+from fridgesheet.web.stores import students
 from web_fixtures import app_for, seed
 
 

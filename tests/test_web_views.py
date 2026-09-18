@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from lakota_grades import late_rules
-from lakota_grades.web import views
-from lakota_grades.web.stores import reports as reportstore, students
+from fridgesheet import late_rules
+from fridgesheet.web import views
+from fridgesheet.web.stores import reports as reportstore, students
 from tests.web_fixtures import NOW, history, seed, snapshot
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])

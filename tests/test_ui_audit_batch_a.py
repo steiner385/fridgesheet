@@ -8,10 +8,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lakota_grades.web import actions
-from lakota_grades.web.stores import num
+from fridgesheet.web import actions
+from fridgesheet.web.stores import num
 
-WEB = Path(__file__).resolve().parents[1] / "lakota_grades" / "web"
+WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 
 
 # --- item 6: a raw float in the Status column ---------------------------------------------
@@ -26,7 +26,7 @@ def test_a_score_is_rounded_to_what_a_gradebook_shows():
 
 
 def test_the_kid_page_and_the_changes_feed_format_a_score_the_same_way():
-    from lakota_grades.web.stores import changes, items
+    from fridgesheet.web.stores import changes, items
     assert changes._num(12.5033) == "12.5"
     assert items._score({"score": 12.5033, "grade": None}, 50) == "12.5/50"
     assert items._score({"score": 7.0, "grade": None}, None) == "7"
@@ -77,7 +77,7 @@ def test_the_credential_fields_tell_the_browser_what_they_are():
 
 def test_an_item_name_is_stripped_at_ingest(tmp_path):
     import sqlite3
-    from lakota_grades.web import db, ingest
+    from fridgesheet.web import db, ingest
     conn = db.open_db(tmp_path)
     try:
         sid = ingest._upsert_student(conn, "Kid", "Kid")

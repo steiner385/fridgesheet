@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ report.name if report else "New report" }} · Fridge Sheet{% endblock %}
+{% block content %}
+<h2>{{ report.name if report else "New report" }}</h2>
+{% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
+{% for p in problems %}<p class="warn">{{ p }}</p>{% endfor %}
+{% set action = ("/reports/" ~ report.id) if report else "/reports/new" %}
+<form method="post" action="{{ action }}" class="card" id="builder">
+  <p><label>Name <input name="name" value="{{ report.name if report else d.title }}"></label>
+     <label>Title on the page <input name="title" value="{{ d.title }}"></label></p>
+  <p><label>Rows come from
+     <select name="source">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label></p>
+  <p>Kids: {% for k in kids %}<label><input type="checkbox" name="scope" value="{{ k.key }}" {{ 'checked' if k.key in d.scope }}> {{ k.key | nickname }}</label> {% endfor %}
+     <span class="muted">none ticked means every kid</span></p>
+  <p>Columns:<br>
+    {% for cid, col in cols.items() %}
+    <label><input type="checkbox" name="columns" value="{{ cid }}" {{ 'checked' if cid in d.columns }}> {{ col.label }}</label>
+    {% endfor %}</p>
+  <p><label>Group by <select name="group_by"><option value="">nothing</option>
+    {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.group_by == cid }}>{{ col.label }}</option>{% endfor %}</select></label></p>
+  <p>Sort:
+    {% for i in range(2) %}
+    <select name="sort_column"><option value="">—</option>
+      {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.sort|length > i and d.sort[i].column == cid }}>{{ col.label }}</option>{% endfor %}</select>
+    <select name="sort_dir"><option value="asc">ascending</option><option value="desc" {{ 'selected' if d.sort|length > i and d.sort[i].dir == 'desc' }}>descending</option></select>
+    {% endfor %}</p>
+  <p>Filters:
+    {% for i in range(3) %}<br>
+    <select name="filter_field"><option value="">—</option>
+      {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.filters|length > i and d.filters[i].field == cid }}>{{ col.label }}</option>{% endfor %}</select>
+    <select name="filter_op">{% for o in OPS %}<option value="{{ o }}" {{ 'selected' if d.filters|length > i and d.filters[i].op == o }}>{{ o }}</option>{% endfor %}</select>
+    <input name="filter_value" value="{{ d.filters[i].value if d.filters|length > i else '' }}">
+    {% endfor %}</p>
+  <p><label>Page <select name="orientation">{% for o in ORIENTATIONS %}<option value="{{ o }}" {{ 'selected' if d.orientation == o }}>{{ o }}</option>{% endfor %}</select></label>
+     <label><input type="checkbox" name="per_kid_sections" {{ 'checked' if d.per_kid_sections }}> start each group on its own page</label></p>
+  <p><button class="primary">Save</button>
+     <button type="button" hx-post="/reports/preview" hx-include="#builder" hx-target="#preview">Preview</button>
+     <a class="badge" href="/reports">Back to reports</a></p>
+</form>
+<div id="preview"></div>
+{% endblock %}

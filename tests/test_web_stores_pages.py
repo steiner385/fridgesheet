@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from lakota_grades import late_rules
-from lakota_grades.web import reconcile
-from lakota_grades.web.stores import flags, items, notes, students
+from fridgesheet import late_rules
+from fridgesheet.web import reconcile
+from fridgesheet.web.stores import flags, items, notes, students
 from tests.web_fixtures import NOW, seed
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])

@@ -6,9 +6,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lakota_grades import open_items
-from lakota_grades.web import db, ingest
-from lakota_grades.web.stores import flags, notes
+from fridgesheet import open_items
+from fridgesheet.web import db, ingest
+from fridgesheet.web.stores import flags, notes
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)

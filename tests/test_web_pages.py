@@ -1,8 +1,8 @@
 """Dashboard and Kid pages: what a parent sees, and the notes and flags round trip."""
 from __future__ import annotations
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import flags, notes
+from fridgesheet.web import db
+from fridgesheet.web.stores import flags, notes
 from tests.web_fixtures import NOW, app_for, seed
 
 

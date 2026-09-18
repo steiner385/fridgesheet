@@ -5,8 +5,8 @@ import base64
 import subprocess
 from pathlib import Path
 
-from lakota_grades import host
-from lakota_grades.host import notify, notify_linux, notify_windows, opener
+from fridgesheet import host
+from fridgesheet.host import notify, notify_linux, notify_windows, opener
 
 
 def _rec():
@@ -22,7 +22,7 @@ def test_linux_uses_notify_send_when_present(monkeypatch):
     seen, run = _rec()
     monkeypatch.setattr(notify_linux.shutil, "which", lambda n: "/usr/bin/notify-send")
     notify_linux.toast("Open Work Sheet", "Printed 2 pages", run=run)
-    assert seen[0][0] == ["notify-send", "-a", "Lakota sheet", "Open Work Sheet", "Printed 2 pages"]
+    assert seen[0][0] == ["notify-send", "-a", "Fridge Sheet", "Open Work Sheet", "Printed 2 pages"]
     monkeypatch.setattr(notify_linux.shutil, "which", lambda n: None)
     notify_linux.toast("x", "y", run=run)
     assert len(seen) == 1

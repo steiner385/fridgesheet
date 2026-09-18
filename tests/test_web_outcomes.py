@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lakota_grades.web import outcomes as oc
+from fridgesheet.web import outcomes as oc
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 17, 16, 0, tzinfo=TZ)

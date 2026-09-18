@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-WEB = Path(__file__).resolve().parents[1] / "lakota_grades" / "web"
+WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 CSS = (WEB / "static" / "app.css").read_text(encoding="utf-8")
 
 
@@ -69,7 +69,7 @@ def test_buttons_have_one_look_and_the_paper_one_is_the_primary(tmp_path):
 def test_the_print_confirmation_names_the_printer(tmp_path):
     from web_fixtures import app_for
     c = app_for(tmp_path, worker=True)
-    c.app.state.lakota.settings.printer = "Brother MFC-J4335DW Printer"
+    c.app.state.fridgesheet.settings.printer = "Brother MFC-J4335DW Printer"
     page = c.get("/", headers={"host": "127.0.0.1"}).text
     # The apostrophe is template text, not a variable, so autoescape leaves it alone.
     assert 'hx-confirm="Print today\'s sheet on Brother MFC-J4335DW Printer?"' in page

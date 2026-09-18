@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import config
-from lakota_grades.web import actions
+from fridgesheet import config
+from fridgesheet.web import actions
 
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lakota_grades import runner
-from lakota_grades.config import Settings
-from lakota_grades.host import ScheduleInfo
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports as reportstore
-from lakota_grades.web.stores import runs as runstore
+from fridgesheet import runner
+from fridgesheet.config import Settings
+from fridgesheet.host import ScheduleInfo
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports as reportstore
+from fridgesheet.web.stores import runs as runstore
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 14, 14, 5, tzinfo=TZ)
@@ -388,20 +388,20 @@ def test_about_text_names_version_repo_and_licences():
     from importlib import metadata
     t = actions.about_text()
     try:
-        expected = metadata.version("lakota-grades-mcp")
+        expected = metadata.version("fridgesheet")
     except metadata.PackageNotFoundError:
         expected = "dev"
-    assert t.startswith(f"Lakota Sheet {expected}\n")
+    assert t.startswith(f"Fridge Sheet {expected}\n")
     assert "github.com/steiner385/fridgesheet" in t
     assert "SumatraPDF" in t and "Chromium" in t and "segno" in t
     assert "Tk" not in t and "Tcl" not in t          # the window is retired; nothing bundles Tk
 
 
-def test_forward_logs_streams_lakota_records_only_while_active():
+def test_forward_logs_streams_app_records_only_while_active():
     lines = []
-    lakota, child = logging.getLogger("lakota"), logging.getLogger("lakota.session")
-    saved = (lakota.level, child.level)
-    lakota.setLevel(logging.NOTSET)
+    parent, child = logging.getLogger("fridgesheet"), logging.getLogger("fridgesheet.session")
+    saved = (parent.level, child.level)
+    parent.setLevel(logging.NOTSET)
     child.setLevel(logging.NOTSET)          # like the real app: nobody has configured these
     try:
         with actions.forward_logs(lines.append):
@@ -409,7 +409,7 @@ def test_forward_logs_streams_lakota_records_only_while_active():
             logging.getLogger("other").info("not ours")
         child.info("after")
         assert lines == ["OneLogin login page detected; signing in"]
-        assert lakota.level == logging.NOTSET      # restored
+        assert parent.level == logging.NOTSET      # restored
     finally:
-        lakota.setLevel(saved[0])
+        parent.setLevel(saved[0])
         child.setLevel(saved[1])

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import changes
+from fridgesheet.web import db
+from fridgesheet.web.stores import changes
 from tests.web_fixtures import NOW, app_for, history, seed
 
 
@@ -63,7 +63,7 @@ def test_rows_link_to_the_kid_and_the_item(tmp_path):
 
 def test_a_flag_shows_as_the_parents_own_change(tmp_path):
     conn = history(tmp_path)
-    from lakota_grades.web.stores import flags
+    from fridgesheet.web.stores import flags
     quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
     flags.set_flag(conn, quiz, "ask_teacher", now="2026-09-15T15:00:00-04:00", text="emailed")
     conn.close()
@@ -106,7 +106,7 @@ def test_an_empty_first_refresh_is_not_the_baseline(tmp_path):
     items; refresh 2 was the first real look. Everything it found used to be "New" -- 199
     rows -- because the baseline was the earliest refresh, not the earliest refresh with items."""
     from datetime import datetime
-    from lakota_grades.web import db, ingest
+    from fridgesheet.web import db, ingest
     from web_fixtures import TZ, snapshot
     conn = db.open_db(tmp_path)
     empty = snapshot()

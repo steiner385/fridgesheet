@@ -23,8 +23,8 @@ from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config, host
-from lakota_grades.web import app as webapp, db, ingest
+from fridgesheet import config, host
+from fridgesheet.web import app as webapp, db, ingest
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
@@ -97,7 +97,7 @@ def seed(home: Path, snap: dict | None = None, now: datetime = NOW) -> sqlite3.C
 #: `TestClient`'s own default Host ("testserver") is not an address this app is ever served
 #: on, and `same_origin_only` now checks Host on every request, GET included -- so every
 #: client built for these tests needs a Host it actually answers to. "127.0.0.1" is always in
-#: that set regardless of a test's `allow_lan`/`LAKOTA_WEB_HOST`, since a bare hostname with no
+#: that set regardless of a test's `allow_lan`/`FRIDGESHEET_WEB_HOST`, since a bare hostname with no
 #: port skips the port check.
 LOCAL_HOST_HEADERS = {"host": "127.0.0.1"}
 
@@ -106,7 +106,7 @@ def app_for(home: Path, now: datetime = NOW, worker: bool = False) -> TestClient
     """A client whose app clock is frozen at `now` (pages compare due dates against it)."""
     s = config.Settings(home=home)
     application = webapp.create_app(s, worker=worker)
-    application.state.lakota.clock = lambda: now
+    application.state.fridgesheet.clock = lambda: now
     return TestClient(application, headers=LOCAL_HOST_HEADERS)
 
 
@@ -212,11 +212,11 @@ class FakeScheduling:
         return self._info.get(key, host.ScheduleInfo("systemd", False, None, None))
 
     def task_name(self, key):
-        return f"Lakota Sheet - {key}"
+        return f"Fridge Sheet - {key}"
 
     def blocking_name(self, key):
         """The Linux unit name a real `scheduling_linux` would name in an unmanageable-row
         refusal: `LEGACY_TIMERS[key]` for the one key that has a hand-written unit under a
-        different name, `lakota-<safe_key(key)>.timer` for everything else."""
-        from lakota_grades.host import scheduling_linux
+        different name, `fridgesheet-<safe_key(key)>.timer` for everything else."""
+        from fridgesheet.host import scheduling_linux
         return scheduling_linux.blocking_name(key)

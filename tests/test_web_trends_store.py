@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from lakota_grades.web import db, ingest
-from lakota_grades.web.stores import flags, students, trends
+from fridgesheet.web import db, ingest
+from fridgesheet.web.stores import flags, students, trends
 from tests.web_fixtures import NOW, REFRESH_TIMES, TZ, history, seed, snapshot
 
 
@@ -183,8 +183,8 @@ def test_weekly_outcomes_bucket_by_due_week_not_by_refresh_week(tmp_path):
 def test_weekly_outcomes_agree_with_the_dashboard_record(tmp_path):
     """Same items, same classifier: the weekly table summed over a window that covers the
     whole year must equal the record line on the kid's card."""
-    from lakota_grades.late_rules import LateRules, Rule
-    from lakota_grades.web.stores import items, students
+    from fridgesheet.late_rules import LateRules, Rule
+    from fridgesheet.web.stores import items, students
     conn = history(tmp_path)
     rules = LateRules(Rule(), [], [])
     for s in students.visible(conn):

@@ -9,7 +9,7 @@ before tagging a release.
 
 **Architecture:** Mostly prose and one small module. `docs/windows.md` and `README.md` are
 the two surfaces a stranger reads first and both now describe a Settings page that no longer
-has the controls they name. `lakota_grades/qr.py` is a new pure function — URL in, SVG
+has the controls they name. `fridgesheet/qr.py` is a new pure function — URL in, SVG
 string out — with no image library and no network, rendered inline next to the LAN URL the
 Settings page already computes. The release checklist is a document, not an action: the
 manual checks and the tag are Tony's to perform.
@@ -17,7 +17,7 @@ manual checks and the tag are Tony's to perform.
 **Tech Stack:** Python 3.12, FastAPI + Jinja2 + htmx (no build step), `segno` for QR
 encoding (see Decision 1), pytest.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md` — sections 8 (access
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md` — sections 8 (access
 and security, which is where the QR code is specified), 11 (packaging, the friend,
 compatibility), 13 (plan E).
 
@@ -30,7 +30,7 @@ compatibility), 13 (plan E).
 - **No JavaScript test harness exists in this repo.** Add no client-side logic that would
   need one. The QR code is rendered server-side as inline SVG.
 - **Never run a real `systemctl` or `schtasks`; never write into `~/.config/systemd/user`;
-  never touch `~/.lakota-grades` beyond reading metadata with `stat`.** The machine has the
+  never touch `~/.fridgesheet` beyond reading metadata with `stat`.** The machine has the
   owner's live units, which print a real household's school work every weekday at 2 PM.
   `tests/conftest.py`'s `_no_real_scheduler` fixture now enforces the first of these — do
   not weaken, bypass or "simplify" it, and do not reach for a real command to prove a point.
@@ -41,7 +41,7 @@ compatibility), 13 (plan E).
 - `tests/test_packaging.py::test_windows_page_exists_and_names_the_limitations` asserts a
   list of phrases appear in `docs/windows.md`. Extend it; do not weaken it.
 - The test command is
-  `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`.
+  `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`.
   Baseline is **546 passing**.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
@@ -67,7 +67,7 @@ with the right one.
 
 **This is the decision in this plan most worth a second opinion, so flag it to Tony before
 Task 3 rather than after.** If he would rather not add a dependency, the task becomes
-"vendor `qrcodegen.py` (Project Nayuki, MIT, single file) under `lakota_grades/_vendor/`
+"vendor `qrcodegen.py` (Project Nayuki, MIT, single file) under `fridgesheet/_vendor/`
 and add it to `VENDOR.md` with a SHA-256 pin" — same public interface, same tests, one extra
 file to keep.
 
@@ -87,14 +87,14 @@ to clear six issues would be a plan that ran out of budget in the middle of one.
 ## File structure
 
 **Created:**
-- `lakota_grades/qr.py` — one public function, URL to inline SVG. No I/O, no network.
+- `fridgesheet/qr.py` — one public function, URL to inline SVG. No I/O, no network.
 - `docs/release-checklist.md` — what a human does on a real Windows PC before a tag.
 - `tests/test_qr.py`
 
 **Modified:**
 - `docs/windows.md` — the schedule paragraphs, which Plan D part 2 made false.
 - `README.md` — sections 5, 6 and "The browser app".
-- `lakota_grades/web/routes/settings.py` and `templates/settings.html` — render the QR.
+- `fridgesheet/web/routes/settings.py` and `templates/settings.html` — render the QR.
 - `tests/test_packaging.py` — extend the phrase list.
 - `tests/test_web_settings_page.py` — the QR renders only when the LAN toggle is on.
 - Whatever Task 4's triage selects.
@@ -119,8 +119,8 @@ app ever prints anything.
 
 - [ ] **Step 1: Read the page against the app**
 
-Read `docs/windows.md` end to end, then read `lakota_grades/web/templates/settings.html`
-and `lakota_grades/web/templates/schedules.html`. Write down every sentence in the page
+Read `docs/windows.md` end to end, then read `fridgesheet/web/templates/settings.html`
+and `fridgesheet/web/templates/schedules.html`. Write down every sentence in the page
 that names a control, and mark it present or absent. At minimum these are wrong today:
 
 - "First run" step 1 ends `Tick **Print the sheet automatically on school days**, then
@@ -129,8 +129,8 @@ that names a control, and mark it present or absent. At minimum these are wrong 
 - The same step tells the reader to pick "the print time" on Settings. Also gone.
 - Nothing in the page mentions the **Schedules** page, which is now where both live, nor
   that a schedule can name its own printer or be PDF-only.
-- "If something goes wrong" names the task `"Lakota Sheet - open-work"`. Still correct for
-  the built-in report, but a saved view report's task is named `Lakota Sheet - view 7`, and
+- "If something goes wrong" names the task `"Fridge Sheet - open-work"`. Still correct for
+  the built-in report, but a saved view report's task is named `Fridge Sheet - view 7`, and
   a reader looking for a schedule they made will not find it under the old name.
 
 - [ ] **Step 2: Write the failing test**
@@ -141,7 +141,7 @@ it is the established way this page is pinned:
 ```python
 def test_windows_page_exists_and_names_the_limitations():
     page = (ROOT / "docs" / "windows.md").read_text(encoding="utf-8")
-    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\lakota-grades",
+    for phrase in ("SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", "%LOCALAPPDATA%\\fridgesheet",
                    "Test login", "Print now", "no-print-days.txt", "late-rules.toml", "doctor.txt", "Task Scheduler", "Uninstall",
                    "Schedules", "PDF only"):
         assert phrase in page, phrase
@@ -152,7 +152,7 @@ def test_windows_page_exists_and_names_the_limitations():
 
 - [ ] **Step 3: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_packaging.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_packaging.py -q`
 Expected: FAIL — `assert "Schedules" in page` (the page has no such word), and the negative
 assertion fails too because the stale sentence is still there.
 
@@ -173,7 +173,7 @@ built themselves, and mention that turning a schedule off on the Schedules page 
 
 - [ ] **Step 5: Run the test and the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: 546 passing, with `test_windows_page_exists_and_names_the_limitations` now green.
 
 - [ ] **Step 6: Commit**
@@ -208,21 +208,21 @@ app" paragraph predates the Changes, Trends, Reports and Schedules pages.
 Run the app's own help and page list against a scratch home — never the real one:
 
 ```bash
-env -u PYTHONPATH LAKOTA_GRADES_HOME=/tmp/lakota-plan-e \
-  ~/lakota-grades-mcp/.venv/bin/python -m lakota_grades.cli --help
-env -u PYTHONPATH LAKOTA_GRADES_HOME=/tmp/lakota-plan-e \
-  ~/lakota-grades-mcp/.venv/bin/python -m lakota_grades.cli schedule --help
+env -u PYTHONPATH FRIDGESHEET_HOME=/tmp/fridgesheet-plan-e \
+  ~/fridgesheet/.venv/bin/python -m fridgesheet.cli --help
+env -u PYTHONPATH FRIDGESHEET_HOME=/tmp/fridgesheet-plan-e \
+  ~/fridgesheet/.venv/bin/python -m fridgesheet.cli schedule --help
 ```
 
-and read `lakota_grades/web/templates/base.html` for the real navigation list. Write the
+and read `fridgesheet/web/templates/base.html` for the real navigation list. Write the
 README from what those say, not from what the old README says.
 
 - [ ] **Step 2: Rewrite section 5**
 
-`systemd/lakota-grades-refresh.{service,timer}` in the repo are still the right way to
+`systemd/fridgesheet-refresh.{service,timer}` in the repo are still the right way to
 pre-fetch, and Tony runs them — keep that. But add that report *printing* schedules are no
-longer installed by hand: `lakota-grades schedule install <key>` or the Schedules page writes
-`lakota-<key>.{service,timer}` and enables them, and the app refuses to touch a unit it did
+longer installed by hand: `fridgesheet schedule install <key>` or the Schedules page writes
+`fridgesheet-<key>.{service,timer}` and enables them, and the app refuses to touch a unit it did
 not write (it marks its own with a comment line on the first line). A reader with existing
 hand-written units needs to know both that they are safe and that the app will not manage
 them.
@@ -230,8 +230,8 @@ them.
 - [ ] **Step 3: Rewrite section 6**
 
 Keep `print-sheet` documented — it still exists and Tony's live unit calls it — but lead with
-`lakota-grades run <key>`, which is what a schedule executes and what supports any report.
-Cover: a report key is `open-work` or `view:<id>`; `lakota-grades reports` lists them with
+`fridgesheet run <key>`, which is what a schedule executes and what supports any report.
+Cover: a report key is `open-work` or `view:<id>`; `fridgesheet reports` lists them with
 their schedule and whether they are PDF-only; `--printer` beats the report's own printer
 which beats `[print].printer`.
 
@@ -252,7 +252,7 @@ ran into your report.
 - [ ] **Step 6: Run the suite and commit**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q
 git add README.md
 git commit -m "README: the app writes its own timers, and has pages the README never named
 
@@ -273,16 +273,16 @@ The fallback (vendoring a single MIT file) is spelled out in the Decisions secti
 the same public interface, so only Step 3 changes if he prefers it.
 
 **Files:**
-- Create: `lakota_grades/qr.py`, `tests/test_qr.py`
-- Modify: `pyproject.toml` (dependencies), `lakota_grades/web/routes/settings.py`,
-  `lakota_grades/web/templates/settings.html`, `docs/windows.md` ("Credits and licences" —
+- Create: `fridgesheet/qr.py`, `tests/test_qr.py`
+- Modify: `pyproject.toml` (dependencies), `fridgesheet/web/routes/settings.py`,
+  `fridgesheet/web/templates/settings.html`, `docs/windows.md` ("Credits and licences" —
   segno is **BSD-3-Clause**, Copyright 2016-2025 Lars Heuer; that section names the licence
   of every bundled component and a newly bundled one belongs in it)
 - Test: `tests/test_qr.py`, `tests/test_web_settings_page.py`
 
 **Interfaces:**
 - Consumes: `actions.lan_url(port) -> str | None` (already exists,
-  `lakota_grades/web/actions.py:348`).
+  `fridgesheet/web/actions.py:348`).
 - Produces: `qr.svg(text: str, *, size_px: int = 160) -> str` — a complete, standalone
   `<svg>` element as a string, safe to drop inline into a page.
 
@@ -309,7 +309,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lakota_grades import qr
+from fridgesheet import qr
 
 
 def test_svg_is_a_standalone_element_a_page_can_inline():
@@ -355,8 +355,8 @@ identifier and not a fetch.
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_qr.py -q`
-Expected: FAIL — `ModuleNotFoundError: No module named 'lakota_grades.qr'`.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_qr.py -q`
+Expected: FAIL — `ModuleNotFoundError: No module named 'fridgesheet.qr'`.
 
 - [ ] **Step 3: Implement**
 
@@ -368,10 +368,10 @@ Add to `pyproject.toml`'s `dependencies`, keeping the list alphabetical:
 
 Install it into the venv the tests use before continuing.
 
-Create `lakota_grades/qr.py`:
+Create `fridgesheet/qr.py`:
 
 ```python
-# lakota_grades/qr.py
+# fridgesheet/qr.py
 """A QR code as inline SVG, for the LAN address a phone needs.
 
 Server-side and offline on purpose. The text encoded here is the address of the household's
@@ -416,15 +416,15 @@ actually called and why.
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_qr.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_qr.py -q`
 Expected: PASS, 6 tests.
 
 Then eyeball it once — a QR code that parses as XML but does not scan is a passing test suite
 and a broken feature:
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -c \
-  "from lakota_grades import qr; open('/tmp/qr.svg','w').write(qr.svg('http://192.168.1.42:8433/'))"
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -c \
+  "from fridgesheet import qr; open('/tmp/qr.svg','w').write(qr.svg('http://192.168.1.42:8433/'))"
 ```
 
 Open `/tmp/qr.svg` and scan it with a phone. Report what the phone resolved it to. If you
@@ -435,7 +435,7 @@ cannot scan it, say so plainly rather than claiming it works.
 `templates/settings.html:22-23` already shows the LAN URL when `lan_url` is set. Put the QR
 beside it. The route computes the SVG — templates in this codebase stay presentational:
 
-In `lakota_grades/web/routes/settings.py`'s `_page()`, alongside the existing
+In `fridgesheet/web/routes/settings.py`'s `_page()`, alongside the existing
 `lan_url=actions.lan_url(form.port) if form.allow_lan else None`, add a `lan_qr` computed
 from that same URL when it is not `None`, and pass it to the template. Guard it: a QR
 failure must not take the Settings page down with it, since the page is where a parent fixes
@@ -472,9 +472,9 @@ changed in Plan D part 2.
 - [ ] **Step 7: Run the suite and commit**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q
-git add pyproject.toml lakota_grades/qr.py lakota_grades/web/routes/settings.py \
-        lakota_grades/web/templates/settings.html tests/test_qr.py tests/test_web_settings_page.py
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q
+git add pyproject.toml fridgesheet/qr.py fridgesheet/web/routes/settings.py \
+        fridgesheet/web/templates/settings.html tests/test_qr.py tests/test_web_settings_page.py
 git commit -m "web.settings: a QR code for the phone, drawn on this machine
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -488,9 +488,9 @@ Issues #31–#36 hold about thirty items. This task clears the ones that are use
 cheap-and-adjacent and leaves the rest, each with a stated reason.
 
 **Files:**
-- Modify: as the triage selects. Expect `lakota_grades/host/scheduling_windows.py`,
-  `lakota_grades/host/scheduling_linux.py`, `lakota_grades/web/schedules.py`,
-  `lakota_grades/reports/__init__.py`, `tests/test_host_scheduling_linux.py`.
+- Modify: as the triage selects. Expect `fridgesheet/host/scheduling_windows.py`,
+  `fridgesheet/host/scheduling_linux.py`, `fridgesheet/web/schedules.py`,
+  `fridgesheet/reports/__init__.py`, `tests/test_host_scheduling_linux.py`.
 
 **Interfaces:**
 - Consumes: everything Plan D part 2 produced.
@@ -505,11 +505,11 @@ Each is small and each has a reason it is worth doing now rather than never:
    brand-new report, and the page blames a schedule that never existed. Skip the `remove`
    call when `describe` already reported `installed=False` **and** no `[reports.<key>]`
    table exists. Test both branches.
-2. **`web/schedules.py`'s `_unmanageable` message names `lakota-print-sheet.timer` for every
+2. **`web/schedules.py`'s `_unmanageable` message names `fridgesheet-print-sheet.timer` for every
    key** (#36). A parent blocked on report 5 is handed a command that does nothing for
    report 5. Name the unit actually in the way. Test with a non-`open-work` key.
 3. **`reports/__init__.py` still accepts `view:007`** (#36). It resolves to report 7 but
-   renders `lakota-view-007.timer` and stores a second `[reports."view:007"]` table that the
+   renders `fridgesheet-view-007.timer` and stores a second `[reports."view:007"]` table that the
    Schedules page can never show or remove. Reject any spelling where
    `raw != str(int(raw))`. Test `007`, `7`, `0`.
 4. **`host/scheduling_linux.py`'s `_FOREIGN_UNITS` does not name `service_linux.UNIT_FILE`**
@@ -553,7 +553,7 @@ not one commit per line.
 
 - [ ] **Step 4: Run the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: 546 + your new tests, all passing.
 
 - [ ] **Step 5: Commit**
@@ -618,7 +618,7 @@ Add one line to `README.md`'s "Releasing the Windows installer" section pointing
 - [ ] **Step 4: Run the suite and commit**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q
 git add docs/release-checklist.md README.md
 git commit -m "docs: the checklist a human runs before a tag
 

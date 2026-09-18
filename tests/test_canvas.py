@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import json
 
-from lakota_grades.canvas import Canvas
-from lakota_grades.config import Settings
+from fridgesheet.canvas import Canvas
+from fridgesheet.config import Settings
 
 
 class _Resp:

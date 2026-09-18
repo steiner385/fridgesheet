@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, `sqlite3` and `csv` (stdlib), the existing reportlab, FastAPI/Jinja2/htmx. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md`, sections 5 (the Reports bullet), 7 (Reports — the binding description of a view definition), 12, 13.D. GitHub milestone "Web app D: Reports", issues **#23** (Task 1), **#24** (Task 2), **#25** (Tasks 3 and 4). Part 2 of Plan D covers issues #26 and #27 (the Linux systemd writer and the Schedules page) and is written after this plan lands. Earlier residuals live in issues #31, #32, #33 and #34.
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md`, sections 5 (the Reports bullet), 7 (Reports — the binding description of a view definition), 12, 13.D. GitHub milestone "Web app D: Reports", issues **#23** (Task 1), **#24** (Task 2), **#25** (Tasks 3 and 4). Part 2 of Plan D covers issues #26 and #27 (the Linux systemd writer and the Schedules page) and is written after this plan lands. Earlier residuals live in issues #31, #32, #33 and #34.
 
 ## Global Constraints
 
@@ -21,7 +21,7 @@
 - The builder posts ordinary form fields; there is no JSON editor in the browser and no client-side validation. Jinja autoescape stays on, nothing is `|safe`, routes contain no SQL, templates do not compute.
 - The four seed templates (Open work, Weekly summary, Grade trend, Quarter recap) are inserted only when the `reports` table is empty, and only by an explicit action — never as a side effect of opening a page.
 - No credential is read by any of this. Nothing leaves the machine.
-- The full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, **389 passed** at the start of this plan) stays green and pristine on Linux and in CI on both runners.
+- The full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, **389 passed** at the start of this plan) stays green and pristine on Linux and in CI on both runners.
 - Commit after every task with the trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` and the issue line each task's commit block gives verbatim.
 
 ## What Plans A to C left (read before any task)
@@ -46,15 +46,15 @@
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/web/views.py` (new) | `COLUMNS`, `SOURCES`, `OPS`, `Definition`, `validate`, `defaults`, `build(conn, definition, *, now, rules, nicknames) -> Rendered` |
-| `lakota_grades/web/stores/reports.py` (new) | `all`, `by_id`, `create`, `update`, `delete`, `seed_templates` over the `reports` table |
-| `lakota_grades/sheet.py` (modify) | `build_table_pdf(rendered, out_path, *, title, printed_at, orientation, per_kid_sections) -> int` beside the untouched open-work code |
-| `lakota_grades/reports/view.py` (new) | `ViewReport` — the `Report` protocol over a stored definition |
-| `lakota_grades/reports/__init__.py` (modify) | `resolve(key, home)`; `REPORTS` and `get` unchanged |
-| `lakota_grades/runner.py` (modify) | resolve through `reports.resolve(report_key, home)` |
-| `lakota_grades/web/routes/reports.py` (new) | the list, the builder, preview, save, delete, print, export |
-| `lakota_grades/web/templates/reports.html`, `report_builder.html`, `_report_preview.html` (new); `base.html` (modify) | |
-| `lakota_grades/web/actions.py`, `jobs.py` (modify) | a report key reaches `preview`/`print_now` and the job params |
+| `fridgesheet/web/views.py` (new) | `COLUMNS`, `SOURCES`, `OPS`, `Definition`, `validate`, `defaults`, `build(conn, definition, *, now, rules, nicknames) -> Rendered` |
+| `fridgesheet/web/stores/reports.py` (new) | `all`, `by_id`, `create`, `update`, `delete`, `seed_templates` over the `reports` table |
+| `fridgesheet/sheet.py` (modify) | `build_table_pdf(rendered, out_path, *, title, printed_at, orientation, per_kid_sections) -> int` beside the untouched open-work code |
+| `fridgesheet/reports/view.py` (new) | `ViewReport` — the `Report` protocol over a stored definition |
+| `fridgesheet/reports/__init__.py` (modify) | `resolve(key, home)`; `REPORTS` and `get` unchanged |
+| `fridgesheet/runner.py` (modify) | resolve through `reports.resolve(report_key, home)` |
+| `fridgesheet/web/routes/reports.py` (new) | the list, the builder, preview, save, delete, print, export |
+| `fridgesheet/web/templates/reports.html`, `report_builder.html`, `_report_preview.html` (new); `base.html` (modify) | |
+| `fridgesheet/web/actions.py`, `jobs.py` (modify) | a report key reaches `preview`/`print_now` and the job params |
 | `tests/test_web_views.py`, `test_web_reports_store.py`, `test_report_view.py`, `test_sheet_table.py`, `test_web_reports_page.py` (new); `tests/test_reports.py`, `test_runner.py`, `test_web_jobs.py` (modify) | |
 
 ---
@@ -62,7 +62,7 @@
 ### Task 1: `web/views.py` and the reports store (issue #23)
 
 **Files:**
-- Create: `lakota_grades/web/views.py`, `lakota_grades/web/stores/reports.py`, `tests/test_web_views.py`, `tests/test_web_reports_store.py`
+- Create: `fridgesheet/web/views.py`, `fridgesheet/web/stores/reports.py`, `tests/test_web_views.py`, `tests/test_web_reports_store.py`
 
 **Interfaces:**
 - Consumes: `stores/items.py`, `stores/trends.py`, `stores/changes.py`, `stores/students.py`, `db.now_iso`.
@@ -89,8 +89,8 @@ from __future__ import annotations
 
 import json
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports
 
 
 def test_empty_table(tmp_path):
@@ -133,7 +133,7 @@ def test_seed_templates_only_fills_an_empty_table(tmp_path):
 
 
 def test_seeded_definitions_are_valid(tmp_path):
-    from lakota_grades.web import views
+    from fridgesheet.web import views
     conn = db.open_db(tmp_path)
     reports.seed_templates(conn, now="2026-09-16T08:00:00-04:00")
     for r in reports.all(conn):
@@ -142,7 +142,7 @@ def test_seeded_definitions_are_valid(tmp_path):
     conn.close()
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_reports_store.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_reports_store.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 2: Write the failing views test**
@@ -157,9 +157,9 @@ import json
 
 import pytest
 
-from lakota_grades import late_rules
-from lakota_grades.web import views
-from lakota_grades.web.stores import students
+from fridgesheet import late_rules
+from fridgesheet.web import views
+from fridgesheet.web.stores import students
 from tests.web_fixtures import NOW, history, seed
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])
@@ -658,7 +658,7 @@ Run both test files. Expected: PASS. If `test_group_by_splits_and_labels` orders
 - [ ] **Step 5: Full suite, commit**
 
 ```bash
-git add lakota_grades/web/views.py lakota_grades/web/stores/reports.py tests/test_web_views.py tests/test_web_reports_store.py
+git add fridgesheet/web/views.py fridgesheet/web/stores/reports.py tests/test_web_views.py tests/test_web_reports_store.py
 git commit -m "web.views: a report definition, its checks, and the rows it selects
 
 Closes #23
@@ -671,8 +671,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 2: A generic table PDF, and `reports/view.py` (issue #24)
 
 **Files:**
-- Modify: `lakota_grades/sheet.py` (add; never change the open-work path), `lakota_grades/reports/__init__.py`, `lakota_grades/runner.py`
-- Create: `lakota_grades/reports/view.py`, `tests/test_sheet_table.py`, `tests/test_report_view.py`
+- Modify: `fridgesheet/sheet.py` (add; never change the open-work path), `fridgesheet/reports/__init__.py`, `fridgesheet/runner.py`
+- Create: `fridgesheet/reports/view.py`, `tests/test_sheet_table.py`, `tests/test_report_view.py`
 - Modify: `tests/test_reports.py`, `tests/test_runner.py`
 
 **Interfaces:**
@@ -680,7 +680,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Produces:
   - `sheet.build_table_pdf(rendered, out_path, *, title, printed_at, orientation="portrait", per_kid_sections=False, note=None) -> int` — returns the page count
   - `reports.view.ViewReport(report_id, name, definition)` satisfying the `Report` protocol, with `key = f"view:{report_id}"`, `title = name`, `output_dir = f"reports/view-{report_id}"`, `default_time = "16:00"`, `archive_name(day)` → `f"{day.isoformat()} {name}.pdf"`
-  - `reports.resolve(key: str, home: Path | None = None) -> Report` — a code report from `REPORTS`, or a `view:<id>` loaded from `<home>/lakota.db`; raises `ReportError` for an unknown key, a missing home, or a deleted row
+  - `reports.resolve(key: str, home: Path | None = None) -> Report` — a code report from `REPORTS`, or a `view:<id>` loaded from `<home>/fridgesheet.db`; raises `ReportError` for an unknown key, a missing home, or a deleted row
   - `runner.run` resolves through `reports.resolve(report_key, settings.home)`
 
 - [ ] **Step 1: Write the failing table-PDF test**
@@ -691,8 +691,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 """The generic table PDF a view report prints. The open-work layout is not touched by any of this."""
 from __future__ import annotations
 
-from lakota_grades import sheet
-from lakota_grades.web.views import Column, Group, Rendered
+from fridgesheet import sheet
+from fridgesheet.web.views import Column, Group, Rendered
 from tests.conftest import needs_pdftotext
 from tests.web_fixtures import NOW
 
@@ -809,13 +809,13 @@ def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetim
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(GREY)
         canvas.drawRightString(page[0] - MARGIN, 0.4 * inch,
-                               f"lakota-grades · {_esc(title)} · printed {md(printed_at)} {time12(printed_at)} · page {doc.page}")
+                               f"fridgesheet · {_esc(title)} · printed {md(printed_at)} {time12(printed_at)} · page {doc.page}")
         canvas.restoreState()
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(str(out_path), pagesize=page, leftMargin=MARGIN, rightMargin=MARGIN,
                             topMargin=0.55 * inch, bottomMargin=0.65 * inch,
-                            title=f"{title} {printed_at:%Y-%m-%d}", author="lakota-grades")
+                            title=f"{title} {printed_at:%Y-%m-%d}", author="fridgesheet")
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return pages["n"]
 ```
@@ -835,10 +835,10 @@ from datetime import date
 
 import pytest
 
-from lakota_grades import config, reports, runner
-from lakota_grades.reports import ReportError
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports as reportstore
+from fridgesheet import config, reports, runner
+from fridgesheet.reports import ReportError
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports as reportstore
 from tests.conftest import needs_pdftotext
 from tests.web_fixtures import NOW, seed
 
@@ -880,7 +880,7 @@ def _ctx(home, out):
 
 @needs_pdftotext
 def test_build_writes_a_pdf_and_rows(tmp_path):
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     seed(tmp_path).close()
     rid = _save(tmp_path)
     r = reports.resolve(f"view:{rid}", tmp_path)
@@ -925,7 +925,7 @@ def test_the_runner_runs_a_view_report(tmp_path):
 
 - [ ] **Step 4: Implement `reports/view.py` and `resolve`**
 
-`lakota_grades/reports/view.py`:
+`fridgesheet/reports/view.py`:
 
 ```python
 """A saved view report, wearing the same Report protocol as the open-work sheet.
@@ -1030,7 +1030,7 @@ Add `resolve` to `__all__`. In `runner.py`, change `report = reports.get(report_
 - [ ] **Step 5: Run, full suite, commit**
 
 ```bash
-git add lakota_grades tests
+git add fridgesheet tests
 git commit -m "A view report prints: the generic table engine, ViewReport, and resolve by key
 
 Closes #24
@@ -1043,8 +1043,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 3: The Reports page — list, builder, preview, save (issue #25, part 1 of 2)
 
 **Files:**
-- Create: `lakota_grades/web/routes/reports.py`, `templates/reports.html`, `report_builder.html`, `_report_preview.html`, `tests/test_web_reports_page.py`
-- Modify: `lakota_grades/web/app.py` (router), `templates/base.html` (rail)
+- Create: `fridgesheet/web/routes/reports.py`, `templates/reports.html`, `report_builder.html`, `_report_preview.html`, `tests/test_web_reports_page.py`
+- Modify: `fridgesheet/web/app.py` (router), `templates/base.html` (rail)
 
 **Interfaces:**
 - Consumes: Task 1's `views` and `stores.reports`, `app.render`/`render_partial`, `students.visible`.
@@ -1060,8 +1060,8 @@ from __future__ import annotations
 
 import json
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports as store
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import app_for, seed
 
 
@@ -1162,7 +1162,7 @@ def test_delete_removes_it(tmp_path):
 
 - [ ] **Step 2: The route**
 
-`lakota_grades/web/routes/reports.py`:
+`fridgesheet/web/routes/reports.py`:
 
 ```python
 """Reports: the list of code and saved reports, the builder, and its live preview."""
@@ -1291,7 +1291,7 @@ def remove(report_id: int, request: Request, conn: sqlite3.Connection = Db, stat
 
 ```html
 {% extends "base.html" %}
-{% block title %}Reports · Lakota Sheet{% endblock %}
+{% block title %}Reports · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Reports</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
@@ -1329,7 +1329,7 @@ The two `{# … #}` comments mark where Task 4 adds the export links and the Pri
 
 ```html
 {% extends "base.html" %}
-{% block title %}{{ report.name if report else "New report" }} · Lakota Sheet{% endblock %}
+{% block title %}{{ report.name if report else "New report" }} · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>{{ report.name if report else "New report" }}</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
@@ -1397,7 +1397,7 @@ The two `{# … #}` comments mark where Task 4 adds the export links and the Pri
 - [ ] **Step 4: Run, full suite, commit**
 
 ```bash
-git add lakota_grades/web tests/test_web_reports_page.py
+git add fridgesheet/web tests/test_web_reports_page.py
 git commit -m "web: the Reports page, the builder and its live preview
 
 Part of #25
@@ -1410,7 +1410,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 4: Print and export (issue #25, part 2 of 2 — this commit closes it)
 
 **Files:**
-- Modify: `lakota_grades/web/routes/reports.py`, `templates/reports.html`, `lakota_grades/web/actions.py`, `lakota_grades/web/jobs.py`, `lakota_grades/web/routes/jobs.py`, `tests/test_web_reports_page.py`, `tests/test_web_jobs.py`, `tests/test_web_actions.py`
+- Modify: `fridgesheet/web/routes/reports.py`, `templates/reports.html`, `fridgesheet/web/actions.py`, `fridgesheet/web/jobs.py`, `fridgesheet/web/routes/jobs.py`, `tests/test_web_reports_page.py`, `tests/test_web_jobs.py`, `tests/test_web_actions.py`
 
 **Interfaces:**
 - Consumes: Task 2's `reports.resolve`, Task 3's route module, `jobs.Worker.submit`.
@@ -1534,7 +1534,7 @@ In `web/actions.py`, give `preview` and `print_now` a `report_key: str = "open-w
 - [ ] **Step 4: Run, full suite, commit**
 
 ```bash
-git add lakota_grades tests
+git add fridgesheet tests
 git commit -m "web: print a saved report through the runner, and export it as CSV or JSON
 
 Closes #25
@@ -1549,6 +1549,6 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - `/reports` lists the built-in sheet and the parent's own reports, offers the four starters into an empty table, and links each saved report to a builder that previews live as it is edited.
 - A saved report prints through the same runner the sheet uses: it archives, records a `runs` row, toasts, and respects the lock; its PDF appears under `reports/view-<id>/<date>/report.pdf`.
 - CSV and JSON download with a sensible filename, and a report whose definition no longer validates is a clear 400 rather than a traceback.
-- `lakota-grades run view:<id>` works from the command line, which is what makes part 2's schedules possible.
+- `fridgesheet run view:<id>` works from the command line, which is what makes part 2's schedules possible.
 - No schema change; the open-work sheet's layout and every existing test of it are untouched; the full suite is green and pristine locally and in CI on both runners.
 - Not in this plan: the Linux systemd writer and the Schedules page (Plan D part 2, issues #26 and #27); charts inside a view report (`chart` stays `null`); the friend's page and doc polish (Plan E); the residuals in issues #31 to #34.

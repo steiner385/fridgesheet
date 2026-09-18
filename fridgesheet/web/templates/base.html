@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Fridge Sheet{% endblock %}</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/mark-180.png">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    <nav>
+      <a href="/" class="{{ 'current' if current == 'dashboard' }}">Dashboard</a>
+      <div class="group">Kids</div>
+      {% for s in students %}<a href="/kids/{{ s.key }}" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }}</a>{% endfor %}
+      <div class="group">Work</div>
+      <a href="/reconcile" class="{{ 'current' if current == 'reconcile' }}">Reconcile</a>
+      <a href="/reports" class="{{ 'current' if current == 'reports' }}">Reports</a>
+      <a href="/schedules" class="{{ 'current' if current == 'schedules' }}">Schedules</a>
+      <div class="group">Time</div>
+      <a href="/changes" class="{{ 'current' if current == 'changes' }}">Changes</a>
+      <a href="/trends" class="{{ 'current' if current == 'trends' }}">Trends</a>
+      <div class="group">App</div>
+      <a href="/runs" class="{{ 'current' if current == 'runs' }}">Runs</a>
+      <a href="/settings" class="{{ 'current' if current == 'settings' }}">Settings</a>
+      <a href="/diagnostics" class="{{ 'current' if current == 'diagnostics' }}">Diagnostics</a>
+      {% block rail_extra %}{% endblock %}
+    </nav>
+  </aside>
+  <main>
+    {% include "_header.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

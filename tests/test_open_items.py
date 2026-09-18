@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lakota_grades import late_rules, open_items
+from fridgesheet import late_rules, open_items
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 11, 14, 0, tzinfo=TZ)  # a Friday

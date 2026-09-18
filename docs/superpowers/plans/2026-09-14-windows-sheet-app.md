@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give the Windows user one window, "Lakota Sheet", to enter their OneLogin account, pick a printer and print time, test the login, preview or print today's sheet, and turn the scheduled run on or off, without a terminal.
+**Goal:** Give the Windows user one window, "Fridge Sheet", to enter their OneLogin account, pick a printer and print time, test the login, preview or print today's sheet, and turn the scheduled run on or off, without a terminal.
 
-**Architecture:** Every button is a plain function in `lakota_grades/app/actions.py` that takes a `log` callable and returns a small result dataclass; those functions are fully tested with fakes for the host adapters and the runner. `lakota_grades/app/gui.py` is a thin tkinter layer that builds widgets, runs each action on a worker thread, and marshals log lines back to the main loop through a queue; it is not unit-tested. `lakota_grades/app/__main__.py` is the PyInstaller entry point: no arguments opens the window, anything else is the normal CLI, and logging goes to `<home>/app.log` because a windowed exe has no stderr.
+**Architecture:** Every button is a plain function in `fridgesheet/app/actions.py` that takes a `log` callable and returns a small result dataclass; those functions are fully tested with fakes for the host adapters and the runner. `fridgesheet/app/gui.py` is a thin tkinter layer that builds widgets, runs each action on a worker thread, and marshals log lines back to the main loop through a queue; it is not unit-tested. `fridgesheet/app/__main__.py` is the PyInstaller entry point: no arguments opens the window, anything else is the normal CLI, and logging goes to `<home>/app.log` because a windowed exe has no stderr.
 
 **Tech Stack:** Python 3.12, tkinter/ttk (ships with CPython; **not installed on the dev box**, so `gui.py` cannot be run here), `logging.handlers.RotatingFileHandler`, the Plan 1 modules `config`, `runner`, `reports`, `session`, `late_rules`, `host.*`.
 
@@ -16,9 +16,9 @@
 - Every action takes `log: Callable[[str], None]` and never prints; every action takes `home: Path` explicitly (the GUI passes `config.DEFAULT_HOME`) so tests use `tmp_path`.
 - No credential is ever written to `config.toml`, `app.log`, `print-sheet.log`, a log pane line, a toast, or an exception message. The password field is cleared after a successful Save.
 - `<home>/login-ok.txt` is written only by a passing Test login (ISO timestamp), removed by a failing one, and is what gates installing the scheduled task.
-- `<home>/app.log` is a rotating file (1 MB, 3 backups) that receives every `logging` record from the `lakota` loggers; stderr also gets them only when `sys.stderr is not None`.
+- `<home>/app.log` is a rotating file (1 MB, 3 backups) that receives every `logging` record from the `fridgesheet` loggers; stderr also gets them only when `sys.stderr is not None`.
 - The report key the app manages is `"open-work"`; days are the weekdays `["Mon", "Tue", "Wed", "Thu", "Fri"]` unless `config.toml` already lists days, which the app preserves.
-- Existing behaviour must survive: the full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, 131 passed at the start of this plan) stays green on Linux and in CI on both runners.
+- Existing behaviour must survive: the full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, 131 passed at the start of this plan) stays green on Linux and in CI on both runners.
 - Commit after every task with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Interfaces this plan builds on (all exist after Plan 1)
@@ -46,13 +46,13 @@
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/runner.py` (modify) | `_Log` gains an `echo` callback; `run()` gains `echo=None` |
-| `lakota_grades/app/__init__.py` (new) | package docstring only |
-| `lakota_grades/app/actions.py` (new) | `FormValues`, `load_form`, `validate`, `save`, `test_login`, `preview`, `print_now`, `status_line`, `open_editable`, `about_text`, `forward_logs` |
-| `lakota_grades/app/gui.py` (new) | the tkinter window; `run_app() -> int` |
-| `lakota_grades/app/__main__.py` (new) | `setup_logging(home)`, `main(argv=None) -> int`; frozen-exe environment |
-| `lakota_grades/host/opener.py` (modify) | `open_text(path)` for the two editable files |
-| `lakota_grades/cli.py` (modify) | `app` command |
+| `fridgesheet/runner.py` (modify) | `_Log` gains an `echo` callback; `run()` gains `echo=None` |
+| `fridgesheet/app/__init__.py` (new) | package docstring only |
+| `fridgesheet/app/actions.py` (new) | `FormValues`, `load_form`, `validate`, `save`, `test_login`, `preview`, `print_now`, `status_line`, `open_editable`, `about_text`, `forward_logs` |
+| `fridgesheet/app/gui.py` (new) | the tkinter window; `run_app() -> int` |
+| `fridgesheet/app/__main__.py` (new) | `setup_logging(home)`, `main(argv=None) -> int`; frozen-exe environment |
+| `fridgesheet/host/opener.py` (modify) | `open_text(path)` for the two editable files |
+| `fridgesheet/cli.py` (modify) | `app` command |
 | `README.md` (modify) | one short "The settings window" paragraph |
 | `tests/test_runner.py` (modify), `tests/test_app_actions.py` (new), `tests/test_app_main.py` (new), `tests/test_host_notify.py` (modify, opener tests live there) | |
 
@@ -63,7 +63,7 @@
 The GUI's log pane must show the runner's own `OK`/`SKIP`/`FAIL` lines as they happen. Today `_Log` prints to stderr when it exists; this adds an optional callback and routes to it instead.
 
 **Files:**
-- Modify: `lakota_grades/runner.py` (`_Log`, `run` signature, the `_Log(...)` construction inside `run`)
+- Modify: `fridgesheet/runner.py` (`_Log`, `run` signature, the `_Log(...)` construction inside `run`)
 - Test: `tests/test_runner.py` (append)
 
 **Interfaces:**
@@ -85,12 +85,12 @@ def test_echo_receives_every_log_line_and_stderr_is_quiet(env, capsys):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_runner.py -q -k echo`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_runner.py -q -k echo`
 Expected: FAIL with `TypeError: run() got an unexpected keyword argument 'echo'`.
 
 - [ ] **Step 3: Implement**
 
-In `lakota_grades/runner.py`, change `_Log`:
+In `fridgesheet/runner.py`, change `_Log`:
 
 ```python
 class _Log:
@@ -114,13 +114,13 @@ Change the `run` signature to end `..., print_pdf=None, toast=None, echo=None) -
 
 - [ ] **Step 4: Run the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: 132 passed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/runner.py tests/test_runner.py
+git add fridgesheet/runner.py tests/test_runner.py
 git commit -m "runner: optional echo callback for log lines (the app's log pane)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -131,11 +131,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 2: `actions.py` part 1: the form, loading it, validating it
 
 **Files:**
-- Create: `lakota_grades/app/__init__.py`, `lakota_grades/app/actions.py`
+- Create: `fridgesheet/app/__init__.py`, `fridgesheet/app/actions.py`
 - Test: `tests/test_app_actions.py`
 
 **Interfaces:**
-- Produces, in `lakota_grades.app.actions`:
+- Produces, in `fridgesheet.app.actions`:
   - `REPORT_KEY = "open-work"`, `LOGIN_STAMP = "login-ok.txt"`, `APP_LOG = "app.log"`, `CONFIG_NAME = "config.toml"`
   - `FormValues(username="", password="", printer="", time="14:00", days_ahead=14, overdue_days=14, nicknames="", archive="", scheduled=False)` — `nicknames` is the multi-line text, one `First=Nick` per line; `printer=""` means system default; `password=""` means keep the stored one.
   - `load_form(home: Path) -> FormValues` (raises `config.ConfigError` on a broken file)
@@ -155,8 +155,8 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import config
-from lakota_grades.app import actions
+from fridgesheet import config
+from fridgesheet.app import actions
 
 
 def test_load_form_defaults_when_no_config(tmp_path):
@@ -222,19 +222,19 @@ def test_validate_checks_time_ranges_and_nicknames():
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py -q`
-Expected: FAIL at import (`No module named 'lakota_grades.app'`).
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py -q`
+Expected: FAIL at import (`No module named 'fridgesheet.app'`).
 
 - [ ] **Step 3: Create the package and the first half of `actions.py`**
 
 ```python
-# lakota_grades/app/__init__.py
+# fridgesheet/app/__init__.py
 """The settings window (Plan 2). `actions` holds every button's logic, tested without a
 display; `gui` is the tkinter layer; `__main__` is the frozen exe's entry point."""
 ```
 
 ```python
-# lakota_grades/app/actions.py
+# fridgesheet/app/actions.py
 """What the buttons do. Plain functions, no tkinter, every side effect behind an
 injectable parameter so the whole module is tested with fakes.
 
@@ -339,13 +339,13 @@ def validate(form: FormValues, stored: str) -> list[str]:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py -q`
 Expected: 7 passed. Then the full suite: 139 passed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/app tests/test_app_actions.py
+git add fridgesheet/app tests/test_app_actions.py
 git commit -m "app.actions: form values, load_form, validate
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -354,7 +354,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: `actions.save`: write config, store the password, sync the schedule
 
 **Files:**
-- Modify: `lakota_grades/app/actions.py` (append)
+- Modify: `fridgesheet/app/actions.py` (append)
 - Test: `tests/test_app_actions.py` (append)
 
 **Interfaces:**
@@ -441,7 +441,7 @@ def test_save_with_schedule_off_removes_the_task(tmp_path):
 
 
 def test_save_reports_scheduler_failures_but_keeps_the_config(tmp_path):
-    from lakota_grades.host import NotSupported, SchedulingError
+    from fridgesheet.host import NotSupported, SchedulingError
     (tmp_path / actions.LOGIN_STAMP).write_text("x")
     r, *_ = _save(tmp_path, _form(), sched=_Sched(fail=SchedulingError("Access is denied")))
     assert r.ok and r.schedule_installed is False and any("Access is denied" in m for m in r.messages)
@@ -460,12 +460,12 @@ def test_save_tolerates_scalar_sections_in_an_existing_config(tmp_path):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py -q -k save`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py -q -k save`
 Expected: FAIL with `AttributeError: module ... has no attribute 'save'`.
 
 - [ ] **Step 3: Implement `save`**
 
-Append to `lakota_grades/app/actions.py` (add `from typing import Callable` and `from .. import host` to the imports):
+Append to `fridgesheet/app/actions.py` (add `from typing import Callable` and `from .. import host` to the imports):
 
 ```python
 @dataclass
@@ -540,13 +540,13 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
 
 - [ ] **Step 4: Run the tests and the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py -q` then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py -q` then the full suite.
 Expected: 13 passed in the file; 145 passed overall.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/app/actions.py tests/test_app_actions.py
+git add fridgesheet/app/actions.py tests/test_app_actions.py
 git commit -m "app.actions.save: write config.toml, store the password, sync the scheduled task
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -557,8 +557,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: The Run-tab actions: Test login, Preview, Print now, status line, editable files, About
 
 **Files:**
-- Modify: `lakota_grades/app/actions.py` (append)
-- Modify: `lakota_grades/host/opener.py` (add `open_text`)
+- Modify: `fridgesheet/app/actions.py` (append)
+- Modify: `fridgesheet/host/opener.py` (add `open_text`)
 - Test: `tests/test_app_actions.py` (append), `tests/test_host_notify.py` (append; the opener tests live there)
 
 **Interfaces:**
@@ -600,9 +600,9 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lakota_grades import runner
-from lakota_grades.config import Settings
-from lakota_grades.host import ScheduleInfo
+from fridgesheet import runner
+from fridgesheet.config import Settings
+from fridgesheet.host import ScheduleInfo
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 14, 14, 5, tzinfo=TZ)
@@ -680,13 +680,13 @@ def test_open_editable_seeds_then_opens(tmp_path):
 
 def test_about_text_names_version_repo_and_licences():
     t = actions.about_text()
-    assert "Lakota Sheet" in t and "github.com/steiner385/fridgesheet" in t
+    assert "Fridge Sheet" in t and "github.com/steiner385/fridgesheet" in t
     assert "SumatraPDF" in t and "Chromium" in t and ("0.2" in t or "dev" in t)
 
 
-def test_forward_logs_streams_lakota_records_only_while_active():
+def test_forward_logs_streams_app_records_only_while_active():
     lines = []
-    lg = logging.getLogger("lakota.session")
+    lg = logging.getLogger("fridgesheet.session")
     lg.setLevel(logging.INFO)
     with actions.forward_logs(lines.append):
         lg.info("OneLogin login page detected; signing in")
@@ -697,12 +697,12 @@ def test_forward_logs_streams_lakota_records_only_while_active():
 
 - [ ] **Step 3: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py tests/test_host_notify.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py tests/test_host_notify.py -q`
 Expected: the new tests FAIL with `AttributeError` (`open_text`, `test_login`, ...).
 
 - [ ] **Step 4: Add `open_text` to the opener**
 
-Append to `lakota_grades/host/opener.py`:
+Append to `fridgesheet/host/opener.py`:
 
 ```python
 def open_text(path: Path, popen=subprocess.Popen) -> None:
@@ -719,7 +719,7 @@ def open_text(path: Path, popen=subprocess.Popen) -> None:
 
 - [ ] **Step 5: Implement the Run-tab actions**
 
-Append to `lakota_grades/app/actions.py` (imports to add at the top: `import contextlib`, `import logging`, `from datetime import date, datetime`, `from importlib import metadata`, `from zoneinfo import ZoneInfo`, `from .. import late_rules, runner`):
+Append to `fridgesheet/app/actions.py` (imports to add at the top: `import contextlib`, `import logging`, `from datetime import date, datetime`, `from importlib import metadata`, `from zoneinfo import ZoneInfo`, `from .. import late_rules, runner`):
 
 ```python
 @dataclass
@@ -730,7 +730,7 @@ class LoginResult:
 
 
 def check_sites(settings: config.Settings, log: Callable[[str], None]) -> dict[str, str | None]:
-    """Sign in headless to Canvas and HAC the way `lakota-grades check` does; the error
+    """Sign in headless to Canvas and HAC the way `fridgesheet check` does; the error
     text is site copy or our own message, never a credential."""
     from ..session import browser, ensure_canvas, ensure_hac
     out: dict[str, str | None] = {}
@@ -830,11 +830,11 @@ def open_editable(home: Path, name: str, opener=None) -> Path:
 
 def about_text() -> str:
     try:
-        version = metadata.version("lakota-grades-mcp")
+        version = metadata.version("fridgesheet")
     except metadata.PackageNotFoundError:
         version = "dev"
     return (
-        f"Lakota Sheet {version}\n"
+        f"Fridge Sheet {version}\n"
         "Prints the kids' open-work sheet from Canvas and Home Access Center.\n"
         "https://github.com/steiner385/fridgesheet (MIT)\n\n"
         "Bundled components: Chromium via Playwright (BSD-3-Clause), SumatraPDF for printing (GPL-3.0; source at "
@@ -857,9 +857,9 @@ class _Forward(logging.Handler):
 
 @contextlib.contextmanager
 def forward_logs(log: Callable[[str], None]):
-    """While active, every INFO+ record from the `lakota` loggers also reaches `log`."""
+    """While active, every INFO+ record from the `fridgesheet` loggers also reaches `log`."""
     handler = _Forward(log)
-    root = logging.getLogger("lakota")
+    root = logging.getLogger("fridgesheet")
     root.addHandler(handler)
     try:
         yield
@@ -869,13 +869,13 @@ def forward_logs(log: Callable[[str], None]):
 
 - [ ] **Step 6: Run the tests and the suite**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_actions.py tests/test_host_notify.py -q` then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_actions.py tests/test_host_notify.py -q` then the full suite.
 Expected: all pass; 154 passed overall.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add lakota_grades/app/actions.py lakota_grades/host/opener.py tests/test_app_actions.py tests/test_host_notify.py
+git add fridgesheet/app/actions.py fridgesheet/host/opener.py tests/test_app_actions.py tests/test_host_notify.py
 git commit -m "app.actions: test login (login-ok.txt), preview, print now, status line, editable files, about
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -884,8 +884,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: The entry point: `app/__main__.py`, `app.log`, and the `app` command
 
 **Files:**
-- Create: `lakota_grades/app/__main__.py`
-- Modify: `lakota_grades/cli.py` (add `cmd_app` and the `app` parser)
+- Create: `fridgesheet/app/__main__.py`
+- Modify: `fridgesheet/cli.py` (add `cmd_app` and the `app` parser)
 - Test: `tests/test_app_main.py`
 
 **Interfaces:**
@@ -910,9 +910,9 @@ import types
 
 import pytest
 
-from lakota_grades import cli
-from lakota_grades.app import __main__ as appmain
-from lakota_grades.app import actions
+from fridgesheet import cli
+from fridgesheet.app import __main__ as appmain
+from fridgesheet.app import actions
 
 
 @pytest.fixture(autouse=True)
@@ -929,13 +929,13 @@ def _clean_root_logger():
 def test_frozen_environment_points_playwright_at_the_bundle(monkeypatch, tmp_path):
     env = {}
     monkeypatch.delattr(sys, "frozen", raising=False)
-    appmain.frozen_environment(environ=env, executable=str(tmp_path / "LakotaSheet.exe"))
+    appmain.frozen_environment(environ=env, executable=str(tmp_path / "FridgeSheet.exe"))
     assert env == {}
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    appmain.frozen_environment(environ=env, executable=str(tmp_path / "LakotaSheet.exe"))
+    appmain.frozen_environment(environ=env, executable=str(tmp_path / "FridgeSheet.exe"))
     assert env["PLAYWRIGHT_BROWSERS_PATH"] == str(tmp_path / "ms-playwright")
     env["PLAYWRIGHT_BROWSERS_PATH"] = "custom"
-    appmain.frozen_environment(environ=env, executable=str(tmp_path / "LakotaSheet.exe"))
+    appmain.frozen_environment(environ=env, executable=str(tmp_path / "FridgeSheet.exe"))
     assert env["PLAYWRIGHT_BROWSERS_PATH"] == "custom"
 
 
@@ -946,7 +946,7 @@ def test_setup_logging_writes_app_log_and_skips_stderr_when_absent(tmp_path):
     files = [h for h in root.handlers if isinstance(h, logging.handlers.RotatingFileHandler)]
     assert len(files) == 1 and files[0].baseFilename == str(tmp_path / actions.APP_LOG)
     assert not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in root.handlers)
-    logging.getLogger("lakota.test").info("hello app.log")
+    logging.getLogger("fridgesheet.test").info("hello app.log")
     for h in files:
         h.flush()
     assert "hello app.log" in (tmp_path / actions.APP_LOG).read_text(encoding="utf-8")
@@ -954,7 +954,7 @@ def test_setup_logging_writes_app_log_and_skips_stderr_when_absent(tmp_path):
 
 def test_main_without_args_opens_the_gui(monkeypatch, tmp_path):
     monkeypatch.setattr(appmain, "DEFAULT_HOME", tmp_path)
-    monkeypatch.setitem(sys.modules, "lakota_grades.app.gui", types.SimpleNamespace(run_app=lambda: 7))
+    monkeypatch.setitem(sys.modules, "fridgesheet.app.gui", types.SimpleNamespace(run_app=lambda: 7))
     assert appmain.main([]) == 7
 
 
@@ -972,11 +972,11 @@ def test_main_with_args_runs_the_cli(monkeypatch, tmp_path):
 
 
 def test_cli_app_command_opens_the_gui_or_explains_missing_tkinter(monkeypatch, capsys):
-    monkeypatch.setitem(sys.modules, "lakota_grades.app.gui", types.SimpleNamespace(run_app=lambda: 0))
+    monkeypatch.setitem(sys.modules, "fridgesheet.app.gui", types.SimpleNamespace(run_app=lambda: 0))
     with pytest.raises(SystemExit) as e:
         cli.main(["app"])
     assert e.value.code == 0
-    monkeypatch.setitem(sys.modules, "lakota_grades.app.gui", None)      # makes `import` raise ImportError
+    monkeypatch.setitem(sys.modules, "fridgesheet.app.gui", None)      # makes `import` raise ImportError
     with pytest.raises(SystemExit) as e:
         cli.main(["app"])
     assert e.value.code == 2 and "tkinter" in capsys.readouterr().err
@@ -984,18 +984,18 @@ def test_cli_app_command_opens_the_gui_or_explains_missing_tkinter(monkeypatch, 
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_main.py -q`
-Expected: FAIL at import (`No module named 'lakota_grades.app.__main__'`).
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_main.py -q`
+Expected: FAIL at import (`No module named 'fridgesheet.app.__main__'`).
 
 - [ ] **Step 3: Write `app/__main__.py`**
 
 ```python
-# lakota_grades/app/__main__.py
-"""Entry point of the frozen Windows executable, and of `python -m lakota_grades.app`.
+# fridgesheet/app/__main__.py
+"""Entry point of the frozen Windows executable, and of `python -m fridgesheet.app`.
 
 No arguments opens the settings window. Anything else is the ordinary CLI, so the
-scheduled task's `LakotaSheet.exe run open-work` and the uninstaller's
-`LakotaSheet.exe schedule remove` come from the same binary. A windowed exe has no
+scheduled task's `FridgeSheet.exe run open-work` and the uninstaller's
+`FridgeSheet.exe schedule remove` come from the same binary. A windowed exe has no
 stdout or stderr, so logging goes to <home>/app.log; stderr gets a copy only when it exists.
 """
 from __future__ import annotations
@@ -1069,14 +1069,14 @@ def cmd_app(args) -> int:
     return run_app()
 ```
 
-and in `main()` after the `schedule` parser: `sub.add_parser("app", help="open the Lakota Sheet settings window").set_defaults(fn=cmd_app)`. Update the module docstring's command list to include `app`.
+and in `main()` after the `schedule` parser: `sub.add_parser("app", help="open the Fridge Sheet settings window").set_defaults(fn=cmd_app)`. Update the module docstring's command list to include `app`.
 
 - [ ] **Step 5: Run the tests and the suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_main.py -q` then the full suite. Expected: 5 passed; 159 passed overall.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_main.py -q` then the full suite. Expected: 5 passed; 159 passed overall.
 
 ```bash
-git add lakota_grades/app/__main__.py lakota_grades/cli.py tests/test_app_main.py
+git add fridgesheet/app/__main__.py fridgesheet/cli.py tests/test_app_main.py
 git commit -m "app entry point: app.log, frozen-exe environment, GUI-or-CLI dispatch, cli app command
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -1089,7 +1089,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 `gui.py` is the one file this plan does not unit-test. It must stay thin: every decision is a call into `actions`. The smoke test constructs the window when tkinter and a display exist, which on CI means the Windows runner.
 
 **Files:**
-- Create: `lakota_grades/app/gui.py`
+- Create: `fridgesheet/app/gui.py`
 - Test: `tests/test_app_gui.py`
 - Modify: `README.md` (after the "### Settings file" block)
 
@@ -1115,7 +1115,7 @@ tk = pytest.importorskip("tkinter")
 if sys.platform != "win32" and not os.environ.get("DISPLAY"):
     pytest.skip("no display", allow_module_level=True)
 
-from lakota_grades.app import actions, gui  # noqa: E402
+from fridgesheet.app import actions, gui  # noqa: E402
 
 
 def test_window_builds_and_round_trips_the_form(tmp_path, monkeypatch):
@@ -1140,14 +1140,14 @@ def test_window_builds_and_round_trips_the_form(tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run it to see it skip here**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_app_gui.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_app_gui.py -q`
 Expected: `1 skipped` (no tkinter on this box). It will run on the Windows CI leg after the push.
 
 - [ ] **Step 3: Write `gui.py`**
 
 ```python
-# lakota_grades/app/gui.py
-"""The Lakota Sheet window. Widgets, a worker thread and a queue; nothing else.
+# fridgesheet/app/gui.py
+"""The Fridge Sheet window. Widgets, a worker thread and a queue; nothing else.
 
 Every button calls one function in `actions`. Long actions run on a daemon thread and
 report through `self._q`; `_poll` drains it on the Tk main loop every 100 ms, so widget
@@ -1182,7 +1182,7 @@ class App:
         self.root, self.home = root, home
         self._q: queue.Queue = queue.Queue()
         self._busy = False
-        root.title("Lakota Sheet")
+        root.title("Fridge Sheet")
         root.minsize(640, 520)
         self._build_menu()
         nb = ttk.Notebook(root)
@@ -1200,7 +1200,7 @@ class App:
     def _build_menu(self) -> None:
         menu = tk.Menu(self.root)
         helpm = tk.Menu(menu, tearoff=0)
-        helpm.add_command(label="About Lakota Sheet", command=lambda: messagebox.showinfo("About Lakota Sheet", actions.about_text()))
+        helpm.add_command(label="About Fridge Sheet", command=lambda: messagebox.showinfo("About Fridge Sheet", actions.about_text()))
         menu.add_cascade(label="Help", menu=helpm)
         self.root.config(menu=menu)
 
@@ -1412,15 +1412,15 @@ In `README.md`, after the "### Settings file" block's last paragraph (the one st
 ```markdown
 ### The settings window
 
-`lakota-grades app` opens a small window (tkinter; on Debian/Ubuntu `sudo apt install python3-tk`) with the same settings as `config.toml`, a **Test login** button that records a passing login in `~/.lakota-grades/login-ok.txt`, **Preview today's sheet** and **Print now** buttons with a live log, and the last run's status. On Windows this is the "Lakota Sheet" app; the scheduled task is installed from the window's Save button once a login has passed. The window itself writes `app.log` in the same folder.
+`fridgesheet app` opens a small window (tkinter; on Debian/Ubuntu `sudo apt install python3-tk`) with the same settings as `config.toml`, a **Test login** button that records a passing login in `~/.fridgesheet/login-ok.txt`, **Preview today's sheet** and **Print now** buttons with a live log, and the last run's status. On Windows this is the "Fridge Sheet" app; the scheduled task is installed from the window's Save button once a login has passed. The window itself writes `app.log` in the same folder.
 ```
 
 - [ ] **Step 5: Run the full suite, commit, push, and watch CI**
 
 ```bash
-env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q      # expect 159 passed, 1 skipped (the GUI smoke test)
-git add lakota_grades/app/gui.py tests/test_app_gui.py README.md
-git commit -m "app.gui: the Lakota Sheet window (tkinter), display-gated smoke test, README note
+env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q      # expect 159 passed, 1 skipped (the GUI smoke test)
+git add fridgesheet/app/gui.py tests/test_app_gui.py README.md
+git commit -m "app.gui: the Fridge Sheet window (tkinter), display-gated smoke test, README note
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 git push
@@ -1433,8 +1433,8 @@ Expected: both legs green. The Windows leg should show the GUI smoke test **pass
 
 ## Done when
 
-- `python -m lakota_grades.app` on a machine with tkinter opens the window; every button calls into `actions` and nothing in `gui.py` touches a file or a subprocess (`grep -n "open(\|subprocess\|save_config_doc\|write_text" lakota_grades/app/gui.py` is empty).
+- `python -m fridgesheet.app` on a machine with tkinter opens the window; every button calls into `actions` and nothing in `gui.py` touches a file or a subprocess (`grep -n "open(\|subprocess\|save_config_doc\|write_text" fridgesheet/app/gui.py` is empty).
 - `tests/test_app_actions.py` covers `load_form`, `validate`, `save` (all three schedule outcomes), `test_login` (stamp written and removed), `preview`, `print_now`, `status_line`, `open_editable`, `about_text`, `forward_logs`.
 - CI green on both runners; the Windows leg runs the GUI smoke test.
-- `LakotaSheet.exe`-style dispatch proven by `tests/test_app_main.py`: no args → GUI, args → CLI, `app.log` written, no stderr handler when stderr is `None`.
-- Plan 3 can build the bundle: entry point `lakota_grades/app/__main__.py`, `PLAYWRIGHT_BROWSERS_PATH` handling in `frozen_environment`, and the uninstaller's `schedule remove` all exist.
+- `FridgeSheet.exe`-style dispatch proven by `tests/test_app_main.py`: no args → GUI, args → CLI, `app.log` written, no stderr handler when stderr is `None`.
+- Plan 3 can build the bundle: entry point `fridgesheet/app/__main__.py`, `PLAYWRIGHT_BROWSERS_PATH` handling in `frozen_environment`, and the uninstaller's `schedule remove` all exist.

@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- A sheet of paper with three ruled lines: the printed sheet the app is named for.
-       Plain shapes and a single dark ink so it reads at 16px and in a dark tab strip alike. -->
-  <rect x="6" y="3" width="20" height="26" rx="2.5" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-  <path d="M10.5 11h11M10.5 16h11M10.5 21h7" stroke="#1d4ed8" stroke-width="2.4" stroke-linecap="round"/>
-</svg>

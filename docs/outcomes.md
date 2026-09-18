@@ -1,9 +1,9 @@
-# How Lakota Sheet decides what happened to an assignment
+# How Fridge Sheet decides what happened to an assignment
 
 Canvas and Home Access Center each tell part of the story, in different words. This is the
 one table the app uses to turn those words into an answer a parent can act on — and it is
 the same table whether you are reading a kid's card on the Dashboard, the Kid page, the
-Trends page or the printed sheet. The code is `lakota_grades/web/outcomes.py`; if the two
+Trends page or the printed sheet. The code is `fridgesheet/web/outcomes.py`; if the two
 ever disagree, the code is wrong.
 
 ## Why one table is needed

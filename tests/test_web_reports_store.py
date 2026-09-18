@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import reports
+from fridgesheet.web import db
+from fridgesheet.web.stores import reports
 
 
 def test_empty_table(tmp_path):
@@ -47,7 +47,7 @@ def test_seed_templates_only_fills_an_empty_table(tmp_path):
 
 
 def test_seeded_definitions_are_valid(tmp_path):
-    from lakota_grades.web import views
+    from fridgesheet.web import views
     conn = db.open_db(tmp_path)
     reports.seed_templates(conn, now="2026-09-16T08:00:00-04:00")
     for r in reports.all(conn):

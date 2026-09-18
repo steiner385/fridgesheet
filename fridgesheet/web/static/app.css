@@ -1,0 +1,113 @@
+/* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
+:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
+a { color: var(--accent); }
+/* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` track is `minmax(auto, 1fr)`, so it never shrinks
+   below its content's min-content width. Once a chart has drawn, the content is a fixed-width
+   `<canvas>`, so the column would stay at its widest-ever size, `chartWidth` would keep
+   returning that old width, and app.js's resize handler -- which only calls `setSize` when the
+   width actually changed -- would never fire on the way down. Narrowing the window then leaves
+   the page horizontally scrollable with the rail pushed off-screen (rotate a phone to
+   landscape and back). The `0` minimum lets the track shrink, which lets the canvas shrink. */
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+.rail { background: var(--paper); border-right: 1px solid var(--rule); padding: 16px; }
+.rail h1 { font-size: 18px; margin: 0 0 12px; }
+.rail nav a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); }
+.rail nav a.current, .rail nav a:hover { background: var(--wash); }
+.rail nav .group { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+main { padding: 16px 24px 48px; max-width: 1100px; }
+header.status { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
+header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: var(--wash); border: 1px solid var(--rule); }
+.badge.OK { border-color: var(--ok); color: var(--ok); } .badge.FAIL { border-color: var(--warn); color: var(--warn); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
+.card h2 { margin: 0 0 8px; font-size: 16px; }
+.big { font-size: 28px; font-weight: 600; }
+/* The kid card's record line: five outcomes for the work that was due, each a link to the
+   rows behind the number. The two a parent must not skim past are warn-coloured only when
+   they are non-zero (the template decides). */
+.record { font-size: 13px; line-height: 1.7; }
+.record a { text-decoration: none; }
+.record a.warn { font-weight: 600; }
+table.items { width: 100%; border-collapse: collapse; background: var(--paper); }
+table.items th, table.items td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.items th a { text-decoration: none; }
+tr.overdue td.due { color: var(--warn); }
+/* The Kid table's three fact columns. `.rel` is the second, quieter half of a cell: "today"
+   after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
+   grade cells a parent must not skim past; a "No" in Handed in is the third. */
+td .rel { color: var(--muted); font-size: 12px; white-space: nowrap; }
+td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
+tr.detail td { background: var(--wash); }
+.muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
+.filters label { font-size: 13px; color: var(--muted); }
+.flagmenu button, .actions button { margin: 2px 4px 2px 0; }
+.note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
+.note .meta { font-size: 12px; color: var(--muted); }
+textarea { width: 100%; min-height: 60px; font: inherit; }
+.case { border-left: 3px solid var(--accent); }
+.case.disagree { border-color: var(--warn); }
+/* Buttons: one look, three weights. The browser default was a 21px grey pill that made
+   "Print now" -- the one that spends paper -- indistinguishable from "Preview" (#40 item 15).
+   `.primary` is the page's one main action; `.danger` is the one that deletes. Both keep the
+   same size and shape as the rest, so a row of buttons still reads as a row. */
+button { font: inherit; padding: 6px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
+button:hover { background: var(--wash); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover { filter: brightness(1.1); }
+button.danger { color: var(--warn); border-color: var(--warn); }
+button:disabled { opacity: .5; cursor: default; }
+select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
+/* On a phone the rail used to stack *above* the page: fourteen links, then a 1,450px scroll
+   to reach the first kid card (#40 item 1) -- on the very device the Settings QR code exists
+   to put this on. Under 800px the rail becomes one horizontal strip that scrolls sideways,
+   group labels dropped, so the content starts about 100px down on every page. No script, no
+   hamburger to discover: the links are visible, and the current one is highlighted. */
+@media (max-width: 800px) {
+  /* `auto 1fr`, or the grid's `min-height: 100vh` hands half its spare height to the rail row
+     and the strip floats in the middle of ~570px of white. The rail is as tall as its links;
+     main takes the rest. */
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  .rail { border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  .rail h1 { margin: 0 8px 0 0; white-space: nowrap; }
+  .rail nav { display: flex; overflow-x: auto; gap: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .rail nav::-webkit-scrollbar { display: none; }
+  .rail nav a { white-space: nowrap; padding: 8px 10px; }
+  .rail nav .group { display: none; }
+  main { padding: 12px; }
+  /* Seven columns do not fit 390px. Seen on a phone against the live app: Handed in, Grade,
+     Sources and Flag simply fell off the right edge, with nothing to scroll -- the table is
+     wider than the page but the page is not. A block-level table scrolls sideways on its
+     own, so the first three columns stay put and a swipe reveals the rest. */
+  table.items { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+/* Touch: nothing to tap is smaller than 44px. Every button measured 21px on the phone and
+   the kiosk (#40 item 2); Reconcile alone puts 47 x 5 of them under a finger. Scoped to a
+   coarse pointer so a mouse keeps the compact desktop layout. */
+@media (pointer: coarse) {
+  button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .badge[href], .filters label { min-height: 44px; }
+  button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
+  .rail nav a { display: inline-flex; align-items: center; }
+  .badge[href] { display: inline-flex; align-items: center; padding: 0 12px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  table.items th, table.items td { padding: 10px 8px; }
+}
+/* Every <pre> wraps. The About block on Settings is a <pre> so its line breaks survive, and
+   with the default `white-space: pre` one long licence line made the whole page 2375px wide at
+   a 1440px viewport (#40 item 3, #38's lead item). `anywhere` also breaks a bare URL or a
+   Windows path with no spaces in it, which the job log and Diagnostics both print. */
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overflow: auto; font-size: 12px; }
+/* No fixed height: uPlot draws a title and a legend *around* the plot, and a box clipped to
+   the plot height alone overflows into whatever follows it. Let the holder grow to whatever
+   uPlot draws; `min-height` just keeps "Loading…" from collapsing to one line. */
+.chart { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; min-height: 120px; }
+.chart .muted { padding: 8px; }
+.u-legend { font-size: 12px; }
+
+/* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
+.rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
+.rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }

@@ -15,8 +15,8 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lakota_grades.matching import hac_item_key
-from lakota_grades.web import db, ingest
+from fridgesheet.matching import hac_item_key
+from fridgesheet.web import db, ingest
 
 TZ = ZoneInfo("America/New_York")
 T1 = datetime(2026, 9, 14, 6, 0, tzinfo=TZ)

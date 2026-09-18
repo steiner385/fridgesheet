@@ -9,11 +9,11 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import cli, host, reports  # noqa: E402
-from lakota_grades.config import Settings  # noqa: E402
-from lakota_grades.reports.base import BuildContext, ReportError  # noqa: E402
-from lakota_grades.web import db, views  # noqa: E402
-from lakota_grades.web.stores import reports as store  # noqa: E402
+from fridgesheet import cli, host, reports  # noqa: E402
+from fridgesheet.config import Settings  # noqa: E402
+from fridgesheet.reports.base import BuildContext, ReportError  # noqa: E402
+from fridgesheet.web import db, views  # noqa: E402
+from fridgesheet.web.stores import reports as store  # noqa: E402
 from tests.conftest import needs_pdftotext  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")
@@ -58,7 +58,7 @@ def test_open_work_honours_kid_filter_options_and_previous_rows(tmp_path):
     first = r.build(_snapshot(), _ctx(tmp_path, kid="al", options={"days_ahead": 1, "overdue_days": 3}))
     assert set(first.rows) == {"Alex"} and first.rows["Alex"] == []      # due in 2 days, window is 1
     second = r.build(_snapshot(), _ctx(tmp_path, prev_rows=first.rows, prev_label="Thu 9/10"))
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     assert "since last sheet" in sheet.pdf_text(second.pdf)
     with pytest.raises(ReportError, match="no student matches"):
         r.build(_snapshot(), _ctx(tmp_path, kid="zed"))
@@ -81,17 +81,17 @@ def test_available_without_a_home_is_the_code_reports():
 def test_available_never_fails_because_of_the_database(tmp_path):
     """Listing reports is what a page does before it can say anything at all. A database that
     is missing or unreadable costs the saved reports, not the page."""
-    (tmp_path / "lakota.db").write_bytes(b"this is not a database")
+    (tmp_path / "fridgesheet.db").write_bytes(b"this is not a database")
     assert [r.key for r in reports.available(tmp_path)] == ["open-work"]
 
 
 def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
-    """`lakota-grades schedule install view:1` used to fail with "unknown report" because the
+    """`fridgesheet schedule install view:1` used to fail with "unknown report" because the
     command called the registry's `get` instead of `resolve` (#35).
 
     The idiom is `tests/test_print_sheet.py:185`: `cli.main` ends in `sys.exit`, so the exit
     code arrives as `SystemExit`, and `load_settings` is patched rather than the environment
-    (`config.DEFAULT_HOME` is computed at import, so setting LAKOTA_GRADES_HOME here is too
+    (`config.DEFAULT_HOME` is computed at import, so setting FRIDGESHEET_HOME here is too
     late to take effect).
     """
     conn = db.open_db(tmp_path)
@@ -109,13 +109,13 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
             installed.update(key=key, time=time, days=list(days), title=kw.get("title"))
         @staticmethod
         def display_name(key):
-            return f"lakota-{key}.{{service,timer}}"
+            return f"fridgesheet-{key}.{{service,timer}}"
         @staticmethod
         def describe(key):
             return host.ScheduleInfo("systemd", True, "Fri 16:00", None)
 
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
-    monkeypatch.setattr("lakota_grades.host.scheduling", FakeScheduling)
+    monkeypatch.setattr("fridgesheet.host.scheduling", FakeScheduling)
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", "view:1"])
     assert e.value.code == 0

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kids' Sheet (Send to Printer)
+Comment=Refresh Canvas + HAC, build today's open-work sheet, and print it
+Exec=bash -c '"$HOME/fridgesheet/scripts/fridgesheet-desktop.sh" print'
+Icon=document-print
+Terminal=true
+Categories=Office;
+Keywords=fridgesheet;school;canvas;grades;homework;print;

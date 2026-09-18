@@ -5,8 +5,8 @@ pdftotext (poppler-utils) is how tests read a built PDF back; it is installed on
 Linux CI leg and usually absent on Windows, where those tests skip.
 
 `server.py` calls `load_settings()` at import, so collecting `test_server_tools.py`
-loads the developer's real `~/.lakota-grades/.env` into `os.environ` before any test
-runs. The autouse fixture below strips every `LAKOTA_*` variable for the duration of
+loads the developer's real `~/.fridgesheet/.env` into `os.environ` before any test
+runs. The autouse fixture below strips every `FRIDGESHEET_*` variable for the duration of
 each test, so a test that asserts on a default never sees the machine's own settings.
 """
 from __future__ import annotations
@@ -17,12 +17,12 @@ import subprocess
 
 import pytest
 
-from lakota_grades import config
+from fridgesheet import config
 
 #: Executable names (case-folded, `.exe`-stripped) that must never actually launch during a
 #: test run. `systemctl --user` reaches this machine's live units --
-#: `lakota-print-sheet.{service,timer}` (enabled, prints a real household's schoolwork every
-#: weekday at 2 PM) and `lakota-grades-refresh.{service,timer}` -- and `schtasks` is its
+#: `fridgesheet-print-sheet.{service,timer}` (enabled, prints a real household's schoolwork every
+#: weekday at 2 PM) and `fridgesheet-refresh.{service,timer}` -- and `schtasks` is its
 #: Windows equivalent. Neither belongs anywhere near a test process.
 _FORBIDDEN_PROGRAMS = {"systemctl", "schtasks"}
 
@@ -82,36 +82,36 @@ needs_pdftotext = pytest.mark.skipif(shutil.which("pdftotext") is None, reason="
 
 
 @pytest.fixture(autouse=True)
-def _no_lakota_env(monkeypatch):
-    for name in [k for k in os.environ if k.startswith("LAKOTA_")]:
+def _no_app_env(monkeypatch):
+    for name in [k for k in os.environ if k.startswith(("FRIDGESHEET_", "LAKOTA_"))]:
         monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture(autouse=True)
-def _no_lakota_home(monkeypatch, tmp_path):
+def _no_app_home(monkeypatch, tmp_path):
     """Patches the one place `DEFAULT_HOME` lives: `config.DEFAULT_HOME`. That reaches every
     *live* read of it -- `Settings.home`'s default factory (`field(default_factory=lambda:
     DEFAULT_HOME)` closes over the name, so it looks it up on the `config` module each time a
     bare `Settings()` is built) and any code that writes `config.DEFAULT_HOME` at the point of
     use, e.g. `entry.main()` -> `setup_logging(config.DEFAULT_HOME)`.
 
-    It does NOT reach a name some other module imported *by value* (`from lakota_grades.config
+    It does NOT reach a name some other module imported *by value* (`from fridgesheet.config
     import DEFAULT_HOME`) before this fixture ran -- that binds a private copy into the
     importing module's own namespace, and there would be nothing here to patch. That was a real
-    bug once (`lakota_grades/web/__main__.py` did exactly this; fixed in #35 fix round 2) and
+    bug once (`fridgesheet/web/__main__.py` did exactly this; fixed in #35 fix round 2) and
     would be again if a new import-by-value of `DEFAULT_HOME` ever appears; grep for
-    `from lakota_grades.config import DEFAULT_HOME` (or `config import.*DEFAULT_HOME`) if this
+    `from fridgesheet.config import DEFAULT_HOME` (or `config import.*DEFAULT_HOME`) if this
     guard is ever suspected of a leak.
 
     Without this fixture, a test that forgets `home=tmp_path` (or a command path that starts
     touching the database or the filesystem where it never used to) reaches the owner's real
-    `~/.lakota-grades`: it has happened three times in this plan already -- the systemd unit
+    `~/.fridgesheet`: it has happened three times in this plan already -- the systemd unit
     directory, the database opened by `reports.available`, and `entry.main()`'s log directory.
     Tests that pass `home=` explicitly, or patch `config.DEFAULT_HOME` themselves, are
     unaffected; this only changes what a bare `Settings()` or a live `config.DEFAULT_HOME`
     read resolves to.
     """
-    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path / ".lakota-grades")
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path / ".fridgesheet")
 
 
 @pytest.fixture(autouse=True)
@@ -121,7 +121,7 @@ def _no_real_scheduler(monkeypatch):
 
     The obvious fixture is `monkeypatch.setattr(subprocess, "run", guard)`. **That does not
     work in this codebase and would give a guard that looks right and catches nothing.** All
-    31 `lakota_grades/host/*` functions take their process launcher as a default argument --
+    31 `fridgesheet/host/*` functions take their process launcher as a default argument --
     `def install(key, ..., run=subprocess.run)` -- and a default argument is evaluated once,
     at `def` time, i.e. at import. Every one of those functions already holds a direct
     reference to the *original* `subprocess.run` function object before this fixture, or any
@@ -152,12 +152,12 @@ def _no_real_scheduler(monkeypatch):
     it does not fake, redirect, or record any other command.
 
     `systemctl --user` and `schtasks` are what would reach this machine's live units --
-    `lakota-print-sheet.{service,timer}` (enabled; prints a real household's schoolwork every
-    weekday at 2 PM) and `lakota-grades-refresh.{service,timer}` -- if a test ever forgot to
+    `fridgesheet-print-sheet.{service,timer}` (enabled; prints a real household's schoolwork every
+    weekday at 2 PM) and `fridgesheet-refresh.{service,timer}` -- if a test ever forgot to
     inject a fake `run=`. That is not hypothetical: it happened once already, when the
     report-delete route grew a call into the scheduler and a delete test written without the
     injected fake would have run a real `systemctl --user disable --now
-    lakota-view-N.timer`. A test that needs to make an assertion about a command line must
+    fridgesheet-view-N.timer`. A test that needs to make an assertion about a command line must
     inject its own fake `run=` (see `tests/test_host_scheduling_linux.py` etc. for the
     pattern); this fixture never allows the real thing through for `systemctl`/`schtasks`,
     convention or no convention.
@@ -176,8 +176,8 @@ def _no_real_scheduler(monkeypatch):
         if program:
             raise RuntimeError(
                 f"blocked: a test tried to launch a real {program!r}. This machine has live "
-                "systemd units (lakota-print-sheet.{service,timer}, "
-                "lakota-grades-refresh.{service,timer}) that a real systemctl/schtasks call "
+                "systemd units (fridgesheet-print-sheet.{service,timer}, "
+                "fridgesheet-refresh.{service,timer}) that a real systemctl/schtasks call "
                 "could enable, disable or delete. Inject a fake `run=` into whatever "
                 f"host function is calling {program!r} instead of letting it fall through "
                 "to its `run=subprocess.run` default."
@@ -193,7 +193,7 @@ def _no_github(monkeypatch):
     it is slow, it is flaky, and a suite that passes only with a network is not a suite. The
     default fetch is replaced with one that fails the way a machine with no network fails; a
     test that wants an answer injects its own through `state.extra["update_fetch"]`."""
-    from lakota_grades.web import updates
+    from fridgesheet.web import updates
 
     def offline(url):
         raise OSError("no network in tests")

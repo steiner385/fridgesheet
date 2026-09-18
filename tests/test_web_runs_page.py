@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lakota_grades.web import app as webapp, db, jobs
-from lakota_grades.web.stores import runs
+from fridgesheet.web import app as webapp, db, jobs
+from fridgesheet.web.stores import runs
 from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 from tests.test_web_jobs import FakeActions
 
@@ -48,8 +48,8 @@ def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
     import json
     import re
 
-    from lakota_grades import config
-    from lakota_grades.web.stores import reports as reportstore
+    from fridgesheet import config
+    from fridgesheet.web.stores import reports as reportstore
 
     ids, pdf = _rows(tmp_path)
     conn = db.open_db(tmp_path)
@@ -62,8 +62,8 @@ def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
 
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
     fake = FakeActions()
-    w = jobs.Worker(application.state.lakota, actions=fake)
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=fake)
+    application.state.fridgesheet.jobs = w
     c = TestClient(application, headers=LOCAL_HOST_HEADERS)
     form = re.search(r'<form hx-post="/jobs/print".*?</form>', c.get("/runs").text, re.S).group(0)
     fields = dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))   # the newest run: the view report
@@ -105,7 +105,7 @@ def test_a_directory_named_like_a_pdf_is_a_404_not_a_500(tmp_path):
 
 
 def test_pdf_under_the_archive_folder_is_allowed(tmp_path):
-    from lakota_grades import config
+    from fridgesheet import config
     archive = tmp_path / "Drive" / "Sheets"
     archive.mkdir(parents=True)
     f = archive / "2026-09-15 Open Work.pdf"
@@ -120,12 +120,12 @@ def test_pdf_under_the_archive_folder_is_allowed(tmp_path):
 
 
 def test_job_pdf_after_a_preview(tmp_path):
-    from lakota_grades import config
+    from fridgesheet import config
     seed(tmp_path).close()
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
     fake = FakeActions()
-    w = jobs.Worker(application.state.lakota, actions=fake)
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=fake)
+    application.state.fridgesheet.jobs = w
     pdf = tmp_path / "sheets" / "2026-09-15" / "sheet.pdf"
     pdf.parent.mkdir(parents=True)
     pdf.write_bytes(b"%PDF-1.4 preview")

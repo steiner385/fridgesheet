@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades.host import printing, printing_linux, printing_windows
+from fridgesheet.host import printing, printing_linux, printing_windows
 
 
 class _R:
@@ -34,12 +34,12 @@ def test_linux_lists_and_defaults_from_lpstat():
 
 def test_linux_print_builds_lp_command_and_returns_the_request_id():
     seen, run = _recorder(_R(0, "request id is Brother_MFC-42 (1 file(s))\n"))
-    job = printing_linux.print_pdf(Path("/tmp/s.pdf"), "Brother_MFC", "lakota open work 2026-09-14", run=run)
+    job = printing_linux.print_pdf(Path("/tmp/s.pdf"), "Brother_MFC", "fridgesheet open work 2026-09-14", run=run)
     assert job == "Brother_MFC-42"
     cmd = seen[0][0]
     assert cmd[:3] == ["lp", "-d", "Brother_MFC"]
     assert "sides=two-sided-long-edge" in cmd and "media=Letter" in cmd and cmd[-1] == "/tmp/s.pdf"
-    assert cmd[cmd.index("-t") + 1] == "lakota open work 2026-09-14"
+    assert cmd[cmd.index("-t") + 1] == "fridgesheet open work 2026-09-14"
 
 
 def test_linux_print_default_printer_omits_dash_d_and_failure_raises():
@@ -112,7 +112,7 @@ def test_selector_exposes_the_same_names():
 
 
 def test_printerror_is_the_shared_host_exception():
-    import lakota_grades.host as host
+    import fridgesheet.host as host
     assert printing.PrintError is host.PrintError
 
 
@@ -126,7 +126,7 @@ def test_windows_list_printers_without_pywin32_is_a_print_error(monkeypatch):
 
 
 def test_printers_command_marks_the_default(monkeypatch, capsys):
-    from lakota_grades import cli
+    from fridgesheet import cli
     monkeypatch.setattr(printing, "list_printers", lambda: ["A", "B"])
     monkeypatch.setattr(printing, "default_printer", lambda: "B")
     with pytest.raises(SystemExit) as e:

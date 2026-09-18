@@ -4,22 +4,22 @@
 
 **Goal:** Give the app a database that remembers every refresh as a change log, holds the parent's notes and flags, and lets flags change what the printed sheet says, with the reconciliation rules that define "actionable" written as tested pure functions. No UI in this plan.
 
-**Architecture:** A single SQLite file `<home>/lakota.db` (standard library `sqlite3`, WAL, forward-only migrations) beside the existing JSON snapshot, which stays for the MCP server. `web/ingest.py` turns a snapshot into rows and writes an observation only when a source's view of an item changed. `web/stores/` holds the notes and flags stores; `web/reconcile.py` holds the rules. `open_items` learns about flags; the CLI runner ingests after each refresh, loads flags before building, and records every run.
+**Architecture:** A single SQLite file `<home>/fridgesheet.db` (standard library `sqlite3`, WAL, forward-only migrations) beside the existing JSON snapshot, which stays for the MCP server. `web/ingest.py` turns a snapshot into rows and writes an observation only when a source's view of an item changed. `web/stores/` holds the notes and flags stores; `web/reconcile.py` holds the rules. `open_items` learns about flags; the CLI runner ingests after each refresh, loads flags before building, and records every run.
 
 **Tech Stack:** Python 3.12, `sqlite3` (stdlib), the existing `matching`, `open_items`, `late_rules`, `runner`, `reports` and `doctor` modules. No new third-party dependencies in this plan.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md`, sections 4 (data), 6 (reconciliation), 9 (the CLI writes `runs`), 13 (Plan A), 15 (risk 1). GitHub milestone "Web app A: Data layer", issues #5 to #11; each task names its issue and closes it in the commit message.
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md`, sections 4 (data), 6 (reconciliation), 9 (the CLI writes `runs`), 13 (Plan A), 15 (risk 1). GitHub milestone "Web app A: Data layer", issues #5 to #11; each task names its issue and closes it in the commit message.
 
 ## Global Constraints
 
-- Database file: `<home>/lakota.db`; `PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON`; a `schema_version` table; migrations are forward-only functions in `web/db.py`, one per version.
+- Database file: `<home>/fridgesheet.db`; `PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON`; a `schema_version` table; migrations are forward-only functions in `web/db.py`, one per version.
 - Times are stored as ISO-8601 strings. Canvas times keep their timezone offset as given by the snapshot; HAC dates (`mm/dd/yyyy`) become `YYYY-MM-DDT23:59:00` plus the settings time zone offset, matching `open_items._parse_hac_date`.
 - Item keys are stable across refreshes: Canvas `canvas:<assignment id>`; HAC-only `hac:<short course>:<normalised name>` where the course goes through `matching.short_course` and the name through `matching.norm_name`. A HAC row that `matching.same_item` links to a Canvas assignment in the matched course attaches to that Canvas item as a second source rather than becoming its own item.
 - `item_observations` and `grade_observations` are written only when the observed values differ from the previous observation for that item/course and source. A refresh that changes nothing adds a `refreshes` row and nothing else.
 - Flags: exactly one active flag per item (`cleared_at IS NULL`); values `done`, `excused`, `ignore`, `follow_up`, `ask_teacher`. `done`/`excused`/`ignore` remove the item from the open list into a `handled` count on the sheet; `follow_up`/`ask_teacher` print a marker in the status column.
 - The CLI runner must keep working when the database cannot be opened or written: ingest and run recording failures are `WARN` log lines, never a failed run.
 - No credential is ever stored in the database. No CLI commands for notes or flags in this plan.
-- Existing behaviour survives: the full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, 194 passed, 1 skipped at the start of this plan) stays green on Linux and in CI on both runners.
+- Existing behaviour survives: the full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, 194 passed, 1 skipped at the start of this plan) stays green on Linux and in CI on both runners.
 - Commit after every task with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Closes #<issue>` on its own line.
 
 ## Snapshot shape (what ingest reads)
@@ -52,23 +52,23 @@ snapshot = {
 | Path | Responsibility |
 |---|---|
 | `scripts/hac_key_spike.py` (new) | Task 1 throwaway: key stability over the real snapshot and the real `sheets/*/rows.json` |
-| `lakota_grades/web/__init__.py` (new) | package docstring |
-| `lakota_grades/web/db.py` (new) | `db_path`, `connect`, `migrate`, `open_db`, `latest_observations`, `SCHEMA_VERSION` |
-| `lakota_grades/web/ingest.py` (new) | `record(conn, snapshot, *, tz, now) -> IngestResult`, key helpers |
-| `lakota_grades/web/stores/__init__.py`, `notes.py`, `flags.py` (new) | notes and flags stores |
-| `lakota_grades/web/reconcile.py` (new) | `is_actionable`, `cases` |
-| `lakota_grades/open_items.py` (modify) | `flags` argument; `OpenWork.handled`; markers |
-| `lakota_grades/reports/base.py`, `reports/open_work.py` (modify) | `BuildContext.flags`; pass to `open_items` |
-| `lakota_grades/sheet.py` (modify) | "Handled" trailer line |
-| `lakota_grades/runner.py` (modify) | ingest after refresh, load flags, record runs; `RunOptions.trigger` |
-| `lakota_grades/doctor.py` (modify) | `database` probe |
+| `fridgesheet/web/__init__.py` (new) | package docstring |
+| `fridgesheet/web/db.py` (new) | `db_path`, `connect`, `migrate`, `open_db`, `latest_observations`, `SCHEMA_VERSION` |
+| `fridgesheet/web/ingest.py` (new) | `record(conn, snapshot, *, tz, now) -> IngestResult`, key helpers |
+| `fridgesheet/web/stores/__init__.py`, `notes.py`, `flags.py` (new) | notes and flags stores |
+| `fridgesheet/web/reconcile.py` (new) | `is_actionable`, `cases` |
+| `fridgesheet/open_items.py` (modify) | `flags` argument; `OpenWork.handled`; markers |
+| `fridgesheet/reports/base.py`, `reports/open_work.py` (modify) | `BuildContext.flags`; pass to `open_items` |
+| `fridgesheet/sheet.py` (modify) | "Handled" trailer line |
+| `fridgesheet/runner.py` (modify) | ingest after refresh, load flags, record runs; `RunOptions.trigger` |
+| `fridgesheet/doctor.py` (modify) | `database` probe |
 | `tests/test_web_db.py`, `test_web_ingest.py`, `test_web_stores.py`, `test_reconcile.py` (new); `tests/test_open_items.py`, `test_print_sheet.py`, `test_runner.py`, `test_doctor.py` (modify) | |
 
 ---
 
 ### Task 1: Spike, stable HAC keys over real data (issue #5)
 
-The spec's first risk. HAC rows have no ids; the key must survive a teacher editing punctuation and must not collide across courses. Real data lives only on Tony's machine (`~/.lakota-grades`), so this script runs there, by hand, and its findings are recorded in this plan. The script is kept under `scripts/` because it is the tool for re-checking after any change to `matching`.
+The spec's first risk. HAC rows have no ids; the key must survive a teacher editing punctuation and must not collide across courses. Real data lives only on Tony's machine (`~/.fridgesheet`), so this script runs there, by hand, and its findings are recorded in this plan. The script is kept under `scripts/` because it is the tool for re-checking after any change to `matching`.
 
 **Files:**
 - Create: `scripts/hac_key_spike.py`
@@ -82,10 +82,10 @@ The spec's first risk. HAC rows have no ids; the key must survive a teacher edit
 ```python
 # scripts/hac_key_spike.py
 """Throwaway check for spec risk 15.1: are HAC item keys stable, and do HAC rows link
-to their Canvas twins? Reads the real ~/.lakota-grades (or LAKOTA_GRADES_HOME) and
+to their Canvas twins? Reads the real ~/.fridgesheet (or FRIDGESHEET_HOME) and
 prints a report. Nothing is written.
 
-Run:  env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python scripts/hac_key_spike.py
+Run:  env -u PYTHONPATH ~/fridgesheet/.venv/bin/python scripts/hac_key_spike.py
 """
 from __future__ import annotations
 
@@ -96,9 +96,9 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from lakota_grades.matching import match_course, norm_name, same_item, short_course  # noqa: E402
+from fridgesheet.matching import match_course, norm_name, same_item, short_course  # noqa: E402
 
-home = Path(os.environ.get("LAKOTA_GRADES_HOME") or Path.home() / ".lakota-grades")
+home = Path(os.environ.get("FRIDGESHEET_HOME") or Path.home() / ".fridgesheet")
 snap = json.loads((home / "cache" / "snapshot.json").read_text())
 
 
@@ -136,7 +136,7 @@ for day in sorted((home / "sheets").glob("*/rows.json")):
 
 - [ ] **Step 2: Run it on the real data**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python scripts/hac_key_spike.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python scripts/hac_key_spike.py`
 Expected: a "HAC rows:" line with zero duplicate keys, and one line per `sheets/<date>` showing how many earlier HAC rows are still present. A duplicate key means two different rows normalise to the same name in one course; if any appear, print both raw names and decide whether to add the due date to the key (record the decision in Step 4).
 
 - [ ] **Step 3: Commit the script**
@@ -152,7 +152,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 4: Record the outcome here**
 
-Run against the real `~/.lakota-grades` (three kids, real courses; nothing written) on 2026-09-15:
+Run against the real `~/.fridgesheet` (three kids, real courses; nothing written) on 2026-09-15:
 
 ```
 HAC rows: 99 linked to a Canvas assignment, 76 HAC-only, 1 duplicate HAC-only keys
@@ -169,12 +169,12 @@ The one duplicate is a single student's single-course participation grade, which
 ### Task 2: `web/db.py`: the database and migration 1 (issue #6)
 
 **Files:**
-- Create: `lakota_grades/web/__init__.py`, `lakota_grades/web/db.py`
+- Create: `fridgesheet/web/__init__.py`, `fridgesheet/web/db.py`
 - Test: `tests/test_web_db.py`
 
 **Interfaces:**
 - Produces:
-  - `db.SCHEMA_VERSION = 1`, `db.DB_NAME = "lakota.db"`, `db.db_path(home: Path) -> Path`
+  - `db.SCHEMA_VERSION = 1`, `db.DB_NAME = "fridgesheet.db"`, `db.db_path(home: Path) -> Path`
   - `db.connect(path: Path) -> sqlite3.Connection` (row factory `sqlite3.Row`, WAL, foreign keys on, `isolation_level=None` so callers manage transactions with explicit `BEGIN`/`COMMIT` via `with conn:`)
   - `db.migrate(conn) -> int` (returns the version now in place; idempotent)
   - `db.open_db(home: Path) -> sqlite3.Connection` (`connect` + `migrate`, creating the folder)
@@ -192,12 +192,12 @@ import sqlite3
 
 import pytest
 
-from lakota_grades.web import db
+from fridgesheet.web import db
 
 
 def test_open_db_creates_file_and_schema(tmp_path):
     conn = db.open_db(tmp_path / "home")
-    assert (tmp_path / "home" / "lakota.db").is_file()
+    assert (tmp_path / "home" / "fridgesheet.db").is_file()
     assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
     assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION
@@ -248,19 +248,19 @@ def test_latest_observations_picks_the_newest_per_source(tmp_path):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_db.py -q`
-Expected: FAIL at import (`No module named 'lakota_grades.web'`).
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_db.py -q`
+Expected: FAIL at import (`No module named 'fridgesheet.web'`).
 
 - [ ] **Step 3: Write the package and `db.py`**
 
 ```python
-# lakota_grades/web/__init__.py
+# fridgesheet/web/__init__.py
 """The local web app (spec 2026-09-15). Plan A ships the data layer only: `db`, `ingest`,
 `stores`, `reconcile`. The server, routes and templates arrive in Plan B."""
 ```
 
 ```python
-# lakota_grades/web/db.py
+# fridgesheet/web/db.py
 """The app's database: one SQLite file beside the JSON snapshot.
 
 The snapshot stays the MCP server's input; this file is the app's memory: every refresh
@@ -273,7 +273,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-DB_NAME = "lakota.db"
+DB_NAME = "fridgesheet.db"
 SCHEMA_VERSION = 1
 
 _SCHEMA_V1 = """
@@ -454,13 +454,13 @@ Note on transactions: `isolation_level=None` puts the connection in autocommit; 
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_db.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_db.py -q`
 Expected: 4 passed. If `test_one_active_flag_per_item`'s `with conn:` blocks do not roll back on the `IntegrityError` under autocommit, change the two `with conn:` blocks that expect an error to plain statements (the error is raised either way; the point is the partial index).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web tests/test_web_db.py
+git add fridgesheet/web tests/test_web_db.py
 git commit -m "web.db: the SQLite file, migration 1, latest_observations
 
 Closes #6
@@ -471,7 +471,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: `web/ingest.py`: snapshot to rows, observations only on change (issue #7)
 
 **Files:**
-- Create: `lakota_grades/web/ingest.py`
+- Create: `fridgesheet/web/ingest.py`
 - Test: `tests/test_web_ingest.py`
 
 **Interfaces:**
@@ -494,7 +494,7 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lakota_grades.web import db, ingest
+from fridgesheet.web import db, ingest
 
 TZ = ZoneInfo("America/New_York")
 T1 = datetime(2026, 9, 14, 6, 0, tzinfo=TZ)
@@ -604,13 +604,13 @@ def test_keys_are_stable_across_name_punctuation(tmp_path):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_ingest.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_ingest.py -q`
 Expected: FAIL at import (`cannot import name 'ingest'`).
 
 - [ ] **Step 3: Write `ingest.py`**
 
 ```python
-# lakota_grades/web/ingest.py
+# fridgesheet/web/ingest.py
 """Snapshot -> database rows. Called after every refresh (CLI runner, later the web worker).
 
 One transaction per snapshot. Students, courses and items are upserted by stable keys;
@@ -786,13 +786,13 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_ingest.py tests/test_web_db.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_ingest.py tests/test_web_db.py -q`
 Expected: 8 passed. If `test_first_ingest...` fails on `assert (r.students, r.courses) == (2, 2)` because Sam has no courses, the count is students seen (2) and courses upserted (2): check the loop counts, not the fixture.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web/ingest.py tests/test_web_ingest.py
+git add fridgesheet/web/ingest.py tests/test_web_ingest.py
 git commit -m "web.ingest: snapshot to rows; observations only on change; HAC rows attach to their Canvas twins
 
 Closes #7
@@ -805,7 +805,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: Notes and flags stores (issue #8)
 
 **Files:**
-- Create: `lakota_grades/web/stores/__init__.py`, `lakota_grades/web/stores/notes.py`, `lakota_grades/web/stores/flags.py`
+- Create: `fridgesheet/web/stores/__init__.py`, `fridgesheet/web/stores/notes.py`, `fridgesheet/web/stores/flags.py`
 - Test: `tests/test_web_stores.py`
 
 **Interfaces:**
@@ -823,8 +823,8 @@ from __future__ import annotations
 
 import pytest
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import flags, notes
+from fridgesheet.web import db
+from fridgesheet.web.stores import flags, notes
 
 
 @pytest.fixture
@@ -878,19 +878,19 @@ def test_active_by_key_for_the_runner(conn):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_stores.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_stores.py -q`
 Expected: FAIL at import.
 
 - [ ] **Step 3: Write the stores**
 
 ```python
-# lakota_grades/web/stores/__init__.py
+# fridgesheet/web/stores/__init__.py
 """One module per table family. Every function takes the connection first and commits
 its own transaction with `with conn:` so callers never hold one open across a request."""
 ```
 
 ```python
-# lakota_grades/web/stores/notes.py
+# fridgesheet/web/stores/notes.py
 from __future__ import annotations
 
 import sqlite3
@@ -937,7 +937,7 @@ def for_student(conn: sqlite3.Connection, student_id: int) -> list[sqlite3.Row]:
 ```
 
 ```python
-# lakota_grades/web/stores/flags.py
+# fridgesheet/web/stores/flags.py
 """The parent's verdict on an item, which the sources cannot know. One active flag per
 item (a partial unique index enforces it); setting a new one clears the old."""
 from __future__ import annotations
@@ -985,10 +985,10 @@ def active_by_key(conn: sqlite3.Connection, student_id: int | None = None) -> di
 
 - [ ] **Step 4: Run the tests, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_stores.py -q` — 3 passed; then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_stores.py -q` — 3 passed; then the full suite.
 
 ```bash
-git add lakota_grades/web/stores tests/test_web_stores.py
+git add fridgesheet/web/stores tests/test_web_stores.py
 git commit -m "web.stores: notes on items, courses and students; one active flag per item
 
 Closes #8
@@ -999,11 +999,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: Flags reach the printed sheet (issue #9)
 
 **Files:**
-- Modify: `lakota_grades/open_items.py` (`Item.flag`, `OpenWork.handled`, `open_items(..., flags=)`, the two constants)
-- Modify: `lakota_grades/web/stores/flags.py` (import the constants from `open_items` instead of defining them)
-- Modify: `lakota_grades/reports/base.py` (`BuildContext.flags`), `lakota_grades/reports/open_work.py` (pass it)
-- Modify: `lakota_grades/sheet.py` (`_status_cell` marker, `_tail_lines` "Handled" line)
-- Modify: `lakota_grades/runner.py` (load flags before building)
+- Modify: `fridgesheet/open_items.py` (`Item.flag`, `OpenWork.handled`, `open_items(..., flags=)`, the two constants)
+- Modify: `fridgesheet/web/stores/flags.py` (import the constants from `open_items` instead of defining them)
+- Modify: `fridgesheet/reports/base.py` (`BuildContext.flags`), `fridgesheet/reports/open_work.py` (pass it)
+- Modify: `fridgesheet/sheet.py` (`_status_cell` marker, `_tail_lines` "Handled" line)
+- Modify: `fridgesheet/runner.py` (load flags before building)
 - Test: `tests/test_open_items.py` (append), `tests/test_runner.py` (append)
 
 **Interfaces:**
@@ -1048,8 +1048,8 @@ Append to `tests/test_runner.py`:
 ```python
 def test_runner_loads_flags_from_the_database(env):
     """A flag set in the browser reaches the scheduled sheet: the flagged item is not in rows.json."""
-    from lakota_grades.web import db, ingest
-    from lakota_grades.web.stores import flags as flagstore
+    from fridgesheet.web import db, ingest
+    from fridgesheet.web.stores import flags as flagstore
     s, calls, refresh, print_pdf, toast = env
     conn = db.open_db(s.home)
     ingest.record(conn, _snapshot(), tz=TZ, now=FRI_2PM)
@@ -1065,19 +1065,19 @@ def test_runner_loads_flags_from_the_database(env):
 
 def test_runner_survives_a_broken_database(env):
     s, calls, refresh, print_pdf, toast = env
-    (s.home / "lakota.db").mkdir()                                  # a directory where the file should be
+    (s.home / "fridgesheet.db").mkdir()                                  # a directory where the file should be
     assert _run(s, runner.RunOptions(dry_run=True), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     assert "WARN" in (s.home / runner.LOG_NAME).read_text()
 ```
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_open_items.py tests/test_runner.py -q -k "flag or broken_database"`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_open_items.py tests/test_runner.py -q -k "flag or broken_database"`
 Expected: FAIL (`TypeError: open_items() got an unexpected keyword argument 'flags'`, `AttributeError` on `HANDLED_FLAGS`, and the runner test's `rows["Alex"] == []` failing).
 
 - [ ] **Step 3: Implement**
 
-`lakota_grades/open_items.py`:
+`fridgesheet/open_items.py`:
 - Add after `OVERDUE_STATUSES`: `HANDLED_FLAGS = ("done", "excused", "ignore")` and `MARKED_FLAGS = ("follow_up", "ask_teacher")`.
 - `Item` gains `flag: str = ""` (after `submission_types`).
 - `OpenWork` gains `handled: list[Item] = field(default_factory=list)` (after `dropped`).
@@ -1092,16 +1092,16 @@ Expected: FAIL (`TypeError: open_items() got an unexpected keyword argument 'fla
 
   (In the Canvas branch this goes before `canvas_names_by_course.setdefault(...)` so a handled Canvas item still suppresses its HAC twin: move the `setdefault` line above the flag check.) The return becomes `OpenWork(kid=kid, as_of=now, items=items, dropped=dropped, handled=handled)`; sort `handled` like `dropped`.
 
-`lakota_grades/web/stores/flags.py`: replace the three constant lines with
+`fridgesheet/web/stores/flags.py`: replace the three constant lines with
 ```python
 from ...open_items import HANDLED_FLAGS as HANDLED, MARKED_FLAGS as MARKED
 
 FLAGS = HANDLED + MARKED
 ```
 
-`lakota_grades/reports/base.py`: `BuildContext` gains `flags: dict[str, str] = field(default_factory=dict)` as the last field (import `field`). `reports/open_work.py`: pass `flags=ctx.flags` to `open_items.open_items(...)`.
+`fridgesheet/reports/base.py`: `BuildContext` gains `flags: dict[str, str] = field(default_factory=dict)` as the last field (import `field`). `reports/open_work.py`: pass `flags=ctx.flags` to `open_items.open_items(...)`.
 
-`lakota_grades/sheet.py`: in `_status_cell`, after the `text = _esc(it.status)` line add
+`fridgesheet/sheet.py`: in `_status_cell`, after the `text = _esc(it.status)` line add
 ```python
     if it.flag in ("follow_up", "ask_teacher"):
         text += f'<br/><font name="Helvetica-Bold" size="7" color="#6C3FA0">{"FOLLOW UP" if it.flag == "follow_up" else "ASK TEACHER"}</font>'
@@ -1113,7 +1113,7 @@ and in `_tail_lines`, before the `dropped` block:
         out.append(Paragraph(f"Handled: {n} item{'s' if n != 1 else ''} marked done, excused or ignored in the app", NOTE))
 ```
 
-`lakota_grades/runner.py`: add
+`fridgesheet/runner.py`: add
 ```python
 def _load_flags(home: Path, log) -> dict[str, str]:
     """Active flags from the app's database, or nothing (with a WARN) if it cannot be read."""
@@ -1136,7 +1136,7 @@ and in `run()`, in the build section, `ctx = BuildContext(..., data_as_of=as_of,
 Run the full suite; expected: all previous tests pass (the sheet's existing text assertions are unaffected) plus the 4 new ones.
 
 ```bash
-git add lakota_grades/open_items.py lakota_grades/web/stores/flags.py lakota_grades/reports lakota_grades/sheet.py lakota_grades/runner.py tests/test_open_items.py tests/test_runner.py
+git add fridgesheet/open_items.py fridgesheet/web/stores/flags.py fridgesheet/reports fridgesheet/sheet.py fridgesheet/runner.py tests/test_open_items.py tests/test_runner.py
 git commit -m "Flags reach the printed sheet: handled flags drop the item, marked flags annotate it; the runner loads flags from the database
 
 Closes #9
@@ -1149,7 +1149,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 6: The CLI runner ingests after refresh and records runs; doctor `database` probe (issue #10)
 
 **Files:**
-- Modify: `lakota_grades/runner.py` (`RunOptions.trigger`, `_ingest`, `_record_run`, calls), `lakota_grades/doctor.py` (probe), `lakota_grades/cli.py` (`cmd_run` passes `trigger="cli"`; nothing else)
+- Modify: `fridgesheet/runner.py` (`RunOptions.trigger`, `_ingest`, `_record_run`, calls), `fridgesheet/doctor.py` (probe), `fridgesheet/cli.py` (`cmd_run` passes `trigger="cli"`; nothing else)
 - Test: `tests/test_runner.py` (append), `tests/test_doctor.py` (modify the names list, append a test)
 
 **Interfaces:**
@@ -1166,7 +1166,7 @@ Append to `tests/test_runner.py`:
 
 ```python
 def test_run_ingests_after_refresh_and_records_the_run(env):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
     assert _run(s, runner.RunOptions(printer="Office"), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     conn = db.open_db(s.home)
@@ -1178,7 +1178,7 @@ def test_run_ingests_after_refresh_and_records_the_run(env):
 
 
 def test_no_refresh_and_skips_still_record_but_do_not_ingest(env):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
     _run(s, runner.RunOptions(dry_run=True, no_refresh=True, trigger="web"), refresh=refresh, print_pdf=print_pdf, toast=toast)
     _run(s, runner.RunOptions(), now=FRI_2PM.replace(hour=9), refresh=refresh, print_pdf=print_pdf, toast=toast)   # window skip
@@ -1190,7 +1190,7 @@ def test_no_refresh_and_skips_still_record_but_do_not_ingest(env):
 
 def test_run_recording_failure_is_a_warning(env):
     s, calls, refresh, print_pdf, toast = env
-    (s.home / "lakota.db").mkdir()
+    (s.home / "fridgesheet.db").mkdir()
     assert _run(s, runner.RunOptions(dry_run=True), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     assert (s.home / runner.LOG_NAME).read_text().count("WARN") >= 1
 ```
@@ -1200,7 +1200,7 @@ In `tests/test_doctor.py`, change the expected names list in `test_real_probes_r
 
 ```python
 def test_database_probe_reports_counts(tmp_path):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     conn = db.open_db(tmp_path)
     with conn:
         conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES ('t', '{}', 1)")
@@ -1211,12 +1211,12 @@ def test_database_probe_reports_counts(tmp_path):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_runner.py tests/test_doctor.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_runner.py tests/test_doctor.py -q`
 Expected: the new runner tests fail (`no such table: runs` is not it: `open_db` creates it; the failures are `count == 0`, missing rows, and `trigger` being an unexpected keyword); the doctor names test fails on the list.
 
 - [ ] **Step 3: Implement**
 
-`lakota_grades/runner.py`:
+`fridgesheet/runner.py`:
 - `RunOptions` gains `trigger: str = "cli"` (last field).
 - Add:
 ```python
@@ -1252,9 +1252,9 @@ def _record_run(home: Path, report_key: str, started: datetime, finished: dateti
 - After a successful `snap = refresh(settings)` (inside the `try`, after the `bad` computation), call `_ingest(home, snap, tz, log)`.
 - `_Log` gains nothing; `INFO` is just another level word.
 
-`lakota_grades/cli.py` `cmd_run`: `runner.RunOptions(..., trigger="cli")` (explicit, for the reader).
+`fridgesheet/cli.py` `cmd_run`: `runner.RunOptions(..., trigger="cli")` (explicit, for the reader).
 
-`lakota_grades/doctor.py`: add
+`fridgesheet/doctor.py`: add
 ```python
 def _database(s: Settings, home: Path) -> str:
     from .web import db as webdb
@@ -1272,10 +1272,10 @@ and insert `("database", _database)` into `PROBES` right after `("home", _home)`
 
 - [ ] **Step 4: Run the suite, commit**
 
-Run the full suite; expected: green. `tests/test_print_sheet.py` still passes because its fixture home now also gets a `lakota.db` (harmless) and its `printed.txt`/log assertions are unchanged.
+Run the full suite; expected: green. `tests/test_print_sheet.py` still passes because its fixture home now also gets a `fridgesheet.db` (harmless) and its `printed.txt`/log assertions are unchanged.
 
 ```bash
-git add lakota_grades/runner.py lakota_grades/cli.py lakota_grades/doctor.py tests/test_runner.py tests/test_doctor.py
+git add fridgesheet/runner.py fridgesheet/cli.py fridgesheet/doctor.py tests/test_runner.py tests/test_doctor.py
 git commit -m "runner: ingest after refresh and record every run; doctor database probe
 
 Closes #10
@@ -1288,7 +1288,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 7: `web/reconcile.py`: "actionable" and the six reconciliation cases (issue #11)
 
 **Files:**
-- Create: `lakota_grades/web/reconcile.py`
+- Create: `fridgesheet/web/reconcile.py`
 - Test: `tests/test_reconcile.py`
 
 **Interfaces:**
@@ -1313,9 +1313,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lakota_grades import late_rules
-from lakota_grades.web import db, reconcile
-from lakota_grades.web.stores import flags as flagstore
+from fridgesheet import late_rules
+from fridgesheet.web import db, reconcile
+from fridgesheet.web.stores import flags as flagstore
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
@@ -1437,13 +1437,13 @@ def test_cases_are_sorted_and_carry_context(conn):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_reconcile.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_reconcile.py -q`
 Expected: FAIL at import.
 
 - [ ] **Step 3: Write `reconcile.py`**
 
 ```python
-# lakota_grades/web/reconcile.py
+# fridgesheet/web/reconcile.py
 """What is actionable, and what the sources cannot settle by themselves.
 
 Pure functions over database rows. An item is actionable when (1) at least one source
@@ -1574,10 +1574,10 @@ def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) ->
 
 - [ ] **Step 4: Run the tests, the suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_reconcile.py -q` — 6 passed; then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_reconcile.py -q` — 6 passed; then the full suite.
 
 ```bash
-git add lakota_grades/web/reconcile.py tests/test_reconcile.py
+git add fridgesheet/web/reconcile.py tests/test_reconcile.py
 git commit -m "web.reconcile: the actionable rule and the six reconciliation cases
 
 Closes #11
@@ -1589,8 +1589,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ## Done when
 
-- `lakota.db` appears in `~/.lakota-grades` after the next scheduled run on Tony's box, with one `refreshes` row and one `runs` row per run; the sheet prints exactly as before when no flags are set.
+- `fridgesheet.db` appears in `~/.fridgesheet` after the next scheduled run on Tony's box, with one `refreshes` row and one `runs` row per run; the sheet prints exactly as before when no flags are set.
 - A flag set directly in the database (Plan B brings the UI) removes an item from the next sheet, and the sheet says how many items were handled.
-- `lakota-grades doctor` shows a `database` line.
+- `fridgesheet doctor` shows a `database` line.
 - Issues #5 to #11 are closed by the commits; CI is green on both runners.
 - Task 1's Step 4 records the key-stability findings for Plan B's Reconcile page.

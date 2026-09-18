@@ -15,10 +15,10 @@
 ## Global Constraints
 
 - `requires-python = ">=3.11"` (tomllib); the Windows bundle ships 3.12.
-- Nothing outside `lakota_grades/host/` may check `sys.platform` or `os.name`.
-- No `%-m`, `%-d`, `%-I` (or any `%-x`) strftime code anywhere in `lakota_grades/`; a test enforces this.
+- Nothing outside `fridgesheet/host/` may check `sys.platform` or `os.name`.
+- No `%-m`, `%-d`, `%-I` (or any `%-x`) strftime code anywhere in `fridgesheet/`; a test enforces this.
 - No credential is ever written to `config.toml`, a log line, a toast, or stdout.
-- Existing behaviour that must survive unchanged: `lakota-grades print-sheet` and all its flags; `secret-tool` credential reads on Linux; `~/.lakota-grades/.env` overriding everything in `config.toml`; `sheets/<date>/` as the open-work output folder; the three guards in their current order; the 24-hour stale fallback.
+- Existing behaviour that must survive unchanged: `fridgesheet print-sheet` and all its flags; `secret-tool` credential reads on Linux; `~/.fridgesheet/.env` overriding everything in `config.toml`; `sheets/<date>/` as the open-work output folder; the three guards in their current order; the 24-hour stale fallback.
 - The `Alex=Al` default nickname and the family-specific late-rules seed leave the code.
 - Commit after every task with the attribution trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Run the full suite (`python3 -m pytest -q`) before every commit; it must stay green (45 passed, 2 skipped at the start of this plan).
@@ -27,24 +27,24 @@
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/dates.py` (new) | Four date formatters replacing glibc-only strftime codes |
-| `lakota_grades/config.py` (modify) | Home dir per OS, `config.toml` load/save, `ReportConfig`, nicknames, printer, username; credentials via `host.credentials` |
-| `lakota_grades/host/__init__.py` (new) | `IS_WINDOWS`, `CREATE_NO_WINDOW`, `NotSupported` |
-| `lakota_grades/host/credentials.py`, `credentials_linux.py`, `credentials_windows.py` (new) | Password store |
-| `lakota_grades/host/printing.py`, `printing_linux.py`, `printing_windows.py` (new) | List / default / print PDF |
-| `lakota_grades/host/notify.py`, `notify_linux.py`, `notify_windows.py` (new) | Toast |
-| `lakota_grades/host/opener.py` (new) | Open a file in the desktop viewer |
-| `lakota_grades/host/scheduling.py`, `scheduling_linux.py`, `scheduling_windows.py`, `task.xml` (new) | Scheduled run |
-| `lakota_grades/reports/__init__.py`, `base.py`, `open_work.py` (new) | Report protocol, registry, the sheet |
-| `lakota_grades/runner.py` (new) | Generic guards / refresh / build / archive / print / record / toast |
-| `lakota_grades/print_sheet.py` (rewrite) | Thin alias: `Options` -> `runner.run("open-work", ...)` |
-| `lakota_grades/sheet.py` (modify) | Use `dates` helpers |
-| `lakota_grades/late_rules.py` (modify) | Generic seed |
-| `lakota_grades/cli.py` (modify) | `run`, `reports`, `printers`, `schedule`; `print-sheet` alias; `--printer` default None |
+| `fridgesheet/dates.py` (new) | Four date formatters replacing glibc-only strftime codes |
+| `fridgesheet/config.py` (modify) | Home dir per OS, `config.toml` load/save, `ReportConfig`, nicknames, printer, username; credentials via `host.credentials` |
+| `fridgesheet/host/__init__.py` (new) | `IS_WINDOWS`, `CREATE_NO_WINDOW`, `NotSupported` |
+| `fridgesheet/host/credentials.py`, `credentials_linux.py`, `credentials_windows.py` (new) | Password store |
+| `fridgesheet/host/printing.py`, `printing_linux.py`, `printing_windows.py` (new) | List / default / print PDF |
+| `fridgesheet/host/notify.py`, `notify_linux.py`, `notify_windows.py` (new) | Toast |
+| `fridgesheet/host/opener.py` (new) | Open a file in the desktop viewer |
+| `fridgesheet/host/scheduling.py`, `scheduling_linux.py`, `scheduling_windows.py`, `task.xml` (new) | Scheduled run |
+| `fridgesheet/reports/__init__.py`, `base.py`, `open_work.py` (new) | Report protocol, registry, the sheet |
+| `fridgesheet/runner.py` (new) | Generic guards / refresh / build / archive / print / record / toast |
+| `fridgesheet/print_sheet.py` (rewrite) | Thin alias: `Options` -> `runner.run("open-work", ...)` |
+| `fridgesheet/sheet.py` (modify) | Use `dates` helpers |
+| `fridgesheet/late_rules.py` (modify) | Generic seed |
+| `fridgesheet/cli.py` (modify) | `run`, `reports`, `printers`, `schedule`; `print-sheet` alias; `--printer` default None |
 | `pyproject.toml` (modify) | Version 0.2.0, python floor, `tomli-w`, `tzdata` on Windows, `windows` extra, package data |
 | `.github/workflows/spike-pyinstaller.yml`, `packaging/windows/spike_entry.py` (new) | Throwaway feasibility check (Task 1) |
 | `.github/workflows/ci.yml` (new) | pytest on both OSes |
-| `README.md`, `env.example`, `desktop/*.desktop`, `systemd/lakota-print-sheet.service` (modify) | De-Tony and document |
+| `README.md`, `env.example`, `desktop/*.desktop`, `systemd/fridgesheet-print-sheet.service` (modify) | De-Tony and document |
 | `tests/test_dates.py`, `test_config.py`, `test_host_credentials.py`, `test_host_printing.py`, `test_host_notify.py`, `test_host_scheduling.py`, `test_reports.py`, `test_runner.py` (new/modify) | |
 
 ---
@@ -146,9 +146,9 @@ Green: https://github.com/steiner385/fridgesheet/actions/runs/34852463828 — Ch
 ### Task 2: Date helpers and removal of glibc-only strftime codes
 
 **Files:**
-- Create: `lakota_grades/dates.py`
-- Modify: `lakota_grades/sheet.py:55-58, 77, 110, 165, 176, 188`
-- Modify: `lakota_grades/print_sheet.py:146, 210, 236`
+- Create: `fridgesheet/dates.py`
+- Modify: `fridgesheet/sheet.py:55-58, 77, 110, 165, 176, 188`
+- Modify: `fridgesheet/print_sheet.py:146, 210, 236`
 - Test: `tests/test_dates.py`
 
 **Interfaces:**
@@ -165,7 +165,7 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 
-from lakota_grades import dates
+from fridgesheet import dates
 
 D = datetime(2026, 9, 14, 14, 5)
 
@@ -200,12 +200,12 @@ def test_no_glibc_only_strftime_codes_remain_in_the_package():
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `python3 -m pytest tests/test_dates.py -q`
-Expected: FAIL with `ModuleNotFoundError: No module named 'lakota_grades.dates'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'fridgesheet.dates'`
 
 - [ ] **Step 3: Write `dates.py`**
 
 ```python
-# lakota_grades/dates.py
+# fridgesheet/dates.py
 """Short date text for the sheet and the log, built from fields rather than strftime.
 
 The 'no leading zero' strftime codes (percent-dash-m and friends) are a glibc extension;
@@ -271,7 +271,7 @@ Expected: all pass, including `test_no_glibc_only_strftime_codes_remain_in_the_p
 - [ ] **Step 7: Commit**
 
 ```bash
-git add lakota_grades/dates.py lakota_grades/sheet.py lakota_grades/print_sheet.py tests/test_dates.py
+git add fridgesheet/dates.py fridgesheet/sheet.py fridgesheet/print_sheet.py tests/test_dates.py
 git commit -m "Format sheet dates without glibc-only strftime codes (they raise on Windows)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -280,12 +280,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: `config.toml`, per-OS home directory, and removing the family-specific defaults
 
 **Files:**
-- Create: `lakota_grades/host/__init__.py`
-- Modify: `lakota_grades/config.py` (whole file)
-- Modify: `lakota_grades/print_sheet.py:36, 72, 98-112, 214, 248` (nicknames, printer default)
-- Modify: `lakota_grades/cli.py:164` (`--printer` default)
-- Modify: `lakota_grades/late_rules.py:32-74` (SEED)
-- Modify: `pyproject.toml`, `env.example`, `desktop/lakota-sheet-pdf.desktop`, `desktop/lakota-sheet-print.desktop`, `systemd/lakota-print-sheet.service`
+- Create: `fridgesheet/host/__init__.py`
+- Modify: `fridgesheet/config.py` (whole file)
+- Modify: `fridgesheet/print_sheet.py:36, 72, 98-112, 214, 248` (nicknames, printer default)
+- Modify: `fridgesheet/cli.py:164` (`--printer` default)
+- Modify: `fridgesheet/late_rules.py:32-74` (SEED)
+- Modify: `pyproject.toml`, `env.example`, `desktop/fridgesheet-pdf.desktop`, `desktop/fridgesheet-print.desktop`, `systemd/fridgesheet-print-sheet.service`
 - Test: `tests/test_config.py` (append), `tests/test_print_sheet.py:45-70` (fixture)
 
 **Interfaces:**
@@ -299,7 +299,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - `config.save_config_doc(path: Path, doc: dict) -> None` (atomic write, mode 0600)
   - `config.parse_nicknames(text: str) -> dict[str, str]`
   - `config.settings_from_doc(doc: dict, s: Settings) -> None` (applies the file; env applied afterwards by `load_settings`)
-  - `config.KEYRING_SERVICE` is **removed** from `config` (moves to `host.credentials` in Task 4). `cli.py` still imports it until Task 4; keep a re-export `KEYRING_SERVICE = "lakota-grades"` in `config.py` for this task only.
+  - `config.KEYRING_SERVICE` is **removed** from `config` (moves to `host.credentials` in Task 4). `cli.py` still imports it until Task 4; keep a re-export `KEYRING_SERVICE = "fridgesheet"` in `config.py` for this task only.
 
 - [ ] **Step 1: Write the failing config tests**
 
@@ -307,13 +307,13 @@ Append to `tests/test_config.py`:
 
 ```python
 def test_default_home_is_localappdata_on_windows(monkeypatch, tmp_path):
-    from lakota_grades import host
+    from fridgesheet import host
     monkeypatch.setattr(host, "IS_WINDOWS", True)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-    monkeypatch.delenv("LAKOTA_GRADES_HOME", raising=False)
-    assert config._default_home() == tmp_path / "lakota-grades"
+    monkeypatch.delenv("FRIDGESHEET_HOME", raising=False)
+    assert config._default_home() == tmp_path / "fridgesheet"
     monkeypatch.setattr(host, "IS_WINDOWS", False)
-    assert config._default_home() == Path.home() / ".lakota-grades"
+    assert config._default_home() == Path.home() / ".fridgesheet"
 
 
 def test_config_doc_round_trip(tmp_path):
@@ -336,8 +336,8 @@ def test_broken_config_names_the_file(tmp_path):
 
 def test_settings_from_doc_and_env_precedence(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
-    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
-    for k in ("LAKOTA_PRINTER", "LAKOTA_NICKNAMES", "LAKOTA_SHEETS_ARCHIVE"):
+    monkeypatch.delenv("FRIDGESHEET_ENV_FILE", raising=False)
+    for k in ("FRIDGESHEET_PRINTER", "FRIDGESHEET_NICKNAMES", "FRIDGESHEET_SHEETS_ARCHIVE"):
         monkeypatch.delenv(k, raising=False)
     config.save_config_doc(tmp_path / "config.toml", {
         "account": {"username": "p@x.com"}, "print": {"printer": "Office", "archive": "/mnt/d"},
@@ -351,9 +351,9 @@ def test_settings_from_doc_and_env_precedence(monkeypatch, tmp_path):
     rc = s.report_config("open-work")
     assert rc.enabled and rc.time == "15:30" and rc.days == ["Mon", "Tue", "Wed", "Thu", "Fri"] and rc.options == {"days_ahead": 7}
     assert s.report_config("nope").enabled is False and s.report_config("nope", default_time="18:00").time == "18:00"
-    monkeypatch.setenv("LAKOTA_PRINTER", "Env")
-    monkeypatch.setenv("LAKOTA_NICKNAMES", "Alex=D,Jo=Mel")
-    monkeypatch.setenv("LAKOTA_SHEETS_ARCHIVE", "/env")
+    monkeypatch.setenv("FRIDGESHEET_PRINTER", "Env")
+    monkeypatch.setenv("FRIDGESHEET_NICKNAMES", "Alex=D,Jo=Mel")
+    monkeypatch.setenv("FRIDGESHEET_SHEETS_ARCHIVE", "/env")
     s = config.load_settings()
     assert s.printer == "Env" and s.sheets_archive == "/env"
     assert s.nicknames == {"Alex": "D", "Katherine": "Kate", "Jo": "Mel"}   # env wins per key
@@ -366,20 +366,20 @@ def test_parse_nicknames():
 
 def test_no_nickname_is_built_in(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
-    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
-    monkeypatch.delenv("LAKOTA_NICKNAMES", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_ENV_FILE", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_NICKNAMES", raising=False)
     assert config.load_settings().nicknames == {}
 ```
 
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `python3 -m pytest tests/test_config.py -q`
-Expected: the six new tests FAIL (`AttributeError: module 'lakota_grades.config' has no attribute '_default_home'` and similar).
+Expected: the six new tests FAIL (`AttributeError: module 'fridgesheet.config' has no attribute '_default_home'` and similar).
 
 - [ ] **Step 3: Create `host/__init__.py`**
 
 ```python
-# lakota_grades/host/__init__.py
+# fridgesheet/host/__init__.py
 """OS adapters. This package is the only place that may look at the platform.
 
 Each adapter module (`printing`, `credentials`, `scheduling`, `notify`, `opener`) picks a
@@ -405,7 +405,7 @@ class NotSupported(RuntimeError):
 
 ```toml
 [project]
-name = "lakota-grades-mcp"
+name = "fridgesheet"
 version = "0.2.0"
 description = "Lakota Local Schools parent tools: a printed open-work sheet from Canvas + Home Access Center, and a local MCP server for Claude."
 requires-python = ">=3.11"
@@ -426,7 +426,7 @@ dev = ["pytest>=8"]
 windows = ["keyring>=25", "pywin32>=306"]
 
 [project.scripts]
-lakota-grades = "lakota_grades.cli:main"
+fridgesheet = "fridgesheet.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -437,10 +437,10 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["lakota_grades*"]
+include = ["fridgesheet*"]
 
 [tool.setuptools.package-data]
-lakota_grades = ["host/*.xml"]
+fridgesheet = ["host/*.xml"]
 ```
 
 Then `pip install tomli-w` into whatever environment runs the tests (`python3 -m pip install --user tomli-w` if there is no venv). `tzdata` is only pulled on Windows: Python there has no system zoneinfo database, and `ZoneInfo("America/New_York")` raises without it.
@@ -465,13 +465,13 @@ from dotenv import load_dotenv
 
 from . import host
 
-log = logging.getLogger("lakota.config")
+log = logging.getLogger("fridgesheet.config")
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 
 #: Temporary: cli.py imports this until Task 4 moves it to host.credentials.
-KEYRING_SERVICE = os.environ.get("LAKOTA_KEYRING_SERVICE", "lakota-grades")
-KEYRING_LABEL = "Lakota OneLogin (lakota-grades)"
+KEYRING_SERVICE = os.environ.get("FRIDGESHEET_KEYRING_SERVICE", "fridgesheet")
+KEYRING_LABEL = "Fridge Sheet OneLogin"
 
 
 class ConfigError(RuntimeError):
@@ -479,20 +479,20 @@ class ConfigError(RuntimeError):
 
 
 def _default_home() -> Path:
-    """~/.lakota-grades on Linux, %LOCALAPPDATA%\\lakota-grades on Windows; LAKOTA_GRADES_HOME wins."""
-    if os.environ.get("LAKOTA_GRADES_HOME"):
-        return Path(os.environ["LAKOTA_GRADES_HOME"])
+    """~/.fridgesheet on Linux, %LOCALAPPDATA%\\fridgesheet on Windows; FRIDGESHEET_HOME wins."""
+    if os.environ.get("FRIDGESHEET_HOME"):
+        return Path(os.environ["FRIDGESHEET_HOME"])
     if host.IS_WINDOWS:
-        return Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "lakota-grades"
-    return Path.home() / ".lakota-grades"
+        return Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "fridgesheet"
+    return Path.home() / ".fridgesheet"
 
 
 DEFAULT_HOME = _default_home()
 
 
 def env_file() -> Path:
-    """The .env to load: LAKOTA_ENV_FILE if set, else <home>/.env."""
-    return Path(os.environ.get("LAKOTA_ENV_FILE") or DEFAULT_HOME / ".env")
+    """The .env to load: FRIDGESHEET_ENV_FILE if set, else <home>/.env."""
+    return Path(os.environ.get("FRIDGESHEET_ENV_FILE") or DEFAULT_HOME / ".env")
 
 
 def config_file() -> Path:
@@ -627,19 +627,19 @@ def load_settings() -> Settings:
     _load_env_files()
     s = Settings()
     settings_from_doc(load_config_doc(config_file()), s)
-    s.canvas_base = os.environ.get("LAKOTA_CANVAS_BASE", s.canvas_base).rstrip("/")
-    s.hac_base = os.environ.get("LAKOTA_HAC_BASE", s.hac_base).rstrip("/")
-    s.onelogin_host = os.environ.get("LAKOTA_ONELOGIN_HOST", s.onelogin_host)
-    s.headless = os.environ.get("LAKOTA_HEADLESS", "1") not in ("0", "false", "no")
-    s.user_agent = os.environ.get("LAKOTA_USER_AGENT", s.user_agent)
-    s.cache_ttl_minutes = int(os.environ.get("LAKOTA_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
-    s.sheets_archive = os.environ.get("LAKOTA_SHEETS_ARCHIVE", s.sheets_archive).strip()
-    s.printer = os.environ.get("LAKOTA_PRINTER", s.printer).strip()
-    s.nicknames = {**s.nicknames, **parse_nicknames(os.environ.get("LAKOTA_NICKNAMES", ""))}
-    s.hac_app_url = os.environ.get("LAKOTA_HAC_ONELOGIN_APP_URL", s.hac_app_url)
-    s.hac_app_pattern = os.environ.get("LAKOTA_HAC_APP_PATTERN", s.hac_app_pattern)
+    s.canvas_base = os.environ.get("FRIDGESHEET_CANVAS_BASE", s.canvas_base).rstrip("/")
+    s.hac_base = os.environ.get("FRIDGESHEET_HAC_BASE", s.hac_base).rstrip("/")
+    s.onelogin_host = os.environ.get("FRIDGESHEET_ONELOGIN_HOST", s.onelogin_host)
+    s.headless = os.environ.get("FRIDGESHEET_HEADLESS", "1") not in ("0", "false", "no")
+    s.user_agent = os.environ.get("FRIDGESHEET_USER_AGENT", s.user_agent)
+    s.cache_ttl_minutes = int(os.environ.get("FRIDGESHEET_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
+    s.sheets_archive = os.environ.get("FRIDGESHEET_SHEETS_ARCHIVE", s.sheets_archive).strip()
+    s.printer = os.environ.get("FRIDGESHEET_PRINTER", s.printer).strip()
+    s.nicknames = {**s.nicknames, **parse_nicknames(os.environ.get("FRIDGESHEET_NICKNAMES", ""))}
+    s.hac_app_url = os.environ.get("FRIDGESHEET_HAC_ONELOGIN_APP_URL", s.hac_app_url)
+    s.hac_app_pattern = os.environ.get("FRIDGESHEET_HAC_APP_PATTERN", s.hac_app_pattern)
     for k in ("onelogin_user_selector", "onelogin_pass_selector", "onelogin_submit_selector"):
-        v = os.environ.get("LAKOTA_" + k.upper())
+        v = os.environ.get("FRIDGESHEET_" + k.upper())
         if v:
             setattr(s, k, v)
     for d in (s.home, s.profile_dir, s.cache_dir):
@@ -666,10 +666,10 @@ Line 214 `names = nicknames()` becomes `names = settings.nicknames`; line 221 `_
 
 ```python
     printer = opts.printer or settings.printer or None
-    cmd = ["lp", *(["-d", printer] if printer else []), "-o", "sides=two-sided-long-edge", "-o", "media=Letter", "-t", f"lakota open work {day}", str(pdf)]
+    cmd = ["lp", *(["-d", printer] if printer else []), "-o", "sides=two-sided-long-edge", "-o", "media=Letter", "-t", f"fridgesheet open work {day}", str(pdf)]
 ```
 
-In `cli.py` line 164: `ps.add_argument("--printer", default=os.environ.get("LAKOTA_PRINTER") or None, help="printer name (default: config.toml, then the system default)")`.
+In `cli.py` line 164: `ps.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: config.toml, then the system default)")`.
 
 - [ ] **Step 7: Fix the print-sheet test fixture, which relied on the built-in nickname**
 
@@ -708,21 +708,21 @@ q4 = 2027-05-20
 '''
 ```
 
-`env.example` line 31 becomes `# LAKOTA_SHEETS_ARCHIVE=/path/to/a/folder/people/look/in/Open Work Sheets` and add after line 28:
+`env.example` line 31 becomes `# FRIDGESHEET_SHEETS_ARCHIVE=/path/to/a/folder/people/look/in/Open Work Sheets` and add after line 28:
 
 ```
-# LAKOTA_PRINTER=            # printer name; blank = system default (lpstat -a lists them)
-# LAKOTA_NICKNAMES=Alex=Al,Katherine=Kate   # snapshot first name = name printed on the sheet
-# Most settings can also live in ~/.lakota-grades/config.toml; the environment wins.
+# FRIDGESHEET_PRINTER=            # printer name; blank = system default (lpstat -a lists them)
+# FRIDGESHEET_NICKNAMES=Alex=Al,Katherine=Kate   # snapshot first name = name printed on the sheet
+# Most settings can also live in ~/.fridgesheet/config.toml; the environment wins.
 ```
 
-Both `desktop/*.desktop`: `Exec=/home/tony/lakota-grades-mcp/scripts/lakota-sheet-desktop.sh pdf` becomes `Exec=bash -c '"$HOME/lakota-grades-mcp/scripts/lakota-sheet-desktop.sh" pdf'` (and `print` in the other). `.desktop` files do not expand `$HOME` themselves, hence the explicit `bash -c`.
+Both `desktop/*.desktop`: `Exec=/home/tony/fridgesheet/scripts/fridgesheet-desktop.sh pdf` becomes `Exec=bash -c '"$HOME/fridgesheet/scripts/fridgesheet-desktop.sh" pdf'` (and `print` in the other). `.desktop` files do not expand `$HOME` themselves, hence the explicit `bash -c`.
 
-`systemd/lakota-print-sheet.service` line 9-10 become:
+`systemd/fridgesheet-print-sheet.service` line 9-10 become:
 
 ```
 # The printer is set explicitly; the CUPS default is not used. `lpstat -a` lists names.
-Environment=LAKOTA_PRINTER=Brother_MFC_J4335DW
+Environment=FRIDGESHEET_PRINTER=Brother_MFC_J4335DW
 ```
 
 (Only the comment changes; the example value stays a real name so a copied unit works.)
@@ -735,7 +735,7 @@ Expected: all pass.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add -A lakota_grades tests pyproject.toml env.example desktop systemd
+git add -A fridgesheet tests pyproject.toml env.example desktop systemd
 git commit -m "Read settings from config.toml with env overriding; drop the family-specific defaults
 
 Adds ReportConfig, per-OS home dir, parse_nicknames, and the tomli-w / tzdata deps.
@@ -747,15 +747,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: `host.credentials` (secret-tool on Linux, Credential Manager on Windows)
 
 **Files:**
-- Create: `lakota_grades/host/credentials.py`, `credentials_linux.py`, `credentials_windows.py`
-- Modify: `lakota_grades/config.py` (remove `_keyring_read`, `keyring_write`, `KEYRING_SERVICE`, `KEYRING_LABEL`; reroute `Settings.credentials`)
-- Modify: `lakota_grades/cli.py:13, 72-96, 146-148` (`set-credentials`)
+- Create: `fridgesheet/host/credentials.py`, `credentials_linux.py`, `credentials_windows.py`
+- Modify: `fridgesheet/config.py` (remove `_keyring_read`, `keyring_write`, `KEYRING_SERVICE`, `KEYRING_LABEL`; reroute `Settings.credentials`)
+- Modify: `fridgesheet/cli.py:13, 72-96, 146-148` (`set-credentials`)
 - Test: `tests/test_host_credentials.py`
 
 **Interfaces:**
 - Consumes: `config.Settings.username`, `config.load_config_doc`, `config.save_config_doc`, `config.config_file` (Task 3)
 - Produces, in `host.credentials`:
-  - `SERVICE: str` (`LAKOTA_KEYRING_SERVICE` env or `"lakota-grades"`)
+  - `SERVICE: str` (`FRIDGESHEET_KEYRING_SERVICE` env or `"fridgesheet"`)
   - `read_username(run=subprocess.run) -> str | None`
   - `read_password(username: str, run=subprocess.run) -> str | None`
   - `write(username: str, password: str, run=subprocess.run) -> None`
@@ -775,8 +775,8 @@ import types
 
 import pytest
 
-from lakota_grades import config
-from lakota_grades.host import credentials, credentials_linux, credentials_windows
+from fridgesheet import config
+from fridgesheet.host import credentials, credentials_linux, credentials_windows
 
 
 class _R:
@@ -848,21 +848,21 @@ def test_windows_round_trip_through_keyring(fake_keyring):
 
 
 def test_settings_credentials_prefers_env_then_store(monkeypatch):
-    monkeypatch.delenv("LAKOTA_ONELOGIN_USERNAME", raising=False)
-    monkeypatch.delenv("LAKOTA_ONELOGIN_PASSWORD", raising=False)
-    monkeypatch.delenv("LAKOTA_OP_USERNAME_REF", raising=False)
-    monkeypatch.delenv("LAKOTA_OP_PASSWORD_REF", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_USERNAME", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_PASSWORD", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_OP_USERNAME_REF", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_OP_PASSWORD_REF", raising=False)
     monkeypatch.setattr(credentials, "read_username", lambda run=None: None)
     monkeypatch.setattr(credentials, "read_password", lambda user, run=None: "stored" if user == "cfg@x.com" else None)
     s = config.Settings(username="cfg@x.com")
     assert s.credentials() == ("cfg@x.com", "stored")
-    monkeypatch.setenv("LAKOTA_ONELOGIN_USERNAME", "env@x.com")
-    monkeypatch.setenv("LAKOTA_ONELOGIN_PASSWORD", "envpw")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "envpw")
     assert config.Settings(username="cfg@x.com").credentials() == ("env@x.com", "envpw")
 
 
 def test_settings_credentials_falls_back_to_store_username_then_errors(monkeypatch):
-    for k in ("LAKOTA_ONELOGIN_USERNAME", "LAKOTA_ONELOGIN_PASSWORD", "LAKOTA_OP_USERNAME_REF", "LAKOTA_OP_PASSWORD_REF"):
+    for k in ("FRIDGESHEET_ONELOGIN_USERNAME", "FRIDGESHEET_ONELOGIN_PASSWORD", "FRIDGESHEET_OP_USERNAME_REF", "FRIDGESHEET_OP_PASSWORD_REF"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(credentials, "read_username", lambda run=None: "ring@x.com")
     monkeypatch.setattr(credentials, "read_password", lambda user, run=None: "ringpw")
@@ -876,12 +876,12 @@ def test_settings_credentials_falls_back_to_store_username_then_errors(monkeypat
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `python3 -m pytest tests/test_host_credentials.py -q`
-Expected: FAIL at import (`cannot import name 'credentials' from 'lakota_grades.host'`).
+Expected: FAIL at import (`cannot import name 'credentials' from 'fridgesheet.host'`).
 
 - [ ] **Step 3: Write the three credential modules**
 
 ```python
-# lakota_grades/host/credentials.py
+# fridgesheet/host/credentials.py
 """The OS password store: where `set-credentials` puts the OneLogin password.
 
 Linux: freedesktop Secret Service through `secret-tool` (GNOME keyring), exactly as the
@@ -894,7 +894,7 @@ import os
 
 from . import IS_WINDOWS
 
-SERVICE: str = os.environ.get("LAKOTA_KEYRING_SERVICE", "lakota-grades")
+SERVICE: str = os.environ.get("FRIDGESHEET_KEYRING_SERVICE", "fridgesheet")
 
 if IS_WINDOWS:
     from . import credentials_windows as _impl
@@ -907,14 +907,14 @@ write = _impl.write
 ```
 
 ```python
-# lakota_grades/host/credentials_linux.py
+# fridgesheet/host/credentials_linux.py
 from __future__ import annotations
 
 import logging
 import subprocess
 
-log = logging.getLogger("lakota.host.credentials")
-LABEL = "Lakota OneLogin (lakota-grades)"
+log = logging.getLogger("fridgesheet.host.credentials")
+LABEL = "Fridge Sheet OneLogin"
 
 
 def _service() -> str:
@@ -959,7 +959,7 @@ def write(username: str, password: str, run=subprocess.run) -> None:
 ```
 
 ```python
-# lakota_grades/host/credentials_windows.py
+# fridgesheet/host/credentials_windows.py
 """Windows Credential Manager via the `keyring` library (Windows extra). Imported lazily so
 the module loads, and tests can fake it, on any OS."""
 from __future__ import annotations
@@ -1002,21 +1002,21 @@ Delete `KEYRING_SERVICE`, `KEYRING_LABEL`, `_keyring_read`, `keyring_write` from
         if self._username and self._password:
             return self._username, self._password
         from .host import credentials as store
-        user = os.environ.get("LAKOTA_ONELOGIN_USERNAME")
-        pw = os.environ.get("LAKOTA_ONELOGIN_PASSWORD")
+        user = os.environ.get("FRIDGESHEET_ONELOGIN_USERNAME")
+        pw = os.environ.get("FRIDGESHEET_ONELOGIN_PASSWORD")
         if not (user and pw):
             user = user or self.username or store.read_username()
             pw = pw or (store.read_password(user) if user else None)
         if not (user and pw):
-            uref = os.environ.get("LAKOTA_OP_USERNAME_REF")
-            pref = os.environ.get("LAKOTA_OP_PASSWORD_REF")
+            uref = os.environ.get("FRIDGESHEET_OP_USERNAME_REF")
+            pref = os.environ.get("FRIDGESHEET_OP_PASSWORD_REF")
             if uref and pref:
                 user, pw = user or _op_read(uref), pw or _op_read(pref)
         if not (user and pw):
             raise RuntimeError(
-                "No credentials available. Run `lakota-grades set-credentials` to store them in "
-                "the OS credential store, or provide LAKOTA_ONELOGIN_USERNAME/PASSWORD in the "
-                "environment, or set LAKOTA_OP_USERNAME_REF/LAKOTA_OP_PASSWORD_REF for the 1Password CLI."
+                "No credentials available. Run `fridgesheet set-credentials` to store them in "
+                "the OS credential store, or provide FRIDGESHEET_ONELOGIN_USERNAME/PASSWORD in the "
+                "environment, or set FRIDGESHEET_OP_USERNAME_REF/FRIDGESHEET_OP_PASSWORD_REF for the 1Password CLI."
             )
         self._username, self._password = user, pw
         return user, pw
@@ -1036,7 +1036,7 @@ def cmd_set_credentials(args) -> int:
         print("Run it yourself in a shell, or (Linux) pipe a value from your password manager", file=sys.stderr)
         print("into secret-tool, e.g.:", file=sys.stderr)
         print("  op read --no-newline 'op://Vault/<uuid>/password' | \\", file=sys.stderr)
-        print(f"    secret-tool store --label 'Lakota OneLogin' service {credstore.SERVICE} key password", file=sys.stderr)
+        print(f"    secret-tool store --label 'Fridge Sheet OneLogin' service {credstore.SERVICE} key password", file=sys.stderr)
         return 2
     user = args.username or input("OneLogin username: ").strip()
     if not user:
@@ -1052,7 +1052,7 @@ def cmd_set_credentials(args) -> int:
     doc.setdefault("account", {})["username"] = user
     save_config_doc(config_file(), doc)
     print(f"Stored under service={credstore.SERVICE!r}; username recorded in {config_file()}.")
-    print("Verify with:  lakota-grades check")
+    print("Verify with:  fridgesheet check")
     return 0
 ```
 
@@ -1066,7 +1066,7 @@ Expected: all pass.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add lakota_grades/host lakota_grades/config.py lakota_grades/cli.py tests/test_host_credentials.py
+git add fridgesheet/host fridgesheet/config.py fridgesheet/cli.py tests/test_host_credentials.py
 git commit -m "Move the password store behind host.credentials; Credential Manager on Windows
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -1077,8 +1077,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: `host.printing` (CUPS on Linux, SumatraPDF on Windows) and the `printers` command
 
 **Files:**
-- Create: `lakota_grades/host/printing.py`, `printing_linux.py`, `printing_windows.py`
-- Modify: `lakota_grades/cli.py` (add `printers`)
+- Create: `fridgesheet/host/printing.py`, `printing_linux.py`, `printing_windows.py`
+- Modify: `fridgesheet/cli.py` (add `printers`)
 - Test: `tests/test_host_printing.py`
 
 **Interfaces:**
@@ -1102,7 +1102,7 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades.host import printing, printing_linux, printing_windows
+from fridgesheet.host import printing, printing_linux, printing_windows
 
 
 class _R:
@@ -1130,12 +1130,12 @@ def test_linux_lists_and_defaults_from_lpstat():
 
 def test_linux_print_builds_lp_command_and_returns_the_request_id():
     seen, run = _recorder(_R(0, "request id is Brother_MFC-42 (1 file(s))\n"))
-    job = printing_linux.print_pdf(Path("/tmp/s.pdf"), "Brother_MFC", "lakota open work 2026-09-14", run=run)
+    job = printing_linux.print_pdf(Path("/tmp/s.pdf"), "Brother_MFC", "fridgesheet open work 2026-09-14", run=run)
     assert job == "Brother_MFC-42"
     cmd = seen[0][0]
     assert cmd[:3] == ["lp", "-d", "Brother_MFC"]
     assert "sides=two-sided-long-edge" in cmd and "media=Letter" in cmd and cmd[-1] == "/tmp/s.pdf"
-    assert cmd[cmd.index("-t") + 1] == "lakota open work 2026-09-14"
+    assert cmd[cmd.index("-t") + 1] == "fridgesheet open work 2026-09-14"
 
 
 def test_linux_print_default_printer_omits_dash_d_and_failure_raises():
@@ -1187,7 +1187,7 @@ def test_selector_exposes_the_same_names():
 
 
 def test_printers_command_marks_the_default(monkeypatch, capsys):
-    from lakota_grades import cli
+    from fridgesheet import cli
     monkeypatch.setattr(printing, "list_printers", lambda: ["A", "B"])
     monkeypatch.setattr(printing, "default_printer", lambda: "B")
     with pytest.raises(SystemExit) as e:
@@ -1204,10 +1204,10 @@ Expected: FAIL at import.
 - [ ] **Step 3: Write the printing modules**
 
 ```python
-# lakota_grades/host/printing.py
+# fridgesheet/host/printing.py
 """Print a PDF duplex on letter paper, and list printers.
 
-Linux: CUPS (`lp`, `lpstat`). Windows: SumatraPDF (bundled by the installer; LAKOTA_SUMATRA
+Linux: CUPS (`lp`, `lpstat`). Windows: SumatraPDF (bundled by the installer; FRIDGESHEET_SUMATRA
 overrides its path) because it is the one PDF printer on Windows that is silent, honours
 duplex, and returns an exit code. `printer=None` means the system default on both.
 """
@@ -1231,7 +1231,7 @@ print_pdf = _impl.print_pdf
 ```
 
 ```python
-# lakota_grades/host/printing_linux.py
+# fridgesheet/host/printing_linux.py
 from __future__ import annotations
 
 import re
@@ -1272,7 +1272,7 @@ def print_pdf(pdf: Path, printer: str | None, title: str, run=subprocess.run, no
 ```
 
 ```python
-# lakota_grades/host/printing_windows.py
+# fridgesheet/host/printing_windows.py
 from __future__ import annotations
 
 import os
@@ -1290,9 +1290,9 @@ def _err():
 
 
 def sumatra_path() -> Path:
-    """LAKOTA_SUMATRA, else SumatraPDF.exe next to the frozen executable (Plan 3 puts it there)."""
-    if os.environ.get("LAKOTA_SUMATRA"):
-        return Path(os.environ["LAKOTA_SUMATRA"])
+    """FRIDGESHEET_SUMATRA, else SumatraPDF.exe next to the frozen executable (Plan 3 puts it there)."""
+    if os.environ.get("FRIDGESHEET_SUMATRA"):
+        return Path(os.environ["FRIDGESHEET_SUMATRA"])
     base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path.cwd()
     return base / "SumatraPDF.exe"
 
@@ -1314,7 +1314,7 @@ def default_printer(run=subprocess.run) -> str | None:
 def print_pdf(pdf: Path, printer: str | None, title: str, run=subprocess.run, now: datetime | None = None) -> str:
     exe = sumatra_path()
     if not exe.is_file():
-        raise _err()(f"SumatraPDF not found at {exe}; reinstall Lakota Sheet")
+        raise _err()(f"SumatraPDF not found at {exe}; reinstall Fridge Sheet")
     if printer and printer not in list_printers():
         raise _err()(f"printer {printer!r} is not installed (renamed or removed?)")
     target = ["-print-to", printer] if printer else ["-print-to-default"]
@@ -1351,7 +1351,7 @@ Expected: all pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add lakota_grades/host lakota_grades/cli.py tests/test_host_printing.py
+git add fridgesheet/host fridgesheet/cli.py tests/test_host_printing.py
 git commit -m "Add host.printing: CUPS on Linux, SumatraPDF on Windows, plus a printers command
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -1360,13 +1360,13 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 6: `host.notify` and `host.opener`
 
 **Files:**
-- Create: `lakota_grades/host/notify.py`, `notify_linux.py`, `notify_windows.py`, `opener.py`
+- Create: `fridgesheet/host/notify.py`, `notify_linux.py`, `notify_windows.py`, `opener.py`
 - Test: `tests/test_host_notify.py`
 
 **Interfaces:**
 - Produces:
   - `host.notify.toast(title: str, body: str, run=subprocess.run) -> None` (never raises; logs a warning on failure). Same on `notify_linux` / `notify_windows`.
-  - `host.notify_windows.APP_ID = "Cairnea.LakotaSheet"` (Plan 3's Inno Setup script sets the same `AppUserModelID` on the Start menu shortcut).
+  - `host.notify_windows.APP_ID = "Cairnea.FridgeSheet"` (Plan 3's Inno Setup script sets the same `AppUserModelID` on the Start menu shortcut).
   - `host.opener.open_file(path: Path, popen=subprocess.Popen) -> None`
 
 - [ ] **Step 1: Write the failing tests**
@@ -1379,8 +1379,8 @@ import base64
 import subprocess
 from pathlib import Path
 
-from lakota_grades import host
-from lakota_grades.host import notify, notify_linux, notify_windows, opener
+from fridgesheet import host
+from fridgesheet.host import notify, notify_linux, notify_windows, opener
 
 
 def _rec():
@@ -1396,7 +1396,7 @@ def test_linux_uses_notify_send_when_present(monkeypatch):
     seen, run = _rec()
     monkeypatch.setattr(notify_linux.shutil, "which", lambda n: "/usr/bin/notify-send")
     notify_linux.toast("Open Work Sheet", "Printed 2 pages", run=run)
-    assert seen[0][0] == ["notify-send", "-a", "Lakota sheet", "Open Work Sheet", "Printed 2 pages"]
+    assert seen[0][0] == ["notify-send", "-a", "Fridge Sheet", "Open Work Sheet", "Printed 2 pages"]
     monkeypatch.setattr(notify_linux.shutil, "which", lambda n: None)
     notify_linux.toast("x", "y", run=run)
     assert len(seen) == 1
@@ -1449,7 +1449,7 @@ Expected: FAIL at import.
 - [ ] **Step 3: Write the modules**
 
 ```python
-# lakota_grades/host/notify.py
+# fridgesheet/host/notify.py
 """A desktop notification at the end of a scheduled run. Best effort: never raises."""
 from __future__ import annotations
 
@@ -1464,27 +1464,27 @@ toast = _impl.toast
 ```
 
 ```python
-# lakota_grades/host/notify_linux.py
+# fridgesheet/host/notify_linux.py
 from __future__ import annotations
 
 import logging
 import shutil
 import subprocess
 
-log = logging.getLogger("lakota.host.notify")
+log = logging.getLogger("fridgesheet.host.notify")
 
 
 def toast(title: str, body: str, run=subprocess.run) -> None:
     if not shutil.which("notify-send"):
         return
     try:
-        run(["notify-send", "-a", "Lakota sheet", title, body], capture_output=True, text=True, timeout=20)
+        run(["notify-send", "-a", "Fridge Sheet", title, body], capture_output=True, text=True, timeout=20)
     except Exception as e:
         log.warning("notify-send failed: %s", e)
 ```
 
 ```python
-# lakota_grades/host/notify_windows.py
+# fridgesheet/host/notify_windows.py
 """Windows toast via PowerShell and the WinRT ToastNotificationManager. No third-party
 toast library. The script is passed base64 UTF-16LE (-EncodedCommand) so titles and
 bodies never touch shell quoting; inside the XML they are entity-escaped."""
@@ -1497,10 +1497,10 @@ from xml.sax.saxutils import escape
 
 from . import CREATE_NO_WINDOW
 
-log = logging.getLogger("lakota.host.notify")
+log = logging.getLogger("fridgesheet.host.notify")
 
 #: Must match the AppUserModelID Inno Setup puts on the Start menu shortcut (Plan 3).
-APP_ID = "Cairnea.LakotaSheet"
+APP_ID = "Cairnea.FridgeSheet"
 
 _SCRIPT = """
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
@@ -1528,7 +1528,7 @@ def toast(title: str, body: str, run=subprocess.run) -> None:
 ```
 
 ```python
-# lakota_grades/host/opener.py
+# fridgesheet/host/opener.py
 """Open a file in the desktop's viewer, detached from us so it outlives a terminal window."""
 from __future__ import annotations
 
@@ -1537,7 +1537,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import lakota_grades.host as host   # attribute lookup at call time, so tests can flip IS_WINDOWS
+import fridgesheet.host as host   # attribute lookup at call time, so tests can flip IS_WINDOWS
 
 
 def _startfile(path: str) -> None:
@@ -1559,7 +1559,7 @@ def open_file(path: Path, popen=subprocess.Popen) -> None:
 Run: `python3 -m pytest -q` — all pass.
 
 ```bash
-git add lakota_grades/host tests/test_host_notify.py
+git add fridgesheet/host tests/test_host_notify.py
 git commit -m "Add host.notify (notify-send / PowerShell toast) and host.opener
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -1572,10 +1572,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 This is the structural split. `print_sheet.py` keeps its public names (`Options`, `run`, `parse_skip_days`, `school_year`) so `tests/test_print_sheet.py` runs unchanged and proves nothing regressed.
 
 **Files:**
-- Create: `lakota_grades/reports/__init__.py`, `base.py`, `open_work.py`
-- Create: `lakota_grades/runner.py`
-- Rewrite: `lakota_grades/print_sheet.py`
-- Modify: `lakota_grades/cli.py` (add `run`, `reports`; `print-sheet` unchanged)
+- Create: `fridgesheet/reports/__init__.py`, `base.py`, `open_work.py`
+- Create: `fridgesheet/runner.py`
+- Rewrite: `fridgesheet/print_sheet.py`
+- Modify: `fridgesheet/cli.py` (add `run`, `reports`; `print-sheet` unchanged)
 - Test: `tests/test_reports.py`, `tests/test_runner.py`
 
 **Interfaces:**
@@ -1606,9 +1606,9 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import reports  # noqa: E402
-from lakota_grades.config import Settings  # noqa: E402
-from lakota_grades.reports.base import BuildContext, ReportError  # noqa: E402
+from fridgesheet import reports  # noqa: E402
+from fridgesheet.config import Settings  # noqa: E402
+from fridgesheet.reports.base import BuildContext, ReportError  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 11, 14, 5, tzinfo=TZ)
@@ -1651,7 +1651,7 @@ def test_open_work_honours_kid_filter_options_and_previous_rows(tmp_path):
     first = r.build(_snapshot(), _ctx(tmp_path, kid="al", options={"days_ahead": 1, "overdue_days": 3}))
     assert set(first.rows) == {"Alex"} and first.rows["Alex"] == []      # due in 2 days, window is 1
     second = r.build(_snapshot(), _ctx(tmp_path, prev_rows=first.rows, prev_label="Thu 9/10"))
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     assert "since last sheet" in sheet.pdf_text(second.pdf)
     with pytest.raises(ReportError, match="no student matches"):
         r.build(_snapshot(), _ctx(tmp_path, kid="zed"))
@@ -1678,9 +1678,9 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import runner  # noqa: E402
-from lakota_grades.config import ReportConfig, Settings  # noqa: E402
-from lakota_grades.host.printing import PrintError  # noqa: E402
+from fridgesheet import runner  # noqa: E402
+from fridgesheet.config import ReportConfig, Settings  # noqa: E402
+from fridgesheet.host.printing import PrintError  # noqa: E402
 from tests.test_reports import _snapshot  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")
@@ -1817,12 +1817,12 @@ def test_unknown_report_is_a_logged_failure(env):
 - [ ] **Step 3: Run both files to verify they fail**
 
 Run: `python3 -m pytest tests/test_reports.py tests/test_runner.py -q`
-Expected: FAIL at import (`No module named 'lakota_grades.reports'`).
+Expected: FAIL at import (`No module named 'fridgesheet.reports'`).
 
 - [ ] **Step 4: Write `reports/base.py` and `reports/__init__.py`**
 
 ```python
-# lakota_grades/reports/base.py
+# fridgesheet/reports/base.py
 """What a report is: one PDF for one day, built from the snapshot. The runner does
 everything around it (guards, refresh, archive, print, record, notify)."""
 from __future__ import annotations
@@ -1873,7 +1873,7 @@ class Report(Protocol):
 ```
 
 ```python
-# lakota_grades/reports/__init__.py
+# fridgesheet/reports/__init__.py
 """Registry. Adding a report = a new module here plus one entry in REPORTS."""
 from __future__ import annotations
 
@@ -1898,7 +1898,7 @@ __all__ = ["REPORTS", "get", "Built", "BuildContext", "Report", "ReportError"]
 - [ ] **Step 5: Write `reports/open_work.py` (moved from `print_sheet.run`, lines 213-236)**
 
 ```python
-# lakota_grades/reports/open_work.py
+# fridgesheet/reports/open_work.py
 """The open-work sheet: one section per kid, the rows open_items says are still actionable."""
 from __future__ import annotations
 
@@ -1951,7 +1951,7 @@ class OpenWorkReport:
 - [ ] **Step 6: Write `runner.py`**
 
 ```python
-# lakota_grades/runner.py
+# fridgesheet/runner.py
 """Run one report for one day: guards, refresh, build, archive, print, record, notify.
 
 Files under the app home:
@@ -2111,7 +2111,7 @@ def _toast_body(level: str, msg: str, day: date) -> str:
         return f"Skipped: {msg}"
     body = f"Not printed: {msg}"
     if "login" in msg.lower():
-        body += ". Open Lakota Sheet to check your password."
+        body += ". Open Fridge Sheet to check your password."
     return body
 
 
@@ -2213,7 +2213,7 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
         # --- print ------------------------------------------------------------------
         printer = opts.printer or settings.printer or None
         try:
-            job = print_pdf(built.pdf, printer, f"lakota {report.title.lower()} {day}")
+            job = print_pdf(built.pdf, printer, f"fridgesheet {report.title.lower()} {day}")
         except PrintError as e:
             return finish("FAIL", f"{e}; PDF kept at {built.pdf}", 1)
         with (day_dir / "printed.txt").open("a") as f:   # append: a --reprint keeps the earlier job on record
@@ -2230,8 +2230,8 @@ Note the stale-snapshot FAIL message keeps the words "stale" and the refresh err
 - [ ] **Step 7: Rewrite `print_sheet.py` as the alias**
 
 ```python
-# lakota_grades/print_sheet.py
-"""`lakota-grades print-sheet`: the original command, now an alias for `run open-work`.
+# fridgesheet/print_sheet.py
+"""`fridgesheet print-sheet`: the original command, now an alias for `run open-work`.
 
 Kept so the systemd unit, the desktop shortcuts and the tests keep working unchanged.
 The behaviour lives in runner.py and reports/open_work.py.
@@ -2298,14 +2298,14 @@ and in `main()`, before the `print-sheet` parser:
 
 ```python
     rn = sub.add_parser("run", help="refresh, build one report, print it, record it")
-    rn.add_argument("report", help="report key; see `lakota-grades reports`")
+    rn.add_argument("report", help="report key; see `fridgesheet reports`")
     rn.add_argument("--dry-run", action="store_true", help="build the PDF but do not print, record or notify")
     rn.add_argument("--kid", help="one student only (first name or nickname prefix)")
     rn.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the print window")
     rn.add_argument("--days", type=int, default=None, help="days ahead (default: config.toml, then 14)")
     rn.add_argument("--overdue-days", type=int, default=None, help="how far back an overdue item may be (default: config.toml, then 14)")
     rn.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the print window (never reprints a day)")
-    rn.add_argument("--printer", default=os.environ.get("LAKOTA_PRINTER") or None, help="printer name (default: config.toml, then the system default)")
+    rn.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: config.toml, then the system default)")
     rn.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     rn.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
     rn.set_defaults(fn=cmd_run)
@@ -2322,10 +2322,10 @@ Expected: all pass, including every test in `tests/test_print_sheet.py` unchange
 - [ ] **Step 10: Commit**
 
 ```bash
-git add lakota_grades/reports lakota_grades/runner.py lakota_grades/print_sheet.py lakota_grades/cli.py tests/test_reports.py tests/test_runner.py
+git add fridgesheet/reports fridgesheet/runner.py fridgesheet/print_sheet.py fridgesheet/cli.py tests/test_reports.py tests/test_runner.py
 git commit -m "Split print-sheet into a generic runner and an open-work report plugin
 
-Adds \`lakota-grades run <report>\` and \`reports\`; print-sheet is now an alias.
+Adds \`fridgesheet run <report>\` and \`reports\`; print-sheet is now an alias.
 The runner gains a lock file, toasts, a per-report window time, and survives a
 windowed process with no stderr.
 
@@ -2335,16 +2335,16 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 8: `host.scheduling` (Task Scheduler on Windows, read-only on Linux) and the `schedule` command
 
 **Files:**
-- Create: `lakota_grades/host/scheduling.py`, `scheduling_linux.py`, `scheduling_windows.py`, `task.xml`
-- Modify: `lakota_grades/cli.py` (add `schedule`)
+- Create: `fridgesheet/host/scheduling.py`, `scheduling_linux.py`, `scheduling_windows.py`, `task.xml`
+- Modify: `fridgesheet/cli.py` (add `schedule`)
 - Test: `tests/test_host_scheduling.py`
 
 **Interfaces:**
 - Consumes: `config.ReportConfig.time/days`, `reports.get(key).default_time`, `host.NotSupported`, `host.CREATE_NO_WINDOW`
 - Produces, on `host.scheduling` and each `scheduling_*`:
   - `ScheduleInfo(managed_by: str, installed: bool, next_run: str | None, last_result: str | None)`
-  - `task_name(key: str) -> str` (`"Lakota Sheet - open-work"`)
-  - `command_for(key: str) -> tuple[str, str, str]` = (exe, args, workdir): frozen -> (`sys.executable`, `"run <key>"`, exe's folder); source -> (`sys.executable`, `"-m lakota_grades.cli run <key>"`, cwd)
+  - `task_name(key: str) -> str` (`"Fridge Sheet - open-work"`)
+  - `command_for(key: str) -> tuple[str, str, str]` = (exe, args, workdir): frozen -> (`sys.executable`, `"run <key>"`, exe's folder); source -> (`sys.executable`, `"-m fridgesheet.cli run <key>"`, cwd)
   - `install(key: str, time: str, days: list[str], exe: str, args: str, workdir: str, run=subprocess.run) -> None`
   - `remove(key: str, run=subprocess.run) -> None`
   - `describe(key: str, run=subprocess.run) -> ScheduleInfo`
@@ -2362,7 +2362,7 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades.host import NotSupported, scheduling, scheduling_linux, scheduling_windows
+from fridgesheet.host import NotSupported, scheduling, scheduling_linux, scheduling_windows
 
 
 class _R:
@@ -2371,8 +2371,8 @@ class _R:
 
 
 def test_task_xml_has_the_trigger_settings_and_action():
-    xml = scheduling_windows.render_task_xml("Lakota Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
-                                             r"C:\Apps\LakotaSheet.exe", "run open-work", r"C:\Apps")
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                                             r"C:\Apps\FridgeSheet.exe", "run open-work", r"C:\Apps")
     assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
     assert "<Monday />" in xml and "<Friday />" in xml and "<Saturday />" not in xml
     assert "<StartWhenAvailable>true</StartWhenAvailable>" in xml
@@ -2382,9 +2382,9 @@ def test_task_xml_has_the_trigger_settings_and_action():
     assert "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>" in xml
     assert "<WakeToRun>false</WakeToRun>" in xml
     assert "<LogonType>InteractiveToken</LogonType>" in xml and "<RunLevel>LeastPrivilege</RunLevel>" in xml
-    assert r"<Command>C:\Apps\LakotaSheet.exe</Command>" in xml and "<Arguments>run open-work</Arguments>" in xml
+    assert r"<Command>C:\Apps\FridgeSheet.exe</Command>" in xml and "<Arguments>run open-work</Arguments>" in xml
     assert r"<WorkingDirectory>C:\Apps</WorkingDirectory>" in xml
-    assert "<Description>Lakota Sheet: open-work</Description>" in xml
+    assert "<Description>Fridge Sheet: open-work</Description>" in xml
 
 
 def test_task_xml_escapes_paths_with_ampersands():
@@ -2401,7 +2401,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
         return _R(0, "SUCCESS: The scheduled task has been created.")
 
     scheduling_windows.install("open-work", "14:00", ["Mon"], r"C:\x.exe", "run open-work", r"C:\", run=run)
-    assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Lakota Sheet - open-work"] and seen["cmd"][-1] == "/F"
+    assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - open-work"] and seen["cmd"][-1] == "/F"
     assert seen["xml"].startswith(b"\xff\xfe") and seen["xml"].decode("utf-16").startswith('<?xml version="1.0" encoding="UTF-16"?>')
     assert seen["kw"]["creationflags"] == scheduling_windows.CREATE_NO_WINDOW
     assert not Path(seen["cmd"][seen["cmd"].index("/XML") + 1]).exists()      # temp file cleaned up
@@ -2419,13 +2419,13 @@ def test_windows_remove_and_describe():
         seen.append(cmd)
         if cmd[1] == "/Delete":
             return _R(0)
-        return _R(0, "Folder: \\\nHostName:      PC\nTaskName:      \\Lakota Sheet - open-work\nNext Run Time: 9/15/2026 2:00:00 PM\n"
+        return _R(0, "Folder: \\\nHostName:      PC\nTaskName:      \\Fridge Sheet - open-work\nNext Run Time: 9/15/2026 2:00:00 PM\n"
                      "Status:        Ready\nLast Run Time: 9/14/2026 2:00:03 PM\nLast Result:   0\n")
 
     scheduling_windows.remove("open-work", run=run)
-    assert seen[0] == ["schtasks", "/Delete", "/TN", "Lakota Sheet - open-work", "/F"]
+    assert seen[0] == ["schtasks", "/Delete", "/TN", "Fridge Sheet - open-work", "/F"]
     info = scheduling_windows.describe("open-work", run=run)
-    assert seen[1] == ["schtasks", "/Query", "/TN", "Lakota Sheet - open-work", "/FO", "LIST", "/V"]
+    assert seen[1] == ["schtasks", "/Query", "/TN", "Fridge Sheet - open-work", "/FO", "LIST", "/V"]
     assert info == scheduling.ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0")
     missing = scheduling_windows.describe("open-work", run=lambda c, **k: _R(1, "", "ERROR: The system cannot find the file specified."))
     assert missing == scheduling.ScheduleInfo("task-scheduler", False, None, None)
@@ -2444,7 +2444,7 @@ def test_linux_is_read_only_and_reads_systemd():
         return _R(0, "Tue 2026-09-15 14:00:00 EDT\n")
 
     info = scheduling_linux.describe("open-work", run=run)
-    assert seen[0] == ["systemctl", "--user", "show", "lakota-print-sheet.timer", "-p", "NextElapseUSecRealtime", "--value"]
+    assert seen[0] == ["systemctl", "--user", "show", "fridgesheet-print-sheet.timer", "-p", "NextElapseUSecRealtime", "--value"]
     assert info == scheduling.ScheduleInfo("systemd", True, "Tue 2026-09-15 14:00:00 EDT", None)
     assert scheduling_linux.describe("weekly", run=lambda c, **k: _R(0, "\n")) == scheduling.ScheduleInfo("systemd", False, None, None)
 
@@ -2453,16 +2453,16 @@ def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     import sys
     monkeypatch.delattr(sys, "frozen", raising=False)
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe == sys.executable and args == "-m lakota_grades.cli run open-work" and wd == str(Path.cwd())
+    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work" and wd == str(Path.cwd())
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "LakotaSheet.exe"))
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "FridgeSheet.exe"))
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe.endswith("LakotaSheet.exe") and args == "run open-work" and wd == str(tmp_path)
+    assert exe.endswith("FridgeSheet.exe") and args == "run open-work" and wd == str(tmp_path)
 
 
 def test_schedule_cli_show_and_not_supported(monkeypatch, capsys):
-    from lakota_grades import cli
-    from lakota_grades.config import Settings
+    from fridgesheet import cli
+    from fridgesheet.config import Settings
     monkeypatch.setattr(cli, "load_settings", lambda: Settings())
     monkeypatch.setattr(scheduling, "describe", lambda key, run=None: scheduling.ScheduleInfo("systemd", True, "Tue 14:00", None))
     with pytest.raises(SystemExit) as e:
@@ -2532,15 +2532,15 @@ Expected: FAIL at import.
 </Task>
 ```
 
-Save as `lakota_grades/host/task.xml` (UTF-8 on disk; the writer re-encodes to UTF-16 for `schtasks`). `pyproject.toml` already lists `host/*.xml` as package data (Task 3).
+Save as `fridgesheet/host/task.xml` (UTF-8 on disk; the writer re-encodes to UTF-16 for `schtasks`). `pyproject.toml` already lists `host/*.xml` as package data (Task 3).
 
 - [ ] **Step 4: Write the scheduling modules**
 
 ```python
-# lakota_grades/host/scheduling.py
+# fridgesheet/host/scheduling.py
 """The scheduled run of a report.
 
-Windows: one Task Scheduler task per report, "Lakota Sheet - <key>", running only while
+Windows: one Task Scheduler task per report, "Fridge Sheet - <key>", running only while
 the user is logged in (InteractiveToken: Credential Manager and the printer need the
 session) and catching up a missed start (the runner's window guard then decides).
 Linux: scheduling stays with systemd user timers; this adapter only reports on them.
@@ -2567,14 +2567,14 @@ class ScheduleInfo:
 
 
 def task_name(key: str) -> str:
-    return f"Lakota Sheet - {key}"
+    return f"Fridge Sheet - {key}"
 
 
 def command_for(key: str) -> tuple[str, str, str]:
     """(exe, args, workdir) that runs the report from this installation."""
     if getattr(sys, "frozen", False):
         return sys.executable, f"run {key}", str(Path(sys.executable).parent)
-    return sys.executable, f"-m lakota_grades.cli run {key}", str(Path.cwd())
+    return sys.executable, f"-m fridgesheet.cli run {key}", str(Path.cwd())
 
 
 if IS_WINDOWS:
@@ -2588,7 +2588,7 @@ describe = _impl.describe
 ```
 
 ```python
-# lakota_grades/host/scheduling_linux.py
+# fridgesheet/host/scheduling_linux.py
 from __future__ import annotations
 
 import subprocess
@@ -2599,7 +2599,7 @@ _MSG = "scheduling on Linux is managed by systemd; see README section 6"
 
 
 def _unit(key: str) -> str:
-    return "lakota-print-sheet.timer" if key == "open-work" else f"lakota-{key}.timer"
+    return "fridgesheet-print-sheet.timer" if key == "open-work" else f"fridgesheet-{key}.timer"
 
 
 def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: str, run=subprocess.run) -> None:
@@ -2621,7 +2621,7 @@ def describe(key: str, run=subprocess.run):
 ```
 
 ```python
-# lakota_grades/host/scheduling_windows.py
+# fridgesheet/host/scheduling_windows.py
 from __future__ import annotations
 
 import os
@@ -2648,10 +2648,10 @@ def _err(msg: str):
 
 
 def render_task_xml(name: str, time: str, days: list[str], exe: str, args: str, workdir: str) -> str:
-    template = resources.files("lakota_grades.host").joinpath("task.xml").read_text(encoding="utf-8")
+    template = resources.files("fridgesheet.host").joinpath("task.xml").read_text(encoding="utf-8")
     day_xml = "\n".join(f"          <{_DAY_TAGS[d]} />" for d in days if d in _DAY_TAGS)
     key = name.split(" - ", 1)[-1]
-    return (template.replace("{description}", escape(f"Lakota Sheet: {key}"))
+    return (template.replace("{description}", escape(f"Fridge Sheet: {key}"))
                     .replace("{start}", f"2026-01-01T{time}:00")
                     .replace("{days}", day_xml)
                     .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
@@ -2663,7 +2663,7 @@ def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
 
 def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: str, run=subprocess.run) -> None:
     xml = render_task_xml(_name(key), time, days, exe, args, workdir)
-    fd, path = tempfile.mkstemp(prefix="lakota-task-", suffix=".xml")
+    fd, path = tempfile.mkstemp(prefix="fridgesheet-task-", suffix=".xml")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(xml.encode("utf-16"))          # BOM + UTF-16LE, what schtasks /XML expects
@@ -2744,7 +2744,7 @@ and in `main()` after `reports`:
 Run: `python3 -m pytest -q` — all pass.
 
 ```bash
-git add lakota_grades/host lakota_grades/cli.py tests/test_host_scheduling.py
+git add fridgesheet/host fridgesheet/cli.py tests/test_host_scheduling.py
 git commit -m "Add host.scheduling: Task Scheduler XML + schtasks on Windows, systemd read-only on Linux
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -2844,14 +2844,14 @@ Expected: both legs green. If the Windows leg fails on a path or encoding assump
 ```markdown
 ### Settings file
 
-Most settings can live in `~/.lakota-grades/config.toml` instead of `.env`; the environment still wins when both set the same thing. `lakota-grades set-credentials` records the username there (the password goes in the OS credential store).
+Most settings can live in `~/.fridgesheet/config.toml` instead of `.env`; the environment still wins when both set the same thing. `fridgesheet set-credentials` records the username there (the password goes in the OS credential store).
 
 ```toml
 [account]
 username = "parent@example.com"
 
 [print]
-printer = ""                          # blank = system default (lakota-grades printers)
+printer = ""                          # blank = system default (fridgesheet printers)
 archive = ""                          # optional folder for a second copy of every PDF
 
 [kids]
@@ -2865,9 +2865,9 @@ days_ahead = 14
 overdue_days = 14
 ```
 
-`lakota-grades run open-work` is the general form of `print-sheet` (same flags); `lakota-grades reports` lists report types and their schedules; `lakota-grades schedule show` prints the next run. On Windows `schedule install` writes the Task Scheduler task; on Linux the systemd units above stay in charge.
+`fridgesheet run open-work` is the general form of `print-sheet` (same flags); `fridgesheet reports` lists report types and their schedules; `fridgesheet schedule show` prints the next run. On Windows `schedule install` writes the Task Scheduler task; on Linux the systemd units above stay in charge.
 
-**Upgrading from 0.1:** the built-in `Alex=Al` nickname is gone. Add `LAKOTA_NICKNAMES=Alex=Al` to `.env` or the `[kids]` table above, or the sheet prints the full first name.
+**Upgrading from 0.1:** the built-in `Alex=Al` nickname is gone. Add `FRIDGESHEET_NICKNAMES=Alex=Al` to `.env` or the `[kids]` table above, or the sheet prints the full first name.
 ```
 
 2. In section 2, change "GNOME keyring" in the first sentence to "OS credential store (GNOME keyring on Linux, Credential Manager on Windows)".
@@ -2876,7 +2876,7 @@ overdue_days = 14
 
 - [ ] **Step 2: Spec touch-ups (two lines)**
 
-In the spec, section 4, replace `ctx.settings.report_options(key)` with `ctx.options` (the runner merges config and CLI). In section 3's tree and section 7, `packaging/windows/task.xml` becomes `lakota_grades/host/task.xml` (package data, so the frozen app can read it).
+In the spec, section 4, replace `ctx.settings.report_options(key)` with `ctx.options` (the runner merges config and CLI). In section 3's tree and section 7, `packaging/windows/task.xml` becomes `fridgesheet/host/task.xml` (package data, so the frozen app can read it).
 
 - [ ] **Step 3: Commit**
 
@@ -2892,8 +2892,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ## Done when
 
 - `python3 -m pytest -q` is green locally and `ci.yml` is green on both runners.
-- `lakota-grades print-sheet --dry-run --force` on Tony's box builds today's sheet exactly as before (compare page count and the log line format).
-- `lakota-grades printers`, `reports`, `schedule show` each print something sensible on Linux.
+- `fridgesheet print-sheet --dry-run --force` on Tony's box builds today's sheet exactly as before (compare page count and the log line format).
+- `fridgesheet printers`, `reports`, `schedule show` each print something sensible on Linux.
 - Task 1's Step 5 records the spike outcome for Plan 3.
 
 Plan 2 (app) and Plan 3 (packaging and release) are written next, against the interfaces above.

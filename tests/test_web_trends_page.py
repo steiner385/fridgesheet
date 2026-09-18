@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.web_fixtures import NOW, app_for, history, seed, snapshot
 
-WEB = Path(__file__).resolve().parents[1] / "lakota_grades" / "web"
+WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 TEMPLATES, STATIC = WEB / "templates", WEB / "static"
 
 

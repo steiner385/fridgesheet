@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "lakota-grades": {
-      "command": "/home/<you>/lakota-grades-mcp/.venv/bin/lakota-grades",
+    "fridgesheet": {
+      "command": "/home/<you>/fridgesheet/.venv/bin/fridgesheet",
       "args": ["serve"],
       "env": {
-        "LAKOTA_ENV_FILE": "/home/<you>/.lakota-grades/.env",
-        "LAKOTA_CACHE_TTL_MINUTES": "180"
+        "FRIDGESHEET_ENV_FILE": "/home/<you>/.fridgesheet/.env",
+        "FRIDGESHEET_CACHE_TTL_MINUTES": "180"
       }
     }
   }

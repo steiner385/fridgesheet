@@ -7,7 +7,7 @@ time and holds a direct reference to the original `subprocess.run` function obje
 Patching the `subprocess.run` *attribute* after that point changes what a fresh lookup of
 `subprocess.run` returns, but does nothing for a name that already closed over the old
 object -- so a naive `monkeypatch.setattr(subprocess, "run", guard)` fixture would report
-green while a real `systemctl --user disable --now lakota-view-7.timer` runs underneath it.
+green while a real `systemctl --user disable --now fridgesheet-view-7.timer` runs underneath it.
 
 `subprocess.run` internally builds `Popen(*popenargs, **kwargs)`, and resolves `Popen` as a
 module global at *call* time -- so patching `subprocess.Popen` is what actually reaches a
@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades import host
-from lakota_grades.host import opener, service_linux
+from fridgesheet import host
+from fridgesheet.host import opener, service_linux
 
 # A bare `import conftest`, not `from tests.conftest import ...` or `from tests import
 # conftest`: `tests/` has no `__init__.py`, so pytest loads `conftest.py` as the top-level
@@ -96,7 +96,7 @@ def test_non_blocked_command_runs_normally_through_the_wrapper():
 
 def test_error_message_names_the_reason_and_the_fix():
     with pytest.raises(RuntimeError) as exc_info:
-        subprocess.run(["systemctl", "--user", "start", "lakota-view-7.timer"])
+        subprocess.run(["systemctl", "--user", "start", "fridgesheet-view-7.timer"])
     message = str(exc_info.value)
     assert "run=" in message           # tells the reader how to fix their test
     assert "systemctl" in message
@@ -120,9 +120,9 @@ def test_open_file_default_popen_is_resolved_at_call_time_not_import_time(monkey
     (the old `popen=subprocess.Popen` capture) would otherwise try to exec a nonexistent
     program rather than a real one."""
     monkeypatch.setattr(host, "IS_WINDOWS", False)
-    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"lakota-guard-test-sentinel"})
-    monkeypatch.setattr(opener.shutil, "which", lambda n: "lakota-guard-test-sentinel" if n == "evince" else None)
-    with pytest.raises(RuntimeError, match="lakota-guard-test-sentinel"):
+    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"fridgesheet-guard-test-sentinel"})
+    monkeypatch.setattr(opener.shutil, "which", lambda n: "fridgesheet-guard-test-sentinel" if n == "evince" else None)
+    with pytest.raises(RuntimeError, match="fridgesheet-guard-test-sentinel"):
         opener.open_file(tmp_path / "s.pdf")
 
 
@@ -174,13 +174,13 @@ def test_blocked_program_allows_a_harmless_executable_override():
 # regression fails by trying to exec something that does not exist rather than the real thing.
 
 def test_a_positionally_passed_executable_is_blocked(monkeypatch):
-    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"lakota-guard-test-sentinel"})
-    with pytest.raises(RuntimeError, match="lakota-guard-test-sentinel"):
-        subprocess.Popen(["placeholder"], -1, "/usr/bin/lakota-guard-test-sentinel")
+    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"fridgesheet-guard-test-sentinel"})
+    with pytest.raises(RuntimeError, match="fridgesheet-guard-test-sentinel"):
+        subprocess.Popen(["placeholder"], -1, "/usr/bin/fridgesheet-guard-test-sentinel")
 
 
 def test_a_positionally_passed_harmless_executable_still_runs(monkeypatch):
-    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"lakota-guard-test-sentinel"})
+    monkeypatch.setattr(conftest_module, "_FORBIDDEN_PROGRAMS", {"fridgesheet-guard-test-sentinel"})
     # `sys.executable` rather than a fixed path: the Windows CI leg has no `/bin/echo`, and this
     # test is about the guard reading `executable` from the third *positional* slot, not about
     # which program happens to sit there.

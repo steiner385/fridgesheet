@@ -6,8 +6,8 @@ import io
 import json
 import tomllib
 
-from lakota_grades.web import db, schedules
-from lakota_grades.web.stores import reports as store
+from fridgesheet.web import db, schedules
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling, app_for, seed, snapshot
 
 
@@ -15,7 +15,7 @@ def _client(home, sched=None):
     """A client whose scheduler is a fake: deleting a report now removes its schedule, and no
     test may go anywhere near the machine's own systemctl."""
     c = app_for(home)
-    c.app.state.lakota.extra["scheduling"] = sched or FakeScheduling()
+    c.app.state.fridgesheet.extra["scheduling"] = sched or FakeScheduling()
     return c
 
 

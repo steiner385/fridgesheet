@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, `sqlite3` (stdlib), FastAPI/Jinja2/htmx as in Plan B, vendored uPlot 1.6.31 (`/static/uplot.min.js`, global `uPlot`). No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md`, sections 4 (the change log is why the data is shaped this way), 5 (Changes and Trends), 12 (testing), 13.C. GitHub milestone "Web app C: Time", issues **#20** (Changes feed — Tasks 1 and 2), **#21** (trend queries — Task 3) and **#22** (Trends page with charts — Task 4). Issue #33 also carries the `plan-c` label but is Plan B part 2's residual list, not a task here. Residuals from earlier plans live in issues #31, #32 and #33.
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md`, sections 4 (the change log is why the data is shaped this way), 5 (Changes and Trends), 12 (testing), 13.C. GitHub milestone "Web app C: Time", issues **#20** (Changes feed — Tasks 1 and 2), **#21** (trend queries — Task 3) and **#22** (Trends page with charts — Task 4). Issue #33 also carries the `plan-c` label but is Plan B part 2's residual list, not a task here. Residuals from earlier plans live in issues #31, #32 and #33.
 
 ## Global Constraints
 
@@ -19,7 +19,7 @@
 - A page must render with an empty database, with one refresh, and with a kid who has no courses. "Nothing yet" is a sentence the parent reads, never a traceback.
 - The charts take their data from a JSON endpoint under `/trends/…`; the page template contains no embedded series. uPlot is loaded only on the Trends page and the course page, never from `base.html`.
 - No credential is read by these routes, and nothing is sent anywhere. Both pages work from the LAN exactly as the Kid page does.
-- The full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, **337 passed** at the start of this plan) stays green and pristine on Linux and in CI on both runners.
+- The full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, **337 passed** at the start of this plan) stays green and pristine on Linux and in CI on both runners.
 - Commit after every task with the trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`, and the issue line each task's commit block gives verbatim (`Part of #20`, `Closes #20`, `Closes #21`, `Closes #22`).
 
 ## What Plans A and B left (read before any task)
@@ -57,15 +57,15 @@ notes(id, target_type, target_id, body, created_at, updated_at)
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/web/stores/changes.py` (new) | `Event`, `since(conn, *, since, until=None, student_id=None, kinds=None)` — the feed |
-| `lakota_grades/web/stores/trends.py` (new) | `GradeSeries`, `WeekCounts`, `grade_series`, `weekly_counts`, `open_days` — the numbers behind the charts |
-| `lakota_grades/web/routes/changes.py` (new) | `GET /changes` |
-| `lakota_grades/web/routes/trends.py` (new) | `GET /trends`, `GET /trends/grades.json`, `GET /trends/weekly.json` |
-| `lakota_grades/web/templates/changes.html`, `_change_rows.html` (new) | the feed and its htmx-swappable body |
-| `lakota_grades/web/templates/trends.html`, `_chart.html` (new) | the page and one reusable chart block |
-| `lakota_grades/web/templates/base.html`, `course.html` (modify) | the rail's Time group; the course page's grade chart |
-| `lakota_grades/web/static/app.js`, `app.css` (modify) | the uPlot bootstrap and the chart styles |
-| `lakota_grades/web/app.py` (modify) | include the two routers |
+| `fridgesheet/web/stores/changes.py` (new) | `Event`, `since(conn, *, since, until=None, student_id=None, kinds=None)` — the feed |
+| `fridgesheet/web/stores/trends.py` (new) | `GradeSeries`, `WeekCounts`, `grade_series`, `weekly_counts`, `open_days` — the numbers behind the charts |
+| `fridgesheet/web/routes/changes.py` (new) | `GET /changes` |
+| `fridgesheet/web/routes/trends.py` (new) | `GET /trends`, `GET /trends/grades.json`, `GET /trends/weekly.json` |
+| `fridgesheet/web/templates/changes.html`, `_change_rows.html` (new) | the feed and its htmx-swappable body |
+| `fridgesheet/web/templates/trends.html`, `_chart.html` (new) | the page and one reusable chart block |
+| `fridgesheet/web/templates/base.html`, `course.html` (modify) | the rail's Time group; the course page's grade chart |
+| `fridgesheet/web/static/app.js`, `app.css` (modify) | the uPlot bootstrap and the chart styles |
+| `fridgesheet/web/app.py` (modify) | include the two routers |
 | `tests/web_fixtures.py` (modify) | `history(home)` — a multi-refresh fixture both pages need |
 | `tests/test_web_changes_store.py`, `test_web_trends_store.py`, `test_web_changes_page.py`, `test_web_trends_page.py` (new) | |
 
@@ -77,7 +77,7 @@ Everything in this plan needs history, and the existing fixture has exactly one 
 
 **Files:**
 - Modify: `tests/web_fixtures.py`
-- Create: `lakota_grades/web/stores/changes.py`, `tests/test_web_changes_store.py`
+- Create: `fridgesheet/web/stores/changes.py`, `tests/test_web_changes_store.py`
 
 **Interfaces:**
 - Consumes: `db.open_db`, `ingest.record`, `students`, `reconcile.comparable`.
@@ -161,8 +161,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import changes, flags, students
+from fridgesheet.web import db
+from fridgesheet.web.stores import changes, flags, students
 from tests.web_fixtures import NOW, REFRESH_TIMES, TZ, history
 
 
@@ -276,7 +276,7 @@ def test_window_start_reads_the_keys(tmp_path):
     assert changes.window_start("nonsense", NOW) == NOW - timedelta(days=1)     # the default window
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_changes_store.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_changes_store.py`
 Expected: FAIL (`ImportError: cannot import name 'changes'`).
 
 - [ ] **Step 3: Implement `web/stores/changes.py`**
@@ -491,16 +491,16 @@ def since(conn: sqlite3.Connection, *, since: datetime, until: datetime | None =
     return kept
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_changes_store.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_changes_store.py`
 Expected: PASS. If `test_the_whole_history_reports_every_kind` disagrees on the count, print the events and count what the fixture really produces before touching anything: day 1 creates nine items (Alex six Canvas English assignments, the HAC-only Participation, one Algebra; Sam two) because Vocabulary is removed, and day 2 adds Vocabulary, so ten `new_item` events. Fix the fixture, not the assertion.
 
 - [ ] **Step 4: Full suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: 337 + the new tests, pristine.
 
 ```bash
-git add lakota_grades/web/stores/changes.py tests/test_web_changes_store.py tests/web_fixtures.py
+git add fridgesheet/web/stores/changes.py tests/test_web_changes_store.py tests/web_fixtures.py
 git commit -m "web.stores.changes: the change log as a feed of events
 
 Part of #20
@@ -513,8 +513,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 2: The Changes page (issue #20, part 2 of 2 — this commit closes it)
 
 **Files:**
-- Create: `lakota_grades/web/routes/changes.py`, `templates/changes.html`, `templates/_change_rows.html`, `tests/test_web_changes_page.py`
-- Modify: `lakota_grades/web/app.py` (include the router), `templates/base.html` (the Time group in the rail)
+- Create: `fridgesheet/web/routes/changes.py`, `templates/changes.html`, `templates/_change_rows.html`, `tests/test_web_changes_page.py`
+- Modify: `fridgesheet/web/app.py` (include the router), `templates/base.html` (the Time group in the rail)
 
 **Interfaces:**
 - Consumes: Task 1's `changes.since/WINDOWS/window_start/KINDS/Event.label`, `app.render`, `students.visible`, `students.by_key`.
@@ -579,7 +579,7 @@ def test_rows_link_to_the_kid_and_the_item(tmp_path):
 
 def test_a_flag_shows_as_the_parents_own_change(tmp_path):
     conn = history(tmp_path)
-    from lakota_grades.web.stores import flags
+    from fridgesheet.web.stores import flags
     quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
     flags.set_flag(conn, quiz, "ask_teacher", now="2026-09-15T15:00:00-04:00", text="emailed")
     conn.close()
@@ -593,12 +593,12 @@ def test_one_refresh_only_still_renders(tmp_path):
     assert "New" in body and "Quiz 1" in body               # first_seen events exist with one refresh
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_changes_page.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_changes_page.py`
 Expected: FAIL (404).
 
 - [ ] **Step 2: The route**
 
-`lakota_grades/web/routes/changes.py`:
+`fridgesheet/web/routes/changes.py`:
 
 ```python
 """The Changes feed: everything that moved since a chosen moment."""
@@ -637,7 +637,7 @@ Include it in `create_app` beside the others (`from .routes import changes as ch
 
 ```html
 {% extends "base.html" %}
-{% block title %}Changes · Lakota Sheet{% endblock %}
+{% block title %}Changes · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Changes</h2>
 <p class="muted">What the gradebooks and you have done since a chosen moment. Newest first.</p>
@@ -703,7 +703,7 @@ Include it in `create_app` beside the others (`from .routes import changes as ch
 - [ ] **Step 4: Run, full suite, commit**
 
 ```bash
-git add lakota_grades/web tests/test_web_changes_page.py
+git add fridgesheet/web tests/test_web_changes_page.py
 git commit -m "web: the Changes page, one feed of everything that moved
 
 Closes #20
@@ -716,7 +716,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 3: `web/stores/trends.py` (issue #21)
 
 **Files:**
-- Create: `lakota_grades/web/stores/trends.py`, `tests/test_web_trends_store.py`
+- Create: `fridgesheet/web/stores/trends.py`, `tests/test_web_trends_store.py`
 
 **Interfaces:**
 - Consumes: `tests/web_fixtures.history`, `students`, `reconcile.comparable`, `open_items.school_year_start`.
@@ -738,8 +738,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import students, trends
+from fridgesheet.web import db
+from fridgesheet.web.stores import students, trends
 from tests.web_fixtures import NOW, REFRESH_TIMES, history
 
 
@@ -988,7 +988,7 @@ Run the store tests. Expected: PASS. `test_weekly_counts_bucket_by_week` asserti
 - [ ] **Step 3: Full suite, commit**
 
 ```bash
-git add lakota_grades/web/stores/trends.py tests/test_web_trends_store.py
+git add fridgesheet/web/stores/trends.py tests/test_web_trends_store.py
 git commit -m "web.stores.trends: grade lines, weekly counts and what has sat open longest
 
 Closes #21
@@ -1001,8 +1001,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 4: The Trends page and the charts (issue #22)
 
 **Files:**
-- Create: `lakota_grades/web/routes/trends.py`, `templates/trends.html`, `templates/_chart.html`, `tests/test_web_trends_page.py`
-- Modify: `lakota_grades/web/app.py` (router), `templates/base.html` (the Trends rail link, if Task 2 left it out), `templates/course.html` (the course grade chart), `static/app.js`, `static/app.css`
+- Create: `fridgesheet/web/routes/trends.py`, `templates/trends.html`, `templates/_chart.html`, `tests/test_web_trends_page.py`
+- Modify: `fridgesheet/web/app.py` (router), `templates/base.html` (the Trends rail link, if Task 2 left it out), `templates/course.html` (the course grade chart), `static/app.js`, `static/app.css`
 
 **Interfaces:**
 - Consumes: Task 3's stores, `app.render`, `students`.
@@ -1089,7 +1089,7 @@ Run it. Expected: FAIL (404).
 
 - [ ] **Step 2: The route**
 
-`lakota_grades/web/routes/trends.py`:
+`fridgesheet/web/routes/trends.py`:
 
 ```python
 """Trends: grade lines per class, weekly missing/late/on-time counts, and what has sat open
@@ -1177,7 +1177,7 @@ Include the router in `create_app`.
 
 ```html
 {% extends "base.html" %}
-{% block title %}Trends · Lakota Sheet{% endblock %}
+{% block title %}Trends · Fridge Sheet{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/uplot.min.css">
 <script src="/static/uplot.min.js" defer></script>
@@ -1292,7 +1292,7 @@ The `setTimeout` retry exists because `uplot.min.js` is loaded with `defer` from
 Run the page tests, then the full suite.
 
 ```bash
-git add lakota_grades/web tests/test_web_trends_page.py
+git add fridgesheet/web tests/test_web_trends_page.py
 git commit -m "web: the Trends page, three charts and the weekly table
 
 Closes #22

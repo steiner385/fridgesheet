@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lakota_grades import qr
+from fridgesheet import qr
 
 
 def test_svg_is_a_standalone_element_a_page_can_inline():

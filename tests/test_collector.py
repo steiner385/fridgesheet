@@ -9,9 +9,9 @@ from contextlib import contextmanager
 
 import pytest
 
-from lakota_grades import collector
-from lakota_grades.config import Settings
-from lakota_grades.session import LoginRequired
+from fridgesheet import collector
+from fridgesheet.config import Settings
+from fridgesheet.session import LoginRequired
 
 
 class FakeCanvas:

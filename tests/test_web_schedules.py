@@ -4,9 +4,9 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from lakota_grades import host
-from lakota_grades.web import db, schedules, views
-from lakota_grades.web.stores import reports as store
+from fridgesheet import host
+from fridgesheet.web import db, schedules, views
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling
 
 
@@ -152,7 +152,7 @@ def test_save_refuses_a_schedule_this_app_did_not_write(tmp_path):
     """The disabled checkbox on an unmanageable row is a hint, not a guard. A POST with
     `enabled` simply absent used to take the off branch, swallow "does not exist" from
     systemctl and answer "Open Work Sheet is not scheduled" -- while the hand-written
-    lakota-print-sheet.timer kept printing at 2 PM, as the same page's own state line said."""
+    fridgesheet-print-sheet.timer kept printing at 2 PM, as the same page's own state line said."""
     home = _home(tmp_path)
     sched = FakeScheduling({"open-work": host.ScheduleInfo("systemd (hand-written)", True, "Wed 14:00", None, False)})
     for enabled in (True, False):
@@ -161,23 +161,23 @@ def test_save_refuses_a_schedule_this_app_did_not_write(tmp_path):
         assert not out.ok
         assert any("did not write" in e and "Wed 14:00" in e for e in out.errors)
         # #36: the message must name the unit actually in the way, not a hardcoded
-        # "lakota-print-sheet.timer" that happens to be right only for "open-work".
-        assert any("lakota-print-sheet.timer" in e for e in out.errors)
+        # "fridgesheet-print-sheet.timer" that happens to be right only for "open-work".
+        assert any("fridgesheet-print-sheet.timer" in e for e in out.errors)
     assert not sched.installed and not sched.removed
     assert not (home / schedules.CONFIG_NAME).exists()        # nor is the file told a different story
 
 
 def test_save_refuses_a_schedule_this_app_did_not_write_naming_a_non_open_work_key(tmp_path):
     """The same refusal for a saved report (key `view:1`, not `open-work`) must name *its own*
-    unit -- `lakota-view-1.timer` -- not the print-sheet timer the old hardcoded message always
+    unit -- `fridgesheet-view-1.timer` -- not the print-sheet timer the old hardcoded message always
     named regardless of which report was blocked (#36)."""
     home = _home(tmp_path)
     sched = FakeScheduling({"view:1": host.ScheduleInfo("systemd (hand-written)", True, "Fri 16:30", None, False)})
     out = schedules.save("view:1", enabled=True, time="16:30", days=["Fri"], printer="", prints=True,
                          home=home, log=lambda s: None, scheduling=sched)
     assert not out.ok
-    assert any("lakota-view-1.timer" in e for e in out.errors)
-    assert not any("lakota-print-sheet.timer" in e for e in out.errors)
+    assert any("fridgesheet-view-1.timer" in e for e in out.errors)
+    assert not any("fridgesheet-print-sheet.timer" in e for e in out.errors)
 
 
 def _scheduled(home, sched, key="view:1"):
@@ -245,7 +245,7 @@ def test_forget_treats_not_supported_from_describe_as_confirmed_nothing_installe
 
     This pins the branch's polarity (`NotSupported` -> "confirmed nothing there", not "who
     knows") against an injected `describe` that raises. It is not coverage of live behaviour:
-    nothing under `lakota_grades/host/` raises `NotSupported` for scheduling -- both platforms
+    nothing under `fridgesheet/host/` raises `NotSupported` for scheduling -- both platforms
     have a real implementation -- so what runs here is `FakeScheduling(describe_error=...)`'s
     contract. The handler stays because it is cheap insurance for a third platform, and this
     test says which way it must fall when one appears."""

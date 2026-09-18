@@ -1,4 +1,4 @@
-# Lakota Sheet for Windows: design
+# Fridge Sheet for Windows: design
 
 Date: 2026-09-14. Status: approved in discussion, awaiting review of this document.
 
@@ -33,7 +33,7 @@ working from the same code with one documented migration step (section 10).
 ## 3. Package layout
 
 ```
-lakota_grades/
+fridgesheet/
   reports/
     __init__.py      REPORTS registry: {"open-work": OpenWorkReport()}
     base.py          Report protocol, BuildContext, Built
@@ -55,7 +55,7 @@ lakota_grades/
   config.py          gains config.toml load/save; env still overrides
   print_sheet.py     becomes a thin alias: Options -> runner.run("open-work", ...)
 packaging/windows/
-  LakotaSheet.spec   PyInstaller one-folder build
+  FridgeSheet.spec   PyInstaller one-folder build
   installer.iss      Inno Setup script
   build.ps1          the steps CI runs, runnable by hand
 .github/workflows/
@@ -65,8 +65,8 @@ docs/
   windows.md         the page Tony sends his friend
 ```
 
-The package name `lakota-grades-mcp`, the `lakota-grades` command, and the module name
-`lakota_grades` do not change. The Windows product name is **Lakota Sheet**.
+The package name `fridgesheet`, the `fridgesheet` command, and the module name
+`fridgesheet` do not change. The Windows product name is **Fridge Sheet**.
 
 ## 4. Report plugin layer
 
@@ -118,15 +118,15 @@ for 18:00 does not print at 15:00 on a catch-up.
 ## 5. Command line
 
 ```
-lakota-grades run <report> [--dry-run] [--force] [--reprint] [--date YYYY-MM-DD]
+fridgesheet run <report> [--dry-run] [--force] [--reprint] [--date YYYY-MM-DD]
                            [--kid NAME] [--no-refresh] [--printer NAME]
-lakota-grades print-sheet  ...          alias for `run open-work`, same flags as today
-lakota-grades reports                   list registered reports and their schedule
-lakota-grades schedule install|remove|show [<report>]
-lakota-grades printers                  list printers, mark the default
-lakota-grades doctor                    check Python, Chromium, the PDF engine, the credential store, printers and the scheduler
-lakota-grades set-credentials           unchanged interface; uses host.credentials
-lakota-grades app                       open the settings window
+fridgesheet print-sheet  ...          alias for `run open-work`, same flags as today
+fridgesheet reports                   list registered reports and their schedule
+fridgesheet schedule install|remove|show [<report>]
+fridgesheet printers                  list printers, mark the default
+fridgesheet doctor                    check Python, Chromium, the PDF engine, the credential store, printers and the scheduler
+fridgesheet set-credentials           unchanged interface; uses host.credentials
+fridgesheet app                       open the settings window
 ```
 
 `login`, `check`, `refresh`, `status` and `serve` are unchanged. `serve` still works
@@ -134,8 +134,8 @@ from a source install; it is simply not exposed in the Windows bundle.
 
 ## 6. Configuration and credentials
 
-**Home directory.** `~/.lakota-grades` on Linux, `%LOCALAPPDATA%\lakota-grades` on
-Windows. `LAKOTA_GRADES_HOME` overrides both. The `0700` chmod stays on Linux and is a
+**Home directory.** `~/.fridgesheet` on Linux, `%LOCALAPPDATA%\fridgesheet` on
+Windows. `FRIDGESHEET_HOME` overrides both. The `0700` chmod stays on Linux and is a
 no-op on Windows.
 
 **`config.toml`** lives in the home directory and is what the app edits:
@@ -160,15 +160,15 @@ overdue_days = 14
 ```
 
 **Precedence**, highest first: command-line flag, environment variable (including
-Tony's `.env`), `config.toml`, built-in default. Existing `LAKOTA_*` variables keep
-their names and meanings. `LAKOTA_NICKNAMES` and `LAKOTA_PRINTER` continue to work.
+Tony's `.env`), `config.toml`, built-in default. Existing `FRIDGESHEET_*` variables keep
+their names and meanings. `FRIDGESHEET_NICKNAMES` and `FRIDGESHEET_PRINTER` continue to work.
 
 **Credentials.** `Settings.credentials()` keeps its order: environment, OS store,
 1Password references. The OS store is `host.credentials`:
 
 - Linux: the existing `secret-tool` calls, unchanged, so Tony's stored entry keeps working.
 - Windows: the `keyring` library's Windows Credential Manager backend,
-  `service="lakota-grades"`, account = the OneLogin username from config. Credential
+  `service="fridgesheet"`, account = the OneLogin username from config. Credential
   Manager entries are per Windows user and readable by a scheduled task running as that
   user in an interactive session, with no prompt.
 
@@ -183,7 +183,7 @@ The app uses it to decide whether the schedule may be enabled (section 8).
 
 ## 7. Host adapters
 
-Each module in `lakota_grades/host/` has a Linux and a Windows implementation selected
+Each module in `fridgesheet/host/` has a Linux and a Windows implementation selected
 by `sys.platform`. Nothing outside `host/` checks the OS. Every adapter takes its
 `subprocess.run` as an injectable argument so tests can assert on the command built.
 
@@ -209,7 +209,7 @@ def command_for(key: str) -> tuple[str, str, str]   # (exe, args, workdir) that 
 ```
 
 - Linux: `install` and `remove` raise `NotSupported("managed by systemd; see README section 6")`; `describe` reports `managed_by="systemd"` and reads `systemctl --user list-timers` when present.
-- Windows: `install` renders `lakota_grades/host/task.xml` and runs `schtasks /Create /TN "Lakota Sheet - <key>" /XML <file> /F`. The task: weekly `CalendarTrigger` on the configured days at the configured time; `StartWhenAvailable=true` so a run missed while asleep fires on wake (the runner's print-window guard then decides); `ExecutionTimeLimit=PT30M`; `MultipleInstancesPolicy=IgnoreNew`; `DisallowStartIfOnBatteries=false`; `StopIfGoingOnBatteries=false`; `WakeToRun=false`; principal `LogonType=InteractiveToken`, `RunLevel=LeastPrivilege`, so it runs only while the user is logged in, which is what Credential Manager and the printer need; action `<install dir>\LakotaSheet.exe run <key>`. `remove` runs `schtasks /Delete /F`; `describe` parses `schtasks /Query /FO LIST /V`.
+- Windows: `install` renders `fridgesheet/host/task.xml` and runs `schtasks /Create /TN "Fridge Sheet - <key>" /XML <file> /F`. The task: weekly `CalendarTrigger` on the configured days at the configured time; `StartWhenAvailable=true` so a run missed while asleep fires on wake (the runner's print-window guard then decides); `ExecutionTimeLimit=PT30M`; `MultipleInstancesPolicy=IgnoreNew`; `DisallowStartIfOnBatteries=false`; `StopIfGoingOnBatteries=false`; `WakeToRun=false`; principal `LogonType=InteractiveToken`, `RunLevel=LeastPrivilege`, so it runs only while the user is logged in, which is what Credential Manager and the printer need; action `<install dir>\FridgeSheet.exe run <key>`. `remove` runs `schtasks /Delete /F`; `describe` parses `schtasks /Query /FO LIST /V`.
 
 **notify**
 
@@ -217,8 +217,8 @@ def command_for(key: str) -> tuple[str, str, str]   # (exe, args, workdir) that 
 def toast(title: str, body: str) -> None
 ```
 
-- Linux: `notify-send -a "Lakota sheet"` when present, else nothing.
-- Windows: a short PowerShell script using `Windows.UI.Notifications.ToastNotificationManager`, launched with `CREATE_NO_WINDOW`. No third-party toast library. The toast is attributed to the Start menu shortcut's `AppUserModelID` (`Cairnea.LakotaSheet`, set by Inno Setup) so it shows the app's name and icon. The runner toasts once per scheduled run: `OK` ("Printed today's Open Work Sheet, 2 pages"), `SKIP` (the reason), or `FAIL` (the one-line cause, plus "Open Lakota Sheet to check your password" for a login failure). Toasts never fire on `--dry-run`.
+- Linux: `notify-send -a "Fridge Sheet"` when present, else nothing.
+- Windows: a short PowerShell script using `Windows.UI.Notifications.ToastNotificationManager`, launched with `CREATE_NO_WINDOW`. No third-party toast library. The toast is attributed to the Start menu shortcut's `AppUserModelID` (`Cairnea.FridgeSheet`, set by Inno Setup) so it shows the app's name and icon. The runner toasts once per scheduled run: `OK` ("Printed today's Open Work Sheet, 2 pages"), `SKIP` (the reason), or `FAIL` (the one-line cause, plus "Open Fridge Sheet to check your password" for a login failure). Toasts never fire on `--dry-run`.
 
 **opener**
 
@@ -231,8 +231,8 @@ and to stderr only when it exists; logging goes to `<home>/app.log`.
 
 ## 8. The Windows app
 
-One tkinter window, title "Lakota Sheet", launched from the Start menu, a desktop
-shortcut, or `lakota-grades app`. Two tabs and an About box.
+One tkinter window, title "Fridge Sheet", launched from the Start menu, a desktop
+shortcut, or `fridgesheet app`. Two tabs and an About box.
 
 **Settings tab**
 
@@ -276,11 +276,11 @@ Files owned by Plan 2: `<home>/login-ok.txt` (written by Test login) and `<home>
   1. `pip install .[windows]` (adds `pywin32`, `keyring`, `pyinstaller`).
   2. `playwright install chromium` with `PLAYWRIGHT_BROWSERS_PATH=build\ms-playwright`.
   3. Downloads the pinned SumatraPDF portable release, checks its SHA-256, and stages the exe with its licence file.
-  4. `pyinstaller packaging/windows/LakotaSheet.spec` producing `dist\LakotaSheet\` with `LakotaSheet.exe` (windowed, `app/__main__.py`), the Playwright driver, and `ms-playwright\` copied in.
-  5. `iscc packaging/windows/installer.iss` producing `LakotaSheet-Setup-<version>.exe`.
+  4. `pyinstaller packaging/windows/FridgeSheet.spec` producing `dist\FridgeSheet\` with `FridgeSheet.exe` (windowed, `app/__main__.py`), the Playwright driver, and `ms-playwright\` copied in.
+  5. `iscc packaging/windows/installer.iss` producing `FridgeSheet-Setup-<version>.exe`.
   6. Attaches the installer to the GitHub release for the tag.
-  7. The build runs `packaging/windows/smoke.ps1` on the bundle before packaging: `LakotaSheet.exe doctor` (all probes must pass), a dry-run sheet from a fixture snapshot, and a no-arguments launch that must still have a window after eight seconds.
-- **Installer**: per-user (`PrivilegesRequired=lowest`, installs under `%LOCALAPPDATA%\Programs\Lakota Sheet`), Start menu shortcut with `AppUserModelID`, optional desktop shortcut, "Launch Lakota Sheet" on finish. `[UninstallRun]` calls `LakotaSheet.exe schedule remove` before files are deleted. Data under `%LOCALAPPDATA%\lakota-grades` is left in place on uninstall and the uninstaller says so.
+  7. The build runs `packaging/windows/smoke.ps1` on the bundle before packaging: `FridgeSheet.exe doctor` (all probes must pass), a dry-run sheet from a fixture snapshot, and a no-arguments launch that must still have a window after eight seconds.
+- **Installer**: per-user (`PrivilegesRequired=lowest`, installs under `%LOCALAPPDATA%\Programs\Fridge Sheet`), Start menu shortcut with `AppUserModelID`, optional desktop shortcut, "Launch Fridge Sheet" on finish. `[UninstallRun]` calls `FridgeSheet.exe schedule remove` before files are deleted. Data under `%LOCALAPPDATA%\fridgesheet` is left in place on uninstall and the uninstaller says so.
 - **Runtime**: `app/__main__.py` sets `PLAYWRIGHT_BROWSERS_PATH` to the bundled folder before importing Playwright.
 - **Size**: about 200 MB, almost all Chromium. Accepted.
 - **Version**: single source in `pyproject.toml`; `build.ps1` reads it and passes it to PyInstaller and Inno Setup; the About box shows it.
@@ -288,11 +288,11 @@ Files owned by Plan 2: `<home>/login-ok.txt` (written by Test login) and `<home>
 
 ## 10. Compatibility with Tony's Linux install
 
-- `lakota-grades print-sheet` and every flag keep working, so `systemd/lakota-print-sheet.service`, the timer, `scripts/lakota-sheet-desktop.sh` and the `.desktop` files do not change.
+- `fridgesheet print-sheet` and every flag keep working, so `systemd/fridgesheet-print-sheet.service`, the timer, `scripts/fridgesheet-desktop.sh` and the `.desktop` files do not change.
 - `secret-tool` credentials are read exactly as today.
-- `~/.lakota-grades/.env` is read exactly as today and overrides `config.toml`.
+- `~/.fridgesheet/.env` is read exactly as today and overrides `config.toml`.
 - Existing `sheets/<date>/` folders are the open-work report's `output_dir`, so the NEW/was diff against the previous sheet is unbroken.
-- **One migration step**: because the `Alex=Al` default leaves the code, Tony adds `LAKOTA_NICKNAMES=Alex=Al` to his `.env` (or the `[kids]` table to a `config.toml`) before upgrading, or Al prints as Alex.
+- **One migration step**: because the `Alex=Al` default leaves the code, Tony adds `FRIDGESHEET_NICKNAMES=Alex=Al` to his `.env` (or the `[kids]` table to a `config.toml`) before upgrading, or Al prints as Alex.
 - The late-rules seed change does not touch Tony's existing `late-rules.toml`.
 
 ## 11. Error handling
@@ -323,7 +323,7 @@ symbols that move to `runner` or `reports.open_work`. New tests:
 - `test_host_linux.py`: `lp`, `lpstat`, `notify-send` command lines; `install` raises `NotSupported`.
 - `test_actions.py`: each app action with fakes, including "Save with schedule on but no login stamp" leaving the task uninstalled.
 
-The PyInstaller build is verified by the release job launching `LakotaSheet.exe run open-work --dry-run --no-refresh` against a fixture snapshot and checking that a PDF appears; this is the one test that runs on the built artefact. The same smoke test also installs and removes the "Lakota Sheet - open-work" scheduled task through `schedule install`/`schedule remove` and confirms it with `schtasks /Query`, then launches the window with no arguments and checks it is still alive with a real window handle after 8 s.
+The PyInstaller build is verified by the release job launching `FridgeSheet.exe run open-work --dry-run --no-refresh` against a fixture snapshot and checking that a PDF appears; this is the one test that runs on the built artefact. The same smoke test also installs and removes the "Fridge Sheet - open-work" scheduled task through `schedule install`/`schedule remove` and confirms it with `schtasks /Query`, then launches the window with no arguments and checks it is still alive with a real window handle after 8 s.
 
 ## 13. Known limitations, told to the friend in `docs/windows.md`
 

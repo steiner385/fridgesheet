@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lakota_grades import late_rules
-from lakota_grades.web import db, reconcile
-from lakota_grades.web.stores import flags as flagstore
+from fridgesheet import late_rules
+from fridgesheet.web import db, reconcile
+from fridgesheet.web.stores import flags as flagstore
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)

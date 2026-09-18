@@ -26,16 +26,16 @@ jobs:
         run: .\packaging\windows\build.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: LakotaSheet-Setup
-          path: dist/LakotaSheet-Setup-*.exe
+          name: FridgeSheet-Setup
+          path: dist/FridgeSheet-Setup-*.exe
           if-no-files-found: error
       - name: Publish the GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
-          files: dist/LakotaSheet-Setup-*.exe
+          files: dist/FridgeSheet-Setup-*.exe
           generate_release_notes: true
           body: |
-            Lakota Sheet for Windows. See docs/windows.md for install and first-run steps.
+            Fridge Sheet for Windows. See docs/windows.md for install and first-run steps.
 
             This installer bundles SumatraPDF 3.5.2 (GPL-3.0) as a separate program used for printing. Its source code: https://github.com/sumatrapdfreader/sumatrapdf/tree/3.5.2rel . The licence text is installed as SumatraPDF-LICENSE.txt. Chromium is bundled via Playwright (BSD-3-Clause).

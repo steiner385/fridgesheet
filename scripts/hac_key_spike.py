@@ -1,9 +1,9 @@
 # scripts/hac_key_spike.py
 """Throwaway check for spec risk 15.1: are HAC item keys stable, and do HAC rows link
-to their Canvas twins? Reads the real ~/.lakota-grades (or LAKOTA_GRADES_HOME) and
+to their Canvas twins? Reads the real ~/.fridgesheet (or FRIDGESHEET_HOME) and
 prints a report. Nothing is written.
 
-Run:  env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python scripts/hac_key_spike.py
+Run:  env -u PYTHONPATH ~/fridgesheet/.venv/bin/python scripts/hac_key_spike.py
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from lakota_grades.matching import match_course, norm_name, same_item, short_course  # noqa: E402
+from fridgesheet.matching import match_course, norm_name, same_item, short_course  # noqa: E402
 
-home = Path(os.environ.get("LAKOTA_GRADES_HOME") or Path.home() / ".lakota-grades")
+home = Path(os.environ.get("FRIDGESHEET_HOME") or Path.home() / ".fridgesheet")
 snap = json.loads((home / "cache" / "snapshot.json").read_text())
 
 

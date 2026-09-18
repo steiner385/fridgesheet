@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import app as webapp, jobs
+from fridgesheet import config
+from fridgesheet.web import app as webapp, jobs
 from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 from tests.test_web_jobs import FakeActions
 
@@ -22,8 +22,8 @@ def test_page_shows_no_report_yet_then_the_report(tmp_path):
 def test_run_diagnostics_button_starts_the_job_and_the_page_shows_it(tmp_path):
     seed(tmp_path).close()
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
-    w = jobs.Worker(application.state.lakota, actions=FakeActions())
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=FakeActions())
+    application.state.fridgesheet.jobs = w
     c = TestClient(application, headers=LOCAL_HOST_HEADERS)
     assert 'hx-post="/jobs/doctor"' in c.get("/diagnostics").text
     r = c.post("/jobs/doctor")

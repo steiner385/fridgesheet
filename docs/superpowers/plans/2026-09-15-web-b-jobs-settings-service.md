@@ -2,25 +2,25 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the browser app self-sufficient: refresh, preview, print, diagnostics and test-login run from the page with live progress; the Runs, Settings and Diagnostics pages replace the tkinter window; the server runs as an always-on user service on Linux and a logon task on Windows; the Windows exe, installer and smoke test move to the browser app; `lakota_grades/app/` is deleted.
+**Goal:** Make the browser app self-sufficient: refresh, preview, print, diagnostics and test-login run from the page with live progress; the Runs, Settings and Diagnostics pages replace the tkinter window; the server runs as an always-on user service on Linux and a logon task on Windows; the Windows exe, installer and smoke test move to the browser app; `fridgesheet/app/` is deleted.
 
 **Architecture:** One worker thread inside the server (`web/jobs.py`) runs one job at a time, using the runner's `run.lock` so a scheduled CLI run and a button press never overlap; progress lines stream to the page over server-sent events. The window's action functions move to `web/actions.py` unchanged in spirit (validate, save, test login, preview, print, doctor) and gain the `[web]` fields and the in-page editors. `host/service.py` is the fifth host adapter (Linux systemd user unit, Windows logon task) with the same injected-`run` tests as the others. `web/__main__.py` becomes the frozen entry point: no arguments makes sure the server is running and opens the browser.
 
 **Tech Stack:** Python 3.12, FastAPI/uvicorn/Jinja2/htmx from part 1, `threading` + `queue`, `sse` via `StreamingResponse` and the browser's `EventSource`, `systemctl --user` on Linux, `schtasks` on Windows, PyInstaller + Inno Setup as in Plan 3.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md`, sections 2, 3, 5 (Runs, Settings, Diagnostics), 8, 9, 10, 11, 12, 13.B, 15 (risks 3 and 4). GitHub milestone "Web app B: Server", issues #16 to #19; each task names its issue and closes it in the commit message. Issues #31 and #32 list residuals from Plans A and B1; the ones this plan closes are named in their task.
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md`, sections 2, 3, 5 (Runs, Settings, Diagnostics), 8, 9, 10, 11, 12, 13.B, 15 (risks 3 and 4). GitHub milestone "Web app B: Server", issues #16 to #19; each task names its issue and closes it in the commit message. Issues #31 and #32 list residuals from Plans A and B1; the ones this plan closes are named in their task.
 
 ## Global Constraints
 
 - One job at a time. A job kind is one of `refresh`, `preview`, `print`, `doctor`, `login`. Submitting while a job runs answers "busy" (HTTP 409 with the current job partial), never queues. `refresh`, `preview` and `print` hold `<home>/run.lock` (the runner's lock; `runner.Lock`, public in this plan) so a CLI run in progress makes the job FAIL with "already running", and vice versa.
 - Every run writes a `runs` row: `preview`/`print` through `runner.run(trigger="web")` as today; `refresh` through `stores.runs.record(...)` with `report_key = "refresh"`. `doctor` and `login` are not runs and write nothing to `runs`.
-- Progress lines are the runner's `echo` lines and the `lakota` loggers' INFO records (via `actions.forward_logs`), in order, each at most 300 characters; nothing a job logs ever contains a credential (`actions` already guarantees this for login).
+- Progress lines are the runner's `echo` lines and the `fridgesheet` loggers' INFO records (via `actions.forward_logs`), in order, each at most 300 characters; nothing a job logs ever contains a credential (`actions` already guarantees this for login).
 - Settings: the OneLogin password field is accepted only when the request's client address is loopback (`127.0.0.1` or `::1`); from any other address the field is rendered as "set on this computer" and a posted password is a 400. Everything else on Settings works from the LAN. `config.toml` is written only by `actions.save` and `actions.save_editable`.
 - The server re-reads settings after a successful save (`AppState.reload()`), so the next job and the next page use them; a changed `[web]` host/port takes effect on the next server start and the page says so.
-- Always-on server: Linux `~/.config/systemd/user/lakota-web.service` (`Restart=on-failure`, `WantedBy=default.target`), managed by `lakota-grades service install|remove|show`; Windows logon task "Lakota Sheet - web" running `LakotaSheet.exe web --no-browser`, registered by the installer's `[Run]` step and removed by `[UninstallRun]`. Tony's hand-written units keep their names and are untouched (the unit this plan writes is `lakota-web.service`, a new name).
-- `LakotaSheet.exe` with no arguments: if `http://127.0.0.1:<port>/health` answers as this app, open the browser; otherwise start `LakotaSheet.exe web --no-browser` detached and open the browser once it answers. `LAKOTA_WEB_NO_BROWSER=1` suppresses the browser (the smoke test). `lakota-grades web` stays the foreground server.
-- Deleted at the end: `lakota_grades/app/` (actions, gui, `__main__`), `tests/test_app_gui.py`, `tests/test_app_main.py`, the `app` CLI command and every `tkinter`/`python3-tk` mention in docs. `tests/test_app_actions.py` moves to `tests/test_web_actions.py` with its tests intact.
-- The full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, 288 passed at the start of this plan) stays green on Linux and in CI on both runners; the Windows build (`build.ps1` + `smoke.ps1`) is verified once on the runner before this plan merges, using a temporary push trigger on `release.yml` as Plan 3 did, removed before the final commit.
+- Always-on server: Linux `~/.config/systemd/user/fridgesheet-web.service` (`Restart=on-failure`, `WantedBy=default.target`), managed by `fridgesheet service install|remove|show`; Windows logon task "Fridge Sheet - web" running `FridgeSheet.exe web --no-browser`, registered by the installer's `[Run]` step and removed by `[UninstallRun]`. Tony's hand-written units keep their names and are untouched (the unit this plan writes is `fridgesheet-web.service`, a new name).
+- `FridgeSheet.exe` with no arguments: if `http://127.0.0.1:<port>/health` answers as this app, open the browser; otherwise start `FridgeSheet.exe web --no-browser` detached and open the browser once it answers. `FRIDGESHEET_WEB_NO_BROWSER=1` suppresses the browser (the smoke test). `fridgesheet web` stays the foreground server.
+- Deleted at the end: `fridgesheet/app/` (actions, gui, `__main__`), `tests/test_app_gui.py`, `tests/test_app_main.py`, the `app` CLI command and every `tkinter`/`python3-tk` mention in docs. `tests/test_app_actions.py` moves to `tests/test_web_actions.py` with its tests intact.
+- The full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, 288 passed at the start of this plan) stays green on Linux and in CI on both runners; the Windows build (`build.ps1` + `smoke.ps1`) is verified once on the runner before this plan merges, using a temporary push trigger on `release.yml` as Plan 3 did, removed before the final commit.
 - Commit after every task with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Closes #<issue>` on its own line.
 
 ## What part 1 left (read before any task)
@@ -41,25 +41,25 @@
 | `collector.py` | `collect(settings, include_hac=True, include_canvas=True, kids_filter=None) -> dict` (the snapshot; also written to disk), `load_snapshot(settings)` |
 | `web/ingest.py` | `record(conn, snapshot, *, tz, now=None) -> IngestResult` |
 | `config.py` | `Settings`, `load_settings()`, `settings_from_doc`, `load_config_doc`, `save_config_doc`, `WEEKDAYS`, `_validate_report_time`, `DEFAULT_HOME` |
-| packaging | `packaging/windows/LakotaSheet.spec`, `installer.iss`, `smoke.ps1`, `build.ps1`; `.github/workflows/release.yml`; `tests/test_packaging.py` pins them |
+| packaging | `packaging/windows/FridgeSheet.spec`, `installer.iss`, `smoke.ps1`, `build.ps1`; `.github/workflows/release.yml`; `tests/test_packaging.py` pins them |
 
 ## File map
 
 | Path | Responsibility |
 |---|---|
-| `lakota_grades/web/jobs.py` (new) | `Job`, `Worker`: one thread, one job at a time, progress lines, SSE generator |
-| `lakota_grades/web/actions.py` (moved from `app/actions.py`, modified) | the page actions: form load/validate/save (+ `[web]`), test login, preview, print, refresh, doctor, editors |
-| `lakota_grades/web/routes/jobs.py`, `runs.py`, `settings.py`, `diagnostics.py` (new) | routers |
-| `lakota_grades/web/templates/_job.html`, `runs.html`, `settings.html`, `_settings_files.html`, `diagnostics.html` (new); `base.html`, `_header.html`, `dashboard.html` (modify) | |
-| `lakota_grades/web/static/app.js` (modify) | the `EventSource` helper |
-| `lakota_grades/web/stores/runs.py` (modify) | `record`, `by_id` |
-| `lakota_grades/runner.py` (modify) | `_Lock` → `Lock` |
-| `lakota_grades/web/app.py` (modify) | `AppState.reload()`, `AppState.jobs`, routers, `page_context["job"]` |
-| `lakota_grades/host/service.py`, `service_linux.py`, `service_windows.py`, `logon-task.xml` (new) | the always-on server adapter |
-| `lakota_grades/doctor.py` (modify) | `web server` probe |
-| `lakota_grades/cli.py` (modify) | `service` command; `app` command removed |
-| `lakota_grades/web/__main__.py` (new, from `app/__main__.py`) | frozen entry point |
-| `packaging/windows/LakotaSheet.spec`, `installer.iss`, `smoke.ps1` (modify); `README.md`, `docs/windows.md` (modify) | |
+| `fridgesheet/web/jobs.py` (new) | `Job`, `Worker`: one thread, one job at a time, progress lines, SSE generator |
+| `fridgesheet/web/actions.py` (moved from `app/actions.py`, modified) | the page actions: form load/validate/save (+ `[web]`), test login, preview, print, refresh, doctor, editors |
+| `fridgesheet/web/routes/jobs.py`, `runs.py`, `settings.py`, `diagnostics.py` (new) | routers |
+| `fridgesheet/web/templates/_job.html`, `runs.html`, `settings.html`, `_settings_files.html`, `diagnostics.html` (new); `base.html`, `_header.html`, `dashboard.html` (modify) | |
+| `fridgesheet/web/static/app.js` (modify) | the `EventSource` helper |
+| `fridgesheet/web/stores/runs.py` (modify) | `record`, `by_id` |
+| `fridgesheet/runner.py` (modify) | `_Lock` → `Lock` |
+| `fridgesheet/web/app.py` (modify) | `AppState.reload()`, `AppState.jobs`, routers, `page_context["job"]` |
+| `fridgesheet/host/service.py`, `service_linux.py`, `service_windows.py`, `logon-task.xml` (new) | the always-on server adapter |
+| `fridgesheet/doctor.py` (modify) | `web server` probe |
+| `fridgesheet/cli.py` (modify) | `service` command; `app` command removed |
+| `fridgesheet/web/__main__.py` (new, from `app/__main__.py`) | frozen entry point |
+| `packaging/windows/FridgeSheet.spec`, `installer.iss`, `smoke.ps1` (modify); `README.md`, `docs/windows.md` (modify) | |
 | `tests/test_web_jobs.py`, `test_web_runs_page.py`, `test_web_settings_page.py`, `test_web_diagnostics_page.py`, `test_host_service.py`, `test_web_main.py` (new); `tests/test_web_actions.py` (moved from `test_app_actions.py`); `tests/test_doctor.py`, `test_packaging.py`, `test_web_app.py` (modify); `tests/test_app_gui.py`, `test_app_main.py` (deleted) | |
 
 ---
@@ -67,9 +67,9 @@
 ### Task 1: `web/jobs.py`, the SSE endpoint, and "Refresh now" (issue #16, part 1)
 
 **Files:**
-- Create: `lakota_grades/web/jobs.py`, `lakota_grades/web/routes/jobs.py`, `lakota_grades/web/templates/_job.html`, `tests/test_web_jobs.py`
-- Modify: `lakota_grades/runner.py` (`_Lock` → `Lock`, keep `_Lock = Lock` for one release), `lakota_grades/web/app.py` (`AppState.jobs`, `page_context["job"]`, router), `lakota_grades/web/stores/runs.py` (`record`), `lakota_grades/web/templates/_header.html`, `dashboard.html`, `lakota_grades/web/static/app.js`
-- Move: `lakota_grades/app/actions.py` → `lakota_grades/web/actions.py` (with `tests/test_app_actions.py` → `tests/test_web_actions.py`); keep `lakota_grades/app/actions.py` as a two-line re-export shim (`from ..web.actions import *  # noqa`) until Task 6 deletes `app/`, so `app/gui.py` and `app/__main__.py` keep importing.
+- Create: `fridgesheet/web/jobs.py`, `fridgesheet/web/routes/jobs.py`, `fridgesheet/web/templates/_job.html`, `tests/test_web_jobs.py`
+- Modify: `fridgesheet/runner.py` (`_Lock` → `Lock`, keep `_Lock = Lock` for one release), `fridgesheet/web/app.py` (`AppState.jobs`, `page_context["job"]`, router), `fridgesheet/web/stores/runs.py` (`record`), `fridgesheet/web/templates/_header.html`, `dashboard.html`, `fridgesheet/web/static/app.js`
+- Move: `fridgesheet/app/actions.py` → `fridgesheet/web/actions.py` (with `tests/test_app_actions.py` → `tests/test_web_actions.py`); keep `fridgesheet/app/actions.py` as a two-line re-export shim (`from ..web.actions import *  # noqa`) until Task 6 deletes `app/`, so `app/gui.py` and `app/__main__.py` keep importing.
 
 **Interfaces:**
 - Consumes: `actions.preview/print_now/run_doctor/test_login/forward_logs`, `collector.collect`, `ingest.record`, `runner.Lock`, `runner.LOCK_NAME`, `db.open_db`, `db.now_iso`.
@@ -86,11 +86,11 @@
 - [ ] **Step 1: Move `actions.py` (mechanical)**
 
 ```bash
-git mv lakota_grades/app/actions.py lakota_grades/web/actions.py
+git mv fridgesheet/app/actions.py fridgesheet/web/actions.py
 git mv tests/test_app_actions.py tests/test_web_actions.py
 ```
 
-In `web/actions.py`: change relative imports (`from .. import config, host, late_rules, runner` stays valid from `web/`; `from ..host import ...` likewise). Change the docstring's first line to "What the pages' buttons do. Plain functions, no web framework, every side effect behind an injectable parameter so the whole module is tested with fakes." In `preview`, make `opener` default to a no-op (`opener = opener or (lambda p: None)`) — the browser links the PDF, nothing opens a viewer on the server. In `tests/test_web_actions.py` change `from lakota_grades.app import actions` to `from lakota_grades.web import actions`; the preview test that asserts the opener was called must pass an explicit fake opener (it already does if it asserts on it; otherwise assert the returned path). Create `lakota_grades/app/actions.py` as the shim:
+In `web/actions.py`: change relative imports (`from .. import config, host, late_rules, runner` stays valid from `web/`; `from ..host import ...` likewise). Change the docstring's first line to "What the pages' buttons do. Plain functions, no web framework, every side effect behind an injectable parameter so the whole module is tested with fakes." In `preview`, make `opener` default to a no-op (`opener = opener or (lambda p: None)`) — the browser links the PDF, nothing opens a viewer on the server. In `tests/test_web_actions.py` change `from fridgesheet.app import actions` to `from fridgesheet.web import actions`; the preview test that asserts the opener was called must pass an explicit fake opener (it already does if it asserts on it; otherwise assert the returned path). Create `fridgesheet/app/actions.py` as the shim:
 
 ```python
 """Deleted in Plan B part 2, Task 6. Until then the window imports from here."""
@@ -98,9 +98,9 @@ from ..web.actions import *  # noqa: F401,F403
 from ..web.actions import _settings_for, _table, _whole_number  # noqa: F401
 ```
 
-(`import *` skips underscored names; add to that second line whatever else `app/gui.py` and `app/__main__.py` import from `actions` — `grep -n "actions\.\|from .actions" lakota_grades/app/gui.py lakota_grades/app/__main__.py` lists them — so the window and its tests keep passing until Task 6 deletes them.)
+(`import *` skips underscored names; add to that second line whatever else `app/gui.py` and `app/__main__.py` import from `actions` — `grep -n "actions\.\|from .actions" fridgesheet/app/gui.py fridgesheet/app/__main__.py` lists them — so the window and its tests keep passing until Task 6 deletes them.)
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_actions.py tests/test_app_gui.py tests/test_app_main.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_actions.py tests/test_app_gui.py tests/test_app_main.py`
 Expected: PASS.
 
 - [ ] **Step 2: `runner.Lock` and `runs.record`**
@@ -135,10 +135,10 @@ from datetime import datetime
 
 import pytest
 
-from lakota_grades import config, runner
-from lakota_grades.web import actions, db, jobs
-from lakota_grades.web import app as webapp
-from lakota_grades.web.stores import runs
+from fridgesheet import config, runner
+from fridgesheet.web import actions, db, jobs
+from fridgesheet.web import app as webapp
+from fridgesheet.web.stores import runs
 from tests.web_fixtures import NOW, TZ, app_for, seed, snapshot
 
 
@@ -205,8 +205,8 @@ class FakeActions:
 def _worker(tmp_path, fake=None):
     s = _settings(tmp_path)
     application = webapp.create_app(s, worker=False)
-    w = jobs.Worker(application.state.lakota, actions=fake or FakeActions())
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=fake or FakeActions())
+    application.state.fridgesheet.jobs = w
     return application, w
 
 
@@ -307,7 +307,7 @@ def test_dashboard_offers_refresh_only_when_a_worker_exists(tmp_path):
     assert 'hx-post="/jobs/refresh"' in TestClient(application).get("/").text
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_jobs.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_jobs.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 4: `actions.refresh`**
@@ -457,7 +457,7 @@ class Worker:
     # -- running --------------------------------------------------------------------------
     def start(self) -> None:
         if self._thread is None:
-            self._thread = threading.Thread(target=self._loop, name="lakota-jobs", daemon=True)
+            self._thread = threading.Thread(target=self._loop, name="fridgesheet-jobs", daemon=True)
             self._thread.start()
 
     def _loop(self) -> None:
@@ -667,11 +667,11 @@ Add to `app.css`: `pre.log { background: #111; color: #eee; padding: 8px; max-he
 
 - [ ] **Step 7: Run, full suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_jobs.py tests/test_web_actions.py tests/test_web_app.py` then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_jobs.py tests/test_web_actions.py tests/test_web_app.py` then the full suite.
 Expected: PASS, pristine.
 
 ```bash
-git add -A lakota_grades tests
+git add -A fridgesheet tests
 git commit -m "web.jobs: one worker, live progress over SSE, Refresh/Preview/Print from the Dashboard; actions move to web/
 
 Part of #16
@@ -684,8 +684,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 2: The Runs page, serving PDFs, reprint (issue #16, part 2)
 
 **Files:**
-- Create: `lakota_grades/web/routes/runs.py`, `lakota_grades/web/templates/runs.html`, `tests/test_web_runs_page.py`
-- Modify: `lakota_grades/web/routes/jobs.py` (`GET /jobs/{id}/pdf`), `templates/_job.html` (link to it), `templates/base.html` (rail: Runs), `lakota_grades/web/app.py` (router)
+- Create: `fridgesheet/web/routes/runs.py`, `fridgesheet/web/templates/runs.html`, `tests/test_web_runs_page.py`
+- Modify: `fridgesheet/web/routes/jobs.py` (`GET /jobs/{id}/pdf`), `templates/_job.html` (link to it), `templates/base.html` (rail: Runs), `fridgesheet/web/app.py` (router)
 
 **Interfaces:**
 - Consumes: `stores.runs.recent/by_id`, `jobs.Worker.get`, `AppState.home`, `settings.sheets_archive`.
@@ -701,8 +701,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lakota_grades.web import app as webapp, db, jobs
-from lakota_grades.web.stores import runs
+from fridgesheet.web import app as webapp, db, jobs
+from fridgesheet.web.stores import runs
 from tests.web_fixtures import app_for, seed
 from tests.test_web_jobs import FakeActions
 
@@ -757,7 +757,7 @@ def test_pdf_is_served_from_home_and_refused_elsewhere(tmp_path):
 
 
 def test_pdf_under_the_archive_folder_is_allowed(tmp_path):
-    from lakota_grades import config
+    from fridgesheet import config
     archive = tmp_path / "Drive" / "Sheets"
     archive.mkdir(parents=True)
     f = archive / "2026-09-15 Open Work.pdf"
@@ -772,12 +772,12 @@ def test_pdf_under_the_archive_folder_is_allowed(tmp_path):
 
 
 def test_job_pdf_after_a_preview(tmp_path):
-    from lakota_grades import config
+    from fridgesheet import config
     seed(tmp_path).close()
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
     fake = FakeActions()
-    w = jobs.Worker(application.state.lakota, actions=fake)
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=fake)
+    application.state.fridgesheet.jobs = w
     pdf = tmp_path / "sheets" / "2026-09-15" / "sheet.pdf"
     pdf.parent.mkdir(parents=True)
     pdf.write_bytes(b"%PDF-1.4 preview")
@@ -790,7 +790,7 @@ def test_job_pdf_after_a_preview(tmp_path):
     assert c.get("/jobs/999/pdf").status_code == 404
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_runs_page.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_runs_page.py`
 Expected: FAIL (404s).
 
 - [ ] **Step 2: Implement**
@@ -867,7 +867,7 @@ and change `_job.html`'s link to `<a href="/jobs/{{ job.id }}/pdf">open the PDF<
 
 ```html
 {% extends "base.html" %}
-{% block title %}Runs · Lakota Sheet{% endblock %}
+{% block title %}Runs · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Runs</h2>
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
@@ -893,7 +893,7 @@ and change `_job.html`'s link to `<a href="/jobs/{{ job.id }}/pdf">open the PDF<
 - [ ] **Step 3: Run, full suite, commit**
 
 ```bash
-git add lakota_grades/web tests/test_web_runs_page.py
+git add fridgesheet/web tests/test_web_runs_page.py
 git commit -m "web: the Runs page, PDFs served only from our own folders, reprint
 
 Closes #16
@@ -906,8 +906,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: The Settings page (issue #17, part 1)
 
 **Files:**
-- Create: `lakota_grades/web/routes/settings.py`, `templates/settings.html`, `templates/_settings_files.html`, `tests/test_web_settings_page.py`
-- Modify: `lakota_grades/web/actions.py` (`FormValues.port/allow_lan`, `validate`, `save` → `[web]` + `restart_needed`, `read_editable`, `save_editable`, `lan_url`, `print_now(date=)`), `tests/test_web_actions.py`, `templates/base.html` (rail: Settings), `lakota_grades/web/app.py` (router; `loopback(request)`)
+- Create: `fridgesheet/web/routes/settings.py`, `templates/settings.html`, `templates/_settings_files.html`, `tests/test_web_settings_page.py`
+- Modify: `fridgesheet/web/actions.py` (`FormValues.port/allow_lan`, `validate`, `save` → `[web]` + `restart_needed`, `read_editable`, `save_editable`, `lan_url`, `print_now(date=)`), `tests/test_web_actions.py`, `templates/base.html` (rail: Settings), `fridgesheet/web/app.py` (router; `loopback(request)`)
 
 **Interfaces:**
 - Consumes: `actions.load_form/validate/save/status_line/about_text`, `host.printing.list_printers`, `AppState.reload`, `jobs` (Test login button → `POST /jobs/login`).
@@ -974,14 +974,14 @@ def test_print_now_passes_the_date(tmp_path):
     assert seen["opts"].date == "2026-09-14" and seen["opts"].reprint and seen["opts"].force
 ```
 
-`FakeCred` and `NoScheduling` already exist in that test file (used by the save tests); if their names differ, use the existing fakes. Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_actions.py -k "web_fields or restart or editables or lan_url or passes_the_date"`. Expected: FAIL.
+`FakeCred` and `NoScheduling` already exist in that test file (used by the save tests); if their names differ, use the existing fakes. Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_actions.py -k "web_fields or restart or editables or lan_url or passes_the_date"`. Expected: FAIL.
 
 - [ ] **Step 2: Implement in `actions.py`**
 
 - `FormValues`: add `port: int = 8433`, `allow_lan: bool = False`.
 - `load_form`: `port=_whole_number(_table_get(doc,"web","port")) or 8433` — simplest: after `s = _settings_for(home)`, `port=s.web_port, allow_lan=s.web_allow_lan` (`settings_from_doc` already parses `[web]`).
 - `validate`: `n = _whole_number(form.port); if n is None or not 1024 <= n <= 65535: errors.append("Port must be a whole number between 1024 and 65535.")`.
-- `save`: before writing, `prev = dict(_table(doc, "web"))`; then `web = _table(doc, "web"); web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)`; `restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]`; `SaveResult` gains `restart_needed: bool = False`; set it on the success return; append a message "The server address changed; restart Lakota Sheet (or the service) for it to take effect." when true.
+- `save`: before writing, `prev = dict(_table(doc, "web"))`; then `web = _table(doc, "web"); web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)`; `restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]`; `SaveResult` gains `restart_needed: bool = False`; set it on the success return; append a message "The server address changed; restart Fridge Sheet (or the service) for it to take effect." when true.
 - Replace `open_editable` with:
 
 ```python
@@ -1050,9 +1050,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.host import NotSupported
-from lakota_grades.web import app as webapp
+from fridgesheet import config
+from fridgesheet.host import NotSupported
+from fridgesheet.web import app as webapp
 from tests.web_fixtures import seed
 
 
@@ -1073,7 +1073,7 @@ class NoScheduling:
     def remove(self, key):
         raise NotSupported("systemd")
     def describe(self, key):
-        from lakota_grades.host import ScheduleInfo
+        from fridgesheet.host import ScheduleInfo
         return ScheduleInfo("systemd", False, None, None)
 
 
@@ -1083,9 +1083,9 @@ def _client(home, host="127.0.0.1"):
     s = config.Settings(home=home)
     config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
     application = webapp.create_app(s, worker=False)
-    application.state.lakota.extra["credstore"] = FakeCred()
-    application.state.lakota.extra["scheduling"] = NoScheduling()
-    application.state.lakota.extra["printers"] = ["Brother", "Canon"]
+    application.state.fridgesheet.extra["credstore"] = FakeCred()
+    application.state.fridgesheet.extra["scheduling"] = NoScheduling()
+    application.state.fridgesheet.extra["printers"] = ["Brother", "Canon"]
     return TestClient(application, client=(host, 12345)), application
 
 
@@ -1101,7 +1101,7 @@ def test_settings_page_shows_current_values_and_the_password_field_on_loopback(t
     assert "Alex=Al" in body and 'name="port"' in body and 'name="allow_lan"' in body
     assert "[default]" in body and 'name="text"' in body                 # the late-rules editor, seeded
     assert 'hx-post="/jobs/login"' not in body                            # no worker: no Test login button
-    assert "Lakota Sheet" in body and "MIT" in body                       # about
+    assert "Fridge Sheet" in body and "MIT" in body                       # about
 
 
 def test_password_is_set_on_this_computer_only(tmp_path):
@@ -1109,7 +1109,7 @@ def test_password_is_set_on_this_computer_only(tmp_path):
     body = c.get("/settings").text
     assert 'type="password"' not in body and "set on this computer" in body
     r = c.post("/settings", data={**FORM, "password": "hunter2"})
-    assert r.status_code == 400 and app.state.lakota.extra["credstore"].written == []
+    assert r.status_code == 400 and app.state.fridgesheet.extra["credstore"].written == []
     r = c.post("/settings", data=FORM)                                   # no password: fine from the LAN
     assert r.status_code == 200 and "Settings saved" in r.text
 
@@ -1118,10 +1118,10 @@ def test_save_round_trips_reloads_settings_and_stores_the_password(tmp_path):
     c, app = _client(tmp_path)
     r = c.post("/settings", data={**FORM, "password": "hunter2", "nicknames": "Alex=Dougie", "scheduled": "on"})
     assert r.status_code == 200 and "Settings saved" in r.text and "Password stored" in r.text
-    assert app.state.lakota.extra["credstore"].written == [("parent@example.org", "hunter2")]
+    assert app.state.fridgesheet.extra["credstore"].written == [("parent@example.org", "hunter2")]
     doc = config.load_config_doc(tmp_path / "config.toml")
     assert doc["print"]["printer"] == "Canon" and doc["reports"]["open-work"]["time"] == "15:30" and doc["web"]["port"] == 8433
-    assert app.state.lakota.settings.nicknames == {"Alex": "Dougie"}    # reloaded
+    assert app.state.fridgesheet.settings.nicknames == {"Alex": "Dougie"}    # reloaded
     assert ">Dougie<" in c.get("/").text                                     # the rail uses the new nickname
     assert "Test login" in r.text                                           # scheduled is on but no login has passed yet: save still ok, the message says so
     (tmp_path / "login-ok.txt").write_text("2026-09-15T14:00:00-04:00")
@@ -1155,7 +1155,7 @@ def test_editors_validate_and_save(tmp_path):
     assert c.post("/settings/files/config.toml", data={"text": "x"}).status_code == 404
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_settings_page.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_settings_page.py`
 Expected: FAIL (404).
 
 - [ ] **Step 4: Route and templates**
@@ -1243,7 +1243,7 @@ def save_file(name: str, request: Request, text: str = Form(""), conn: sqlite3.C
 
 ```html
 {% extends "base.html" %}
-{% block title %}Settings · Lakota Sheet{% endblock %}
+{% block title %}Settings · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Settings</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
@@ -1252,7 +1252,7 @@ def save_file(name: str, request: Request, text: str = Form(""), conn: sqlite3.C
   <p><label>OneLogin username <input name="username" value="{{ form.username }}"></label></p>
   <p>{% if loopback %}<label>OneLogin password <input name="password" type="password" placeholder="leave blank to keep the stored one"></label>
      <span class="muted">stored in this computer's credential store, never in a file</span>
-     {% else %}<span class="muted">OneLogin password: set on this computer (open Lakota Sheet on the PC itself to change it).</span>{% endif %}</p>
+     {% else %}<span class="muted">OneLogin password: set on this computer (open Fridge Sheet on the PC itself to change it).</span>{% endif %}</p>
   <p><label>Printer <select name="printer"><option value="" {{ 'selected' if not form.printer }}>System default</option>
      {% for p in printers %}<option value="{{ p }}" {{ 'selected' if p == form.printer }}>{{ p }}</option>{% endfor %}
      {% if form.printer and form.printer not in printers %}<option value="{{ form.printer }}" selected>{{ form.printer }}</option>{% endif %}</select></label></p>
@@ -1297,7 +1297,7 @@ Note for `test_save_round_trips...`: `status_line` uses `host.scheduling.describ
 - [ ] **Step 5: Run, full suite, commit**
 
 ```bash
-git add lakota_grades/web tests/test_web_settings_page.py tests/test_web_actions.py
+git add fridgesheet/web tests/test_web_settings_page.py tests/test_web_actions.py
 git commit -m "web: the Settings page; the password stays on this computer; late-rules and no-print-days editors
 
 Part of #17
@@ -1307,20 +1307,20 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: `host/service.py`: the always-on server as a systemd user unit or a Windows logon task; `lakota-grades service` (issue #18)
+### Task 4: `host/service.py`: the always-on server as a systemd user unit or a Windows logon task; `fridgesheet service` (issue #18)
 
 **Files:**
-- Create: `lakota_grades/host/service.py`, `service_linux.py`, `service_windows.py`, `logon-task.xml`, `tests/test_host_service.py`
-- Modify: `lakota_grades/cli.py` (`service` command), `pyproject.toml` package-data already covers `host/*.xml`
+- Create: `fridgesheet/host/service.py`, `service_linux.py`, `service_windows.py`, `logon-task.xml`, `tests/test_host_service.py`
+- Modify: `fridgesheet/cli.py` (`service` command), `pyproject.toml` package-data already covers `host/*.xml`
 
 **Interfaces:**
 - Produces:
   - `host.ServiceInfo(managed_by: str, installed: bool, active: bool, detail: str)` (in `host/__init__.py`, beside `ScheduleInfo`)
-  - `host.service.SERVICE_NAME = "Lakota Sheet - web"`, `UNIT = "lakota-web"`, `command_for() -> (exe, args, workdir)` (`args = "web --no-browser"` frozen, `"-m lakota_grades.cli web --no-browser"` from source)
+  - `host.service.SERVICE_NAME = "Fridge Sheet - web"`, `UNIT = "fridgesheet-web"`, `command_for() -> (exe, args, workdir)` (`args = "web --no-browser"` frozen, `"-m fridgesheet.cli web --no-browser"` from source)
   - `host.service.install_service(run=subprocess.run) -> str`, `remove_service(run=...) -> None`, `describe_service(run=...) -> ServiceInfo`
   - `service_linux.unit_text(exe, args, workdir) -> str`, `unit_path(unit_dir=None) -> Path`, `install(exe, args, workdir, run=..., unit_dir=None)`, `remove(run=..., unit_dir=None)`, `describe(run=...)`
   - `service_windows.render_logon_task_xml(name, exe, args, workdir) -> str`, `install(exe, args, workdir, run=...)`, `remove(run=...)`, `describe(run=...)`
-  - CLI: `lakota-grades service install|remove|show`
+  - CLI: `fridgesheet service install|remove|show`
 
 - [ ] **Step 1: Tests**
 
@@ -1334,7 +1334,7 @@ import subprocess
 
 import pytest
 
-from lakota_grades.host import service, service_linux, service_windows
+from fridgesheet.host import service, service_linux, service_windows
 
 
 def _recorder(results=None):
@@ -1348,35 +1348,35 @@ def _recorder(results=None):
 
 
 def test_unit_text_is_a_restarting_user_service():
-    text = service_linux.unit_text("/opt/venv/bin/python", "-m lakota_grades.cli web --no-browser", "/home/tony")
-    assert "[Unit]" in text and "Description=Lakota Sheet web app" in text
-    assert "ExecStart=/opt/venv/bin/python -m lakota_grades.cli web --no-browser" in text
+    text = service_linux.unit_text("/opt/venv/bin/python", "-m fridgesheet.cli web --no-browser", "/home/tony")
+    assert "[Unit]" in text and "Description=Fridge Sheet web app" in text
+    assert "ExecStart=/opt/venv/bin/python -m fridgesheet.cli web --no-browser" in text
     assert "WorkingDirectory=/home/tony" in text and "Restart=on-failure" in text and "RestartSec=5" in text
     assert "WantedBy=default.target" in text
 
 
 def test_linux_install_writes_the_unit_and_enables_it_now(tmp_path):
     calls, run = _recorder()
-    service_linux.install("/py", "-m lakota_grades.cli web --no-browser", "/wd", run=run, unit_dir=tmp_path)
-    unit = tmp_path / "lakota-web.service"
-    assert unit.is_file() and "ExecStart=/py -m lakota_grades.cli web --no-browser" in unit.read_text()
-    assert calls == [["systemctl", "--user", "daemon-reload"], ["systemctl", "--user", "enable", "--now", "lakota-web.service"]]
+    service_linux.install("/py", "-m fridgesheet.cli web --no-browser", "/wd", run=run, unit_dir=tmp_path)
+    unit = tmp_path / "fridgesheet-web.service"
+    assert unit.is_file() and "ExecStart=/py -m fridgesheet.cli web --no-browser" in unit.read_text()
+    assert calls == [["systemctl", "--user", "daemon-reload"], ["systemctl", "--user", "enable", "--now", "fridgesheet-web.service"]]
 
 
 def test_linux_remove_disables_and_deletes(tmp_path):
-    (tmp_path / "lakota-web.service").write_text("x")
+    (tmp_path / "fridgesheet-web.service").write_text("x")
     calls, run = _recorder()
     service_linux.remove(run=run, unit_dir=tmp_path)
-    assert not (tmp_path / "lakota-web.service").exists()
-    assert calls == [["systemctl", "--user", "disable", "--now", "lakota-web.service"], ["systemctl", "--user", "daemon-reload"]]
+    assert not (tmp_path / "fridgesheet-web.service").exists()
+    assert calls == [["systemctl", "--user", "disable", "--now", "fridgesheet-web.service"], ["systemctl", "--user", "daemon-reload"]]
     service_linux.remove(run=run, unit_dir=tmp_path)           # a second remove is fine
 
 
 def test_linux_describe_reads_enabled_and_active():
-    calls, run = _recorder({("is-enabled", "lakota-web.service"): (0, "enabled\n"), ("is-active", "lakota-web.service"): (0, "active\n")})
+    calls, run = _recorder({("is-enabled", "fridgesheet-web.service"): (0, "enabled\n"), ("is-active", "fridgesheet-web.service"): (0, "active\n")})
     info = service_linux.describe(run=run)
     assert (info.managed_by, info.installed, info.active) == ("systemd", True, True) and "active" in info.detail
-    calls, run = _recorder({("is-enabled", "lakota-web.service"): (1, "disabled\n"), ("is-active", "lakota-web.service"): (3, "inactive\n")})
+    calls, run = _recorder({("is-enabled", "fridgesheet-web.service"): (1, "disabled\n"), ("is-active", "fridgesheet-web.service"): (3, "inactive\n")})
     info = service_linux.describe(run=run)
     assert (info.installed, info.active) == (False, False)
 
@@ -1391,32 +1391,32 @@ def test_linux_install_reports_a_systemctl_failure(tmp_path):
 
 
 def test_logon_task_xml_runs_at_logon_and_restarts():
-    xml = service_windows.render_logon_task_xml("Lakota Sheet - web", r"C:\App\LakotaSheet.exe", "web --no-browser", r"C:\App")
-    assert "<LogonTrigger>" in xml and "<Command>C:\\App\\LakotaSheet.exe</Command>" in xml and "<Arguments>web --no-browser</Arguments>" in xml
+    xml = service_windows.render_logon_task_xml("Fridge Sheet - web", r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")
+    assert "<LogonTrigger>" in xml and "<Command>C:\\App\\FridgeSheet.exe</Command>" in xml and "<Arguments>web --no-browser</Arguments>" in xml
     assert "<RestartOnFailure>" in xml and "<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>" in xml
     assert "<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>" in xml and "InteractiveToken" in xml
-    xml2 = service_windows.render_logon_task_xml("Lakota Sheet - web", r"C:\A & B\LakotaSheet.exe", "web --no-browser", r"C:\A & B")
-    assert "<Command>C:\\A &amp; B\\LakotaSheet.exe</Command>" in xml2       # escaped
+    xml2 = service_windows.render_logon_task_xml("Fridge Sheet - web", r"C:\A & B\FridgeSheet.exe", "web --no-browser", r"C:\A & B")
+    assert "<Command>C:\\A &amp; B\\FridgeSheet.exe</Command>" in xml2       # escaped
 
 
 def test_windows_install_creates_and_starts_the_task(tmp_path):
     calls, run = _recorder()
-    service_windows.install(r"C:\App\LakotaSheet.exe", "web --no-browser", r"C:\App", run=run)
-    assert calls[0][:4] == ["schtasks", "/Create", "/TN", "Lakota Sheet - web"] and "/XML" in calls[0] and "/F" in calls[0]
-    assert calls[1] == ["schtasks", "/Run", "/TN", "Lakota Sheet - web"]
+    service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
+    assert calls[0][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - web"] and "/XML" in calls[0] and "/F" in calls[0]
+    assert calls[1] == ["schtasks", "/Run", "/TN", "Fridge Sheet - web"]
 
 
 def test_windows_remove_ends_then_deletes_and_tolerates_absence():
     calls, run = _recorder()
     service_windows.remove(run=run)
-    assert calls == [["schtasks", "/End", "/TN", "Lakota Sheet - web"], ["schtasks", "/Delete", "/TN", "Lakota Sheet - web", "/F"]]
+    assert calls == [["schtasks", "/End", "/TN", "Fridge Sheet - web"], ["schtasks", "/Delete", "/TN", "Fridge Sheet - web", "/F"]]
     def missing(argv, **kw):
         return subprocess.CompletedProcess(argv, 1, stdout="", stderr="ERROR: The system cannot find the file specified.")
     service_windows.remove(run=missing)
 
 
 def test_windows_describe_reads_status():
-    out = "TaskName: \\Lakota Sheet - web\nStatus: Running\nNext Run Time: N/A\n"
+    out = "TaskName: \\Fridge Sheet - web\nStatus: Running\nNext Run Time: N/A\n"
     calls, run = _recorder({("/FO", "LIST"): (0, out)})
     def query(argv, **kw):
         return subprocess.CompletedProcess(argv, 0, stdout=out, stderr="")
@@ -1429,24 +1429,24 @@ def test_windows_describe_reads_status():
 
 def test_command_for_source_and_frozen(monkeypatch):
     exe, args, wd = service.command_for()
-    assert args == "-m lakota_grades.cli web --no-browser"
+    assert args == "-m fridgesheet.cli web --no-browser"
     import sys
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", r"C:\App\LakotaSheet.exe")
+    monkeypatch.setattr(sys, "executable", r"C:\App\FridgeSheet.exe")
     exe, args, wd = service.command_for()
-    assert (exe, args, wd) == (r"C:\App\LakotaSheet.exe", "web --no-browser", r"C:\App")
+    assert (exe, args, wd) == (r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")
 
 
 def test_cli_service_show_prints_the_state(capsys, monkeypatch):
-    from lakota_grades import cli
-    from lakota_grades.host import ServiceInfo
+    from fridgesheet import cli
+    from fridgesheet.host import ServiceInfo
     monkeypatch.setattr(service, "describe_service", lambda: ServiceInfo("systemd", True, True, "enabled, active"))
     with pytest.raises(SystemExit) as e:
         cli.main(["service", "show"])
     assert e.value.code == 0 and "enabled, active" in capsys.readouterr().out
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_host_service.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_host_service.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 2: Implement**
@@ -1481,15 +1481,15 @@ from pathlib import Path
 from . import IS_WINDOWS
 from . import ServiceError, ServiceInfo  # noqa: F401  re-exported
 
-SERVICE_NAME = "Lakota Sheet - web"
-UNIT = "lakota-web"
+SERVICE_NAME = "Fridge Sheet - web"
+UNIT = "fridgesheet-web"
 
 
 def command_for() -> tuple[str, str, str]:
     """(exe, args, workdir) that runs the server in the foreground from this installation."""
     if getattr(sys, "frozen", False):
         return sys.executable, "web --no-browser", str(Path(sys.executable).parent)
-    return sys.executable, "-m lakota_grades.cli web --no-browser", str(Path.cwd())
+    return sys.executable, "-m fridgesheet.cli web --no-browser", str(Path.cwd())
 
 
 if IS_WINDOWS:
@@ -1515,7 +1515,7 @@ def describe_service(run=subprocess.run) -> ServiceInfo:
 `host/service_linux.py`:
 
 ```python
-"""systemd user unit `lakota-web.service`, written and enabled by the app. Tony's hand-written
+"""systemd user unit `fridgesheet-web.service`, written and enabled by the app. Tony's hand-written
 units keep their own names; this one is new and only ever managed here."""
 from __future__ import annotations
 
@@ -1524,7 +1524,7 @@ from pathlib import Path
 
 from . import ServiceError, ServiceInfo
 
-UNIT_FILE = "lakota-web.service"
+UNIT_FILE = "fridgesheet-web.service"
 
 
 def unit_path(unit_dir: Path | None = None) -> Path:
@@ -1533,7 +1533,7 @@ def unit_path(unit_dir: Path | None = None) -> Path:
 
 def unit_text(exe: str, args: str, workdir: str) -> str:
     return (
-        "[Unit]\nDescription=Lakota Sheet web app\nAfter=network-online.target\n\n"
+        "[Unit]\nDescription=Fridge Sheet web app\nAfter=network-online.target\n\n"
         f"[Service]\nExecStart={exe} {args}\nWorkingDirectory={workdir}\nRestart=on-failure\nRestartSec=5\n\n"
         "[Install]\nWantedBy=default.target\n"
     )
@@ -1596,7 +1596,7 @@ def describe(run=subprocess.run) -> ServiceInfo:
 `host/service_windows.py`:
 
 ```python
-"""Logon task "Lakota Sheet - web": Task Scheduler starts the server when the user signs in
+"""Logon task "Fridge Sheet - web": Task Scheduler starts the server when the user signs in
 and restarts it if it dies. Registered by the installer, removed by the uninstaller."""
 from __future__ import annotations
 
@@ -1609,13 +1609,13 @@ from xml.sax.saxutils import escape
 
 from . import CREATE_NO_WINDOW, ServiceError, ServiceInfo
 
-NAME = "Lakota Sheet - web"
+NAME = "Fridge Sheet - web"
 _NOT_FOUND = "cannot find the file"
 
 
 def render_logon_task_xml(name: str, exe: str, args: str, workdir: str) -> str:
-    template = resources.files("lakota_grades.host").joinpath("logon-task.xml").read_text(encoding="utf-8")
-    return (template.replace("{description}", escape("Lakota Sheet: the browser app's server"))
+    template = resources.files("fridgesheet.host").joinpath("logon-task.xml").read_text(encoding="utf-8")
+    return (template.replace("{description}", escape("Fridge Sheet: the browser app's server"))
                     .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
 
 
@@ -1625,7 +1625,7 @@ def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
 
 def install(exe: str, args: str, workdir: str, run=subprocess.run) -> None:
     xml = render_logon_task_xml(NAME, exe, args, workdir)
-    fd, path = tempfile.mkstemp(prefix="lakota-web-", suffix=".xml")
+    fd, path = tempfile.mkstemp(prefix="fridgesheet-web-", suffix=".xml")
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(xml.encode("utf-16"))
@@ -1684,8 +1684,8 @@ and the parser: `sv = sub.add_parser("service", help="install, remove or show th
 - [ ] **Step 3: Run, full suite, commit**
 
 ```bash
-git add lakota_grades/host lakota_grades/cli.py tests/test_host_service.py
-git commit -m "host.service: the always-on server as a systemd user unit or a Windows logon task; lakota-grades service
+git add fridgesheet/host fridgesheet/cli.py tests/test_host_service.py
+git commit -m "host.service: the always-on server as a systemd user unit or a Windows logon task; fridgesheet service
 
 Closes #18
 
@@ -1697,8 +1697,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: The Diagnostics page and the doctor's `web server` probe (issue #17, part 2)
 
 **Files:**
-- Create: `lakota_grades/web/routes/diagnostics.py`, `templates/diagnostics.html`, `tests/test_web_diagnostics_page.py`
-- Modify: `lakota_grades/doctor.py` (`web server` probe), `tests/test_doctor.py`, `templates/base.html` (rail: Diagnostics), `lakota_grades/web/app.py` (router)
+- Create: `fridgesheet/web/routes/diagnostics.py`, `templates/diagnostics.html`, `tests/test_web_diagnostics_page.py`
+- Modify: `fridgesheet/doctor.py` (`web server` probe), `tests/test_doctor.py`, `templates/base.html` (rail: Diagnostics), `fridgesheet/web/app.py` (router)
 
 **Interfaces:**
 - Consumes: `doctor.REPORT_NAME` (`doctor.txt`), `host.service.describe_service`, `web.server.port_answers`, jobs (`POST /jobs/doctor`).
@@ -1710,11 +1710,11 @@ Append to `tests/test_doctor.py` (and change the probe-name list assertion to en
 
 ```python
 def test_web_server_probe(monkeypatch, tmp_path):
-    from lakota_grades.host import ServiceInfo
+    from fridgesheet.host import ServiceInfo
     s = Settings(home=tmp_path)
     monkeypatch.setattr(doctor, "_describe_service", lambda: ServiceInfo("systemd", False, False, "not installed"))
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: False)
-    assert "not running" in doctor._web_server(s, tmp_path) and "lakota-grades web" in doctor._web_server(s, tmp_path)
+    assert "not running" in doctor._web_server(s, tmp_path) and "fridgesheet web" in doctor._web_server(s, tmp_path)
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: True)
     assert "http://127.0.0.1:8433/" in doctor._web_server(s, tmp_path)
     monkeypatch.setattr(doctor, "_describe_service", lambda: ServiceInfo("systemd", True, True, "enabled, active"))
@@ -1737,8 +1737,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import app as webapp, jobs
+from fridgesheet import config
+from fridgesheet.web import app as webapp, jobs
 from tests.web_fixtures import app_for, seed
 from tests.test_web_jobs import FakeActions
 
@@ -1756,8 +1756,8 @@ def test_page_shows_no_report_yet_then_the_report(tmp_path):
 def test_run_diagnostics_button_starts_the_job_and_the_page_shows_it(tmp_path):
     seed(tmp_path).close()
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
-    w = jobs.Worker(application.state.lakota, actions=FakeActions())
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=FakeActions())
+    application.state.fridgesheet.jobs = w
     c = TestClient(application)
     assert 'hx-post="/jobs/doctor"' in c.get("/diagnostics").text
     r = c.post("/jobs/doctor")
@@ -1796,7 +1796,7 @@ def _web_server(s: Settings, home: Path) -> str:
         return f"answering at {url} ({state})"
     if installed:
         raise RuntimeError(f"the service is installed ({state}) but {url} does not answer; check app.log")
-    return f"not running ({state}); start it with `lakota-grades web` or install the service"
+    return f"not running ({state}); start it with `fridgesheet web` or install the service"
 ```
 
 Add `("web server", _web_server)` at the end of `PROBES`.
@@ -1828,7 +1828,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 
 ```html
 {% extends "base.html" %}
-{% block title %}Diagnostics · Lakota Sheet{% endblock %}
+{% block title %}Diagnostics · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Diagnostics</h2>
 {% if jobs %}<p><button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button></p>{% endif %}
@@ -1843,7 +1843,7 @@ Rail: `<a href="/diagnostics" class="{{ 'current' if current == 'diagnostics' }}
 - [ ] **Step 3: Run, full suite, commit**
 
 ```bash
-git add lakota_grades tests
+git add fridgesheet tests
 git commit -m "web: the Diagnostics page; doctor gains a web server probe
 
 Closes #17
@@ -1856,9 +1856,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 6: Retire the window: the entry point, packaging, installer, smoke test, docs (issue #19)
 
 **Files:**
-- Create: `lakota_grades/web/__main__.py`, `tests/test_web_main.py`
-- Delete: `lakota_grades/app/` (all), `tests/test_app_gui.py`, `tests/test_app_main.py`
-- Modify: `lakota_grades/cli.py` (remove `app`), `lakota_grades/web/server.py` (`_serve` `log_config=None`), `packaging/windows/LakotaSheet.spec`, `installer.iss`, `smoke.ps1`, `tests/test_packaging.py`, `README.md`, `docs/windows.md`, `pyproject.toml` (package-data: `host/*.xml` already; confirm `web/templates/*.html`, `web/static/*`), `.github/workflows/release.yml` (temporary trigger, removed again)
+- Create: `fridgesheet/web/__main__.py`, `tests/test_web_main.py`
+- Delete: `fridgesheet/app/` (all), `tests/test_app_gui.py`, `tests/test_app_main.py`
+- Modify: `fridgesheet/cli.py` (remove `app`), `fridgesheet/web/server.py` (`_serve` `log_config=None`), `packaging/windows/FridgeSheet.spec`, `installer.iss`, `smoke.ps1`, `tests/test_packaging.py`, `README.md`, `docs/windows.md`, `pyproject.toml` (package-data: `host/*.xml` already; confirm `web/templates/*.html`, `web/static/*`), `.github/workflows/release.yml` (temporary trigger, removed again)
 
 **Interfaces:**
 - Produces: `web.__main__.main(argv) -> int`; `web.__main__.launch(settings, *, answers=None, spawn=None, opener=None, wait=None) -> int`; `web.__main__.setup_logging(home, stderr)`, `frozen_environment`, `TERMINAL_ONLY`, `APP_LOG`; the exe contract in Global Constraints.
@@ -1869,8 +1869,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ```python
 def test_launch_opens_the_browser_when_the_server_answers(tmp_path):
-    from lakota_grades import config
-    from lakota_grades.web import __main__ as entry
+    from fridgesheet import config
+    from fridgesheet.web import __main__ as entry
     s = config.Settings(home=tmp_path)
     opened, spawned = [], []
     rc = entry.launch(s, answers=lambda h, p: True, spawn=lambda argv: spawned.append(argv), opener=opened.append, wait=lambda url, opener, **kw: opener(url))
@@ -1878,31 +1878,31 @@ def test_launch_opens_the_browser_when_the_server_answers(tmp_path):
 
 
 def test_launch_starts_a_detached_server_then_opens(tmp_path, monkeypatch):
-    from lakota_grades import config
-    from lakota_grades.web import __main__ as entry
+    from fridgesheet import config
+    from fridgesheet.web import __main__ as entry
     import sys
     s = config.Settings(home=tmp_path)
     opened, spawned = [], []
     rc = entry.launch(s, answers=lambda h, p: False, spawn=lambda argv: spawned.append(argv), opener=opened.append, wait=lambda url, opener, **kw: opener(url))
-    assert rc == 0 and spawned == [[sys.executable, "-m", "lakota_grades.cli", "web", "--no-browser"]] and opened == ["http://127.0.0.1:8433/"]
+    assert rc == 0 and spawned == [[sys.executable, "-m", "fridgesheet.cli", "web", "--no-browser"]] and opened == ["http://127.0.0.1:8433/"]
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", r"C:\App\LakotaSheet.exe")
+    monkeypatch.setattr(sys, "executable", r"C:\App\FridgeSheet.exe")
     spawned.clear()
     entry.launch(s, answers=lambda h, p: False, spawn=lambda argv: spawned.append(argv), opener=opened.append, wait=lambda url, opener, **kw: None)
-    assert spawned == [[r"C:\App\LakotaSheet.exe", "web", "--no-browser"]]
+    assert spawned == [[r"C:\App\FridgeSheet.exe", "web", "--no-browser"]]
 
 
 def test_launch_respects_no_browser_env(tmp_path, monkeypatch):
-    from lakota_grades import config
-    from lakota_grades.web import __main__ as entry
-    monkeypatch.setenv("LAKOTA_WEB_NO_BROWSER", "1")
+    from fridgesheet import config
+    from fridgesheet.web import __main__ as entry
+    monkeypatch.setenv("FRIDGESHEET_WEB_NO_BROWSER", "1")
     opened = []
     rc = entry.launch(config.Settings(home=tmp_path), answers=lambda h, p: True, spawn=lambda argv: None, opener=opened.append, wait=lambda *a, **k: None)
     assert rc == 0 and opened == []
 
 
 def test_main_without_args_launches(monkeypatch, tmp_path):
-    from lakota_grades.web import __main__ as entry
+    from fridgesheet.web import __main__ as entry
     monkeypatch.setattr(entry, "DEFAULT_HOME", tmp_path)
     called = {}
     monkeypatch.setattr(entry, "launch", lambda s, **kw: called.setdefault("ok", 0))
@@ -1912,24 +1912,24 @@ def test_main_without_args_launches(monkeypatch, tmp_path):
 
 def test_app_command_and_package_are_gone():
     import importlib, pathlib
-    from lakota_grades import cli
+    from fridgesheet import cli
     import pytest
     with pytest.raises(SystemExit):
         cli.main(["app"])
     assert not (pathlib.Path(cli.__file__).parent / "app").exists()
     with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("lakota_grades.app")
+        importlib.import_module("fridgesheet.app")
 ```
 
 - [ ] **Step 2: `web/__main__.py`**
 
 ```python
-"""Entry point of the frozen Windows executable, and of `python -m lakota_grades.web`.
+"""Entry point of the frozen Windows executable, and of `python -m fridgesheet.web`.
 
 No arguments makes sure the server is running and opens the browser (spec section 10): if the
 port already answers as this app, just open it; otherwise start `web --no-browser` detached
 and open once it answers. Anything else is the ordinary CLI, so the scheduled task's
-`LakotaSheet.exe run open-work`, the logon task's `LakotaSheet.exe web --no-browser` and the
+`FridgeSheet.exe run open-work`, the logon task's `FridgeSheet.exe web --no-browser` and the
 uninstaller's `schedule remove` / `service remove` all come from the same binary. A windowed
 exe has no stdout or stderr, so logging goes to <home>/app.log; stderr gets a copy only when
 it exists.
@@ -1944,8 +1944,8 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from lakota_grades.config import DEFAULT_HOME, Settings, load_settings
-from lakota_grades.web import server
+from fridgesheet.config import DEFAULT_HOME, Settings, load_settings
+from fridgesheet.web import server
 
 _FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 TERMINAL_ONLY = ("login", "set-credentials")
@@ -1966,7 +1966,7 @@ def setup_logging(home: Path, stderr=sys.stderr) -> None:
 def _server_argv() -> list[str]:
     if getattr(sys, "frozen", False):
         return [sys.executable, "web", "--no-browser"]
-    return [sys.executable, "-m", "lakota_grades.cli", "web", "--no-browser"]
+    return [sys.executable, "-m", "fridgesheet.cli", "web", "--no-browser"]
 
 
 def _spawn_detached(argv: list[str]) -> None:
@@ -1984,7 +1984,7 @@ def launch(settings: Settings, *, answers=None, spawn=None, opener=None, wait=No
     opener = opener or webbrowser.open
     wait = wait or server._wait_and_open
     url = f"http://127.0.0.1:{settings.web_port}/"
-    quiet = os.environ.get("LAKOTA_WEB_NO_BROWSER") == "1"     # the smoke test: wait for the server, open nothing
+    quiet = os.environ.get("FRIDGESHEET_WEB_NO_BROWSER") == "1"     # the smoke test: wait for the server, open nothing
     if not answers("127.0.0.1", settings.web_port):
         spawn(_server_argv())
     wait(url, (lambda u: None) if quiet else opener, answers=answers, tries=150, interval=0.2)
@@ -1995,7 +1995,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     frozen_environment()
     setup_logging(DEFAULT_HOME)
-    log = logging.getLogger("lakota.web")
+    log = logging.getLogger("fridgesheet.web")
     if not argv:
         try:
             return launch(load_settings())
@@ -2005,7 +2005,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv[0] in TERMINAL_ONLY and sys.stdin is None:
         log.error("%s needs a terminal; use the Settings page instead", argv[0])
         return 2
-    from lakota_grades import cli
+    from fridgesheet import cli
     try:
         cli.main(argv)
     except SystemExit as e:
@@ -2020,71 +2020,71 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-With `LAKOTA_WEB_NO_BROWSER=1` the launch still waits until the server answers (so the smoke test's no-args exe exits only once the server is up) but opens nothing: the no-op opener above is what `test_launch_respects_no_browser_env` sees.
+With `FRIDGESHEET_WEB_NO_BROWSER=1` the launch still waits until the server answers (so the smoke test's no-args exe exits only once the server is up) but opens nothing: the no-op opener above is what `test_launch_respects_no_browser_env` sees.
 
 `server._serve`: `uvicorn.run(app, host=host, port=port, log_level="info", access_log=False, log_config=None)` so uvicorn's records propagate to the root logger (app.log in the frozen exe, stderr from the CLI).
 
 - [ ] **Step 3: Delete the window**
 
 ```bash
-git rm -r lakota_grades/app tests/test_app_gui.py tests/test_app_main.py
+git rm -r fridgesheet/app tests/test_app_gui.py tests/test_app_main.py
 ```
 
-`cli.py`: delete `cmd_app` and its parser; update the docstring. `grep -rn "tkinter\|python3-tk\|lakota-grades app\|settings window" README.md docs lakota_grades` and fix every hit (README section "The settings window" becomes "The browser app": `lakota-grades web` opens it; `lakota-grades service install` keeps it running; the Settings page replaces the window; Test login / Preview / Print now / Run diagnostics are buttons on the Settings, Dashboard and Diagnostics pages). Keep `docs/windows.md`'s pinned phrases (`test_packaging.py::test_windows_page_exists_and_names_the_limitations`): "SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", `%LOCALAPPDATA%\lakota-grades`, "Test login", "Print now", "no-print-days.txt", "late-rules.toml", "doctor.txt", "Task Scheduler", "Uninstall" — rewrite "First run" and "If something goes wrong" for the browser app (the shortcut opens `http://127.0.0.1:8433/`; Settings page; Test login button; Dashboard's Refresh now / Preview / Print now; Diagnostics page; the file table gains `lakota.db` and `web.lock`; "Allow other devices on this network" for a phone). Plan E writes the friend's full page; this task keeps the document true.
+`cli.py`: delete `cmd_app` and its parser; update the docstring. `grep -rn "tkinter\|python3-tk\|fridgesheet app\|settings window" README.md docs fridgesheet` and fix every hit (README section "The settings window" becomes "The browser app": `fridgesheet web` opens it; `fridgesheet service install` keeps it running; the Settings page replaces the window; Test login / Preview / Print now / Run diagnostics are buttons on the Settings, Dashboard and Diagnostics pages). Keep `docs/windows.md`'s pinned phrases (`test_packaging.py::test_windows_page_exists_and_names_the_limitations`): "SmartScreen", "More info", "Run anyway", "multi-factor", "logged in", `%LOCALAPPDATA%\fridgesheet`, "Test login", "Print now", "no-print-days.txt", "late-rules.toml", "doctor.txt", "Task Scheduler", "Uninstall" — rewrite "First run" and "If something goes wrong" for the browser app (the shortcut opens `http://127.0.0.1:8433/`; Settings page; Test login button; Dashboard's Refresh now / Preview / Print now; Diagnostics page; the file table gains `fridgesheet.db` and `web.lock`; "Allow other devices on this network" for a phone). Plan E writes the friend's full page; this task keeps the document true.
 
 - [ ] **Step 4: Packaging**
 
-`packaging/windows/LakotaSheet.spec`: entry `lakota_grades/web/__main__.py`; `datas` add
+`packaging/windows/FridgeSheet.spec`: entry `fridgesheet/web/__main__.py`; `datas` add
 
 ```python
-datas += [(os.path.join(ROOT, "lakota_grades", "host", "logon-task.xml"), os.path.join("lakota_grades", "host"))]
-datas += [(os.path.join(ROOT, "lakota_grades", "web", "templates"), os.path.join("lakota_grades", "web", "templates"))]
-datas += [(os.path.join(ROOT, "lakota_grades", "web", "static"), os.path.join("lakota_grades", "web", "static"))]
+datas += [(os.path.join(ROOT, "fridgesheet", "host", "logon-task.xml"), os.path.join("fridgesheet", "host"))]
+datas += [(os.path.join(ROOT, "fridgesheet", "web", "templates"), os.path.join("fridgesheet", "web", "templates"))]
+datas += [(os.path.join(ROOT, "fridgesheet", "web", "static"), os.path.join("fridgesheet", "web", "static"))]
 ```
 
-and `hiddenimports += collect_submodules("uvicorn") + ["fastapi", "jinja2", "multipart", "anyio._backends._asyncio"]` (the Task 1 outcome of part 1). `app.py` resolves templates by `Path(__file__).parent`, which under PyInstaller one-folder is `_internal/lakota_grades/web/` — the datas destinations above put the folders exactly there. `console=False` stays.
+and `hiddenimports += collect_submodules("uvicorn") + ["fastapi", "jinja2", "multipart", "anyio._backends._asyncio"]` (the Task 1 outcome of part 1). `app.py` resolves templates by `Path(__file__).parent`, which under PyInstaller one-folder is `_internal/fridgesheet/web/` — the datas destinations above put the folders exactly there. `console=False` stays.
 
 `installer.iss`: `[Run]` becomes
 
 ```
-Filename: "{app}\LakotaSheet.exe"; Parameters: "service install"; Flags: runhidden waituntilterminated
-Filename: "{app}\LakotaSheet.exe"; Description: "Open Lakota Sheet"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\FridgeSheet.exe"; Parameters: "service install"; Flags: runhidden waituntilterminated
+Filename: "{app}\FridgeSheet.exe"; Description: "Open Fridge Sheet"; Flags: nowait postinstall skipifsilent
 ```
 
-`[UninstallRun]` gains, before the schedule line: `Filename: "{app}\LakotaSheet.exe"; Parameters: "service remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"`. The post-uninstall message: "Your settings, notes and flags (lakota.db), printed sheets and logs were kept in …".
+`[UninstallRun]` gains, before the schedule line: `Filename: "{app}\FridgeSheet.exe"; Parameters: "service remove"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"`. The post-uninstall message: "Your settings, notes and flags (fridgesheet.db), printed sheets and logs were kept in …".
 
 `smoke.ps1`: replace step 3 (the window) with
 
 ```powershell
     # 3. the server: start it on a free port, fetch two pages, stop it
-    $env:LAKOTA_WEB_PORT = "8765"
+    $env:FRIDGESHEET_WEB_PORT = "8765"
     $srv = Start-Process -FilePath $exe -ArgumentList "web","--no-browser" -PassThru -WindowStyle Hidden
     $up = $false
-    foreach ($i in 1..60) { Start-Sleep -Milliseconds 500; try { $h = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/health; if ($h.Content -match '"lakota-grades"') { $up = $true; break } } catch {} }
+    foreach ($i in 1..60) { Start-Sleep -Milliseconds 500; try { $h = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/health; if ($h.Content -match '"fridgesheet"') { $up = $true; break } } catch {} }
     if (-not $up) { Get-Content (Join-Path $smokeHome "app.log") -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }; Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue; throw "the server never answered /health" }
     foreach ($path in "/", "/diagnostics", "/settings") {
         $r = Invoke-WebRequest -UseBasicParsing ("http://127.0.0.1:8765" + $path)
-        if ($r.StatusCode -ne 200 -or $r.Content -notmatch "Lakota Sheet") { Stop-Process -Id $srv.Id -Force; throw "GET $path failed" }
+        if ($r.StatusCode -ne 200 -or $r.Content -notmatch "Fridge Sheet") { Stop-Process -Id $srv.Id -Force; throw "GET $path failed" }
     }
     Write-Host "  server answered /, /diagnostics, /settings"
     # 3b. no-args launch finds the running server and exits 0 without opening a browser
-    $env:LAKOTA_WEB_NO_BROWSER = "1"
+    $env:FRIDGESHEET_WEB_NO_BROWSER = "1"
     $p = Start-Process -FilePath $exe -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { throw "no-args launch failed (exit $($p.ExitCode))" }
     Stop-Process -Id $srv.Id -Force
     # 3c. the logon task round-trips through schtasks
     $p = Start-Process -FilePath $exe -ArgumentList "service","install" -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { throw "service install failed (exit $($p.ExitCode))" }
-    $q = & schtasks /Query /TN "Lakota Sheet - web" 2>&1
+    $q = & schtasks /Query /TN "Fridge Sheet - web" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "logon task not found after install: $q" }
     $p = Start-Process -FilePath $exe -ArgumentList "service","remove" -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { throw "service remove failed (exit $($p.ExitCode))" }
     Write-Host "  logon task installed and removed"
 ```
 
-and add `Remove-Item Env:\LAKOTA_WEB_PORT`, `Env:\LAKOTA_WEB_NO_BROWSER` to the `finally`. Note `service install` on the runner starts the server via `schtasks /Run` on the default port 8433 (the env var is not inherited by Task Scheduler); `service remove`'s `/End` stops it. Update the header comment.
+and add `Remove-Item Env:\FRIDGESHEET_WEB_PORT`, `Env:\FRIDGESHEET_WEB_NO_BROWSER` to the `finally`. Note `service install` on the runner starts the server via `schtasks /Run` on the default port 8433 (the env var is not inherited by Task Scheduler); `service remove`'s `/End` stops it. Update the header comment.
 
-`tests/test_packaging.py`: entry point `lakota_grades/web/__main__.py`; spec contains `web", "templates"`, `web", "static"`, `logon-task.xml`, `collect_submodules("uvicorn")`, `"fastapi"`; smoke contains `"web","--no-browser"`, `/health`, `/diagnostics`, `"service","install"`, `"service","remove"`, `LAKOTA_WEB_NO_BROWSER`, no `MainWindowHandle`; iss contains `Parameters: "service install"`, `Parameters: "service remove"`, `lakota.db`; keep the rest.
+`tests/test_packaging.py`: entry point `fridgesheet/web/__main__.py`; spec contains `web", "templates"`, `web", "static"`, `logon-task.xml`, `collect_submodules("uvicorn")`, `"fastapi"`; smoke contains `"web","--no-browser"`, `/health`, `/diagnostics`, `"service","install"`, `"service","remove"`, `FRIDGESHEET_WEB_NO_BROWSER`, no `MainWindowHandle`; iss contains `Parameters: "service install"`, `Parameters: "service remove"`, `fridgesheet.db`; keep the rest.
 
 - [ ] **Step 5: Verify the Windows build once on the runner**
 
@@ -2106,9 +2106,9 @@ git push
 
 ## Done when
 
-- On this machine: `lakota-grades web` opens the Dashboard; Refresh now streams progress and ends with a `runs` row; Preview builds and links the PDF; the Runs page lists history; Settings saves `config.toml`, reloads the header's nicknames, refuses a password from a LAN address; the editors validate; Diagnostics runs the doctor and its report includes the `web server` probe; `lakota-grades service install` writes and enables `lakota-web.service` (Tony decides whether to run it).
+- On this machine: `fridgesheet web` opens the Dashboard; Refresh now streams progress and ends with a `runs` row; Preview builds and links the PDF; the Runs page lists history; Settings saves `config.toml`, reloads the header's nicknames, refuses a password from a LAN address; the editors validate; Diagnostics runs the doctor and its report includes the `web server` probe; `fridgesheet service install` writes and enables `fridgesheet-web.service` (Tony decides whether to run it).
 - The Windows runner built the installer and passed the smoke test (server pages, no-args launch, logon task) once during Task 6, and the temporary trigger is gone.
-- `lakota_grades/app/` and its tests are gone; `lakota-grades app` no longer exists; README and docs/windows.md describe the browser app.
+- `fridgesheet/app/` and its tests are gone; `fridgesheet app` no longer exists; README and docs/windows.md describe the browser app.
 - Full suite green locally and in CI on both runners; no warnings.
 - Not in this plan: Changes and Trends (Plan C), view reports and schedules (Plan D), the friend's page, QR code and docs polish (Plan E), the residuals in issues #31 and #32 not named above.
 

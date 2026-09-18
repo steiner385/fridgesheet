@@ -12,8 +12,8 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import print_sheet  # noqa: E402
-from lakota_grades.config import Settings  # noqa: E402
+from fridgesheet import print_sheet  # noqa: E402
+from fridgesheet.config import Settings  # noqa: E402
 from tests.conftest import needs_pdftotext  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")
@@ -130,7 +130,7 @@ def test_failed_refresh_with_fresh_snapshot_prints_with_a_footer_note(env):
 
     assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh_fail, lp=lp) == 0
     assert len(calls["lp"]) == 1
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     assert "refresh failed" in sheet.pdf_text(s.home / "sheets" / "2026-09-11" / "sheet.pdf")
 
 
@@ -176,13 +176,13 @@ def test_second_run_diffs_against_the_previous_sheet(env):
     s, calls, refresh, lp = env
     assert print_sheet.run(_args(dry_run=True, date="2026-09-10"), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
     assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
-    from lakota_grades import sheet
+    from fridgesheet import sheet
     text = sheet.pdf_text(s.home / "sheets" / "2026-09-11" / "sheet.pdf")
     assert "0 new" in text and "since last sheet" in text
 
 
 def test_cli_maps_flags_to_options(monkeypatch, tmp_path):
-    from lakota_grades import cli
+    from fridgesheet import cli
     seen = {}
 
     def fake_run(opts, settings, **kw):
@@ -208,7 +208,7 @@ def test_reprint_flag_prints_an_already_printed_day_again(env):
 
 
 def test_pdf_is_also_saved_to_the_archive_folder_by_school_year(env):
-    """The hidden ~/.lakota-grades/sheets/ tree is for the machine; people look in Drive."""
+    """The hidden ~/.fridgesheet/sheets/ tree is for the machine; people look in Drive."""
     s, calls, refresh, lp = env
     s.sheets_archive = str(s.home / "drive" / "Open Work Sheets")
     assert print_sheet.run(_args(dry_run=True), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0

@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from lakota_grades import config, runner
-from lakota_grades.web import actions, db, jobs
-from lakota_grades.web import app as webapp
-from lakota_grades.web.stores import runs
+from fridgesheet import config, runner
+from fridgesheet.web import actions, db, jobs
+from fridgesheet.web import app as webapp
+from fridgesheet.web.stores import runs
 from tests.web_fixtures import LOCAL_HOST_HEADERS, NOW, TZ, app_for, seed, snapshot
 
 
@@ -76,8 +76,8 @@ class FakeActions:
 def _worker(tmp_path, fake=None):
     s = _settings(tmp_path)
     application = webapp.create_app(s, worker=False)
-    w = jobs.Worker(application.state.lakota, actions=fake or FakeActions())
-    application.state.lakota.jobs = w
+    w = jobs.Worker(application.state.fridgesheet, actions=fake or FakeActions())
+    application.state.fridgesheet.jobs = w
     return application, w
 
 
@@ -117,7 +117,7 @@ def test_worker_turns_an_exception_into_fail_and_frees_the_slot(tmp_path):
 
 def test_a_job_inside_its_deadline_still_holds_the_slot(tmp_path):
     application, w = _worker(tmp_path)
-    state = application.state.lakota
+    state = application.state.fridgesheet
     state.clock = lambda: NOW
     w.submit("refresh")                                   # never run: nothing calls run_pending
     state.clock = lambda: NOW + timedelta(seconds=jobs.JOB_TIMEOUT_SECONDS - 1)
@@ -127,7 +127,7 @@ def test_a_job_inside_its_deadline_still_holds_the_slot(tmp_path):
 def test_a_job_past_its_deadline_is_displaced_by_the_next_submit(tmp_path):
     """A hung Playwright job must not wedge every button in the app forever."""
     application, w = _worker(tmp_path)
-    state = application.state.lakota
+    state = application.state.fridgesheet
     state.clock = lambda: NOW
     stuck = w.submit("refresh")
     later = NOW + timedelta(seconds=jobs.JOB_TIMEOUT_SECONDS + 1)
@@ -151,7 +151,7 @@ def test_a_displaced_job_finishing_late_leaves_the_running_one_alone(tmp_path):
         log("refreshing"); gate.wait(5); return actions.RefreshResult(True, "refresh OK", 1)
     fake.refresh = blocked
     application, w = _worker(tmp_path, fake)
-    state = application.state.lakota
+    state = application.state.fridgesheet
     state.clock = lambda: NOW
     stuck = w.submit("refresh")
     hung = threading.Thread(target=w.run_pending, daemon=True)

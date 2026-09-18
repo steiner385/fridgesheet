@@ -1,7 +1,7 @@
 [project]
-name = "lakota-grades-mcp"
-version = "0.3.1"
-description = "Lakota Local Schools parent tools: a printed open-work sheet from Canvas + Home Access Center, and a local MCP server for Claude."
+name = "fridgesheet"
+version = "0.4.0"
+description = "Fridge Sheet: a parent's daily open-work sheet from Canvas + Home Access Center, a browser app, and a local MCP server for Claude."
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -25,7 +25,9 @@ dev = ["pytest>=8", "httpx>=0.27"]
 windows = ["keyring>=25", "pywin32>=306"]
 
 [project.scripts]
-lakota-grades = "lakota_grades.cli:main"
+fridgesheet = "fridgesheet.cli:main"
+# The command's old name, kept for one release (fridgesheet.cli.legacy_main prints a notice).
+lakota-grades = "fridgesheet.cli:legacy_main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -42,7 +44,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["lakota_grades*"]
+include = ["fridgesheet*"]
 
 [tool.setuptools.package-data]
-lakota_grades = ["host/*.xml", "web/templates/*.html", "web/static/*"]
+fridgesheet = ["host/*.xml", "web/templates/*.html", "web/static/*"]

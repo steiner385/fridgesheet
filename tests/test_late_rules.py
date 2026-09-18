@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from lakota_grades import late_rules
+from fridgesheet import late_rules
 
 TZ = ZoneInfo("America/New_York")
 DUE = datetime(2026, 9, 4, 15, 0, tzinfo=TZ)

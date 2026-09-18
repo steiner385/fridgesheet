@@ -15,9 +15,9 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import runner  # noqa: E402
-from lakota_grades.config import ReportConfig, Settings  # noqa: E402
-from lakota_grades.host.printing import PrintError  # noqa: E402
+from fridgesheet import runner  # noqa: E402
+from fridgesheet.config import ReportConfig, Settings  # noqa: E402
+from fridgesheet.host.printing import PrintError  # noqa: E402
 from tests.test_reports import _snapshot  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")
@@ -64,7 +64,7 @@ def test_archive_copy_never_writes_outside_the_archive_root(tmp_path):
         assert runner.archive_copy(pdf, str(archive), day, bad) is None
     assert not any(archive.rglob("*"))    # every refusal above copied nothing at all
 
-    for reduced in ("../../../../tmp/lakota-escaped Report.pdf", "sub/dir.pdf", "sub\\dir.pdf",
+    for reduced in ("../../../../tmp/fridgesheet-escaped Report.pdf", "sub/dir.pdf", "sub\\dir.pdf",
                     "C:evil.pdf", "\\\\server\\share\\evil.pdf"):
         dest = runner.archive_copy(pdf, str(archive), day, reduced)
         assert dest is not None and dest.is_file() and dest.resolve().is_relative_to(archive.resolve())
@@ -77,7 +77,7 @@ def test_a_name_the_filesystem_cannot_take_is_a_warning_not_a_crash(env, monkeyp
     """`shutil.copyfile` raises `ValueError`, not `OSError`, on a name carrying a raw NUL byte --
     and a view report's `archive_name` is built from the parent's own text. The archive copy is
     a courtesy, so the run warns and still prints instead of failing on it."""
-    from lakota_grades import reports as registry
+    from fridgesheet import reports as registry
     s, calls, refresh, print_pdf, toast = env
     s.sheets_archive = str(s.home / "archive")
     real = registry.REPORTS["open-work"]
@@ -247,7 +247,7 @@ def test_config_options_feed_the_report_and_cli_overrides_win(env):
 
 
 def test_lock_file_prevents_overlap_and_a_stale_lock_is_ignored(env):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
     lock = s.home / runner.LOCK_NAME
     lock.write_text(str(os.getpid()))
@@ -305,7 +305,7 @@ def test_unknown_report_is_a_logged_failure(env):
 
 
 def test_cli_run_maps_flags_to_run_options(monkeypatch, tmp_path):
-    from lakota_grades import cli
+    from fridgesheet import cli
 
     captured = {}
 
@@ -333,7 +333,7 @@ def test_cli_run_maps_flags_to_run_options(monkeypatch, tmp_path):
 
 
 def test_cli_reports_lists_open_work(monkeypatch, capsys, tmp_path):
-    from lakota_grades import cli
+    from fridgesheet import cli
 
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
     with pytest.raises(SystemExit) as e:
@@ -357,8 +357,8 @@ def test_echo_receives_every_log_line_and_stderr_is_quiet(env, capsys):
 
 def test_runner_loads_flags_from_the_database(env):
     """A flag set in the browser reaches the scheduled sheet: the flagged item is not in rows.json."""
-    from lakota_grades.web import db, ingest
-    from lakota_grades.web.stores import flags as flagstore
+    from fridgesheet.web import db, ingest
+    from fridgesheet.web.stores import flags as flagstore
     s, calls, refresh, print_pdf, toast = env
     conn = db.open_db(s.home)
     ingest.record(conn, _snapshot(), tz=TZ, now=FRI_2PM)
@@ -374,13 +374,13 @@ def test_runner_loads_flags_from_the_database(env):
 
 def test_runner_survives_a_broken_database(env):
     s, calls, refresh, print_pdf, toast = env
-    (s.home / "lakota.db").mkdir()                                  # a directory where the file should be
+    (s.home / "fridgesheet.db").mkdir()                                  # a directory where the file should be
     assert _run(s, runner.RunOptions(dry_run=True), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     assert "WARN" in (s.home / runner.LOG_NAME).read_text()
 
 
 def test_run_ingests_after_refresh_and_records_the_run(env):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
     assert _run(s, runner.RunOptions(printer="Office"), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     conn = db.open_db(s.home)
@@ -392,7 +392,7 @@ def test_run_ingests_after_refresh_and_records_the_run(env):
 
 
 def test_no_refresh_and_skips_still_record_but_do_not_ingest(env):
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
     _run(s, runner.RunOptions(dry_run=True, no_refresh=True, trigger="web"), refresh=refresh, print_pdf=print_pdf, toast=toast)
     _run(s, runner.RunOptions(), now=FRI_2PM.replace(hour=9), refresh=refresh, print_pdf=print_pdf, toast=toast)   # window skip
@@ -406,7 +406,7 @@ def test_run_recording_failure_is_a_warning(env):
     """The database is a passenger even when it opened cleanly. Here the `runs` table
     disappears under a healthy connection mid-run (another process, a bad migration), which
     only `_record_run` touches: the sheet still builds and the run still succeeds."""
-    from lakota_grades.web import db
+    from fridgesheet.web import db
     s, calls, refresh, print_pdf, toast = env
 
     def refresh_then_drop_runs(settings, **kw):

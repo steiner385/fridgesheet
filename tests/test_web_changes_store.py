@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from lakota_grades.web import db, ingest
-from lakota_grades.web.stores import changes, flags, students
+from fridgesheet.web import db, ingest
+from fridgesheet.web.stores import changes, flags, students
 from tests.web_fixtures import NOW, REFRESH_TIMES, TZ, history, seed, snapshot
 
 

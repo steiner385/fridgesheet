@@ -6,7 +6,7 @@
 
 **Architecture:** `host/scheduling_linux.py` stops raising `NotSupported` and grows the same
 shape its Windows sibling has had since Plan B: `install` writes
-`~/.config/systemd/user/lakota-<key>.service` and `.timer` and enables the timer, `remove`
+`~/.config/systemd/user/fridgesheet-<key>.service` and `.timer` and enables the timer, `remove`
 disables and deletes them, `describe` reports on them — every one taking its
 `run=subprocess.run` so the argv is asserted on any OS. One report key, one OS object:
 `host.safe_key` turns `view:7` into the `view-7` that a unit name and a task name can both
@@ -18,7 +18,7 @@ has exactly one editor.
 **Tech Stack:** Python 3.12, systemd user units, Windows Task Scheduler, FastAPI + Jinja2 +
 htmx, `sqlite3`, pytest.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md` — sections 5
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md` — sections 5
 (Schedules page), 9 (jobs and the timers), 10 (service model per platform), 12 (testing),
 13 (plan D).
 
@@ -34,17 +34,17 @@ htmx, `sqlite3`, pytest.
 - **Never run a real `systemctl` or `schtasks` while implementing or testing this plan.**
   Tony's own units are live on this machine. Tests use injected fakes; there is no test
   that shells out.
-- **Never write to, enable, disable or delete `lakota-print-sheet.{service,timer}` or
-  `lakota-grades-refresh.{service,timer}`.** They are hand-written, they are Tony's, and
+- **Never write to, enable, disable or delete `fridgesheet-print-sheet.{service,timer}` or
+  `fridgesheet-refresh.{service,timer}`.** They are hand-written, they are Tony's, and
   spec section 10 says existing ones are untouched. The app reads them and reports them;
   that is all.
-- Existing behaviour that must not change: `task_name("open-work") == "Lakota Sheet - open-work"`,
+- Existing behaviour that must not change: `task_name("open-work") == "Fridge Sheet - open-work"`,
   the Windows task XML, `ScheduleInfo` equality against 4-argument construction, and
   `doctor`'s scheduler probe continuing to find Tony's hand-written timer.
 - Day names are `Mon Tue Wed Thu Fri Sat Sun` (`config.WEEKDAYS` is the Mon–Fri default).
   Times are `HH:MM`, 24-hour, validated with the same message on both platforms.
 - The test command is
-  `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`.
+  `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`.
   Run the whole suite at the end of every task; it is 448 tests and takes ~15 s.
 - Commit messages end with `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
 
@@ -59,21 +59,21 @@ These were open questions before the plan; an implementer must not re-litigate t
 *instance*) and an illegal Task Scheduler name. `host.safe_key` reduces a key to
 `[A-Za-z0-9._-]`, so `view:7` → `view-7` and `open-work` → `open-work` (unchanged — every
 existing Windows task keeps its name). The report's **title never appears in the name**: a
-title is user-editable, and a unit named `lakota-weekly-summary-7.timer` would be orphaned
+title is user-editable, and a unit named `fridgesheet-weekly-summary-7.timer` would be orphaned
 the first time a parent renamed the report — still firing every week, no longer findable by
 `remove`. The human-readable name lives in the unit's `Description=`, which is rewritten on
 every save and costs nothing when it goes stale.
 
-**2. The generated units are `lakota-<safe-key>.service` + `.timer`, never the legacy names.**
-`scheduling_linux._unit` today maps `open-work` to `lakota-print-sheet.timer`, which is
+**2. The generated units are `fridgesheet-<safe-key>.service` + `.timer`, never the legacy names.**
+`scheduling_linux._unit` today maps `open-work` to `fridgesheet-print-sheet.timer`, which is
 Tony's hand-written unit running the *old* `print-sheet` command. Writing there would
-overwrite a unit the app did not author. The app writes `lakota-open-work.{service,timer}`
+overwrite a unit the app did not author. The app writes `fridgesheet-open-work.{service,timer}`
 instead, and:
 - `describe` looks at the app's unit first and falls back to the legacy one read-only, so
   Tony's `doctor` and Settings keep reporting the timer that is actually printing his sheet.
   The fallback sets `ScheduleInfo.manageable = False`.
 - `install` **refuses** with a `SchedulingError` when the legacy timer for that key is
-  enabled, naming the exact `systemctl --user disable --now lakota-print-sheet.timer` that
+  enabled, naming the exact `systemctl --user disable --now fridgesheet-print-sheet.timer` that
   clears the way. Installing alongside it would print the sheet twice every afternoon.
 - `remove` never touches a legacy unit.
 
@@ -114,33 +114,33 @@ only.
 ## File structure
 
 **Created:**
-- `lakota_grades/web/schedules.py` — the Schedules page's work as plain functions: read
+- `fridgesheet/web/schedules.py` — the Schedules page's work as plain functions: read
   every report's schedule (`rows`), and write one (`save`). No FastAPI import.
-- `lakota_grades/web/routes/schedules.py` — `GET /schedules`, `POST /schedules`.
-- `lakota_grades/web/templates/schedules.html` — one form per report.
+- `fridgesheet/web/routes/schedules.py` — `GET /schedules`, `POST /schedules`.
+- `fridgesheet/web/templates/schedules.html` — one form per report.
 - `tests/test_host_scheduling_linux.py` — the unit text, the argv, the legacy rules.
 - `tests/test_web_schedules.py` — `schedules.rows` / `schedules.save` with a fake scheduler.
 - `tests/test_web_schedules_page.py` — the page through `TestClient`.
 
 **Modified:**
-- `lakota_grades/host/__init__.py` — `safe_key`, `DAY_NAMES`, `check_schedule`,
+- `fridgesheet/host/__init__.py` — `safe_key`, `DAY_NAMES`, `check_schedule`,
   `ScheduleInfo.manageable`; `task_name` sanitises.
-- `lakota_grades/host/scheduling_linux.py` — the whole module: unit text, install, remove,
+- `fridgesheet/host/scheduling_linux.py` — the whole module: unit text, install, remove,
   describe.
-- `lakota_grades/host/scheduling_windows.py` — `render_task_xml` takes an optional
+- `fridgesheet/host/scheduling_windows.py` — `render_task_xml` takes an optional
   `description`; day/time validation moves to `host.check_schedule`.
-- `lakota_grades/config.py` — `ReportConfig.printer` and `.prints`, parsed from `printer`
+- `fridgesheet/config.py` — `ReportConfig.printer` and `.prints`, parsed from `printer`
   and `print`.
-- `lakota_grades/runner.py` — the per-report printer and the PDF-only branch.
-- `lakota_grades/reports/__init__.py` — `available(home)`.
-- `lakota_grades/cli.py` — `cmd_schedule` resolves `view:<id>`; help text; `cmd_reports`
+- `fridgesheet/runner.py` — the per-report printer and the PDF-only branch.
+- `fridgesheet/reports/__init__.py` — `available(home)`.
+- `fridgesheet/cli.py` — `cmd_schedule` resolves `view:<id>`; help text; `cmd_reports`
   lists saved reports too.
-- `lakota_grades/web/actions.py` — `printer_names` moves here; the schedule fields leave
+- `fridgesheet/web/actions.py` — `printer_names` moves here; the schedule fields leave
   `FormValues`, `validate`, `load_form` and `save`.
-- `lakota_grades/web/routes/settings.py` — loses `_printers`, `time` and `scheduled`.
-- `lakota_grades/web/templates/settings.html` — the schedule controls become a link.
-- `lakota_grades/web/templates/base.html` — a Schedules link in the nav.
-- `lakota_grades/web/app.py` — register the router.
+- `fridgesheet/web/routes/settings.py` — loses `_printers`, `time` and `scheduled`.
+- `fridgesheet/web/templates/settings.html` — the schedule controls become a link.
+- `fridgesheet/web/templates/base.html` — a Schedules link in the nav.
+- `fridgesheet/web/app.py` — register the router.
 - `tests/test_host_scheduling.py`, `tests/test_config.py`, `tests/test_runner.py`,
   `tests/test_reports.py`, `tests/test_web_actions.py`, `tests/test_web_settings_page.py`,
   `tests/test_web_pages.py` — follow the changes above.
@@ -155,8 +155,8 @@ This task adds the single reduction both use, plus the shared day/time validatio
 by hand."
 
 **Files:**
-- Modify: `lakota_grades/host/__init__.py`
-- Modify: `lakota_grades/host/scheduling_windows.py:17-30` (`render_task_xml`)
+- Modify: `fridgesheet/host/__init__.py`
+- Modify: `fridgesheet/host/scheduling_windows.py:17-30` (`render_task_xml`)
 - Test: `tests/test_host_scheduling.py`
 
 **Interfaces:**
@@ -166,7 +166,7 @@ by hand."
   - `host.DAY_NAMES: tuple[str, ...]` — `("Mon","Tue","Wed","Thu","Fri","Sat","Sun")`
   - `host.check_schedule(time: str, days: list[str]) -> None` — raises `SchedulingError`
   - `host.ScheduleInfo(managed_by, installed, next_run, last_result, manageable=True)`
-  - `host.task_name(key)` — now `f"Lakota Sheet - {safe_key(key)}"`
+  - `host.task_name(key)` — now `f"Fridge Sheet - {safe_key(key)}"`
   - `scheduling_windows.render_task_xml(name, time, days, exe, args, workdir, description=None)`
 
 - [ ] **Step 1: Write the failing tests**
@@ -183,7 +183,7 @@ def test_safe_key_makes_a_name_both_operating_systems_accept():
     assert host.safe_key("a/b\\c d") == "a-b-c-d"
     assert host.safe_key("...") == "report"                   # nothing usable left
     assert host.safe_key("") == "report"
-    assert host.task_name("view:7") == "Lakota Sheet - view 7"
+    assert host.task_name("view:7") == "Fridge Sheet - view 7"
 
 
 def test_check_schedule_speaks_once_for_both_platforms():
@@ -207,9 +207,9 @@ def test_schedule_info_says_whether_the_app_may_change_it():
 
 
 def test_task_xml_description_can_be_the_reports_title():
-    xml = scheduling_windows.render_task_xml("Lakota Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
-                                             description="Lakota Sheet: Weekly summary")
-    assert "<Description>Lakota Sheet: Weekly summary</Description>" in xml
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
+                                             description="Fridge Sheet: Weekly summary")
+    assert "<Description>Fridge Sheet: Weekly summary</Description>" in xml
 
 
 def test_windows_install_takes_the_same_keywords_as_the_linux_one():
@@ -224,29 +224,29 @@ def test_windows_install_takes_the_same_keywords_as_the_linux_one():
 
     scheduling_windows.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run,
                                title="Weekly summary", home="/anything", timezone="America/New_York")
-    assert "<Description>Lakota Sheet: Weekly summary</Description>" in seen["xml"]
+    assert "<Description>Fridge Sheet: Weekly summary</Description>" in seen["xml"]
 ```
 
 Add `import host` to the module's imports:
 
 ```python
-from lakota_grades import host
-from lakota_grades.host import NotSupported, scheduling, scheduling_linux, scheduling_windows
+from fridgesheet import host
+from fridgesheet.host import NotSupported, scheduling, scheduling_linux, scheduling_windows
 ```
 
-Note `task_name("view:7")` is `"Lakota Sheet - view 7"` — the dash-space-dash of
-`"Lakota Sheet - view-7"` reads badly and Task Scheduler is happy with a space. `safe_key`
+Note `task_name("view:7")` is `"Fridge Sheet - view 7"` — the dash-space-dash of
+`"Fridge Sheet - view-7"` reads badly and Task Scheduler is happy with a space. `safe_key`
 returns `view-7`; `task_name` replaces the hyphens it introduced with spaces for display
 only. Keep the two separate: `safe_key` is for file names, `task_name` is for a title.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling.py -q`
-Expected: FAIL — `AttributeError: module 'lakota_grades.host' has no attribute 'safe_key'`.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling.py -q`
+Expected: FAIL — `AttributeError: module 'fridgesheet.host' has no attribute 'safe_key'`.
 
 - [ ] **Step 3: Implement**
 
-In `lakota_grades/host/__init__.py`, add `import re` to the imports and then, replacing the
+In `fridgesheet/host/__init__.py`, add `import re` to the imports and then, replacing the
 existing `task_name`:
 
 ```python
@@ -284,10 +284,10 @@ def check_schedule(time: str, days: list[str]) -> None:
 def task_name(key: str) -> str:
     """The Windows task's display name. `safe_key`'s hyphens read badly in a title, so they
     become spaces here; this is a label, not a file name."""
-    return f"Lakota Sheet - {safe_key(key).replace('-', ' ') if ':' in key else key}"
+    return f"Fridge Sheet - {safe_key(key).replace('-', ' ') if ':' in key else key}"
 ```
 
-`task_name` keeps a key with no colon verbatim so `open-work` stays `Lakota Sheet - open-work`.
+`task_name` keeps a key with no colon verbatim so `open-work` stays `Fridge Sheet - open-work`.
 
 And `ScheduleInfo`:
 
@@ -301,7 +301,7 @@ class ScheduleInfo:
     manageable: bool = True         # False: found, but this app did not write it and will not change it
 ```
 
-In `lakota_grades/host/scheduling_windows.py`, delete `_TIME_RE` and the day/time checks from
+In `fridgesheet/host/scheduling_windows.py`, delete `_TIME_RE` and the day/time checks from
 `render_task_xml`, import `check_schedule` and `DAY_NAMES`, and take the description:
 
 ```python
@@ -314,9 +314,9 @@ _DAY_TAGS = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thur
 def render_task_xml(name: str, time: str, days: list[str], exe: str, args: str, workdir: str,
                     description: str | None = None) -> str:
     check_schedule(time, days)
-    template = resources.files("lakota_grades.host").joinpath("task.xml").read_text(encoding="utf-8")
+    template = resources.files("fridgesheet.host").joinpath("task.xml").read_text(encoding="utf-8")
     day_xml = "\n".join(f"          <{_DAY_TAGS[d]} />" for d in days)
-    desc = description or f"Lakota Sheet: {name.split(' - ', 1)[-1]}"
+    desc = description or f"Fridge Sheet: {name.split(' - ', 1)[-1]}"
     return (template.replace("{description}", escape(desc))
                     .replace("{start}", f"2026-01-01T{time}:00")
                     .replace("{days}", day_xml)
@@ -335,22 +335,22 @@ def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: 
     own environment, and `StartBoundary` is local time by definition. They are in the
     signature so `scheduling.install` is one call on both platforms."""
     xml = render_task_xml(task_name(key), time, days, exe, args, workdir,
-                          description=f"Lakota Sheet: {title}" if title else None)
+                          description=f"Fridge Sheet: {title}" if title else None)
 ```
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling.py -q`
 Expected: PASS, including every pre-existing Windows test — the validation messages are
 unchanged, which is the point of copying them verbatim.
 
 Then the whole suite:
-`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q` → 448 + 4 passed.
+`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q` → 448 + 4 passed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/host/__init__.py lakota_grades/host/scheduling_windows.py tests/test_host_scheduling.py
+git add fridgesheet/host/__init__.py fridgesheet/host/scheduling_windows.py tests/test_host_scheduling.py
 git commit -m "host: one safe name and one schedule check for both platforms
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -364,13 +364,13 @@ Pure functions, no filesystem and no `systemctl`, so every line of the generated
 pinned by a test that runs on any OS.
 
 **Files:**
-- Modify: `lakota_grades/host/scheduling_linux.py`
+- Modify: `fridgesheet/host/scheduling_linux.py`
 - Test: `tests/test_host_scheduling_linux.py` (create)
 
 **Interfaces:**
 - Consumes: `host.safe_key`, `host.check_schedule` (Task 1).
 - Produces:
-  - `scheduling_linux.unit_stem(key) -> str` — `"lakota-open-work"`
+  - `scheduling_linux.unit_stem(key) -> str` — `"fridgesheet-open-work"`
   - `scheduling_linux.service_unit(key) -> str` / `timer_unit(key) -> str`
   - `scheduling_linux._unit_dir(d: Path | None = None) -> Path` — private, so the public
     keyword can be `unit_dir=`, matching `service_linux.install(..., unit_dir=None)`
@@ -392,24 +392,24 @@ from pathlib import Path
 
 import pytest
 
-from lakota_grades.host import ScheduleInfo, SchedulingError, scheduling_linux as sl
+from fridgesheet.host import ScheduleInfo, SchedulingError, scheduling_linux as sl
 
 
 def test_unit_names_come_from_the_key_alone():
-    assert sl.unit_stem("open-work") == "lakota-open-work"
-    assert sl.service_unit("open-work") == "lakota-open-work.service"
-    assert sl.timer_unit("view:7") == "lakota-view-7.timer"          # no colon: systemd reads one as an instance
+    assert sl.unit_stem("open-work") == "fridgesheet-open-work"
+    assert sl.service_unit("open-work") == "fridgesheet-open-work.service"
+    assert sl.timer_unit("view:7") == "fridgesheet-view-7.timer"          # no colon: systemd reads one as an instance
     assert sl.unit_stem("view:7") != sl.unit_stem("view:8")
 
 
 def test_the_service_is_a_oneshot_that_is_given_time_to_finish():
-    text = sl.service_text("open-work", "Open Work Sheet", "/venv/bin/lakota-grades", "run open-work",
-                           "/home/tony", "/home/tony/.lakota-grades")
-    assert "Description=Lakota Sheet: Open Work Sheet" in text
+    text = sl.service_text("open-work", "Open Work Sheet", "/venv/bin/fridgesheet", "run open-work",
+                           "/home/tony", "/home/tony/.fridgesheet")
+    assert "Description=Fridge Sheet: Open Work Sheet" in text
     assert "Type=oneshot" in text
-    assert "ExecStart=/venv/bin/lakota-grades run open-work" in text
+    assert "ExecStart=/venv/bin/fridgesheet run open-work" in text
     assert "WorkingDirectory=/home/tony" in text
-    assert "Environment=LAKOTA_GRADES_HOME=/home/tony/.lakota-grades" in text
+    assert "Environment=FRIDGESHEET_HOME=/home/tony/.fridgesheet" in text
     # The refresh inside is 3 kids x 2 sites plus a possible login: 1-3 minutes. systemd's
     # default 90 s start timeout would SIGTERM it partway through every run.
     assert "TimeoutStartSec=900" in text
@@ -423,9 +423,9 @@ def test_the_timer_lists_its_days_and_catches_up():
     assert "OnCalendar=Mon,Tue,Wed,Thu,Fri 14:00 America/New_York" in text
     assert "Mon.." not in text                # a list, not a range: correct for any set of days
     assert "Persistent=true" in text
-    assert "Unit=lakota-open-work.service" in text
+    assert "Unit=fridgesheet-open-work.service" in text
     assert "WantedBy=timers.target" in text
-    assert "Description=Lakota Sheet: Open Work Sheet (Mon, Tue, Wed, Thu, Fri at 14:00)" in text
+    assert "Description=Fridge Sheet: Open Work Sheet (Mon, Tue, Wed, Thu, Fri at 14:00)" in text
 
 
 def test_a_timer_with_no_time_zone_configured_still_writes_a_valid_line():
@@ -441,28 +441,28 @@ def test_bad_days_or_times_never_become_a_unit():
 
 
 def test_the_hand_written_timer_is_named_but_never_generated():
-    """Tony's own lakota-print-sheet.timer runs the old print-sheet command. The app reports it
+    """Tony's own fridgesheet-print-sheet.timer runs the old print-sheet command. The app reports it
     and refuses to write over it; the unit it writes has a different name."""
-    assert sl.LEGACY_TIMERS["open-work"] == "lakota-print-sheet.timer"
+    assert sl.LEGACY_TIMERS["open-work"] == "fridgesheet-print-sheet.timer"
     assert sl.timer_unit("open-work") not in sl.LEGACY_TIMERS.values()
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py -q`
 Expected: FAIL — `AttributeError: module ... has no attribute 'unit_stem'`.
 
 - [ ] **Step 3: Implement**
 
-Replace the top of `lakota_grades/host/scheduling_linux.py` (keep `describe` for now; Task 4
+Replace the top of `fridgesheet/host/scheduling_linux.py` (keep `describe` for now; Task 4
 rewrites it):
 
 ```python
 """Scheduled reports on Linux: a systemd user timer per report, written by the app.
 
-The app writes `lakota-<key>.service` and `lakota-<key>.timer` under
+The app writes `fridgesheet-<key>.service` and `fridgesheet-<key>.timer` under
 `~/.config/systemd/user` and enables the timer. It never writes, enables, disables or
-deletes a unit it did not author: the hand-written `lakota-print-sheet.timer` in
+deletes a unit it did not author: the hand-written `fridgesheet-print-sheet.timer` in
 `LEGACY_TIMERS` is reported by `describe` and left alone by everything else (spec section
 10, "existing ones untouched").
 """
@@ -474,7 +474,7 @@ from pathlib import Path
 from . import ScheduleInfo, SchedulingError, check_schedule, safe_key
 
 #: Units this app did not write. Reported read-only; never installed over, never removed.
-LEGACY_TIMERS = {"open-work": "lakota-print-sheet.timer"}
+LEGACY_TIMERS = {"open-work": "fridgesheet-print-sheet.timer"}
 
 #: A refresh is 3 kids x 2 sites plus a possible login: one to three minutes. systemd's
 #: default start timeout is 90 s, which would SIGTERM the run partway through every time.
@@ -482,7 +482,7 @@ TIMEOUT_START_SEC = 900
 
 
 def unit_stem(key: str) -> str:
-    return f"lakota-{safe_key(key)}"
+    return f"fridgesheet-{safe_key(key)}"
 
 
 def service_unit(key: str) -> str:
@@ -507,13 +507,13 @@ def service_text(key: str, title: str, exe: str, args: str, workdir: str, home: 
     target is not in a user manager's unit graph, so it would document an ordering rather
     than create one.
 
-    `LAKOTA_GRADES_HOME` is written explicitly so the unit keeps running against the home
+    `FRIDGESHEET_HOME` is written explicitly so the unit keeps running against the home
     the app was configured with, whatever the environment of the session that fires it.
     """
     return (
-        f"[Unit]\nDescription=Lakota Sheet: {title}\n\n"
+        f"[Unit]\nDescription=Fridge Sheet: {title}\n\n"
         f"[Service]\nType=oneshot\n"
-        f"Environment=LAKOTA_GRADES_HOME={home}\n"
+        f"Environment=FRIDGESHEET_HOME={home}\n"
         f"ExecStart={exe} {args}\n"
         f"WorkingDirectory={workdir}\n"
         f"TimeoutStartSec={TIMEOUT_START_SEC}\n"
@@ -532,7 +532,7 @@ def timer_text(key: str, title: str, time: str, days: list[str], timezone: str) 
     check_schedule(time, days)
     when = f"{','.join(days)} {time}" + (f" {timezone}" if timezone else "")
     return (
-        f"[Unit]\nDescription=Lakota Sheet: {title} ({', '.join(days)} at {time})\n\n"
+        f"[Unit]\nDescription=Fridge Sheet: {title} ({', '.join(days)} at {time})\n\n"
         f"[Timer]\nUnit={service_unit(key)}\nOnCalendar={when}\nPersistent=true\n\n"
         "[Install]\nWantedBy=timers.target\n"
     )
@@ -559,16 +559,16 @@ def describe(key: str, run=subprocess.run):
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py tests/test_host_scheduling.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py tests/test_host_scheduling.py -q`
 Expected: PASS. The existing `test_linux_is_read_only_and_reads_systemd` still passes
 because `install`/`remove` still raise.
 
-Whole suite: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q` → all pass.
+Whole suite: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q` → all pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/host/scheduling_linux.py tests/test_host_scheduling_linux.py
+git add fridgesheet/host/scheduling_linux.py tests/test_host_scheduling_linux.py
 git commit -m "host.scheduling_linux: the text of a report's timer
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -579,7 +579,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 3: Installing and removing the units
 
 **Files:**
-- Modify: `lakota_grades/host/scheduling_linux.py`
+- Modify: `fridgesheet/host/scheduling_linux.py`
 - Modify: `tests/test_host_scheduling.py:99-103` (the read-only test is no longer true)
 - Test: `tests/test_host_scheduling_linux.py`
 
@@ -610,38 +610,38 @@ def _recorder(results=None):
 
 
 def test_install_writes_both_units_and_enables_only_the_timer(tmp_path):
-    calls, run = _recorder({("is-enabled", "lakota-print-sheet.timer"): (1, "disabled\n")})
-    sl.install("open-work", "14:00", ["Mon", "Fri"], "/venv/bin/lakota-grades", "run open-work", "/home/tony",
-               run=run, title="Open Work Sheet", home="/home/tony/.lakota-grades",
+    calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n")})
+    sl.install("open-work", "14:00", ["Mon", "Fri"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+               run=run, title="Open Work Sheet", home="/home/tony/.fridgesheet",
                timezone="America/New_York", unit_dir=tmp_path)
 
-    service = (tmp_path / "lakota-open-work.service").read_text()
-    timer = (tmp_path / "lakota-open-work.timer").read_text()
-    assert "ExecStart=/venv/bin/lakota-grades run open-work" in service
+    service = (tmp_path / "fridgesheet-open-work.service").read_text()
+    timer = (tmp_path / "fridgesheet-open-work.timer").read_text()
+    assert "ExecStart=/venv/bin/fridgesheet run open-work" in service
     assert "OnCalendar=Mon,Fri 14:00 America/New_York" in timer
 
     assert calls == [
-        ["systemctl", "--user", "is-enabled", "lakota-print-sheet.timer"],
+        ["systemctl", "--user", "is-enabled", "fridgesheet-print-sheet.timer"],
         ["systemctl", "--user", "daemon-reload"],
-        ["systemctl", "--user", "enable", "--now", "lakota-open-work.timer"],
+        ["systemctl", "--user", "enable", "--now", "fridgesheet-open-work.timer"],
     ]
 
 
 def test_install_refuses_while_the_hand_written_timer_is_enabled(tmp_path):
     """Installing alongside it would print the sheet twice every afternoon. The message names
     the one command that clears the way."""
-    calls, run = _recorder({("is-enabled", "lakota-print-sheet.timer"): (0, "enabled\n")})
-    with pytest.raises(SchedulingError, match="systemctl --user disable --now lakota-print-sheet.timer"):
+    calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (0, "enabled\n")})
+    with pytest.raises(SchedulingError, match="systemctl --user disable --now fridgesheet-print-sheet.timer"):
         sl.install("open-work", "14:00", ["Mon"], "x", "run open-work", ".", run=run, unit_dir=tmp_path)
     assert not list(tmp_path.iterdir())          # nothing written before the refusal
-    assert calls == [["systemctl", "--user", "is-enabled", "lakota-print-sheet.timer"]]
+    assert calls == [["systemctl", "--user", "is-enabled", "fridgesheet-print-sheet.timer"]]
 
 
 def test_a_report_with_no_legacy_unit_is_not_asked_about(tmp_path):
     calls, run = _recorder()
     sl.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run, title="Weekly summary",
                home="/h", timezone="", unit_dir=tmp_path)
-    assert (tmp_path / "lakota-view-7.timer").is_file() and (tmp_path / "lakota-view-7.service").is_file()
+    assert (tmp_path / "fridgesheet-view-7.timer").is_file() and (tmp_path / "fridgesheet-view-7.service").is_file()
     assert calls[0] == ["systemctl", "--user", "daemon-reload"]
 
 
@@ -662,14 +662,14 @@ def test_install_reports_what_systemctl_refused(tmp_path):
 
 
 def test_remove_disables_deletes_both_units_and_reloads(tmp_path):
-    (tmp_path / "lakota-view-7.timer").write_text("x")
-    (tmp_path / "lakota-view-7.service").write_text("x")
+    (tmp_path / "fridgesheet-view-7.timer").write_text("x")
+    (tmp_path / "fridgesheet-view-7.service").write_text("x")
     calls, run = _recorder()
     sl.remove("view:7", run=run, unit_dir=tmp_path)
-    assert not (tmp_path / "lakota-view-7.timer").exists()
-    assert not (tmp_path / "lakota-view-7.service").exists()
+    assert not (tmp_path / "fridgesheet-view-7.timer").exists()
+    assert not (tmp_path / "fridgesheet-view-7.service").exists()
     assert calls == [
-        ["systemctl", "--user", "disable", "--now", "lakota-view-7.timer"],
+        ["systemctl", "--user", "disable", "--now", "fridgesheet-view-7.timer"],
         ["systemctl", "--user", "daemon-reload"],
     ]
 
@@ -678,7 +678,7 @@ def test_remove_is_quiet_about_a_unit_that_is_not_there(tmp_path):
     _, run = _recorder()
     def absent(argv, **kw):
         return subprocess.CompletedProcess(argv, 1, stdout="",
-                                           stderr="Failed to disable unit: Unit file lakota-view-9.timer does not exist.\n")
+                                           stderr="Failed to disable unit: Unit file fridgesheet-view-9.timer does not exist.\n")
     sl.remove("view:9", run=absent, unit_dir=tmp_path)          # no exception
 
 
@@ -691,11 +691,11 @@ def test_remove_raises_on_anything_else_systemctl_refuses(tmp_path):
 
 def test_remove_never_touches_a_hand_written_unit(tmp_path):
     """`remove("open-work")` deletes the app's own units and leaves Tony's alone."""
-    (tmp_path / "lakota-print-sheet.timer").write_text("his")
-    (tmp_path / "lakota-print-sheet.service").write_text("his")
+    (tmp_path / "fridgesheet-print-sheet.timer").write_text("his")
+    (tmp_path / "fridgesheet-print-sheet.service").write_text("his")
     calls, run = _recorder()
     sl.remove("open-work", run=run, unit_dir=tmp_path)
-    assert (tmp_path / "lakota-print-sheet.timer").read_text() == "his"
+    assert (tmp_path / "fridgesheet-print-sheet.timer").read_text() == "his"
     assert all("print-sheet" not in " ".join(c) for c in calls)
 ```
 
@@ -708,7 +708,7 @@ def test_linux_install_and_remove_are_no_longer_refused(tmp_path):
     def run(argv, **kw):
         return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")      # is-enabled: not enabled
     scheduling_linux.install("view:3", "14:00", ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
-    assert (tmp_path / "lakota-view-3.timer").is_file()
+    assert (tmp_path / "fridgesheet-view-3.timer").is_file()
 ```
 
 Leave the `NotSupported` import in that file only if something still uses it; if nothing
@@ -716,12 +716,12 @@ does, remove it from the import line.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py -q`
 Expected: FAIL — `NotSupported: scheduling on Linux is managed by systemd`.
 
 - [ ] **Step 3: Implement**
 
-In `lakota_grades/host/scheduling_linux.py`:
+In `fridgesheet/host/scheduling_linux.py`:
 
 ```python
 #: What systemctl says when the unit is simply not there. Deliberately narrow, as
@@ -786,7 +786,7 @@ Remove the now-unused `NotSupported` import.
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py tests/test_host_scheduling.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_host_scheduling_linux.py tests/test_host_scheduling.py -q`
 Expected: PASS.
 
 Whole suite. `tests/test_web_settings_page.py` has a `NoScheduling` fake that raises
@@ -795,7 +795,7 @@ Whole suite. `tests/test_web_settings_page.py` has a `NoScheduling` fake that ra
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/host/scheduling_linux.py tests/test_host_scheduling_linux.py tests/test_host_scheduling.py
+git add fridgesheet/host/scheduling_linux.py tests/test_host_scheduling_linux.py tests/test_host_scheduling.py
 git commit -m "host.scheduling_linux: install and remove a report's timer
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -806,7 +806,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 4: Reporting on a schedule, including one the app did not write
 
 **Files:**
-- Modify: `lakota_grades/host/scheduling_linux.py` (`describe`)
+- Modify: `fridgesheet/host/scheduling_linux.py` (`describe`)
 - Test: `tests/test_host_scheduling_linux.py`
 
 **Interfaces:**
@@ -828,20 +828,20 @@ def _systemctl_fake(answers):
 
 def test_describe_reports_the_apps_own_timer(tmp_path):
     calls, run = _systemctl_fake({
-        ("is-enabled", "lakota-view-7.timer"): (0, "enabled\n"),
-        ("show", "lakota-view-7.timer"): (0, "Fri 2026-09-18 16:00:00 EDT\n"),
+        ("is-enabled", "fridgesheet-view-7.timer"): (0, "enabled\n"),
+        ("show", "fridgesheet-view-7.timer"): (0, "Fri 2026-09-18 16:00:00 EDT\n"),
     })
     info = sl.describe("view:7", run=run)
     assert info == ScheduleInfo("systemd", True, "Fri 2026-09-18 16:00:00 EDT", None, True)
 
 
 def test_describe_falls_back_to_the_hand_written_timer_and_marks_it_unmanageable():
-    """Tony's lakota-print-sheet.timer is what actually prints his sheet. Reporting "not
+    """Tony's fridgesheet-print-sheet.timer is what actually prints his sheet. Reporting "not
     scheduled" because the app did not write it would be a lie his doctor output would repeat."""
     _, run = _systemctl_fake({
-        ("is-enabled", "lakota-open-work.timer"): (1, ""),
-        ("is-enabled", "lakota-print-sheet.timer"): (0, "enabled\n"),
-        ("show", "lakota-print-sheet.timer"): (0, "Wed 2026-09-16 14:00:00 EDT\n"),
+        ("is-enabled", "fridgesheet-open-work.timer"): (1, ""),
+        ("is-enabled", "fridgesheet-print-sheet.timer"): (0, "enabled\n"),
+        ("show", "fridgesheet-print-sheet.timer"): (0, "Wed 2026-09-16 14:00:00 EDT\n"),
     })
     info = sl.describe("open-work", run=run)
     assert info.installed is True and info.manageable is False
@@ -851,9 +851,9 @@ def test_describe_falls_back_to_the_hand_written_timer_and_marks_it_unmanageable
 
 def test_the_apps_own_timer_wins_over_a_legacy_one():
     _, run = _systemctl_fake({
-        ("is-enabled", "lakota-open-work.timer"): (0, "enabled\n"),
-        ("show", "lakota-open-work.timer"): (0, "Wed 2026-09-16 14:00:00 EDT\n"),
-        ("is-enabled", "lakota-print-sheet.timer"): (0, "enabled\n"),
+        ("is-enabled", "fridgesheet-open-work.timer"): (0, "enabled\n"),
+        ("show", "fridgesheet-open-work.timer"): (0, "Wed 2026-09-16 14:00:00 EDT\n"),
+        ("is-enabled", "fridgesheet-print-sheet.timer"): (0, "enabled\n"),
     })
     assert sl.describe("open-work", run=run).manageable is True
 
@@ -910,12 +910,12 @@ update it to the new one or delete it as superseded by
 `tests/test_host_scheduling_linux.py` — say which in the commit message.
 
 Whole suite, and check `doctor` specifically:
-`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_doctor.py -q`.
+`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_doctor.py -q`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/host/scheduling_linux.py tests/test_host_scheduling_linux.py tests/test_host_scheduling.py
+git add fridgesheet/host/scheduling_linux.py tests/test_host_scheduling_linux.py tests/test_host_scheduling.py
 git commit -m "host.scheduling_linux: describe reports a hand-written timer too
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -926,8 +926,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 5: A schedule's own printer, and a report that is never printed
 
 **Files:**
-- Modify: `lakota_grades/config.py:138-143` (`ReportConfig`), `:236-252` (parsing)
-- Modify: `lakota_grades/runner.py:386-397`
+- Modify: `fridgesheet/config.py:138-143` (`ReportConfig`), `:236-252` (parsing)
+- Modify: `fridgesheet/runner.py:386-397`
 - Test: `tests/test_config.py`, `tests/test_runner.py`
 
 **Interfaces:**
@@ -1020,7 +1020,7 @@ Expected: FAIL — `TypeError: ReportConfig.__init__() got an unexpected keyword
 
 - [ ] **Step 3: Implement**
 
-`lakota_grades/config.py`:
+`fridgesheet/config.py`:
 
 ```python
 @dataclass
@@ -1051,7 +1051,7 @@ In the parsing loop:
         )
 ```
 
-`lakota_grades/runner.py`, replacing lines 386-397:
+`fridgesheet/runner.py`, replacing lines 386-397:
 
 ```python
             if opts.dry_run:
@@ -1068,13 +1068,13 @@ In the parsing loop:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_config.py tests/test_runner.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_config.py tests/test_runner.py -q`
 Expected: PASS. Then the whole suite.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/config.py lakota_grades/runner.py tests/test_config.py tests/test_runner.py
+git add fridgesheet/config.py fridgesheet/runner.py tests/test_config.py tests/test_runner.py
 git commit -m "runner: a report's own printer, and one that is only ever a PDF
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -1087,8 +1087,8 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 Closes the two `cmd_schedule` items in #35.
 
 **Files:**
-- Modify: `lakota_grades/reports/__init__.py`
-- Modify: `lakota_grades/cli.py:157-191` (`cmd_reports`, `cmd_schedule`), `:255` (help text)
+- Modify: `fridgesheet/reports/__init__.py`
+- Modify: `fridgesheet/cli.py:157-191` (`cmd_reports`, `cmd_schedule`), `:255` (help text)
 - Test: `tests/test_reports.py`
 
 **Interfaces:**
@@ -1101,9 +1101,9 @@ Closes the two `cmd_schedule` items in #35.
 In `tests/test_reports.py`, which needs these added to its imports:
 
 ```python
-from lakota_grades import cli, host  # noqa: E402
-from lakota_grades.web import db, views  # noqa: E402
-from lakota_grades.web.stores import reports as store  # noqa: E402
+from fridgesheet import cli, host  # noqa: E402
+from fridgesheet.web import db, views  # noqa: E402
+from fridgesheet.web.stores import reports as store  # noqa: E402
 ```
 
 ```python
@@ -1124,17 +1124,17 @@ def test_available_without_a_home_is_the_code_reports():
 def test_available_never_fails_because_of_the_database(tmp_path):
     """Listing reports is what a page does before it can say anything at all. A database that
     is missing or unreadable costs the saved reports, not the page."""
-    (tmp_path / "lakota.db").write_bytes(b"this is not a database")
+    (tmp_path / "fridgesheet.db").write_bytes(b"this is not a database")
     assert [r.key for r in reports.available(tmp_path)] == ["open-work"]
 
 
 def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
-    """`lakota-grades schedule install view:1` used to fail with "unknown report" because the
+    """`fridgesheet schedule install view:1` used to fail with "unknown report" because the
     command called the registry's `get` instead of `resolve` (#35).
 
     The idiom is `tests/test_print_sheet.py:185`: `cli.main` ends in `sys.exit`, so the exit
     code arrives as `SystemExit`, and `load_settings` is patched rather than the environment
-    (`config.DEFAULT_HOME` is computed at import, so setting LAKOTA_GRADES_HOME here is too
+    (`config.DEFAULT_HOME` is computed at import, so setting FRIDGESHEET_HOME here is too
     late to take effect).
     """
     conn = db.open_db(tmp_path)
@@ -1152,13 +1152,13 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
             installed.update(key=key, time=time, days=list(days), title=kw.get("title"))
         @staticmethod
         def task_name(key):
-            return f"Lakota Sheet - {key}"
+            return f"Fridge Sheet - {key}"
         @staticmethod
         def describe(key):
             return host.ScheduleInfo("systemd", True, "Fri 16:00", None)
 
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
-    monkeypatch.setattr("lakota_grades.host.scheduling", FakeScheduling)
+    monkeypatch.setattr("fridgesheet.host.scheduling", FakeScheduling)
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", "view:1"])
     assert e.value.code == 0
@@ -1168,11 +1168,11 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
 
 - [ ] **Step 2: Run to verify they fail**
 
-Expected: FAIL — `AttributeError: module 'lakota_grades.reports' has no attribute 'available'`.
+Expected: FAIL — `AttributeError: module 'fridgesheet.reports' has no attribute 'available'`.
 
 - [ ] **Step 3: Implement**
 
-In `lakota_grades/reports/__init__.py`:
+In `fridgesheet/reports/__init__.py`:
 
 ```python
 def available(home: Path | None = None) -> list[Report]:
@@ -1201,7 +1201,7 @@ def available(home: Path | None = None) -> list[Report]:
 
 and add `"available"` to `__all__`.
 
-In `lakota_grades/cli.py`:
+In `fridgesheet/cli.py`:
 
 ```python
 def cmd_reports(args) -> int:
@@ -1256,13 +1256,13 @@ The help text at `cli.py:255`:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_reports.py tests/test_host_scheduling.py -q`, then the whole suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_reports.py tests/test_host_scheduling.py -q`, then the whole suite.
 
 Also run the command for real, read-only, against a scratch home:
 
 ```bash
-env -u PYTHONPATH LAKOTA_GRADES_HOME=/tmp/lakota-plan-d2 \
-  ~/lakota-grades-mcp/.venv/bin/python -m lakota_grades.cli reports
+env -u PYTHONPATH FRIDGESHEET_HOME=/tmp/fridgesheet-plan-d2 \
+  ~/fridgesheet/.venv/bin/python -m fridgesheet.cli reports
 ```
 
 Expected: `open-work  Open Work Sheet  disabled  14:00 Mon,Tue,Wed,Thu,Fri`.
@@ -1271,7 +1271,7 @@ Expected: `open-work  Open Work Sheet  disabled  14:00 Mon,Tue,Wed,Thu,Fri`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/reports/__init__.py lakota_grades/cli.py tests/test_reports.py
+git add fridgesheet/reports/__init__.py fridgesheet/cli.py tests/test_reports.py
 git commit -m "reports: every report a parent can schedule, saved ones included
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -1282,7 +1282,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 7: The Schedules page's work, without a web framework
 
 **Files:**
-- Create: `lakota_grades/web/schedules.py`
+- Create: `fridgesheet/web/schedules.py`
 - Test: `tests/test_web_schedules.py` (create)
 
 **Interfaces:**
@@ -1328,10 +1328,10 @@ class FakeScheduling:
         return self._info.get(key, host.ScheduleInfo("systemd", False, None, None))
 
     def task_name(self, key):
-        return f"Lakota Sheet - {key}"
+        return f"Fridge Sheet - {key}"
 ```
 
-with `from lakota_grades import host` added to that file's imports.
+with `from fridgesheet import host` added to that file's imports.
 
 Then create `tests/test_web_schedules.py`:
 
@@ -1342,9 +1342,9 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from lakota_grades import host
-from lakota_grades.web import db, schedules, views
-from lakota_grades.web.stores import reports as store
+from fridgesheet import host
+from fridgesheet.web import db, schedules, views
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling
 
 
@@ -1448,11 +1448,11 @@ def test_a_schedule_waits_for_a_passing_test_login(tmp_path):
 
 - [ ] **Step 2: Run to verify it fails**
 
-Expected: FAIL — `ModuleNotFoundError: No module named 'lakota_grades.web.schedules'`.
+Expected: FAIL — `ModuleNotFoundError: No module named 'fridgesheet.web.schedules'`.
 
 - [ ] **Step 3: Implement**
 
-Create `lakota_grades/web/schedules.py`:
+Create `fridgesheet/web/schedules.py`:
 
 ```python
 """The Schedules page's work: config.toml's `[reports.<key>]` and the OS timer or task,
@@ -1588,13 +1588,13 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_schedules.py -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_schedules.py -q`
 Expected: PASS. Then the whole suite.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web/schedules.py tests/test_web_schedules.py tests/web_fixtures.py
+git add fridgesheet/web/schedules.py tests/test_web_schedules.py tests/web_fixtures.py
 git commit -m "web.schedules: one editor for a schedule's two halves
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -1605,12 +1605,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 8: The Schedules page
 
 **Files:**
-- Create: `lakota_grades/web/routes/schedules.py`
-- Create: `lakota_grades/web/templates/schedules.html`
-- Modify: `lakota_grades/web/app.py:278-280`
-- Modify: `lakota_grades/web/templates/base.html:21` (the nav)
-- Modify: `lakota_grades/web/actions.py` (add `printer_names`)
-- Modify: `lakota_grades/web/routes/settings.py:14-21` (use it)
+- Create: `fridgesheet/web/routes/schedules.py`
+- Create: `fridgesheet/web/templates/schedules.html`
+- Modify: `fridgesheet/web/app.py:278-280`
+- Modify: `fridgesheet/web/templates/base.html:21` (the nav)
+- Modify: `fridgesheet/web/actions.py` (add `printer_names`)
+- Modify: `fridgesheet/web/routes/settings.py:14-21` (use it)
 - Test: `tests/test_web_schedules_page.py` (create)
 
 **Interfaces:**
@@ -1630,9 +1630,9 @@ import tomllib
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config, host
-from lakota_grades.web import app as webapp, db, views
-from lakota_grades.web.stores import reports as store
+from fridgesheet import config, host
+from fridgesheet.web import app as webapp, db, views
+from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling, seed
 
 
@@ -1644,8 +1644,8 @@ def _client(tmp_path, sched=None):
     (tmp_path / "login-ok.txt").write_text("ok")
     s = config.Settings(home=tmp_path)
     application = webapp.create_app(s, worker=False)
-    application.state.lakota.extra["scheduling"] = sched or FakeScheduling()
-    application.state.lakota.extra["printers"] = ["Brother", "Canon"]
+    application.state.fridgesheet.extra["scheduling"] = sched or FakeScheduling()
+    application.state.fridgesheet.extra["printers"] = ["Brother", "Canon"]
     return TestClient(application), application
 
 
@@ -1689,7 +1689,7 @@ def test_a_bad_time_comes_back_as_an_error_not_a_crash(tmp_path):
 
 
 def test_a_hand_written_timer_is_shown_but_not_offered_for_removal(tmp_path):
-    """The app reports Tony's own lakota-print-sheet.timer and gives no button that would
+    """The app reports Tony's own fridgesheet-print-sheet.timer and gives no button that would
     delete a unit it did not write."""
     sched = FakeScheduling({"open-work": host.ScheduleInfo("systemd (hand-written)", True, "Wed 14:00", None, False)})
     c, _ = _client(tmp_path, sched)
@@ -1733,7 +1733,7 @@ def printer_names(extra: dict) -> list[str]:
 
 and in `routes/settings.py` delete `_printers` and call `actions.printer_names(state.extra)`.
 
-Create `lakota_grades/web/routes/schedules.py`:
+Create `fridgesheet/web/routes/schedules.py`:
 
 ```python
 """Schedules: one row per report, days and a time, a printer or PDF only."""
@@ -1784,11 +1784,11 @@ async def save(request: Request, conn: sqlite3.Connection = Db, state=State):
 Check `state.reload()` exists and is what the Settings route calls after a config write; use
 the same call.
 
-Create `lakota_grades/web/templates/schedules.html`:
+Create `fridgesheet/web/templates/schedules.html`:
 
 ```html
 {% extends "base.html" %}
-{% block title %}Schedules · Lakota Sheet{% endblock %}
+{% block title %}Schedules · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Schedules</h2>
 <p class="muted">A scheduled report runs itself: it refreshes, builds, and prints (or just keeps the PDF).
@@ -1842,28 +1842,28 @@ a full response is the honest way to show it.
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_schedules_page.py -q`, then the whole suite. `tests/test_web_pages.py` may assert the
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_schedules_page.py -q`, then the whole suite. `tests/test_web_pages.py` may assert the
 exact nav; update it if so.
 
 Then look at the page for real:
 
 ```bash
-env -u PYTHONPATH LAKOTA_GRADES_HOME=/tmp/lakota-plan-d2 \
-  ~/lakota-grades-mcp/.venv/bin/python -m lakota_grades.cli web --no-browser --port 8451 &
+env -u PYTHONPATH FRIDGESHEET_HOME=/tmp/fridgesheet-plan-d2 \
+  ~/fridgesheet/.venv/bin/python -m fridgesheet.cli web --no-browser --port 8451 &
 curl -s localhost:8451/schedules | head -60
 kill %1
 ```
 
-A scratch home, never `~/.lakota-grades`. The page will say "not scheduled" for every row
+A scratch home, never `~/.fridgesheet`. The page will say "not scheduled" for every row
 on this machine unless the legacy fallback finds Tony's timer — which is the interesting
 case to eyeball, so check what it prints.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web/routes/schedules.py lakota_grades/web/templates/schedules.html \
-        lakota_grades/web/templates/base.html lakota_grades/web/app.py \
-        lakota_grades/web/actions.py lakota_grades/web/routes/settings.py \
+git add fridgesheet/web/routes/schedules.py fridgesheet/web/templates/schedules.html \
+        fridgesheet/web/templates/base.html fridgesheet/web/app.py \
+        fridgesheet/web/actions.py fridgesheet/web/routes/settings.py \
         tests/test_web_schedules_page.py
 git commit -m "web: the Schedules page
 
@@ -1875,10 +1875,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 9: One editor, not two — the schedule leaves Settings
 
 **Files:**
-- Modify: `lakota_grades/web/actions.py:36-46` (`FormValues`), `:63-77` (`load_form`),
+- Modify: `fridgesheet/web/actions.py:36-46` (`FormValues`), `:63-77` (`load_form`),
   `:97-119` (`validate`), `:139-210` (`save`)
-- Modify: `lakota_grades/web/routes/settings.py:36-53`
-- Modify: `lakota_grades/web/templates/settings.html`
+- Modify: `fridgesheet/web/routes/settings.py:36-53`
+- Modify: `fridgesheet/web/templates/settings.html`
 - Test: `tests/test_web_actions.py`, `tests/test_web_settings_page.py`
 
 **Interfaces:**
@@ -1909,7 +1909,7 @@ def test_saving_settings_never_touches_the_scheduler(tmp_path):
         def remove(self, *a, **k):
             raise AssertionError("Settings must not remove a schedule")
     c, app = _client(tmp_path)
-    app.state.lakota.extra["scheduling"] = Exploding()
+    app.state.fridgesheet.extra["scheduling"] = Exploding()
     r = c.post("/settings", data={**FORM, "password": "pw"})
     assert r.status_code == 200 and "Settings saved" in r.text
 
@@ -1961,7 +1961,7 @@ Delete `SaveResult.schedule_installed` and `.schedule_error`, and the
 `SaveResult(True, messages, None, ...)` third argument at every return. Nothing outside
 `actions.py` reads them: the only readers are the `tests/test_web_actions.py` assertions
 this task deletes (lines 167-226), which is verified — `grep -rn
-"schedule_installed\|schedule_error" lakota_grades/ tests/` before and after should go from
+"schedule_installed\|schedule_error" fridgesheet/ tests/` before and after should go from
 those lines to nothing. `restart_needed` stays.
 
 `routes/settings.py`: drop `time` and `scheduled` from the `save` signature and from the
@@ -1980,7 +1980,7 @@ options and have nothing to do with a timer. Check the template for a heading li
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest tests/test_web_settings_page.py tests/test_web_actions.py -q`, then the whole suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest tests/test_web_settings_page.py tests/test_web_actions.py -q`, then the whole suite.
 
 Then load both pages for real against the scratch home, as in Task 8, and confirm Settings
 has no schedule controls and Schedules has them all.
@@ -1988,8 +1988,8 @@ has no schedule controls and Schedules has them all.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lakota_grades/web/actions.py lakota_grades/web/routes/settings.py \
-        lakota_grades/web/templates/settings.html tests/test_web_actions.py tests/test_web_settings_page.py
+git add fridgesheet/web/actions.py fridgesheet/web/routes/settings.py \
+        fridgesheet/web/templates/settings.html tests/test_web_actions.py tests/test_web_settings_page.py
 git commit -m "web.settings: a schedule has one editor, and it is not this page
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
@@ -2003,7 +2003,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
    per-task gates could not see: a key scoped wrongly, a lock never released, two stores
    contradicting each other. Dispatch a reviewer over the whole diff with the spec and this
    plan, and pay particular attention to:
-   - anything that could write, enable, disable or delete `lakota-print-sheet.*`,
+   - anything that could write, enable, disable or delete `fridgesheet-print-sheet.*`,
    - `[reports.<key>]` written by more than one code path,
    - `ScheduleInfo.manageable` reaching a button that would act on an unmanageable unit,
    - the `describe` fallback and `doctor`'s probe still agreeing.

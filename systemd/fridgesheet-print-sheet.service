@@ -1,0 +1,14 @@
+[Unit]
+Description=Print the kids' open-work sheet (fridgesheet print-sheet)
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Optional: this is already the default. Change it to read settings from elsewhere.
+Environment=FRIDGESHEET_ENV_FILE=%h/.fridgesheet/.env
+# The printer is set explicitly; the CUPS default is not used. `lpstat -a` lists names.
+Environment=FRIDGESHEET_PRINTER=Brother_MFC_J4335DW
+ExecStart=%h/fridgesheet/.venv/bin/fridgesheet print-sheet
+# The refresh inside (3 kids x 2 sites, plus a possible login) runs 1-3 min; systemd's
+# default 90 s start timeout would SIGTERM it partway through every time.
+TimeoutStartSec=900

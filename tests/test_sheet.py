@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from lakota_grades import open_items, sheet  # noqa: E402
+from fridgesheet import open_items, sheet  # noqa: E402
 from tests.conftest import needs_pdftotext  # noqa: E402
 
 TZ = ZoneInfo("America/New_York")

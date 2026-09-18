@@ -9,8 +9,8 @@ import types
 
 import pytest
 
-from lakota_grades import config
-from lakota_grades.host import credentials, credentials_linux, credentials_windows
+from fridgesheet import config
+from fridgesheet.host import credentials, credentials_linux, credentials_windows
 
 
 class _R:
@@ -95,21 +95,21 @@ def test_windows_keyring_errors_degrade_like_linux(monkeypatch):
 
 
 def test_settings_credentials_prefers_env_then_store(monkeypatch):
-    monkeypatch.delenv("LAKOTA_ONELOGIN_USERNAME", raising=False)
-    monkeypatch.delenv("LAKOTA_ONELOGIN_PASSWORD", raising=False)
-    monkeypatch.delenv("LAKOTA_OP_USERNAME_REF", raising=False)
-    monkeypatch.delenv("LAKOTA_OP_PASSWORD_REF", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_USERNAME", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_PASSWORD", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_OP_USERNAME_REF", raising=False)
+    monkeypatch.delenv("FRIDGESHEET_OP_PASSWORD_REF", raising=False)
     monkeypatch.setattr(credentials, "read_username", lambda run=None: None)
     monkeypatch.setattr(credentials, "read_password", lambda user, run=None: "stored" if user == "cfg@x.com" else None)
     s = config.Settings(username="cfg@x.com")
     assert s.credentials() == ("cfg@x.com", "stored")
-    monkeypatch.setenv("LAKOTA_ONELOGIN_USERNAME", "env@x.com")
-    monkeypatch.setenv("LAKOTA_ONELOGIN_PASSWORD", "envpw")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "envpw")
     assert config.Settings(username="cfg@x.com").credentials() == ("env@x.com", "envpw")
 
 
 def test_settings_credentials_falls_back_to_store_username_then_errors(monkeypatch):
-    for k in ("LAKOTA_ONELOGIN_USERNAME", "LAKOTA_ONELOGIN_PASSWORD", "LAKOTA_OP_USERNAME_REF", "LAKOTA_OP_PASSWORD_REF"):
+    for k in ("FRIDGESHEET_ONELOGIN_USERNAME", "FRIDGESHEET_ONELOGIN_PASSWORD", "FRIDGESHEET_OP_USERNAME_REF", "FRIDGESHEET_OP_PASSWORD_REF"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(credentials, "read_username", lambda run=None: "ring@x.com")
     monkeypatch.setattr(credentials, "read_password", lambda user, run=None: "ringpw")

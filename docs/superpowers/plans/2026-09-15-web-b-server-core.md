@@ -2,25 +2,25 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Put a browser in front of Plan A's database: a FastAPI server the parent opens on this machine, with the Dashboard, the Kid page (notes and flags), and the Reconcile page, reading the same `lakota.db` the CLI runner fills.
+**Goal:** Put a browser in front of Plan A's database: a FastAPI server the parent opens on this machine, with the Dashboard, the Kid page (notes and flags), and the Reconcile page, reading the same `fridgesheet.db` the CLI runner fills.
 
-**Architecture:** One process, `lakota-grades web`, runs a FastAPI app on uvicorn and serves Jinja2 pages; htmx swaps partials for notes, flags and filters; no front-end build. Page data comes from small store modules under `web/stores/` (all SQL lives there or in `db.py`), the reconciliation rules from `web/reconcile.py`. A per-request SQLite connection (WAL, `busy_timeout`) keeps the server and a concurrent CLI run out of each other's way. Part 2 of Plan B (a separate plan file) adds the jobs worker, Settings and Diagnostics, the always-on service and the Windows entry point; nothing here depends on it.
+**Architecture:** One process, `fridgesheet web`, runs a FastAPI app on uvicorn and serves Jinja2 pages; htmx swaps partials for notes, flags and filters; no front-end build. Page data comes from small store modules under `web/stores/` (all SQL lives there or in `db.py`), the reconciliation rules from `web/reconcile.py`. A per-request SQLite connection (WAL, `busy_timeout`) keeps the server and a concurrent CLI run out of each other's way. Part 2 of Plan B (a separate plan file) adds the jobs worker, Settings and Diagnostics, the always-on service and the Windows entry point; nothing here depends on it.
 
 **Tech Stack:** Python 3.12, `fastapi`, `uvicorn`, `jinja2`, `python-multipart` (new runtime deps), `httpx` (dev, for `TestClient`), vendored `htmx` 2.0.4 and `uPlot` 1.6.31 (uPlot is used by Plan C; vendored now so `static/` is complete). Standard-library `sqlite3`, `urllib`, `webbrowser`.
 
-**Spec:** `docs/superpowers/specs/2026-09-15-lakota-web-app-design.md`, sections 3 (architecture), 5 (pages: Dashboard, Kid, Reconcile), 6 (reconciliation), 8 (access), 13.B, 15 (risks 2 and 4). GitHub milestone "Web app B: Server", issues #12 to #15; each task names its issue and closes it in the commit message. Issue #31 lists Plan A residuals; the ones this plan touches are named in the task that touches them.
+**Spec:** `docs/superpowers/specs/2026-09-15-fridgesheet-web-app-design.md`, sections 3 (architecture), 5 (pages: Dashboard, Kid, Reconcile), 6 (reconciliation), 8 (access), 13.B, 15 (risks 2 and 4). GitHub milestone "Web app B: Server", issues #12 to #15; each task names its issue and closes it in the commit message. Issue #31 lists Plan A residuals; the ones this plan touches are named in the task that touches them.
 
 ## Global Constraints
 
-- The server binds to `127.0.0.1:8433` by default; `[web] allow_lan = true` in `config.toml` rebinds to `0.0.0.0`; `[web] port` overrides the port; env `LAKOTA_WEB_PORT` / `LAKOTA_WEB_HOST` override both (env wins, as everywhere in `config.py`). No login, no HTTPS, no telemetry; the server talks to nothing but the browser and (via the runner, part 2) OneLogin, Canvas and HAC.
-- One instance per home: the server takes an exclusive lock file `<home>/web.lock` (pid inside). `lakota-grades web` when the port already answers `/health` with `{"app": "lakota-grades"}` opens the browser at the running instance and exits 0 instead of starting a second server.
+- The server binds to `127.0.0.1:8433` by default; `[web] allow_lan = true` in `config.toml` rebinds to `0.0.0.0`; `[web] port` overrides the port; env `FRIDGESHEET_WEB_PORT` / `FRIDGESHEET_WEB_HOST` override both (env wins, as everywhere in `config.py`). No login, no HTTPS, no telemetry; the server talks to nothing but the browser and (via the runner, part 2) OneLogin, Canvas and HAC.
+- One instance per home: the server takes an exclusive lock file `<home>/web.lock` (pid inside). `fridgesheet web` when the port already answers `/health` with `{"app": "fridgesheet"}` opens the browser at the running instance and exits 0 instead of starting a second server.
 - All SQL lives in `web/db.py` or `web/stores/*.py`. Routes never contain SQL; templates never compute.
 - Every page carries the header: last refresh time and per-source health from the latest `refreshes` row, and the latest `runs` outcome. With an empty database the header says "No refresh yet".
 - Templates are Jinja2 with autoescape on; htmx requests (`HX-Request: true`) get a partial, plain requests get the full page. All in-page updates are `hx-post` to form endpoints returning partials; no JSON API in this plan.
 - Times in pages are rendered in the settings time zone with the existing `dates.py` helpers where one fits (`time12`, `wd_md_time`, `md`); ISO strings from the database are parsed with `datetime.fromisoformat`.
 - No credential is ever read by these routes. Nothing in this plan writes `config.toml` (part 2 does).
 - Item identity in URLs is the database `items.id`, never the item key (keys are only unique within a student and course; Plan A).
-- The full suite (`env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`, 238 passed at the start of this plan) stays green on Linux and in CI on both runners. The live venv needs `pip install -e ".[dev]"` once for the new dependencies; say so in the report of the task that adds them.
+- The full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, 238 passed at the start of this plan) stays green on Linux and in CI on both runners. The live venv needs `pip install -e ".[dev]"` once for the new dependencies; say so in the report of the task that adds them.
 - Commit after every task with the trailer `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and `Closes #<issue>` on its own line.
 
 ## What Plan A left (read before any task)
@@ -61,16 +61,16 @@ Snapshot shape (what `ingest.record` reads; the test fixture in Task 3 builds on
 |---|---|
 | `packaging/windows/spike_web.py`, `packaging/windows/SpikeWeb.spec`, `.github/workflows/spike-web-pyinstaller.yml` (Task 1, all deleted at the end of Task 1) | prove FastAPI + uvicorn + Jinja2 templates freeze and serve under PyInstaller on the Windows runner; record the hidden imports |
 | `pyproject.toml` (modify) | new runtime deps; `httpx` in `dev` |
-| `lakota_grades/config.py` (modify) | `[web]` section: `web_host`, `web_port`, `web_allow_lan`; env overrides |
-| `lakota_grades/web/app.py` (new) | `create_app(settings, *, home=None) -> FastAPI`; `AppState`; the per-request connection dependency; `page_context` |
-| `lakota_grades/web/server.py` (new) | `run(settings, *, host, port, open_browser)`; `port_answers`; `WebLock` |
-| `lakota_grades/web/stores/refreshes.py`, `runs.py`, `students.py` (new) | header data; run history; students, courses, latest grades |
-| `lakota_grades/web/stores/items.py` (new, Task 3) | the item list behind the Kid page and the Dashboard counts |
-| `lakota_grades/web/reconcile.py` (modify, Task 3) | `_rows` becomes public `live_items`; `status_text` |
-| `lakota_grades/web/routes/__init__.py`, `dashboard.py`, `kid.py`, `notes.py`, `flags.py`, `reconcile.py` (new) | routers, one per page family |
-| `lakota_grades/web/templates/*.html` (new) | `base.html`, `_header.html`, `dashboard.html`, `kid.html`, `course.html`, `reconcile.html`, `404.html`, partials `_item_rows.html`, `_item_detail.html`, `_notes.html`, `_flag_menu.html`, `_case_group.html` |
-| `lakota_grades/web/static/` (new) | `app.css`, `app.js`, `htmx.min.js`, `uplot.min.js`, `uplot.min.css`, `VENDOR.md` |
-| `lakota_grades/cli.py` (modify) | `web` command |
+| `fridgesheet/config.py` (modify) | `[web]` section: `web_host`, `web_port`, `web_allow_lan`; env overrides |
+| `fridgesheet/web/app.py` (new) | `create_app(settings, *, home=None) -> FastAPI`; `AppState`; the per-request connection dependency; `page_context` |
+| `fridgesheet/web/server.py` (new) | `run(settings, *, host, port, open_browser)`; `port_answers`; `WebLock` |
+| `fridgesheet/web/stores/refreshes.py`, `runs.py`, `students.py` (new) | header data; run history; students, courses, latest grades |
+| `fridgesheet/web/stores/items.py` (new, Task 3) | the item list behind the Kid page and the Dashboard counts |
+| `fridgesheet/web/reconcile.py` (modify, Task 3) | `_rows` becomes public `live_items`; `status_text` |
+| `fridgesheet/web/routes/__init__.py`, `dashboard.py`, `kid.py`, `notes.py`, `flags.py`, `reconcile.py` (new) | routers, one per page family |
+| `fridgesheet/web/templates/*.html` (new) | `base.html`, `_header.html`, `dashboard.html`, `kid.html`, `course.html`, `reconcile.html`, `404.html`, partials `_item_rows.html`, `_item_detail.html`, `_notes.html`, `_flag_menu.html`, `_case_group.html` |
+| `fridgesheet/web/static/` (new) | `app.css`, `app.js`, `htmx.min.js`, `uplot.min.js`, `uplot.min.css`, `VENDOR.md` |
+| `fridgesheet/cli.py` (modify) | `web` command |
 | `tests/web_fixtures.py` (new, Task 3) | `snapshot(...)` builder and `seeded_app(tmp_path)` helper shared by page tests |
 | `tests/test_web_app.py`, `test_web_server.py`, `test_web_stores_pages.py`, `test_web_pages.py`, `test_web_reconcile_page.py` (new); `tests/test_config.py`, `test_packaging.py` (modify) | |
 
@@ -197,7 +197,7 @@ def test_spike_files_are_gone():
     assert not (ROOT / ".github" / "workflows" / "spike-web-pyinstaller.yml").exists()
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_packaging.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_packaging.py`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -230,18 +230,18 @@ passed on the first run, no `hiddenimports` iteration was needed.
 
 ---
 
-### Task 2: `web/app.py`, `server.py`, the base layout, vendored assets, `lakota-grades web` (issue #13)
+### Task 2: `web/app.py`, `server.py`, the base layout, vendored assets, `fridgesheet web` (issue #13)
 
 **Files:**
-- Modify: `pyproject.toml` (dependencies), `lakota_grades/config.py` (`[web]`), `lakota_grades/cli.py` (`web` command), `tests/test_config.py`
-- Create: `lakota_grades/web/app.py`, `lakota_grades/web/server.py`, `lakota_grades/web/stores/refreshes.py`, `lakota_grades/web/stores/runs.py`, `lakota_grades/web/stores/students.py`, `lakota_grades/web/routes/__init__.py`, `lakota_grades/web/routes/dashboard.py`, `lakota_grades/web/templates/base.html`, `_header.html`, `dashboard.html`, `404.html`, `lakota_grades/web/static/app.css`, `app.js`, `htmx.min.js`, `uplot.min.js`, `uplot.min.css`, `VENDOR.md`
+- Modify: `pyproject.toml` (dependencies), `fridgesheet/config.py` (`[web]`), `fridgesheet/cli.py` (`web` command), `tests/test_config.py`
+- Create: `fridgesheet/web/app.py`, `fridgesheet/web/server.py`, `fridgesheet/web/stores/refreshes.py`, `fridgesheet/web/stores/runs.py`, `fridgesheet/web/stores/students.py`, `fridgesheet/web/routes/__init__.py`, `fridgesheet/web/routes/dashboard.py`, `fridgesheet/web/templates/base.html`, `_header.html`, `dashboard.html`, `404.html`, `fridgesheet/web/static/app.css`, `app.js`, `htmx.min.js`, `uplot.min.js`, `uplot.min.css`, `VENDOR.md`
 - Test: `tests/test_web_app.py`, `tests/test_web_server.py`
 
 **Interfaces:**
 - Consumes: `db.open_db`, `ingest.record` (tests), `config.Settings`.
 - Produces (later tasks rely on these exact names):
   - `app.create_app(settings: Settings, *, home: Path | None = None) -> FastAPI`
-  - `app.AppState(home, settings, tz, started_at)` at `request.app.state.lakota`; `AppState.rules() -> LateRules` (re-reads `<home>/late-rules.toml` each call)
+  - `app.AppState(home, settings, tz, started_at)` at `request.app.state.fridgesheet`; `AppState.rules() -> LateRules` (re-reads `<home>/late-rules.toml` each call)
   - dependency `app.get_db(request) -> Iterator[sqlite3.Connection]` (one connection per request, closed after)
   - `app.ENV: jinja2.Environment` (the shared loader) and `app.render(request, conn, name, status_code=200, **ctx) -> HTMLResponse`, which merges `page_context(request, conn)` (keys `refresh`, `sources`, `last_run`, `students`, `now`, `settings`, `version`; filters `wd_md_time`, `md`, `time12`, `nickname`) with `ctx` and, for an htmx request, renders only the template's `partial` block when it has one; `app.render_partial(request, conn, name, **ctx)` for standalone partials; `app.is_htmx(request)`
   - `stores.refreshes.latest(conn) -> Row | None`
@@ -262,9 +262,9 @@ In `pyproject.toml` `dependencies`, add (keep the list sorted as it is):
 ```
 
 and in `[project.optional-dependencies]`: `dev = ["pytest>=8", "httpx>=0.27"]`.
-In `[tool.setuptools.package-data]`: `lakota_grades = ["host/*.xml", "web/templates/*.html", "web/static/*"]`.
+In `[tool.setuptools.package-data]`: `fridgesheet = ["host/*.xml", "web/templates/*.html", "web/static/*"]`.
 
-Run: `~/lakota-grades-mcp/.venv/bin/pip install -e ".[dev]"` (the live venv; say so in the report).
+Run: `~/fridgesheet/.venv/bin/pip install -e ".[dev]"` (the live venv; say so in the report).
 
 - [ ] **Step 2: `[web]` settings, test first**
 
@@ -280,14 +280,14 @@ def test_web_section_and_env_override(tmp_path, monkeypatch):
     assert (s2.web_port, s2.web_allow_lan, s2.bind_host) == (8433, False, "127.0.0.1")
     config.settings_from_doc({"web": {"port": "not a number"}}, s2)
     assert s2.web_port == 8433                     # a bad value keeps the default
-    monkeypatch.setenv("LAKOTA_WEB_PORT", "8500")
-    monkeypatch.setenv("LAKOTA_WEB_HOST", "0.0.0.0")
-    monkeypatch.setenv("LAKOTA_GRADES_HOME", str(tmp_path))
+    monkeypatch.setenv("FRIDGESHEET_WEB_PORT", "8500")
+    monkeypatch.setenv("FRIDGESHEET_WEB_HOST", "0.0.0.0")
+    monkeypatch.setenv("FRIDGESHEET_HOME", str(tmp_path))
     s3 = config.load_settings()
     assert (s3.web_port, s3.bind_host) == (8500, "0.0.0.0")
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_config.py -k web_section`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_config.py -k web_section`
 Expected: FAIL (`AttributeError: web_port`).
 
 - [ ] **Step 3: Implement `[web]`**
@@ -324,11 +324,11 @@ In `settings_from_doc`, after the `kids` block:
 In `load_settings`, after the `printer` line:
 
 ```python
-    s.web_host = os.environ.get("LAKOTA_WEB_HOST", s.web_host)
-    if os.environ.get("LAKOTA_WEB_HOST") == "0.0.0.0":
+    s.web_host = os.environ.get("FRIDGESHEET_WEB_HOST", s.web_host)
+    if os.environ.get("FRIDGESHEET_WEB_HOST") == "0.0.0.0":
         s.web_allow_lan = True
     try:
-        s.web_port = int(os.environ.get("LAKOTA_WEB_PORT", s.web_port))
+        s.web_port = int(os.environ.get("FRIDGESHEET_WEB_PORT", s.web_port))
     except ValueError:
         pass
 ```
@@ -350,9 +350,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import app as webapp, db, ingest
-from lakota_grades.web.stores import refreshes, runs, students
+from fridgesheet import config
+from fridgesheet.web import app as webapp, db, ingest
+from fridgesheet.web.stores import refreshes, runs, students
 
 TZ = ZoneInfo("America/New_York")
 
@@ -409,12 +409,12 @@ def test_stores_read_the_seeded_database(home):
     conn.close()
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_app.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_app.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 5: Implement the three stores**
 
-`lakota_grades/web/stores/refreshes.py`:
+`fridgesheet/web/stores/refreshes.py`:
 
 ```python
 """What the header says about the last refresh."""
@@ -427,7 +427,7 @@ def latest(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM refreshes ORDER BY id DESC LIMIT 1").fetchone()
 ```
 
-`lakota_grades/web/stores/runs.py`:
+`fridgesheet/web/stores/runs.py`:
 
 ```python
 """Run history: the CLI runner and (part 2) the jobs worker write it; the header badge,
@@ -453,7 +453,7 @@ def printed_on(conn: sqlite3.Connection, day: date) -> list[sqlite3.Row]:
         (day.isoformat(),)).fetchall()
 ```
 
-`lakota_grades/web/stores/students.py`:
+`fridgesheet/web/stores/students.py`:
 
 ```python
 """Students, their courses and the latest grade per course."""
@@ -509,13 +509,13 @@ Append to `tests/test_web_app.py`:
 ```python
 def test_health_names_the_app(client):
     r = client.get("/health")
-    assert r.status_code == 200 and r.json()["app"] == "lakota-grades" and "version" in r.json()
+    assert r.status_code == 200 and r.json()["app"] == "fridgesheet" and "version" in r.json()
 
 
 def test_dashboard_renders_with_an_empty_database(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert "No refresh yet" in r.text and "Lakota Sheet" in r.text
+    assert "No refresh yet" in r.text and "Fridge Sheet" in r.text
     assert 'href="/static/app.css"' in r.text and 'src="/static/htmx.min.js"' in r.text
 
 
@@ -547,18 +547,18 @@ def test_htmx_request_gets_only_the_partial(settings):
     assert "<html" not in r.text and "No refresh yet" in r.text
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_app.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_app.py`
 Expected: FAIL (`AttributeError: create_app`).
 
 - [ ] **Step 7: Vendor the static assets**
 
-Download exactly these, record the SHA-256 of each file in `lakota_grades/web/static/VENDOR.md` with its URL and licence, and commit the files:
+Download exactly these, record the SHA-256 of each file in `fridgesheet/web/static/VENDOR.md` with its URL and licence, and commit the files:
 
 - `https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js` → `htmx.min.js` (BSD-2-Clause)
 - `https://unpkg.com/uplot@1.6.31/dist/uPlot.iife.min.js` → `uplot.min.js` (MIT)
 - `https://unpkg.com/uplot@1.6.31/dist/uPlot.min.css` → `uplot.min.css` (MIT)
 
-Run: `curl -sSL -o lakota_grades/web/static/htmx.min.js https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js` (and the other two), then `sha256sum lakota_grades/web/static/*.js lakota_grades/web/static/*.css`.
+Run: `curl -sSL -o fridgesheet/web/static/htmx.min.js https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js` (and the other two), then `sha256sum fridgesheet/web/static/*.js fridgesheet/web/static/*.css`.
 
 `VENDOR.md`:
 
@@ -591,7 +591,7 @@ def test_vendored_assets_match_their_recorded_hashes():
 `app.css` (the whole visual system for this plan; Plan C adds chart styles):
 
 ```css
-/* Lakota Sheet: one layout, a left rail on wide screens, one column on a phone. */
+/* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
 :root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
@@ -640,7 +640,7 @@ document.addEventListener("htmx:afterSwap", function (e) {
 
 - [ ] **Step 8: Templates**
 
-`lakota_grades/web/templates/base.html`:
+`fridgesheet/web/templates/base.html`:
 
 ```html
 <!doctype html>
@@ -648,7 +648,7 @@ document.addEventListener("htmx:afterSwap", function (e) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Lakota Sheet{% endblock %}</title>
+<title>{% block title %}Fridge Sheet{% endblock %}</title>
 <link rel="stylesheet" href="/static/app.css">
 <script src="/static/htmx.min.js" defer></script>
 <script src="/static/app.js" defer></script>
@@ -656,7 +656,7 @@ document.addEventListener("htmx:afterSwap", function (e) {
 <body>
 <div class="shell">
   <aside class="rail">
-    <h1><a href="/" style="text-decoration:none;color:inherit">Lakota Sheet</a></h1>
+    <h1><a href="/" style="text-decoration:none;color:inherit">Fridge Sheet</a></h1>
     <nav>
       <a href="/" class="{{ 'current' if current == 'dashboard' }}">Dashboard</a>
       <div class="group">Kids</div>
@@ -696,14 +696,14 @@ document.addEventListener("htmx:afterSwap", function (e) {
 
 ```html
 {% extends "base.html" %}
-{% block title %}Dashboard · Lakota Sheet{% endblock %}
+{% block title %}Dashboard · Fridge Sheet{% endblock %}
 {% block content %}
 {% block partial %}
 <div class="cards">
   {% for s in students %}
   <div class="card"><h2>{{ s.key | nickname }}</h2><p class="muted">Kid page: <a href="/kids/{{ s.key }}">open</a></p></div>
   {% else %}
-  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>lakota-grades refresh</code> (or, once part 2 lands, press Refresh now) and this page fills in.{% endif %}</p></div>
+  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> (or, once part 2 lands, press Refresh now) and this page fills in.{% endif %}</p></div>
   {% endfor %}
 </div>
 {% endblock %}
@@ -714,7 +714,7 @@ document.addEventListener("htmx:afterSwap", function (e) {
 
 ```html
 {% extends "base.html" %}
-{% block title %}Not found · Lakota Sheet{% endblock %}
+{% block title %}Not found · Fridge Sheet{% endblock %}
 {% block content %}<h2>Not found</h2><p class="muted">{{ path }} is not a page here.</p>{% endblock %}
 ```
 
@@ -749,12 +749,12 @@ from . import db
 from .stores import refreshes, runs, students
 
 HERE = Path(__file__).parent
-APP_NAME = "lakota-grades"
+APP_NAME = "fridgesheet"
 
 
 def version() -> str:
     try:
-        return metadata.version("lakota-grades-mcp")
+        return metadata.version("fridgesheet")
     except metadata.PackageNotFoundError:
         return "dev"
 
@@ -810,7 +810,7 @@ def _env(request: Request) -> jinja2.Environment:
 
 
 def get_state(request: Request) -> AppState:
-    return request.app.state.lakota
+    return request.app.state.fridgesheet
 
 
 def get_db(request: Request) -> Iterator[sqlite3.Connection]:
@@ -856,14 +856,14 @@ def render_partial(request: Request, conn: sqlite3.Connection, name: str, **ctx)
 def create_app(settings: Settings, *, home: Path | None = None) -> FastAPI:
     home = home or settings.home
     tz = ZoneInfo(settings.timezone)
-    app = FastAPI(title="Lakota Sheet", docs_url=None, redoc_url=None, openapi_url=None)
-    app.state.lakota = AppState(home=home, settings=settings, tz=tz, started_at=datetime.now(tz))
-    app.state.lakota.extra["filters"] = _filters(app.state.lakota)
+    app = FastAPI(title="Fridge Sheet", docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.fridgesheet = AppState(home=home, settings=settings, tz=tz, started_at=datetime.now(tz))
+    app.state.fridgesheet.extra["filters"] = _filters(app.state.fridgesheet)
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
     @app.get("/health")
     def health() -> JSONResponse:
-        return JSONResponse({"app": APP_NAME, "version": version(), "home": str(home), "started_at": app.state.lakota.started_at.isoformat()})
+        return JSONResponse({"app": APP_NAME, "version": version(), "home": str(home), "started_at": app.state.fridgesheet.started_at.isoformat()})
 
     @app.exception_handler(404)
     async def not_found(request: Request, exc):   # noqa: ARG001
@@ -882,13 +882,13 @@ Db = Depends(get_db)
 State = Depends(get_state)
 ```
 
-`lakota_grades/web/routes/__init__.py`:
+`fridgesheet/web/routes/__init__.py`:
 
 ```python
 """One router per page family. Each module exposes `router`; `app.create_app` includes them."""
 ```
 
-`lakota_grades/web/routes/dashboard.py` (Task 4 grows it):
+`fridgesheet/web/routes/dashboard.py` (Task 4 grows it):
 
 ```python
 """The Dashboard: one card per kid."""
@@ -910,7 +910,7 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db):
 
 Why no `fastapi.templating.Jinja2Templates`: its one shared environment would make the last-created app's filters win across the whole test process; the overlay per request above keeps each app's nicknames and time zone its own, and `autoescape=True` is stated rather than inherited.
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_app.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_app.py`
 Expected: PASS (all).
 
 - [ ] **Step 10: `server.py`, test first**
@@ -924,8 +924,8 @@ from __future__ import annotations
 import os
 import socket
 
-from lakota_grades import config
-from lakota_grades.web import server
+from fridgesheet import config
+from fridgesheet.web import server
 
 
 def _free_port() -> int:
@@ -968,7 +968,7 @@ def test_run_serves_and_hands_the_browser_to_the_waiter(tmp_path):
                     answers=lambda h, p: False, wait_and_open=wait_and_open)
     assert rc == 0 and served == [("127.0.0.1", 8500)] and waited == opened == ["http://127.0.0.1:8500/"]
     assert not (tmp_path / "web.lock").exists()                           # released on exit
-    assert (tmp_path / "lakota.db").exists()                              # created and migrated before serving
+    assert (tmp_path / "fridgesheet.db").exists()                              # created and migrated before serving
 
 
 def test_wait_and_open_opens_once_the_port_answers():
@@ -1007,17 +1007,17 @@ def test_lan_binding_uses_the_machine_address_in_the_browser_url(tmp_path):
     assert opened == ["http://127.0.0.1:8433/"]      # the browser on this machine still uses loopback
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_server.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_server.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 11: Implement `server.py`**
 
 ```python
-"""`lakota-grades web`: run the server in the foreground, or hand off to the one already running.
+"""`fridgesheet web`: run the server in the foreground, or hand off to the one already running.
 
 One instance per home (spec section 15, risk 4): an exclusive pid lock beside the database.
 If the port already answers /health as this app, the second start opens the browser there
-and exits 0 -- that is what the desktop shortcut and `LakotaSheet.exe` with no arguments do.
+and exits 0 -- that is what the desktop shortcut and `FridgeSheet.exe` with no arguments do.
 """
 from __future__ import annotations
 
@@ -1120,7 +1120,7 @@ def run(settings: Settings, *, host: str | None = None, port: int | None = None,
     if answers("127.0.0.1", port):
         if open_browser:
             opener(local)
-        print(f"Lakota Sheet is already running at {local}", file=sys.stderr)
+        print(f"Fridge Sheet is already running at {local}", file=sys.stderr)
         return 0
     lock = WebLock(settings.home / LOCK_NAME)
     if not lock.acquire():
@@ -1164,12 +1164,12 @@ Update the module docstring's command list to include `web`.
 
 - [ ] **Step 13: Full suite, then commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: all pass (238 + the new tests), no warnings. If Starlette's `TestClient` or `StaticFiles` warns on the installed version, fix the cause; the output must be pristine.
 
 ```bash
-git add pyproject.toml lakota_grades/config.py lakota_grades/cli.py lakota_grades/web tests/test_config.py tests/test_web_app.py tests/test_web_server.py
-git commit -m "web: the FastAPI app, the server with a pid lock, the base layout and lakota-grades web
+git add pyproject.toml fridgesheet/config.py fridgesheet/cli.py fridgesheet/web tests/test_config.py tests/test_web_app.py tests/test_web_server.py
+git commit -m "web: the FastAPI app, the server with a pid lock, the base layout and fridgesheet web
 
 Closes #13
 
@@ -1183,8 +1183,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 Pages need one list of a kid's live items with everything a row shows: which sources know it, whether it is open and actionable, its flag, a status phrase, note count and reconciliation case kinds. That list is computed once here, over Plan A's rules, and the routes only filter and sort it.
 
 **Files:**
-- Create: `lakota_grades/web/stores/items.py`, `tests/web_fixtures.py`, `tests/test_web_stores_pages.py`
-- Modify: `lakota_grades/web/reconcile.py` (`_rows` → `live_items`, public; add `upcoming`)
+- Create: `fridgesheet/web/stores/items.py`, `tests/web_fixtures.py`, `tests/test_web_stores_pages.py`
+- Modify: `fridgesheet/web/reconcile.py` (`_rows` → `live_items`, public; add `upcoming`)
 
 **Interfaces:**
 - Consumes: `reconcile.open_sources`, `is_actionable`, `cases`, `db.latest_observations`, `stores.students`.
@@ -1228,8 +1228,8 @@ from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import app as webapp, db, ingest
+from fridgesheet import config
+from fridgesheet.web import app as webapp, db, ingest
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
@@ -1303,7 +1303,7 @@ def app_for(home: Path, now: datetime = NOW) -> TestClient:
     """A client whose app clock is frozen at `now` (pages compare due dates against it)."""
     s = config.Settings(home=home)
     application = webapp.create_app(s)
-    application.state.lakota.now = lambda: now
+    application.state.fridgesheet.now = lambda: now
     return TestClient(application)
 ```
 
@@ -1317,9 +1317,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from lakota_grades import late_rules
-from lakota_grades.web import reconcile
-from lakota_grades.web.stores import flags, items, notes, students
+from fridgesheet import late_rules
+from fridgesheet.web import reconcile
+from fridgesheet.web.stores import flags, items, notes, students
 from tests.web_fixtures import NOW, seed
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])
@@ -1425,7 +1425,7 @@ def test_live_items_is_public_and_upcoming_is_bounded(tmp_path):
     assert not reconcile.upcoming(rows["Quiz 1"], obs[rows["Quiz 1"]["id"]], NOW)       # past due is open, not upcoming
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_stores_pages.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_stores_pages.py`
 Expected: FAIL (`ImportError`).
 
 - [ ] **Step 3: `reconcile.live_items` and `upcoming`**
@@ -1639,16 +1639,16 @@ def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: dat
     return Counts(sum(1 for v in views if v.actionable), due_today, due_tomorrow, new)
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_stores_pages.py tests/test_reconcile.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_stores_pages.py tests/test_reconcile.py`
 Expected: PASS. If `test_dashboard_counts` disagrees on `new_since_yesterday`, check the fixture's ingest `now` (2026-09-15 14:00) against `since` (2026-09-14 14:00): every item's `first_seen` refresh started at 14:00 on the 15th, so all 8 (Alex) and 2 (Sam) count; three days later none do. If `Due Sun` differs, 2026-09-20 is a Sunday; check `%a`.
 
 - [ ] **Step 5: Full suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`
 Expected: all pass.
 
 ```bash
-git add lakota_grades/web/reconcile.py lakota_grades/web/stores/items.py tests/web_fixtures.py tests/test_web_stores_pages.py
+git add fridgesheet/web/reconcile.py fridgesheet/web/stores/items.py tests/web_fixtures.py tests/test_web_stores_pages.py
 git commit -m "web.stores.items: one decorated item list for the pages; reconcile.live_items and upcoming
 
 Part of #14
@@ -1661,8 +1661,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: Dashboard and Kid pages with notes and the flag menu (issue #14, part 2)
 
 **Files:**
-- Create: `lakota_grades/web/routes/kid.py`, `notes.py`, `flags.py`; templates `kid.html`, `course.html`, `_item_rows.html`, `_item_detail.html`, `_notes.html`, `_flag_menu.html`; `tests/test_web_pages.py`
-- Modify: `lakota_grades/web/routes/dashboard.py`, `templates/dashboard.html`, `lakota_grades/web/app.py` (include the routers)
+- Create: `fridgesheet/web/routes/kid.py`, `notes.py`, `flags.py`; templates `kid.html`, `course.html`, `_item_rows.html`, `_item_detail.html`, `_notes.html`, `_flag_menu.html`; `tests/test_web_pages.py`
+- Modify: `fridgesheet/web/routes/dashboard.py`, `templates/dashboard.html`, `fridgesheet/web/app.py` (include the routers)
 
 **Interfaces:**
 - Consumes: Task 2's `render`, `render_partial`, `Db`, `State`, `get_state`; Task 3's `stores.items`; `stores.notes`, `stores.flags`, `stores.students`, `stores.runs`.
@@ -1680,8 +1680,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 """Dashboard and Kid pages: what a parent sees, and the notes and flags round trip."""
 from __future__ import annotations
 
-from lakota_grades.web import db
-from lakota_grades.web.stores import flags, notes
+from fridgesheet.web import db
+from fridgesheet.web.stores import flags, notes
 from tests.web_fixtures import NOW, app_for, seed
 
 
@@ -1812,7 +1812,7 @@ def test_course_of_another_kid_is_404(tmp_path):
     assert app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").status_code == 404
 ```
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_pages.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_pages.py`
 Expected: FAIL (404s and missing text).
 
 - [ ] **Step 2: `app.py` additions**
@@ -2048,7 +2048,7 @@ def owner_of_item(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
 
 ```html
 {% extends "base.html" %}
-{% block title %}Dashboard · Lakota Sheet{% endblock %}
+{% block title %}Dashboard · Fridge Sheet{% endblock %}
 {% block content %}
 {% block partial %}
 <div class="cards">
@@ -2059,7 +2059,7 @@ def owner_of_item(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
     <p class="muted">{{ c.due_today }} due today · {{ c.due_tomorrow }} due tomorrow · {{ c.new_since_yesterday }} new since yesterday</p>
   </div>
   {% else %}
-  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>lakota-grades refresh</code> and this page fills in.{% endif %}</p></div>
+  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
   {% endfor %}
   <div class="card">
     <h2>Printed today</h2>
@@ -2075,7 +2075,7 @@ def owner_of_item(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
 
 ```html
 {% extends "base.html" %}
-{% block title %}{{ student.key | nickname }} · Lakota Sheet{% endblock %}
+{% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>{{ student.key | nickname }}</h2>
 <form class="filters" hx-get="/kids/{{ student.key }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
@@ -2185,7 +2185,7 @@ In `_item_detail.html`, the `_notes.html` include expects `target_type`, `target
 
 ```html
 {% extends "base.html" %}
-{% block title %}{{ course.short_name }} · {{ student.key | nickname }} · Lakota Sheet{% endblock %}
+{% block title %}{{ course.short_name }} · {{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
 <p><a href="/kids/{{ student.key }}">← {{ student.key | nickname }}</a></p>
 <h2>{{ course.short_name }} <span class="muted">{{ course.name }}</span></h2>
@@ -2219,11 +2219,11 @@ The teacher's email: `courses` has no email column (Plan A stored only `teacher`
 
 - [ ] **Step 5: Run, then full suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_pages.py tests/test_web_app.py tests/test_web_ingest.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_pages.py tests/test_web_app.py tests/test_web_ingest.py`
 Expected: PASS. Then the full suite.
 
 ```bash
-git add lakota_grades/web tests/test_web_pages.py tests/test_web_ingest.py
+git add fridgesheet/web tests/test_web_pages.py tests/test_web_ingest.py
 git commit -m "web: Dashboard and Kid pages; notes and the flag menu; course page
 
 Closes #14
@@ -2236,8 +2236,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: The Reconcile page (issue #15)
 
 **Files:**
-- Create: `lakota_grades/web/routes/reconcile.py`, `templates/reconcile.html`, `templates/_case_group.html`, `tests/test_web_reconcile_page.py`
-- Modify: `lakota_grades/web/app.py` (include the router)
+- Create: `fridgesheet/web/routes/reconcile.py`, `templates/reconcile.html`, `templates/_case_group.html`, `tests/test_web_reconcile_page.py`
+- Modify: `fridgesheet/web/app.py` (include the router)
 
 **Interfaces:**
 - Consumes: `reconcile.cases`, `reconcile.KINDS`, `stores.items.one`/`list_items`, Task 4's flag endpoint (the quick actions post to `/items/{id}/flag` and target the group).
@@ -2285,8 +2285,8 @@ def test_reconcile_summary_counts_and_empty_state(tmp_path):
     body = app_for(tmp_path).get("/reconcile").text
     assert "disagree 1" in body and "past credit 1" in body and "submitted ungraded 1" in body and "paper no grade 1" in body
     assert "one source 5" in body     # Participation, Lab notebook, Homework 4, Cell diagram, Safety quiz: each has a HAC twin course with no row
-    from lakota_grades.web import db
-    from lakota_grades.web.stores import flags
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import flags
     conn = db.open_db(tmp_path)
     for name in ("Quiz 1", "Essay draft", "Lab notebook", "Participation", "Homework 4"):
         iid = conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]
@@ -2298,7 +2298,7 @@ def test_reconcile_summary_counts_and_empty_state(tmp_path):
 
 Note the second half of that last test: an `ignore` flag hides `past_credit` (rule 5 requires no handled flag) but rules 1 to 4 do not look at flags, so Quiz 1's `disagree` would still show. Decide the page's rule and encode it: **the Reconcile page hides items with a handled flag** (the parent has ruled; the Kid page with `show=all` still shows them). Implement that in `with_cases` (skip views whose `handled` is true) and keep the test as written.
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_reconcile_page.py`
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_reconcile_page.py`
 Expected: FAIL (404).
 
 - [ ] **Step 2: `with_cases` in `stores/items.py`**
@@ -2359,7 +2359,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 
 ```html
 {% extends "base.html" %}
-{% block title %}Reconcile · Lakota Sheet{% endblock %}
+{% block title %}Reconcile · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Reconcile</h2>
 <p class="muted">Where Canvas, Home Access Center and your own flags do not agree. Flag an item and it leaves this page.</p>
@@ -2405,11 +2405,11 @@ Include the router in `create_app` (`from .routes import reconcile as reconcile_
 
 - [ ] **Step 4: Run, full suite, commit**
 
-Run: `env -u PYTHONPATH ~/lakota-grades-mcp/.venv/bin/python -m pytest -q tests/test_web_reconcile_page.py` then the full suite.
+Run: `env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_reconcile_page.py` then the full suite.
 Expected: PASS.
 
 ```bash
-git add lakota_grades/web tests/test_web_reconcile_page.py
+git add fridgesheet/web tests/test_web_reconcile_page.py
 git commit -m "web: the Reconcile page, cases grouped by item with quick flags
 
 Closes #15
@@ -2421,9 +2421,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ## Done when
 
-- `lakota-grades web` on this machine opens `http://127.0.0.1:8433/` showing the Dashboard with the header, one card per kid, and the printed-today card; `/kids/Alex` lists open items, filters swap the table in place, a row expands to sources, cases, notes and the flag menu; `/reconcile` groups every case by item.
-- A second `lakota-grades web` opens the browser at the first and exits 0; `web.lock` disappears when the server stops.
+- `fridgesheet web` on this machine opens `http://127.0.0.1:8433/` showing the Dashboard with the header, one card per kid, and the printed-today card; `/kids/Alex` lists open items, filters swap the table in place, a row expands to sources, cases, notes and the flag menu; `/reconcile` groups every case by item.
+- A second `fridgesheet web` opens the browser at the first and exits 0; `web.lock` disappears when the server stops.
 - The spike files are gone, the Task 1 outcome is recorded above, and `test_packaging.py` pins their absence.
 - Full suite green locally and in CI on both runners; no warnings.
-- Not in this plan (part 2): Refresh now and any job, Settings, Diagnostics, Runs page, the service, the Windows entry point and installer, deleting `lakota_grades/app/`.
+- Not in this plan (part 2): Refresh now and any job, Settings, Diagnostics, Runs page, the service, the Windows entry point and installer, deleting `fridgesheet/app/`.
 

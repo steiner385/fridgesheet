@@ -11,8 +11,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from lakota_grades import config
-from lakota_grades.web import server
+from fridgesheet import config
+from fridgesheet.web import server
 
 REPO = str(Path(__file__).resolve().parents[1])
 
@@ -49,7 +49,7 @@ def test_a_killed_holder_frees_the_lock(tmp_path):
     code = ("import sys, time\n"
             "sys.path.insert(0, sys.argv[1])\n"
             "from pathlib import Path\n"
-            "from lakota_grades.web import server\n"
+            "from fridgesheet.web import server\n"
             "assert server.WebLock(Path(sys.argv[2])).acquire() is True\n"
             "time.sleep(60)\n")
     child = subprocess.Popen([sys.executable, "-c", code, REPO, str(path)],
@@ -89,7 +89,7 @@ def test_run_serves_and_hands_the_browser_to_the_waiter(tmp_path):
                     answers=lambda h, p: False, wait_and_open=wait_and_open)
     assert rc == 0 and served == [("127.0.0.1", 8500)] and waited == opened == ["http://127.0.0.1:8500/"]
     assert not (tmp_path / "web.lock").exists()                           # released on exit
-    assert (tmp_path / "lakota.db").exists()                              # created and migrated before serving
+    assert (tmp_path / "fridgesheet.db").exists()                              # created and migrated before serving
 
 
 def test_wait_and_open_opens_once_the_port_answers():
@@ -111,7 +111,7 @@ def test_run_refuses_when_another_instance_holds_the_lock_and_the_port_is_silent
     lock = server.WebLock(tmp_path / "web.lock")
     lock.acquire()
     try:
-        with caplog.at_level(logging.ERROR, logger="lakota.web"):
+        with caplog.at_level(logging.ERROR, logger="fridgesheet.web"):
             rc = server.run(s, serve=lambda *a, **k: None, opener=lambda u: None, answers=lambda h, p: False)
     finally:
         lock.release()
@@ -122,7 +122,7 @@ def test_run_refuses_when_another_instance_holds_the_lock_and_the_port_is_silent
 def test_run_reports_an_unopenable_lock_file_instead_of_a_traceback(tmp_path, capsys, caplog):
     s = config.Settings(home=tmp_path)
     (tmp_path / "web.lock").mkdir()                   # stands in for a permission problem
-    with caplog.at_level(logging.ERROR, logger="lakota.web"):
+    with caplog.at_level(logging.ERROR, logger="fridgesheet.web"):
         rc = server.run(s, serve=lambda *a, **k: None, opener=lambda u: None, answers=lambda h, p: False)
     assert rc == 1
     err = capsys.readouterr().err
@@ -146,7 +146,7 @@ def test_lan_binding_uses_the_machine_address_in_the_browser_url(tmp_path):
 
 
 def test_a_port_flag_reaches_the_middleware_not_just_uvicorn(tmp_path):
-    """`lakota-grades web --port 9000` used to leave `settings.web_port` at its default (8433)
+    """`fridgesheet web --port 9000` used to leave `settings.web_port` at its default (8433)
     while uvicorn bound 9000, so `same_origin_only`'s Host allowlist (app.py) still expected
     8433 and refused every request -- reads and writes alike -- from the user's own browser,
     the exact lockout a reviewer proved against a live server. Prove the `app` object `run`
@@ -158,7 +158,7 @@ def test_a_port_flag_reaches_the_middleware_not_just_uvicorn(tmp_path):
                      opener=lambda u: None, answers=lambda h, p: False)
     assert rc == 0
     (app,) = apps
-    assert app.state.lakota.settings.web_port == 9000
+    assert app.state.fridgesheet.settings.web_port == 9000
     c = TestClient(app, headers={"host": "127.0.0.1:9000"})
     assert c.get("/").status_code == 200
     assert c.post("/notes", data={"target_type": "item", "target_id": 1, "body": "x"}).status_code != 403
@@ -166,13 +166,13 @@ def test_a_port_flag_reaches_the_middleware_not_just_uvicorn(tmp_path):
 
 def test_a_host_flag_reaches_the_middleware_too(tmp_path):
     """Same bug, the other flag: `--host` must also land in `settings` before `create_app`,
-    the same way `LAKOTA_WEB_HOST` already does (`web_host_explicit`)."""
+    the same way `FRIDGESHEET_WEB_HOST` already does (`web_host_explicit`)."""
     s = config.Settings(home=tmp_path)
     apps = []
     rc = server.run(s, host="192.168.1.50", serve=lambda app, host, port: apps.append(app),
                      opener=lambda u: None, answers=lambda h, p: False)
     assert rc == 0
     (app,) = apps
-    assert (app.state.lakota.settings.web_host, app.state.lakota.settings.web_host_explicit) == ("192.168.1.50", True)
+    assert (app.state.fridgesheet.settings.web_host, app.state.fridgesheet.settings.web_host_explicit) == ("192.168.1.50", True)
     c = TestClient(app, headers={"host": "192.168.1.50:8433"})
     assert c.get("/").status_code == 200

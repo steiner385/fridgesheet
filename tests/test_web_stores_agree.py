@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 
-from lakota_grades.web.stores import changes, trends
+from fridgesheet.web.stores import changes, trends
 from tests.web_fixtures import NOW, history
 
 WEEKS = 6
@@ -64,7 +64,7 @@ def test_they_agree_on_a_one_refresh_install_too(tmp_path):
 
 def test_they_agree_per_kid(tmp_path):
     """The kid filter is a different code path in each store; it must not split them."""
-    from lakota_grades.web.stores import students
+    from fridgesheet.web.stores import students
 
     conn = history(tmp_path)
     for s in students.visible(conn):
