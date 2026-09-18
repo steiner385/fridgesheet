@@ -1,0 +1,6 @@
+<form class="flagmenu" hx-post="/items/{{ item.id }}/flag" hx-target="closest .card" hx-swap="outerHTML">
+  <span class="muted">Flag: {{ item.flag.replace('_', ' ') if item.flag else 'none' }}</span>
+  <input name="text" placeholder="why (optional)" value="{{ item.flag_text }}">
+  {% for f in ("done", "excused", "ignore", "follow_up", "ask_teacher") %}<button name="flag" value="{{ f }}">{{ f.replace('_', ' ') }}</button>{% endfor %}
+  {% if item.flag %}<button name="flag" value="clear">clear</button>{% endif %}
+</form>

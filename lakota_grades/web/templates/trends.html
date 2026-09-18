@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Trends · Lakota Sheet{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/uplot.min.css">
+<script src="/static/uplot.min.js" defer></script>
+<h2>Trends</h2>
+<div class="filters">
+  <span>Kid:</span>
+  <a class="badge {{ 'current' if not kid }}" href="/trends?weeks={{ weeks }}">all</a>
+  {% for s in students %}<a class="badge {{ 'current' if kid == s.key }}" href="/trends?kid={{ s.key }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}
+  <span>Weeks:</span>
+  {% for n in (4, 8, 16) %}<a class="badge {{ 'current' if weeks == n }}" href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
+</div>
+{% if not series and not longest %}
+<p class="muted">Not enough history yet. Trends fill in as refreshes accumulate — come back after a few days of runs.</p>
+{% endif %}
+<div class="cards">
+  <div class="card"><h2>On-time hand-ins</h2>
+    {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same
+       numbers as the Dashboard cards, so this page and that one cannot disagree. #}
+    {% if record.on_time_rate is not none %}<p class="big">{{ (record.on_time_rate * 100) | round | int }}%</p>
+    <p class="muted">of work due so far this year that was handed in on time, late, or not at all</p>
+    <p class="record">{{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
+    {% else %}<p class="muted">Nothing has come due yet.</p>{% endif %}
+  </div>
+  <div class="card"><h2>Open the longest</h2>
+    <p class="muted">Days past due and still open.</p>
+    {% for name, days in longest %}<p>{{ name }} <span class="muted">{{ days }} days</span></p>{% else %}<p class="muted">Nothing is open.</p>{% endfor %}
+  </div>
+</div>
+<h3>Grades</h3>
+<p class="muted">{{ course_names | join(", ") if course_names else "No grades recorded yet." }}</p>
+{% if kid %}
+{% with url = "/trends/grades.json?weeks=" ~ weeks ~ "&kid=" ~ kid, kind = "lines", title = "Grade per class", height = 260 %}
+{% include "_chart.html" %}
+{% endwith %}
+{% else %}
+{# One chart per kid, not one chart for the house: three kids' classes in one legend was 28
+   series and unreadable (#40 item 12). Each of these is the chart the kid's own view shows. #}
+{% for s in students %}
+{% with url = "/trends/grades.json?weeks=" ~ weeks ~ "&kid=" ~ s.key, kind = "lines", title = (s.key | nickname) ~ " — grade per class", height = 260 %}
+{% include "_chart.html" %}
+{% endwith %}
+{% endfor %}
+{% endif %}
+<h3>How the work due each week came out</h3>
+<p class="muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
+{% with url = "/trends/weekly.json?weeks=" ~ weeks ~ (("&kid=" ~ kid) if kid else ""), kind = "weekly", title = "Work due that week" %}
+{% include "_chart.html" %}
+{% endwith %}
+<table class="items">
+  <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
+  <tbody>
+  {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

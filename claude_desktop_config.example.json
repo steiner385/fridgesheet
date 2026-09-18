@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "lakota-grades": {
+      "command": "/home/<you>/lakota-grades-mcp/.venv/bin/lakota-grades",
+      "args": ["serve"],
+      "env": {
+        "LAKOTA_ENV_FILE": "/home/<you>/.lakota-grades/.env",
+        "LAKOTA_CACHE_TTL_MINUTES": "180"
+      }
+    }
+  }
+}

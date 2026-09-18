@@ -1,0 +1,41 @@
+# .github/workflows/release.yml
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write     # needed only by the publish step (Publish the GitHub release), below
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Tag must match pyproject version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $v = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if ($env:REF_NAME -ne "v$v") { throw "tag $env:REF_NAME does not match pyproject version $v" }
+      - name: Build, smoke-test and package
+        shell: pwsh
+        run: .\packaging\windows\build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LakotaSheet-Setup
+          path: dist/LakotaSheet-Setup-*.exe
+          if-no-files-found: error
+      - name: Publish the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: dist/LakotaSheet-Setup-*.exe
+          generate_release_notes: true
+          body: |
+            Lakota Sheet for Windows. See docs/windows.md for install and first-run steps.
+
+            This installer bundles SumatraPDF 3.5.2 (GPL-3.0) as a separate program used for printing. Its source code: https://github.com/sumatrapdfreader/sumatrapdf/tree/3.5.2rel . The licence text is installed as SumatraPDF-LICENSE.txt. Chromium is bundled via Playwright (BSD-3-Clause).

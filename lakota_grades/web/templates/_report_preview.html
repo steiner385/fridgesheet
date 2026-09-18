@@ -1,0 +1,16 @@
+<div class="card">
+  {% for p in problems %}<p class="warn">{{ p }}</p>{% endfor %}
+  {% if rendered %}
+  <h2>{{ rendered.title }}</h2>
+  {% for g in rendered.groups %}
+    {% if g.label %}<h3>{{ g.label }}</h3>{% endif %}
+    <table class="items">
+      <thead><tr>{% for c in rendered.columns %}<th>{{ c.label }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in g.rows %}<tr>{% for c in rendered.columns %}<td>{{ row[c.id] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+  {% else %}
+    <p class="muted">No rows matched this report.</p>
+  {% endfor %}
+  {% if rendered.truncated %}<p class="muted">{{ rendered.truncated }} more rows are not shown.</p>{% endif %}
+  {% endif %}
+</div>

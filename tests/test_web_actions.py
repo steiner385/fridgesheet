@@ -1,0 +1,415 @@
+"""The settings app's actions, with every host adapter and the runner faked."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from lakota_grades import config
+from lakota_grades.web import actions
+
+import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from lakota_grades import runner
+from lakota_grades.config import Settings
+from lakota_grades.host import ScheduleInfo
+from lakota_grades.web import db
+from lakota_grades.web.stores import reports as reportstore
+from lakota_grades.web.stores import runs as runstore
+
+TZ = ZoneInfo("America/New_York")
+NOW = datetime(2026, 9, 14, 14, 5, tzinfo=TZ)
+
+
+def test_load_form_defaults_when_no_config(tmp_path):
+    f = actions.load_form(tmp_path)
+    assert f == actions.FormValues()
+    assert actions.stored_username(tmp_path) == ""
+
+
+def test_load_form_reads_every_field(tmp_path):
+    config.save_config_doc(tmp_path / "config.toml", {
+        "account": {"username": "p@x.com"},
+        "print": {"printer": "Office", "archive": "D:/Drive/Sheets"},
+        "kids": {"nicknames": {"Alex": "Al", "Katherine": "Kate"}},
+        "reports": {"open-work": {"enabled": True, "time": "15:30", "days": ["Mon", "Wed"], "days_ahead": 7, "overdue_days": 21}},
+    })
+    f = actions.load_form(tmp_path)
+    assert f == actions.FormValues(username="p@x.com", password="", printer="Office", days_ahead=7, overdue_days=21,
+                                   nicknames="Alex=Al\nKatherine=Kate", archive="D:/Drive/Sheets")
+    assert actions.stored_username(tmp_path) == "p@x.com"
+
+
+def test_run_doctor_streams_lines_and_returns_verdict(tmp_path):
+    lines = []
+    fake = lambda settings, home, probes=None: ("OK    python: 3.12\nFAIL  boom: x\n1 check(s) failed", False)  # noqa: E731
+    assert actions.run_doctor(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), run=fake) is False
+    assert lines == ["OK    python: 3.12", "FAIL  boom: x", "1 check(s) failed"]
+
+
+def test_run_doctor_survives_a_broken_config(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    (tmp_path / "config.toml").write_text("[print\n")
+    lines = []
+    calls = []
+
+    def fake(settings, home, probes=None):
+        calls.append(settings)
+        return "OK    python: 3.12\nAll checks passed", True
+
+    ok = actions.run_doctor(home=tmp_path, log=lines.append, run=fake)
+    assert ok is True
+    assert len(calls) == 1 and calls[0].home == tmp_path
+    assert any("config.toml" in line for line in lines)
+
+
+def test_load_form_surfaces_a_broken_config(tmp_path):
+    (tmp_path / "config.toml").write_text("[print\n")
+    with pytest.raises(config.ConfigError, match="config.toml"):
+        actions.load_form(tmp_path)
+
+
+def test_load_form_tolerates_garbage_day_counts(tmp_path):
+    config.save_config_doc(tmp_path / "config.toml", {
+        "reports": {"open-work": {"days_ahead": "two weeks", "overdue_days": [1]}},
+    })
+    f = actions.load_form(tmp_path)
+    assert f.days_ahead == 14
+    assert f.overdue_days == 14
+
+
+def test_nickname_lines_round_trip_and_reject_garbage():
+    assert actions.parse_nickname_lines(" Alex = Al \n\nKatherine=Kate\n") == {"Alex": "Al", "Katherine": "Kate"}
+    assert actions.format_nicknames({"Alex": "Al", "Katherine": "Kate"}) == "Alex=Al\nKatherine=Kate"
+    with pytest.raises(ValueError, match="line 2"):
+        actions.parse_nickname_lines("Alex=Al\nnot a pair\n")
+    with pytest.raises(ValueError, match="line 1"):
+        actions.parse_nickname_lines("=Al")
+
+
+def _form(**over) -> actions.FormValues:
+    d = dict(username="p@x.com", password="hunter2", printer="", days_ahead=14, overdue_days=14, nicknames="", archive="")
+    d.update(over)
+    return actions.FormValues(**d)
+
+
+def test_validate_accepts_a_good_form():
+    assert actions.validate(_form(), stored="") == []
+    assert actions.validate(_form(password=""), stored="p@x.com") == []      # keep stored password
+
+
+def test_validate_requires_username_and_a_password_for_a_new_username():
+    assert any("username" in e.lower() for e in actions.validate(_form(username="  "), stored=""))
+    assert any("password" in e.lower() for e in actions.validate(_form(password=""), stored=""))
+    assert any("password" in e.lower() for e in actions.validate(_form(username="new@x.com", password=""), stored="old@x.com"))
+
+
+def test_validate_checks_day_ranges_and_nicknames():
+    assert any("days ahead" in e.lower() for e in actions.validate(_form(days_ahead=0), stored=""))
+    assert any("overdue" in e.lower() for e in actions.validate(_form(overdue_days=61), stored=""))
+    assert any("line 1" in e for e in actions.validate(_form(nicknames="bad"), stored=""))
+    errs = actions.validate(_form(username="", days_ahead=99), stored="")
+    assert len(errs) == 2            # one message per problem, none swallowed
+
+
+def test_validate_reports_non_numeric_days_instead_of_raising():
+    errs = actions.validate(_form(days_ahead="", overdue_days="abc"), stored="")   # type: ignore[arg-type]
+    assert len(errs) == 2 and all("whole number" in e for e in errs)
+    assert actions.validate(_form(days_ahead="7", overdue_days=" 21 "), stored="") == []   # type: ignore[arg-type]
+
+
+class _Cred:
+    def __init__(self):
+        self.written = []
+
+    def write(self, username, password):
+        self.written.append((username, password))
+
+
+def _save(tmp_path, form, **kw):
+    lines = []
+    cred = kw.pop("cred", _Cred())
+    r = actions.save(form, home=tmp_path, log=lines.append, credstore=cred, **kw)
+    return r, lines, cred
+
+
+def test_save_rejects_an_invalid_form_and_writes_nothing(tmp_path):
+    r, lines, cred = _save(tmp_path, _form(username=""))
+    assert not r.ok and any("username" in m.lower() for m in r.messages)
+    assert not (tmp_path / "config.toml").exists() and cred.written == []
+
+
+def test_save_writes_config_and_stores_the_password(tmp_path):
+    r, lines, cred = _save(tmp_path, _form(printer="Office", nicknames="Alex=Al", archive="D:/S", days_ahead=7))
+    assert r.ok
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["account"] == {"username": "p@x.com"}
+    assert doc["print"] == {"printer": "Office", "archive": "D:/S"}
+    assert doc["kids"] == {"nicknames": {"Alex": "Al"}}
+    assert doc["reports"]["open-work"] == {"days_ahead": 7, "overdue_days": 14}   # enabled/time/days: the Schedules page's alone
+    assert cred.written == [("p@x.com", "hunter2")]
+    assert "hunter2" not in " ".join(lines + r.messages) and "hunter2" not in (tmp_path / "config.toml").read_text()
+
+
+def test_save_never_touches_a_schedule_already_on_the_report(tmp_path):
+    """The regression this task exists to prevent: Settings used to default `days` to
+    Mon-Fri on every save, which overwrote whatever the parent chose on the Schedules page."""
+    config.save_config_doc(tmp_path / "config.toml", {"account": {"username": "p@x.com"},
+                                                      "reports": {"open-work": {"enabled": True, "time": "15:00", "days": ["Mon"]}}})
+    r, *_ = _save(tmp_path, _form(password=""))
+    assert r.ok
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["reports"]["open-work"]["enabled"] is True
+    assert doc["reports"]["open-work"]["time"] == "15:00"
+    assert doc["reports"]["open-work"]["days"] == ["Mon"]
+
+
+def test_save_tolerates_scalar_sections_in_an_existing_config(tmp_path):
+    (tmp_path / "config.toml").write_text('print = "oops"\naccount = 5\n')
+    r, *_ = _save(tmp_path, _form())
+    assert r.ok
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["print"]["printer"] == "" and doc["account"]["username"] == "p@x.com"
+
+
+def test_save_keeps_the_config_when_the_credential_store_fails(tmp_path):
+    class BadCred:
+        def write(self, username, password):
+            raise RuntimeError("credential store write failed: backend locked")
+
+    r, lines, _ = _save(tmp_path, _form(), cred=BadCred())
+    assert not r.ok
+    assert any("could not be stored" in m and "backend locked" in m for m in r.messages)
+    assert "hunter2" not in " ".join(lines + r.messages)
+    assert config.load_config_doc(tmp_path / "config.toml")["account"]["username"] == "p@x.com"   # config was written first
+
+
+def test_test_login_writes_the_stamp_on_success_and_removes_it_on_failure(tmp_path):
+    lines = []
+    ok = actions.test_login(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path),
+                            check=lambda s, log: {"Canvas": None, "HAC": None}, now=NOW)
+    assert ok.ok and ok.results == {"Canvas": None, "HAC": None} and "OK" in ok.message
+    assert (tmp_path / actions.LOGIN_STAMP).read_text() == NOW.isoformat()
+    assert any("Canvas: OK" in l for l in lines) and any("HAC: OK" in l for l in lines)
+    bad = actions.test_login(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path),
+                             check=lambda s, log: {"Canvas": None, "HAC": "LoginRequired: OneLogin did not redirect"}, now=NOW)
+    assert not bad.ok and "HAC" in bad.message and "did not redirect" in bad.message
+    assert not (tmp_path / actions.LOGIN_STAMP).exists()
+
+
+def test_test_login_treats_an_exception_from_the_checker_as_failure(tmp_path):
+    def boom(s, log):
+        raise RuntimeError("No credentials available. Run set-credentials")
+    r = actions.test_login(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), check=boom, now=NOW)
+    assert not r.ok and "No credentials" in r.message and not (tmp_path / actions.LOGIN_STAMP).exists()
+
+
+def _record_run(home, key, pdf, *, started="2026-09-14T14:05:00-04:00", finished="2026-09-14T14:05:01-04:00"):
+    """What the real runner does on every branch (including dry-run): write the PDF it built
+    into the `runs` row so `preview` can read the path back instead of guessing it."""
+    conn = db.open_db(home)
+    try:
+        runstore.record(conn, key, started, finished, "web", "OK", "dry-run built", pdf_path=str(pdf))
+    finally:
+        conn.close()
+
+
+def test_preview_runs_a_forced_dry_run_and_opens_the_pdf(tmp_path):
+    seen, opened, lines = {}, [], []
+
+    def fake_run(key, opts, settings, **kw):
+        seen["key"], seen["opts"], seen["echo"] = key, opts, kw.get("echo")
+        kw["echo"]("2026-09-14 14:05:00 OK    open-work dry-run built x")
+        pdf = tmp_path / "sheets" / "2026-09-14" / "sheet.pdf"
+        pdf.parent.mkdir(parents=True, exist_ok=True)
+        pdf.write_text("pdf")
+        _record_run(tmp_path, key, pdf)
+        return 0
+
+    log = lines.append          # one bound method, so the identity check below is meaningful
+    pdf = actions.preview(home=tmp_path, log=log, settings=Settings(home=tmp_path), run=fake_run, opener=opened.append, today=NOW.date())
+    assert pdf == tmp_path / "sheets" / "2026-09-14" / "sheet.pdf" and opened == [pdf]
+    assert seen["key"] == "open-work" and seen["opts"] == runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web")
+    assert seen["opts"].trigger == "web"
+    assert seen["echo"] is log and any("dry-run built" in l for l in lines)
+    assert actions.preview(home=tmp_path, log=log, settings=Settings(home=tmp_path), run=lambda *a, **k: 1, opener=opened.append, today=NOW.date()) is None
+    assert len(opened) == 1
+
+
+def test_preview_returns_none_when_the_run_skipped_without_building(tmp_path):
+    opened, lines = [], []
+
+    def fake_run(key, opts, settings, **kw):
+        kw["echo"]("2026-09-14 14:05:00 SKIP  open-work already running (run.lock present); nothing done")
+        return 0
+
+    pdf = actions.preview(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), run=fake_run, opener=opened.append, today=NOW.date())
+    assert pdf is None and opened == []
+
+
+def test_preview_of_a_saved_report_opens_the_pdf_the_run_recorded_not_a_stale_one(tmp_path):
+    """A saved view report's PDF lands at reports/view-<id>/<day>/report.pdf. Finding 1: resolving
+    only the output_dir and globbing the day's directory sorts by filename, so a stale `old.pdf`
+    left over from an earlier run would win over the `report.pdf` this run just built. Reading the
+    path back from the `runs` row the run itself recorded must find the real file instead."""
+    conn = db.open_db(tmp_path)
+    d = {"title": "Mine", "source": "items", "columns": ["kid", "name"]}
+    rid = reportstore.create(conn, "Mine", json.dumps(d), now="2026-09-14T08:00:00-04:00")
+    conn.close()
+    key = f"view:{rid}"
+
+    day_dir = tmp_path / f"reports/view-{rid}" / "2026-09-14"
+    day_dir.mkdir(parents=True)
+    (day_dir / "old.pdf").write_text("stale")           # alphabetically earlier than report.pdf
+    real_pdf = day_dir / "report.pdf"
+
+    opened = []
+
+    def fake_run(k, opts, settings, **kw):
+        kw["echo"]("2026-09-14 14:05:00 OK    view dry-run built x")
+        real_pdf.write_text("real")
+        _record_run(tmp_path, k, real_pdf)
+        return 0
+
+    pdf = actions.preview(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path),
+                          run=fake_run, opener=opened.append, today=NOW.date(), report_key=key)
+    assert pdf == real_pdf and opened == [pdf]
+
+
+def test_print_now_forces_a_reprint(tmp_path):
+    seen = {}
+
+    def fake_run(key, opts, settings, **kw):
+        seen["opts"] = opts
+        return 0
+
+    assert actions.print_now(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run) == 0
+    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, trigger="web")
+    assert seen["opts"].trigger == "web"
+    # `force_print` is what makes the button print a report whose schedule is PDF-only; the
+    # schedule's own run has no such flag and still only builds.
+    assert seen["opts"].force_print is True
+    assert actions.print_now(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run,
+                             date="2026-09-14") == 0
+    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, date="2026-09-14", trigger="web")
+
+
+def test_status_line_reports_last_run_and_next_run(tmp_path):
+    assert actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", False, None, None)) == "No runs yet · not scheduled"
+    (tmp_path / runner.LOG_NAME).write_text("old line\n2026-09-14 14:05:00 OK    open-work printed job=1\n")
+    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0"))
+    assert s == "2026-09-14 14:05:00 OK    open-work printed job=1 · next run 9/15/2026 2:00:00 PM"
+    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("systemd", True, "Tue 2026-09-15 14:00:00 EDT", None))
+    assert s.endswith("· next run Tue 2026-09-15 14:00:00 EDT (systemd)")
+    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", True, None, None))
+    assert s.endswith("· scheduled (next run unknown)")
+
+    def boom(k):
+        raise RuntimeError("boom")
+    s = actions.status_line(tmp_path, describe=boom)
+    assert s.endswith("· schedule unknown")
+
+
+def test_form_carries_web_fields_and_validates_the_port(tmp_path):
+    (tmp_path / "config.toml").write_text('[web]\nport = 9000\nallow_lan = true\n')
+    f = actions.load_form(tmp_path)
+    assert (f.port, f.allow_lan) == (9000, True)
+    assert actions.load_form(tmp_path / "none").port == 8433
+    f = actions.FormValues(username="u", password="p", port=80)
+    assert any("1024" in e for e in actions.validate(f, stored=""))
+    f.port = 8433
+    assert not [e for e in actions.validate(f, stored="") if "port" in e.lower()]
+
+
+def test_save_writes_web_section_and_flags_a_restart(tmp_path):
+    form = actions.FormValues(username="u", password="p", port=9000, allow_lan=True)
+    r = actions.save(form, home=tmp_path, log=lambda s: None, credstore=_Cred())
+    assert r.ok and r.restart_needed
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["web"] == {"port": 9000, "allow_lan": True, "check_updates": True}
+    r = actions.save(form, home=tmp_path, log=lambda s: None, credstore=_Cred())
+    assert r.ok and not r.restart_needed
+
+
+def test_editables_seed_validate_and_write(tmp_path):
+    text = actions.read_editable(tmp_path, "late-rules.toml")
+    assert "[default]" in text and (tmp_path / "late-rules.toml").is_file()
+    assert actions.read_editable(tmp_path, "no-print-days.txt").startswith("#")
+    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 'seven'\n")
+    assert errs and "[default]" in (tmp_path / "late-rules.toml").read_text()      # unchanged
+    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 7\ncredit = '50%'\n")
+    assert errs == [] and "late_days = 7" in (tmp_path / "late-rules.toml").read_text()
+    assert actions.save_editable(tmp_path, "no-print-days.txt", "2026-12-25 Christmas\n") == []
+    with pytest.raises(ValueError):
+        actions.save_editable(tmp_path, "config.toml", "x")
+
+
+def test_lan_url_uses_the_probe_and_tolerates_failure():
+    assert actions.lan_url(8433, probe=lambda: "192.168.1.5") == "http://192.168.1.5:8433/"
+
+    def boom():
+        raise OSError("no network")
+    assert actions.lan_url(8433, probe=boom) is None
+
+
+def test_tailnet_url_reports_a_cgnat_address_and_nothing_else():
+    """Tailscale assigns out of 100.64.0.0/10, and the probe is only believed when its answer
+    lands there. With Tailscale down the UDP connect does not necessarily fail -- the OS can
+    fall back to the default route and hand back the ordinary LAN address, which would
+    otherwise be published to the parent as "your tailnet address"."""
+    assert actions.tailnet_url(8433, probe=lambda: "100.107.58.120") == "http://100.107.58.120:8433/"
+    assert actions.tailnet_url(8433, probe=lambda: "192.168.1.5") is None      # the fallback, refused
+    assert actions.tailnet_url(8433, probe=lambda: "100.63.255.255") is None   # just below the range
+    assert actions.tailnet_url(8433, probe=lambda: "100.128.0.0") is None      # just above it
+
+
+def test_tailnet_url_tolerates_a_failed_probe_and_a_nonsense_answer():
+    def boom():
+        raise OSError("no network")
+    assert actions.tailnet_url(8433, probe=boom) is None
+    assert actions.tailnet_url(8433, probe=lambda: "") is None
+    assert actions.tailnet_url(8433, probe=lambda: "not-an-address") is None
+
+
+def test_print_now_passes_the_date(tmp_path):
+    seen = {}
+
+    def fake_run(key, opts, settings, echo=None):
+        seen["opts"] = opts
+        return 0
+    actions.print_now(home=tmp_path, log=lambda s: None, settings=config.Settings(home=tmp_path), run=fake_run, date="2026-09-14")
+    assert seen["opts"].date == "2026-09-14" and seen["opts"].reprint and seen["opts"].force
+
+
+def test_about_text_names_version_repo_and_licences():
+    from importlib import metadata
+    t = actions.about_text()
+    try:
+        expected = metadata.version("lakota-grades-mcp")
+    except metadata.PackageNotFoundError:
+        expected = "dev"
+    assert t.startswith(f"Lakota Sheet {expected}\n")
+    assert "github.com/steiner385/fridgesheet" in t
+    assert "SumatraPDF" in t and "Chromium" in t and "segno" in t
+    assert "Tk" not in t and "Tcl" not in t          # the window is retired; nothing bundles Tk
+
+
+def test_forward_logs_streams_lakota_records_only_while_active():
+    lines = []
+    lakota, child = logging.getLogger("lakota"), logging.getLogger("lakota.session")
+    saved = (lakota.level, child.level)
+    lakota.setLevel(logging.NOTSET)
+    child.setLevel(logging.NOTSET)          # like the real app: nobody has configured these
+    try:
+        with actions.forward_logs(lines.append):
+            child.info("OneLogin login page detected; signing in")
+            logging.getLogger("other").info("not ours")
+        child.info("after")
+        assert lines == ["OneLogin login page detected; signing in"]
+        assert lakota.level == logging.NOTSET      # restored
+    finally:
+        lakota.setLevel(saved[0])
+        child.setLevel(saved[1])

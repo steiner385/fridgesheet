@@ -1,0 +1,12 @@
+[Unit]
+Description=Print the kids' open-work sheet every weekday at 2:00 PM Eastern
+
+[Timer]
+OnCalendar=Mon..Fri 14:00 America/New_York
+# A run missed because the machine was asleep fires when it wakes. The command itself
+# refuses to print before 2 PM, so a catch-up the next morning logs and exits instead of
+# printing yesterday's sheet.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

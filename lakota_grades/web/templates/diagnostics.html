@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Diagnostics · Lakota Sheet{% endblock %}
+{% block content %}
+<h2>Diagnostics</h2>
+{% if jobs %}<p><button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button></p>{% endif %}
+<div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+<h3>Last report</h3>
+{% if report %}<pre class="log">{{ report }}</pre>{% else %}<p class="muted">Diagnostics have not been run yet.</p>{% endif %}
+{% endblock %}

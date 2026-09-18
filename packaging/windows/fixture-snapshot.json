@@ -1,0 +1,9 @@
+{
+  "fetched_at": "2026-09-14T12:00:00+00:00",
+  "fetched_at_epoch": 1789387200,
+  "sources": {"canvas": "ok", "hac": "ok"},
+  "stale": {},
+  "students": {
+    "Sample": {"name": "Sample Student", "canvas_id": 1, "canvas": {"courses": []}, "hac": {"classes": []}}
+  }
+}

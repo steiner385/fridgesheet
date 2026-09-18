@@ -1,0 +1,32 @@
+{# `sort_base` comes from the route (it ends in ? or &): sorting stays on the page you are on.
+   Three columns where "Status" used to be one: when it is due, whether it was handed in, and
+   what the gradebook says. The old single word still drives the Grade header's sort. #}
+<table class="items">
+  <thead><tr>
+    <th><a href="{{ sort_base }}sort=due" hx-get="{{ sort_base }}sort=due" hx-target="#items" hx-push-url="true">Due</a></th>
+    <th><a href="{{ sort_base }}sort=course" hx-get="{{ sort_base }}sort=course" hx-target="#items" hx-push-url="true">Course</a></th>
+    <th><a href="{{ sort_base }}sort=name" hx-get="{{ sort_base }}sort=name" hx-target="#items" hx-push-url="true">Item</a></th>
+    <th>Handed in</th>
+    <th><a href="{{ sort_base }}sort=status" hx-get="{{ sort_base }}sort=status" hx-target="#items" hx-push-url="true">Grade</a></th>
+    <th>Sources</th><th>Flag</th>
+  </tr></thead>
+  <tbody>
+  {% for v in rows %}
+  <tr class="{{ 'overdue' if v.overdue }}" id="row-{{ v.id }}">
+    <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}
+        {% if v.actionable %}<span class="badge">actionable</span>{% endif %}</td>
+    <td><a href="/kids/{{ student.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
+    <td><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
+        {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
+        {% for k in v.case_kinds %}<span class="badge warn">{{ k.replace('_', ' ') }}</span>{% endfor %}</td>
+    <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}{% if v.handed_in_at %} <span class="rel">{{ v.handed_in_at | md }}</span>{% endif %}</td>
+    <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade }}</td>
+    <td class="muted">{{ v.sources | join(' + ') }}</td>
+    <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
+  </tr>
+  <tr class="detail"><td colspan="7" id="detail-{{ v.id }}"></td></tr>
+  {% else %}
+  <tr><td colspan="7" class="muted">Nothing matches these filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

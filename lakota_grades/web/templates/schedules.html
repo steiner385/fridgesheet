@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Schedules · Lakota Sheet{% endblock %}
+{% block content %}
+<h2>Schedules</h2>
+<p class="muted">A scheduled report runs itself: it refreshes, builds, and prints (or just keeps the PDF).
+   The time is also the earliest a catch-up run will print, so a run missed overnight does not print yesterday's sheet in the morning.</p>
+{% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
+{% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
+
+{% for r in rows %}
+<form method="post" action="/schedules" class="schedule">
+  <input type="hidden" name="key" value="{{ r.key }}">
+  <h3>{{ r.title }} <span class="muted">{{ r.key }}</span></h3>
+  <p class="muted">
+    {% if r.unsupported %}{{ r.unsupported }}
+    {% elif r.info and r.info.installed %}
+      {{ r.info.managed_by }}{% if r.info.next_run %} · next run {{ r.info.next_run }}{% endif %}
+      {% if not r.info.manageable %}<br>This one was written outside this app, so it is shown here but never changed here.{% endif %}
+    {% else %}not scheduled{% endif %}
+  </p>
+  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }}
+         {{ "disabled" if r.info and not r.info.manageable }}> Run this on a schedule</label>
+  <label>Time <input type="time" name="time" value="{{ r.time }}" required></label>
+  <fieldset><legend>Days</legend>
+    {% for d in days %}
+    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }}> {{ d }}</label>
+    {% endfor %}
+  </fieldset>
+  <label>Printer
+    <select name="printer">
+      <option value="">(the printer on the Settings page)</option>
+      {% for value, label, sel in printer_options[r.key] %}<option value="{{ value }}" {{ "selected" if sel }}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }}> Print it (off: keep the PDF only)</label>
+  <button class="primary" {{ "disabled" if r.info and not r.info.manageable }}>Save</button>
+</form>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,10 @@
+<div class="card case {{ cases[0].kind }}" id="group-{{ item.id }}">
+  <h2><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#group-detail-{{ item.id }}">{{ item.name }}</a>
+      <span class="muted">· {{ item.course_short }}{% if item.due %} · due {{ item.due | md }}{% endif %} · {{ item.status }}</span></h2>
+  <ul>{% for c in cases %}<li><strong>{{ c.kind.replace('_', ' ') }}</strong>: {{ c.reason }}</li>{% endfor %}</ul>
+  <form class="actions" hx-post="/items/{{ item.id }}/flag" hx-target="#group-{{ item.id }}" hx-swap="outerHTML">
+    <input name="text" placeholder="why (optional)">
+    {% for f in ("done", "excused", "ignore", "follow_up", "ask_teacher") %}<button name="flag" value="{{ f }}">{{ f.replace('_', ' ') }}</button>{% endfor %}
+  </form>
+  <div id="group-detail-{{ item.id }}"></div>
+</div>

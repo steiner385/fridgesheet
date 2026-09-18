@@ -1,0 +1,25 @@
+<table class="items">
+  <thead><tr><th>When</th><th>Kid</th><th>What</th><th>Item</th><th>Class</th><th>Detail</th></tr></thead>
+  <tbody>
+  {% for e in events %}
+  <tr>
+    <td>{{ e.at | wd_md_time }}</td>
+    <td><a href="/kids/{{ e.student_key }}">{{ e.student_key | nickname }}</a></td>
+    <td><span class="badge">{{ e.label }}</span></td>
+    <td>{% if e.item_id %}<a href="#change-{{ loop.index }}" hx-get="/items/{{ e.item_id }}" hx-target="#change-{{ loop.index }}">{{ e.item_name }}</a>{% endif %}</td>
+    <td class="muted">{{ e.course_short or '' }}{% if e.source %} · {{ e.source }}{% endif %}</td>
+    <td>{{ e.detail }}</td>
+  </tr>
+  <tr class="detail"><td colspan="6" id="change-{{ loop.index }}"></td></tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">Nothing has changed in this window.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if events.dropped %}
+{# 499 rows on "since yesterday" is not a feed. One page at a time, newest first, and a way
+   to the rest -- the old caption said "narrow the window" and offered no other door (#40 item 11). #}
+<p class="muted">Showing {{ events.first }}–{{ events.last }} of {{ events.total }} changes.
+  {% if events.has_newer %}<a href="{{ page_base }}page={{ page_no - 1 }}">‹ Newer</a>{% endif %}
+  {% if events.has_older %}<a href="{{ page_base }}page={{ page_no + 1 }}">Older ›</a>{% endif %}</p>
+{% endif %}

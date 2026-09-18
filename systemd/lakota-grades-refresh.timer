@@ -1,0 +1,10 @@
+[Unit]
+Description=Pull grades Thursday 11:30 (before the noon report) and daily at 6:00
+
+[Timer]
+OnCalendar=Thu 11:30
+OnCalendar=*-*-* 06:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

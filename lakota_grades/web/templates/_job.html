@@ -1,0 +1,12 @@
+<div class="card job" id="job">
+  {% if busy %}<p class="warn">Busy: {{ job.label }} (job {{ job.id }}) is still running.</p>{% endif %}
+  <h2>{{ job.label }} <span class="muted">job {{ job.id }} · started {{ job.started_at | time12 }}</span>
+    {% if job.done %}<span class="badge {{ job.outcome }}">{{ job.outcome }}</span>{% endif %}</h2>
+  {% if job.done %}
+    <p>{{ job.message }}</p>
+    {% if pdf %}<p><a href="/jobs/{{ job.id }}/pdf">open the PDF</a></p>{% endif %}
+    <pre class="log">{{ job.lines | join('\n') }}</pre>
+  {% else %}
+    <pre class="log" data-sse="/jobs/{{ job.id }}/events" data-reload="/jobs/{{ job.id }}">{{ job.lines | join('\n') }}</pre>
+  {% endif %}
+</div>

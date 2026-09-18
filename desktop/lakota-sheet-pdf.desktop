@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kids' Sheet (PDF only)
+Comment=Refresh Canvas + HAC and open today's open-work sheet as a PDF; prints nothing
+Exec=bash -c '"$HOME/lakota-grades-mcp/scripts/lakota-sheet-desktop.sh" pdf'
+Icon=x-office-document
+Terminal=true
+Categories=Office;
+Keywords=lakota;canvas;grades;homework;

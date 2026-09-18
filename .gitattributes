@@ -1,0 +1,5 @@
+# The vendored front-end files are committed byte for byte and their SHA-256 is pinned in
+# lakota_grades/web/static/VENDOR.md. Git must not rewrite their line endings on a Windows
+# checkout, or the hash no longer matches what upstream published.
+lakota_grades/web/static/*.js -text
+lakota_grades/web/static/*.css -text

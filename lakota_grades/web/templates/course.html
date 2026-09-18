@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ course.short_name }} · {{ student.key | nickname }} · Lakota Sheet{% endblock %}
+{% block content %}
+<p><a href="/kids/{{ student.key }}">← {{ student.key | nickname }}</a></p>
+<h2>{{ course.short_name }} <span class="muted">{{ course.name }}</span></h2>
+<div class="cards">
+  <div class="card"><h2>Grade</h2>
+    {% if grade and grade.current is not none %}<p><span class="big">{{ grade.current }}</span> Canvas current{% if grade.letter %} · {{ grade.letter }}{% endif %}</p>{% endif %}
+    {% set h = peer_grade if course.source == 'canvas' else grade %}
+    {% if h and h.average is not none %}<p><span class="big">{{ h.average }}</span> HAC average{% if h.last_updated %} <span class="muted">updated {{ h.last_updated }}</span>{% endif %}</p>{% endif %}
+    {% if not grade and not peer_grade %}<p class="muted">No grade observed yet.</p>{% endif %}
+  </div>
+  <div class="card"><h2>Teacher</h2>
+    {% if course.teacher %}<p>{{ course.teacher }}</p>{% else %}<p class="muted">Not listed.</p>{% endif %}
+    {% if course.teacher_email %}<p><a href="mailto:{{ course.teacher_email }}">{{ course.teacher_email }}</a></p>{% endif %}
+    {% if peer %}<p class="muted">Also in {{ peer.source }} as {{ peer.name }}</p>{% endif %}
+  </div>
+</div>
+<h3>Grade history</h3>
+<table class="items"><tr><th>Seen</th><th>Canvas current</th><th>Canvas final</th><th>HAC average</th><th>Letter</th></tr>
+{% for g in history %}<tr><td>{{ g.started_at | wd_md_time }}</td><td>{{ g.current if g.current is not none else '' }}</td><td>{{ g.final if g.final is not none else '' }}</td><td>{{ g.average if g.average is not none else '' }}</td><td>{{ g.letter or '' }}</td></tr>{% else %}<tr><td colspan="5" class="muted">Nothing yet.</td></tr>{% endfor %}
+</table>
+<link rel="stylesheet" href="/static/uplot.min.css">
+<script src="/static/uplot.min.js" defer></script>
+{% with url = "/trends/grades.json?course=" ~ course.id, kind = "lines", title = "This class" %}
+{% include "_chart.html" %}
+{% endwith %}
+<h3>Notes</h3>
+{% set target_type = "course" %}{% set target_id = course.id %}
+{% include "_notes.html" %}
+<h3>Items</h3>
+<div id="items">
+{% block partial %}
+{% include "_item_rows.html" %}
+{% endblock %}
+</div>
+{% endblock %}

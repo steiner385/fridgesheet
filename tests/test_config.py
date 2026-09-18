@@ -1,0 +1,280 @@
+"""The optional .env under the lakota-grades home must load without anyone having to
+export LAKOTA_ENV_FILE. Claude Desktop rewrites its config on exit and can drop the
+`env` block, and a systemd unit copied by hand may lose the Environment= line; either
+way the server silently ran without its settings."""
+from __future__ import annotations
+
+import os
+import tomllib
+from pathlib import Path
+
+import pytest
+
+from lakota_grades import config
+
+MARKER = "LAKOTA_TEST_MARKER"
+
+
+@pytest.fixture
+def isolated(tmp_path, monkeypatch):
+    """A fake lakota-grades home and a fake cwd, each holding a .env with a different marker."""
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    monkeypatch.delenv(MARKER, raising=False)
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text(f"{MARKER}=home\n")
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    (cwd / ".env").write_text(f"{MARKER}=cwd\n")
+    monkeypatch.setattr(config, "DEFAULT_HOME", home)
+    monkeypatch.chdir(cwd)
+    return home, cwd
+
+
+def test_env_file_defaults_to_home_dotenv_when_unset(isolated):
+    home, _ = isolated
+    assert config.env_file() == home / ".env"
+
+
+def test_env_file_honours_explicit_setting(isolated, monkeypatch, tmp_path):
+    explicit = tmp_path / "elsewhere.env"
+    monkeypatch.setenv("LAKOTA_ENV_FILE", str(explicit))
+    assert config.env_file() == explicit
+
+
+def test_home_dotenv_beats_cwd_dotenv_when_unset(isolated):
+    config._load_env_files()
+    assert os.environ[MARKER] == "home"
+
+
+def test_explicit_env_file_beats_home_dotenv(isolated, monkeypatch, tmp_path):
+    explicit = tmp_path / "elsewhere.env"
+    explicit.write_text(f"{MARKER}=explicit\n")
+    monkeypatch.setenv("LAKOTA_ENV_FILE", str(explicit))
+    config._load_env_files()
+    assert os.environ[MARKER] == "explicit"
+
+
+def test_missing_default_env_file_is_not_an_error(isolated):
+    home, _ = isolated
+    (home / ".env").unlink()
+    config._load_env_files()  # falls through to cwd/.env, silently
+    assert os.environ[MARKER] == "cwd"
+
+
+def test_sheets_archive_comes_from_the_environment(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    monkeypatch.setenv("LAKOTA_SHEETS_ARCHIVE", "/mnt/drive/Sheets")
+    assert config.load_settings().sheets_archive == "/mnt/drive/Sheets"
+    monkeypatch.delenv("LAKOTA_SHEETS_ARCHIVE")
+    assert config.load_settings().sheets_archive == ""
+
+
+def test_bare_settings_never_defaults_to_the_owners_real_home():
+    """The autouse `_no_lakota_home` fixture in conftest.py patches `config.DEFAULT_HOME` for
+    every test, since `Settings.home`'s default factory reads that module attribute at
+    construction time. A bare `Settings()` is easy to write and easy to leave behind when a
+    command path starts touching the database where it never used to (`reports.available` did,
+    in the schedules plan) -- so it must never be able to resolve to the owner's actual
+    ~/.lakota-grades, with no per-test opt-in required."""
+    assert config.Settings().home != Path.home() / ".lakota-grades"
+
+
+def test_default_home_is_localappdata_on_windows(monkeypatch, tmp_path):
+    from lakota_grades import host
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.delenv("LAKOTA_GRADES_HOME", raising=False)
+    assert config._default_home() == tmp_path / "lakota-grades"
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
+    assert config._default_home() == Path.home() / ".lakota-grades"
+
+
+def test_config_doc_round_trip(tmp_path):
+    p = tmp_path / "config.toml"
+    doc = {"account": {"username": "p@x.com"}, "print": {"printer": 'Brother "MFC"', "archive": "C:\\Users\\p\\Drive"},
+           "kids": {"nicknames": {"Alex": "Al"}},
+           "reports": {"open-work": {"enabled": True, "time": "15:30", "days": ["Mon", "Wed"], "days_ahead": 7, "overdue_days": 21}}}
+    config.save_config_doc(p, doc)
+    assert config.load_config_doc(p) == doc
+    assert config.load_config_doc(tmp_path / "missing.toml") == {}
+
+
+def test_broken_config_names_the_file(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text("[print\n")
+    with pytest.raises(config.ConfigError) as e:
+        config.load_config_doc(p)
+    assert str(p) in str(e.value)
+
+
+def test_settings_from_doc_and_env_precedence(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    for k in ("LAKOTA_PRINTER", "LAKOTA_NICKNAMES", "LAKOTA_SHEETS_ARCHIVE"):
+        monkeypatch.delenv(k, raising=False)
+    config.save_config_doc(tmp_path / "config.toml", {
+        "account": {"username": "p@x.com"}, "print": {"printer": "Office", "archive": "/mnt/d"},
+        "kids": {"nicknames": {"Alex": "Al", "Katherine": "Kate"}},
+        "reports": {"open-work": {"enabled": True, "time": "15:30", "days_ahead": 7}, "weekly": {"enabled": False}, "unknown-key": 1},
+        "not_a_section": {"x": 1},
+    })
+    s = config.load_settings()
+    assert s.username == "p@x.com" and s.printer == "Office" and s.sheets_archive == "/mnt/d"
+    assert s.nicknames == {"Alex": "Al", "Katherine": "Kate"}
+    rc = s.report_config("open-work")
+    assert rc.enabled and rc.time == "15:30" and rc.days == ["Mon", "Tue", "Wed", "Thu", "Fri"] and rc.options == {"days_ahead": 7}
+    assert s.report_config("nope").enabled is False and s.report_config("nope", default_time="18:00").time == "18:00"
+    assert s.reports["weekly"].time is None      # present in config.toml but no time set
+    assert s.report_config("weekly", default_time="18:00").time == "18:00"
+    monkeypatch.setenv("LAKOTA_PRINTER", "Env")
+    monkeypatch.setenv("LAKOTA_NICKNAMES", "Alex=D,Jo=Mel")
+    monkeypatch.setenv("LAKOTA_SHEETS_ARCHIVE", "/env")
+    s = config.load_settings()
+    assert s.printer == "Env" and s.sheets_archive == "/env"
+    assert s.nicknames == {"Alex": "D", "Katherine": "Kate", "Jo": "Mel"}   # env wins per key
+
+
+def test_parse_nicknames():
+    assert config.parse_nicknames(" Alex = Al ,Katherine=Kate,,bad") == {"Alex": "Al", "Katherine": "Kate"}
+    assert config.parse_nicknames("") == {}
+
+
+def test_no_nickname_is_built_in(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    monkeypatch.delenv("LAKOTA_NICKNAMES", raising=False)
+    assert config.load_settings().nicknames == {}
+
+
+def test_bad_report_time_is_a_config_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    config.save_config_doc(tmp_path / "config.toml", {"reports": {"open-work": {"time": "2 PM"}}})
+    with pytest.raises(config.ConfigError) as e:
+        config.load_settings()
+    assert str(tmp_path / "config.toml") in str(e.value) and "2 PM" in str(e.value)
+
+    config.save_config_doc(tmp_path / "config.toml", {"reports": {"open-work": {"time": "9:00"}}})
+    with pytest.raises(config.ConfigError, match="9:00"):
+        config.load_settings()
+
+    config.save_config_doc(tmp_path / "config.toml", {"reports": {"open-work": {"time": "09:00"}}})
+    s = config.load_settings()
+    assert s.report_config("open-work").time == "09:00"
+
+
+def test_settings_home_follows_default_home(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    assert config.Settings().home == tmp_path
+
+
+def test_non_dict_config_sections_are_ignored(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    config.save_config_doc(tmp_path / "config.toml", {"print": "oops"})
+    s = config.load_settings()
+    assert s.printer == ""
+
+
+def test_extra_hosts_is_lowercased_and_survives_a_value_of_the_wrong_shape(tmp_path):
+    """`[web] extra_hosts` is the closed list of *names* the app answers to under a wildcard
+    bind (addresses need no entry; see `web.app._host_allowed`). Lowercased on the way in
+    because `urlsplit` lowercases the incoming `Host`, so `Graphy.Tailnet-1234.ts.net` typed
+    here would otherwise never match the request it was written for -- the same trap an
+    explicit `LAKOTA_WEB_HOST` pin already fell into once."""
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc({"web": {"extra_hosts": ["Graphy.Tailnet-1234.TS.net", "  spaced.local  ", ""]}}, s)
+    assert s.web_extra_hosts == ["graphy.tailnet-1234.ts.net", "spaced.local"]
+
+    # A scalar where a list belongs must not become a list of its characters, and must not
+    # take the whole config down: the default stands, as it does for a bad `port`.
+    s2 = config.Settings(home=tmp_path)
+    config.settings_from_doc({"web": {"extra_hosts": "graphy.local"}}, s2)
+    assert s2.web_extra_hosts == []
+
+
+def test_web_section_and_env_override(tmp_path, monkeypatch):
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc({"web": {"port": 9000, "allow_lan": True, "host": "10.0.0.5"}}, s)
+    assert (s.web_port, s.web_allow_lan, s.web_host) == (9000, True, "10.0.0.5")
+    assert s.bind_host == "0.0.0.0"
+    s2 = config.Settings(home=tmp_path)
+    assert (s2.web_port, s2.web_allow_lan, s2.bind_host) == (8433, False, "127.0.0.1")
+    config.settings_from_doc({"web": {"port": "not a number"}}, s2)
+    assert s2.web_port == 8433                     # a bad value keeps the default
+    # `DEFAULT_HOME` is read at import, so pointing LAKOTA_GRADES_HOME at tmp_path here would
+    # not move it: load_settings() would read (and mkdir under) the developer's real home, and
+    # its .env would leak LAKOTA_* values into every later test. Patch the module attribute,
+    # the way the rest of this file does.
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    monkeypatch.setenv("LAKOTA_WEB_PORT", "8500")
+    monkeypatch.setenv("LAKOTA_WEB_HOST", "0.0.0.0")
+    s3 = config.load_settings()
+    assert (s3.home, s3.web_port, s3.bind_host) == (tmp_path, 8500, "0.0.0.0")
+
+
+def test_explicit_web_host_env_wins_over_allow_lan(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    monkeypatch.delenv("LAKOTA_ENV_FILE", raising=False)
+    config.save_config_doc(tmp_path / "config.toml", {"web": {"allow_lan": True}})
+    assert config.load_settings().bind_host == "0.0.0.0"          # allow_lan alone opens the LAN
+    monkeypatch.setenv("LAKOTA_WEB_HOST", "127.0.0.1")
+    s = config.load_settings()
+    assert (s.web_allow_lan, s.web_host_explicit) == (True, True)
+    assert s.bind_host == "127.0.0.1"                             # the env address pins it back
+
+
+def test_a_report_can_name_its_own_printer_and_ask_not_to_print(tmp_path):
+    """Spec section 5: a schedule is "any report, days, time, printer or PDF-only". Those two
+    live with the rest of the report's config so changing them never means reinstalling a unit."""
+    doc = tomllib.loads(
+        '[reports."view:7"]\n'
+        'enabled = true\ntime = "16:00"\ndays = ["Fri"]\n'
+        'printer = "Brother_MFC_J4335DW"\nprint = false\n')
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(doc, s)
+    rc = s.report_config("view:7", "16:00")
+    assert rc.printer == "Brother_MFC_J4335DW" and rc.prints is False
+    assert "printer" not in rc.options and "print" not in rc.options   # not build options
+
+
+def test_a_report_prints_to_the_shared_printer_by_default(tmp_path):
+    doc = tomllib.loads('[reports.open-work]\nenabled = true\ndays_ahead = 10\n')
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(doc, s)
+    rc = s.report_config("open-work", "14:00")
+    assert rc.printer == "" and rc.prints is True and rc.options == {"days_ahead": 10}
+
+
+def test_a_days_value_that_is_not_a_list_of_days_falls_back_to_the_default(tmp_path):
+    """`days` came straight off the document as `[str(d) for d in sect.get("days", WEEKDAYS)]`
+    with no type check, so a hand-edited (or future-version) `days = 5` raised a bare
+    `TypeError: 'int' object is not iterable` out of `settings_from_doc` -- and out of every
+    one of its callers, including the uninstaller's `_removal_settings`, where it killed
+    `schedule remove --all` before a single task was removed. A string is just as wrong in a
+    quieter way: `[str(d) for d in "Mon"]` yields `["M", "o", "n"]`.
+
+    Treat it the way `[web]`'s port and `[kids].nicknames` already treat a value of the wrong
+    shape: keep the default and read the rest of the table."""
+    for bad in (5, "Mon", True, {"Mon": True}, None):
+        s = config.Settings(home=tmp_path)
+        config.settings_from_doc({"reports": {"open-work": {"enabled": True, "days": bad, "days_ahead": 7}}}, s)
+        rc = s.report_config("open-work")
+        assert rc.days == config.WEEKDAYS, f"days = {bad!r}"
+        assert rc.enabled and rc.options == {"days_ahead": 7}       # and the rest of the table still read
+        assert "days" not in rc.options                             # still a known key, not a build option
+
+    s = config.Settings(home=tmp_path)                              # the good shape is untouched
+    config.settings_from_doc({"reports": {"open-work": {"days": ["Mon", "Wed"]}}}, s)
+    assert s.report_config("open-work").days == ["Mon", "Wed"]
+
+
+def test_a_reports_key_that_is_not_a_table_is_ignored_like_any_other_section(tmp_path):
+    """`reports = "oops"` raised `AttributeError` from `.items()`; the other top-level sections
+    have been type-guarded since `test_non_dict_config_sections_are_ignored`."""
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc({"reports": "oops", "account": {"username": "p@example.org"}}, s)
+    assert s.reports == {} and s.username == "p@example.org"
