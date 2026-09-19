@@ -59,7 +59,9 @@ def test_database_probe_reports_counts(tmp_path):
         conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES ('t', '{}', 1)")
     conn.close()
     out = {c.name: c for c in doctor.checks(Settings(home=tmp_path), tmp_path, probes=[p for p in doctor.PROBES if p[0] == "database"])}
-    assert out["database"].ok and "schema 1" in out["database"].detail and "1 refreshes" in out["database"].detail
+    # The probe reports whatever version `migrate` brought the file to, so the assertion follows
+    # `db.SCHEMA_VERSION` rather than pinning a number a later migration would silently outdate.
+    assert out["database"].ok and f"schema {db.SCHEMA_VERSION}" in out["database"].detail and "1 refreshes" in out["database"].detail
 
 
 def test_run_reports_an_unwritable_home_instead_of_raising(tmp_path):
