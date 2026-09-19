@@ -158,3 +158,9 @@ document.addEventListener("htmx:afterSwap", function (e) { attachCharts(e.detail
 document.addEventListener("click", function (event) {
   if (event.target.closest("[data-print-plan]")) window.print();
 });
+
+// The one form that deletes asks first; nothing else on these pages needs a dialog.
+document.addEventListener("submit", function (event) {
+  var form = event.target.closest("form[data-confirm]");
+  if (form && !window.confirm(form.getAttribute("data-confirm"))) event.preventDefault();
+});

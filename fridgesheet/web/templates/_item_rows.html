@@ -15,7 +15,7 @@
   <tr class="{{ 'overdue' if v.overdue }}" id="row-{{ v.id }}">
     <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}
         {% if v.actionable %}<span class="badge">actionable</span>{% endif %}</td>
-    <td><a href="/kids/{{ student.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
+    <td><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
     <td><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
         {% for k in v.case_kinds %}<span class="badge warn">{{ k.replace('_', ' ') }}</span>{% endfor %}</td>

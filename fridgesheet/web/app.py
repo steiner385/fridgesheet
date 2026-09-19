@@ -10,7 +10,7 @@ import ipaddress
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from html import escape
 from importlib import metadata
 from pathlib import Path
@@ -113,7 +113,16 @@ def _filters(state: AppState) -> dict:
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
 
-    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname}
+    def wd_md(v):
+        """"Thu 9/17". A plain date ("2026-09-17" or a `date`) has no time of day, so nothing
+        is converted between zones; a timestamp is moved into the app's zone first."""
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v) if "T" in v else date.fromisoformat(v)
+        if isinstance(v, datetime):
+            v = v.astimezone(state.tz)
+        return dates.wd_md(v) if v else ""
+
+    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname, "wd_md": wd_md}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

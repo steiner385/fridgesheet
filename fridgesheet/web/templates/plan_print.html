@@ -12,13 +12,13 @@
    htmx. What is here is what goes on the fridge. #}
 <body class="print-page">
 <main>
-<div class="print-controls"><a href="/kids/{{ student.key | urlencode }}/plan">← Back to plan</a> <button type="button" data-print-plan>Print / save PDF</button><p class="muted">Print this agreed plan using your browser. School inventory and other children are left out.</p></div>
+<div class="print-controls"><a href="/kids/{{ student.key | urlencode }}/plan">← Back to plan</a> <button type="button" data-print-plan>Print / save PDF</button><p class="muted">Print this agreed plan using your browser. Family accounts stay on screen; school inventory and other children are left out.</p></div>
 <article class="print-plan">
 <h2>{{ student.key | nickname }}’s plan</h2><p>Printed {{ now | wd_md_time }}</p>
-{% if last_check %}<p>Next check-in: {{ last_check.next_check }} · Last agreed time budget: {{ last_check.available_minutes }} minutes</p>{% if last_check.summary %}<p class="family-account">{{ last_check.summary }}</p>{% endif %}{% endif %}
+{% if last_check %}<p>Next check-in: {{ last_check.next_check | wd_md }} · Last agreed time budget: {{ last_check.available_minutes }} minutes · Agreed {{ last_check.finished_at | wd_md_time }}</p>{% if last_check.summary %}<p class="family-account">{{ last_check.summary }}</p>{% endif %}{% endif %}
 {% for label in ('planned', 'blocked', 'waiting') %}
 <h3>{{ states[label] }}</h3>
-{% for step in steps if step.state == label %}<div class="print-step"><h4>□ {{ step.title }}</h4><p>{{ step.next_step }}</p><p><strong>{{ step.owner }}</strong> · {{ 'Check again' if label in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for }}{% if step.minutes %} · {{ step.minutes }} minutes{% endif %}</p></div>{% else %}<p class="muted">None.</p>{% endfor %}
+{% for step in steps if step.state == label %}<div class="print-step"><h4>□ {{ step.title }}{% if step.view %} <span class="muted">· {{ step.view.course_short }}</span>{% endif %}</h4><p>{{ step.next_step }}</p><p><strong>{{ step.owner }}</strong> · {{ 'Check again' if label in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · revisit this date{% endif %}{% if step.minutes %} · {{ step.minutes }} minutes{% endif %}{% if step.changed %} · school record changed since this step was saved{% endif %}{% if step.since == 'added' %} · added since the check-in{% elif step.since == 'edited' %} · edited since the check-in{% endif %}</p></div>{% else %}<p class="muted">None.</p>{% endfor %}
 {% endfor %}
 <p class="muted">Checking off a step records your progress. Confirm hand-in separately when the school requires it.</p>
 </article>

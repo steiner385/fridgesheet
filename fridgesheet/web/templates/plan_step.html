@@ -1,23 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Choose a next step · {{ student.key | nickname }}{% endblock %}
+{% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Choose a next step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
 <p><a href="{{ base }}#plan">← {{ student.key | nickname }}’s check-in</a></p>
-<h2>{{ 'Edit a step' if step_id else 'Choose a next step' }}</h2>
-<p>What happened, and what would help move this forward?</p>
-{% if error %}<p role="alert" class="notice warn">{{ error }}{% if conflict %} <a href="{{ base }}/step?step_id={{ step_id }}">Open the latest version of this step</a> in a new tab, then copy your words across.{% endif %}</p>{% endif %}
-{% if view %}<div class="card">{% include "_planning_evidence.html" %}</div>{% endif %}
+{% if step_id %}<h2>Edit a step</h2><p>Change what was agreed, mark it complete, or put it back.</p>
+{% elif item_id %}<h2>Choose a next step</h2><p>What happened, and what would help move this forward?</p>
+{% else %}<h2>Add a task</h2><p>Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment.</p>{% endif %}
+{% if error %}<p role="alert" class="notice warn" tabindex="-1" autofocus>{{ error }}</p>{% endif %}
+{% if latest %}
+<div class="card conflict">
+  <h3>Saved meanwhile</h3>
+  <p>{{ latest.next_step }} · <strong>{{ latest.owner }}</strong> · {{ states[latest.state] }} · {{ latest.planned_for | wd_md }}{% if latest.recorded_by %} · recorded by {{ latest.recorded_by }}{% endif %}</p>
+  {% if latest.family_account %}<p class="family-account">{{ latest.family_account }}</p>{% endif %}
+  <p class="muted">Your words are still in the form below. Save again to keep yours, or <a href="{{ base }}/step?step_id={{ step_id }}">open the latest version</a> to start from theirs.</p>
+</div>
+{% endif %}
+{% if view %}<div class="card"><p class="eyebrow">{{ view.course_short }}</p>{% include "_planning_evidence.html" %}</div>{% endif %}
 <form class="plan-form card" method="post" action="{{ base }}/step{% if step_id %}?step_id={{ step_id }}{% elif item_id %}?item_id={{ item_id }}{% endif %}">
   <input type="hidden" name="request_key" value="{{ values.request_key }}"><input type="hidden" name="revision" value="{{ values.revision }}">
   <label>Assignment or task<input name="title" required maxlength="500" value="{{ values.title }}"></label>
-  <label>Family account <span class="muted">(optional)</span><textarea name="family_account" maxlength="4000" placeholder="I handed this in on paper Tuesday. / I’m stuck on question 4.">{{ values.family_account }}</textarea></label>
+  <label>Family account <span class="muted">(optional: your side of the story)</span><textarea name="family_account" maxlength="4000" placeholder="I handed this in on paper Tuesday. / I’m stuck on question 4.">{{ values.family_account }}</textarea></label>
   <label>Agreed next step<input name="next_step" required maxlength="500" value="{{ values.next_step }}" placeholder="Complete questions 1–4, then put the worksheet in my bag"></label>
   <div class="form-pair"><label>Who will do this?<input name="owner" required maxlength="500" value="{{ values.owner }}"></label>
   <label>State<select name="state">{% for value, label in states.items() %}<option value="{{ value }}" {{ 'selected' if values.state == value }}>{{ label }}</option>{% endfor %}</select></label></div>
   <p class="muted">“Step complete” records this small commitment, not a school submission or grade.</p>
-  <div class="form-pair"><label>Planned date / check again on<input type="date" name="planned_for" required value="{{ values.planned_for }}"></label>
+  <div class="form-pair"><label>{{ 'When will you check again?' if values.state in ('waiting', 'blocked') else 'Planned date' }} <span class="muted">(for Waiting and Need help: when to look again)</span><input type="date" name="planned_for" required value="{{ values.planned_for }}"></label>
   <label>Estimated minutes <span class="muted">(optional)</span><input type="number" name="minutes" min="1" max="1440" value="{{ values.minutes if values.minutes is not none else '' }}"></label></div>
-  <label>Order within this day <span class="muted">(lower goes first)</span><input type="number" name="position" min="1" max="999" required value="{{ values.position }}"></label>
+  <div class="form-pair"><label>Order within this day <span class="muted">(lower goes first)</span><input type="number" name="position" min="1" max="999" required value="{{ values.position }}"></label>
+  <label>Recorded by <span class="muted">(optional)</span><input name="recorded_by" maxlength="100" value="{{ values.recorded_by }}" placeholder="Mom, Dad, Grandma…"></label></div>
   <p class="muted">A waiting or help-needed step stays in the plan until you change it. Its date is when you’ll check again.</p>
   <div class="actions"><button class="primary">Save step</button> <a href="{{ base }}#plan">Cancel</a></div>
 </form>
+{% if step_id %}
+<form class="remove-step" method="post" action="{{ base }}/step/{{ step_id }}/delete" data-confirm="Remove this step? Agreements already saved keep their copy.">
+  <button class="danger">Remove this step</button> <span class="muted">For a step added by mistake. Finished work belongs under “Step complete” instead.</span>
+</form>
+{% endif %}
 {% endblock %}

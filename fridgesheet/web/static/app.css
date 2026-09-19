@@ -159,6 +159,17 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .print-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
 .print-controls p { flex-basis: 100%; margin: 0; }
 .print-plan h2 { margin: 0 0 4px; }
+.conflict { border-left: 4px solid var(--warn); }
+.stamp { font-size: 12px; }
+.stamp .badge { margin-right: 6px; }
+.family-plan { margin: 4px 0 8px; }
+.remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: 760px; }
+@media (pointer: coarse) {
+  /* The links a finger meets on the check-in pages, at the same 44px as every button. */
+  .button-link, .child-nav a, .plan-card a, .review-card a, .queue-group > summary, .plan-card details > summary,
+  .print-controls a, .plan-step-back a, .plan-form .actions a { min-height: 44px; display: inline-flex; align-items: center; }
+  .plan-card details > summary, .queue-group > summary { display: flex; }
+}
 @media print {
   .print-page { background: white; }
   .print-controls { display: none; }

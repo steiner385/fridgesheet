@@ -160,6 +160,8 @@ CREATE TABLE plan_steps (
     evidence TEXT NOT NULL DEFAULT '{}',
     request_key TEXT NOT NULL UNIQUE,
     revision INTEGER NOT NULL DEFAULT 1,
+    created_by TEXT NOT NULL DEFAULT '',   -- who typed it in (free text: there is no login)
+    recorded_by TEXT NOT NULL DEFAULT '',  -- who last saved it
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -172,6 +174,7 @@ CREATE TABLE checkins (
     available_minutes INTEGER NOT NULL CHECK (available_minutes BETWEEN 1 AND 1440),
     summary TEXT NOT NULL DEFAULT '',
     plan TEXT NOT NULL,
+    recorded_by TEXT NOT NULL DEFAULT '',
     request_key TEXT NOT NULL UNIQUE
 );
 CREATE INDEX checkins_student ON checkins(student_id, id);

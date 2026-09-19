@@ -1,11 +1,16 @@
-"""Family commitments are independent of school observations and handled flags."""
+"""Family commitments are independent of school observations and handled flags.
+
+A step is the family's own row: what they agreed, who owns it, when, and their account of what
+happened. It points at an item when there is one, but the item's observations are never
+written here, and a step outlives the item the school stops listing.
+"""
 from __future__ import annotations
 
 import json
 import sqlite3
 
 STATES = {"planned": "Work to do", "waiting": "Waiting", "blocked": "Need help", "done": "Step complete"}
-FIELDS = ("title", "family_account", "next_step", "owner", "planned_for", "minutes", "state", "position", "evidence")
+FIELDS = ("title", "family_account", "next_step", "owner", "planned_for", "minutes", "state", "position", "evidence", "recorded_by")
 
 
 class Conflict(ValueError):
@@ -33,17 +38,22 @@ def save(conn, student_id, values, *, now, request_key, item_id=None, step_id=No
             "WHERE student_id = ? AND id = ? AND revision = ?",
             (*data, now, student_id, step_id, revision))
         if not cur.rowcount:
-            raise Conflict("This step changed in another window. Your changes have not been saved. Open the latest plan before trying again.")
+            raise Conflict("This step changed in another window. Your changes have not been saved.")
         return step_id
     # A double-click or POST retry must not create two identical commitments.
     conn.execute(
-        f"INSERT INTO plan_steps(student_id, item_id, {', '.join(FIELDS)}, request_key, created_at, updated_at) "
-        f"VALUES ({', '.join('?' for _ in range(len(FIELDS) + 5))}) ON CONFLICT(request_key) DO NOTHING",
-        (student_id, item_id, *data, request_key, now, now))
+        f"INSERT INTO plan_steps(student_id, item_id, {', '.join(FIELDS)}, created_by, request_key, created_at, updated_at) "
+        f"VALUES ({', '.join('?' for _ in range(len(FIELDS) + 6))}) ON CONFLICT(request_key) DO NOTHING",
+        (student_id, item_id, *data, values["recorded_by"], request_key, now, now))
     row = conn.execute("SELECT id, student_id FROM plan_steps WHERE request_key = ?", (request_key,)).fetchone()
     if row["student_id"] != student_id:
         raise ValueError("This form belongs to another child. Reload the page.")
     return row["id"]
+
+
+def delete(conn, student_id, step_id) -> bool:
+    """Remove a step the family added by mistake. Agreements already saved keep their snapshot."""
+    return conn.execute("DELETE FROM plan_steps WHERE student_id = ? AND id = ?", (student_id, step_id)).rowcount > 0
 
 
 def history(conn, student_id):
@@ -53,15 +63,29 @@ def history(conn, student_id):
     return result
 
 
-def finish(conn, student_id, *, now, next_check, available_minutes, summary, request_key):
+def finish(conn, student_id, *, now, next_check, available_minutes, summary, request_key, recorded_by=""):
     # Keep a snapshot of the agreement, so subsequent edits do not rewrite the conversation.
     with conn:
         conn.execute("BEGIN IMMEDIATE")
         plan = [s for s in for_student(conn, student_id) if s["state"] != "done"]
         conn.execute(
-            "INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, request_key) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_key) DO NOTHING",
-            (student_id, now, next_check, available_minutes, summary, json.dumps(plan), request_key))
+            "INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, recorded_by, request_key) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_key) DO NOTHING",
+            (student_id, now, next_check, available_minutes, summary, json.dumps(plan), recorded_by, request_key))
+
+
+def today_load(conn, student_id, today: str) -> tuple[int, int]:
+    """(steps, minutes) the family planned for `today`: work to do and help-needed steps dated
+    today. Waiting steps are on the teacher, and their date is when to look again."""
+    row = conn.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(minutes), 0) AS m FROM plan_steps "
+        "WHERE student_id = ? AND planned_for = ? AND state IN ('planned', 'blocked')", (student_id, today)).fetchone()
+    return row["n"], row["m"]
+
+
+def last_checkin(conn, student_id):
+    row = conn.execute("SELECT * FROM checkins WHERE student_id = ? ORDER BY id DESC LIMIT 1", (student_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def evidence(view):

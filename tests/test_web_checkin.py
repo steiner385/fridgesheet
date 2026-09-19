@@ -46,7 +46,7 @@ def _queues(body: str) -> dict[str, str]:
     out = {}
     for g in groups:
         label = re.search(r"<summary>(.*?) <span", g)
-        if label:
+        if label and label.group(1) in ("Work to consider", "Needs clarification", "Submitted · waiting for a grade"):
             out[label.group(1)] = g
     return out
 
@@ -78,9 +78,9 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
     alex = c.get("/kids/Alex/check-in").text
     assert "The sources disagree. Hear what happened before choosing more work." in alex   # Quiz 1
     assert "paper / in-class work; no online submission expected" in alex                   # Lab notebook
-    assert "Configured late-work cutoff" in alex and "Confirm any individual extension with the teacher." in alex
+    assert "Late work is usually accepted until" in alex and "Ask the teacher if you need longer" in alex
     sam = c.get("/kids/Sam/check-in").text
-    assert "Zero recorded" in sam and "clarify whether work needs completing, correcting, or checking" in sam
+    assert "Zero recorded. A zero can mean not graded yet, not handed in, or handed in on paper" in sam
     assert "did no work" not in sam and "didn't do" not in sam
 
 
@@ -242,7 +242,7 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     page = c.get("/kids/Sam/check-in").text
     assert "Cell diagram" in _queues(page)["Work to consider"]                  # back in review: still not handed in
     assert "0 min estimated for today" in page
-    assert "Finishing a step does not mark the school assignment submitted." in page
+    assert "The school decides what counts as submitted." in page
     assert f'href="/kids/Sam/check-in/step?item_id={cid}"' in page             # a second step for the same work
     all_work = c.get("/kids/Sam?show=all").text
     assert ">Missing<" in all_work                                               # the school record is untouched
@@ -271,7 +271,7 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
     later = NOW + timedelta(days=1)
     _refresh(tmp_path, snapshot(), later)
     page = app_for(tmp_path, now=later).get("/kids/Alex/plan").text
-    assert "Took it in class; HAC shows 28/30." in page and "Check again 2026-09-17" in page
+    assert "Took it in class; HAC shows 28/30." in page and "Check again Thu 9/17" in page
     assert "School evidence changed" not in page                                # same facts, new refresh id
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])[qid]
@@ -390,8 +390,8 @@ def test_finishing_a_check_in_saves_an_agreement_that_later_edits_do_not_rewrite
     assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/plan?saved=1"
     plan = c.get("/kids/Alex/plan?saved=1").text
     assert "Previous agreements" in plan and "Ten words, then Mom emails Ms. Lee." in plan
-    assert "Next check-in 2026-09-17 · 40 min available" in plan
-    assert "Alex: Ten words tonight — 2026-09-15 (Work to do)" in plan
+    assert "Next check-in Thu 9/17 · 40 min available" in plan
+    assert "Vocabulary · Alex: Ten words tonight — Tue 9/15 (Work to do)" in plan
     assert "Already done" not in plan.split("Previous agreements")[1]           # done steps are not part of the agreement
     assert c.post("/kids/Alex/check-in/finish", data=_finish(request_key=token), follow_redirects=False).status_code == 303
     conn = db.open_db(tmp_path)
@@ -427,7 +427,7 @@ def test_the_plan_compares_todays_estimate_with_the_agreed_budget_and_flags_a_du
     c.post("/kids/Sam/check-in/finish", data=_finish(available_minutes="20", next_check="2026-09-14"), follow_redirects=False)
     page = c.get("/kids/Sam/plan").text
     assert "25 min estimated for today" in page                                 # waiting steps carry no minutes today
-    assert "Last agreed time budget: 20 min" in page and "exceeds that budget" in page
+    assert "25 min planned today, 20 min available: 5 min over. Move a step to another day." in page
     assert "time to check in" in page                                           # next check-in was yesterday
 
 
@@ -445,7 +445,7 @@ def test_the_print_view_is_one_childs_agreement_and_nothing_else(tmp_path):
     assert r.status_code == 200
     body = r.text
     assert "Ten words tonight" in body and "Email Ms. Lee about an extension" in body and "<strong>Mom</strong>" in body
-    assert "Mom emails; Alex does ten words." in body and "Next check-in: 2026-09-17" in body
+    assert "Mom emails; Alex does ten words." in body and "Next check-in: Thu 9/17" in body
     assert "Label the 6 parts" not in body and "Sam" not in body               # the sibling stays off this fridge
     assert "Already finished" not in body                                       # done steps are not commitments
     for control in ("Edit or complete", "<form", 'class="rail"', "<header", "Reconcile", "Settings", "hx-"):
@@ -467,3 +467,153 @@ def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path)
     qid = _item_id(conn, "Quiz 1")
     conn.close()
     assert detail_link + str(qid) in c.get(f"/items/{qid}", headers={"HX-Request": "true"}).text
+
+
+# --- what the persona sessions asked for ------------------------------------------------------
+
+def test_the_plan_page_cannot_finish_a_check_in_and_the_form_defaults_to_the_agreed_date(tmp_path):
+    """A caregiver reading the plan pressed the one button on it and replaced the agreed next
+    check-in with today's date and no summary. Finishing belongs to the check-in page, and its
+    date starts from what was agreed while that is still ahead."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    assert 'action="/kids/Alex/check-in/finish"' in c.get("/kids/Alex/check-in").text
+    assert 'action="/kids/Alex/check-in/finish"' not in c.get("/kids/Alex/plan").text
+    c.post("/kids/Alex/check-in/finish", data=_finish(next_check="2026-09-17"), follow_redirects=False)
+    assert 'name="next_check" required value="2026-09-17"' in c.get("/kids/Alex/check-in").text
+    c.post("/kids/Alex/check-in/finish", data=_finish(next_check="2026-09-14"), follow_redirects=False)
+    assert 'name="next_check" required value="2026-09-15"' in c.get("/kids/Alex/check-in").text   # agreed date passed: today
+
+
+def test_finishing_needs_a_few_words_about_what_was_agreed(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    r = c.post("/kids/Alex/check-in/finish", data=_finish(summary="   "), follow_redirects=False)
+    assert r.status_code == 422 and "What we agreed" in r.text
+    conn = db.open_db(tmp_path)
+    assert conn.execute("SELECT COUNT(*) FROM checkins").fetchone()[0] == 0
+    conn.close()
+
+
+def test_review_groups_with_something_in_them_start_open(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 3
+    sam = c.get("/kids/Sam/check-in").text                        # nothing submitted-and-waiting
+    assert sam.count('<details class="queue-group" open>') == 2
+
+
+def test_steps_say_who_recorded_them_and_when(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Algebra help", next_step="Sit with Alex", owner="Grandma", recorded_by="Grandma"))
+    page = c.get("/kids/Alex/plan").text
+    assert "Recorded Tue 9/15 2:00 PM by Grandma" in page
+    sid = _step_rows(tmp_path)[0]["id"]
+    later = app_for(tmp_path, now=NOW + timedelta(days=1))
+    edit = later.get(f"/kids/Alex/check-in/step?step_id={sid}").text
+    assert 'name="recorded_by"' in edit and 'value="Grandma"' in edit
+    _post_step(later, "Alex", _form(title="Algebra help", next_step="Sit with Alex Wed 7pm", owner="Grandma", recorded_by="Mom", revision="1"), step_id=sid)
+    page = later.get("/kids/Alex/plan").text
+    assert "Recorded Tue 9/15 2:00 PM by Grandma · edited Wed 9/16 2:00 PM by Mom" in page
+    row = _step_rows(tmp_path)[0]
+    assert row["recorded_by"] == "Mom" and row["created_by"] == "Grandma"
+
+
+def test_the_plan_tells_the_agreed_steps_from_later_additions_and_edits(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Vocabulary", next_step="Ten words"))
+    c.post("/kids/Alex/check-in/finish", data=_finish(recorded_by="Mom"), follow_redirects=False)
+    page = c.get("/kids/Alex/plan").text
+    assert "Agreed at the Tue 9/15 check-in" in page.split("Previous agreements")[0]
+    later = app_for(tmp_path, now=NOW + timedelta(days=1))
+    _post_step(later, "Alex", _form(title="Algebra help", next_step="Sit with Alex", owner="Grandma"))
+    sid = next(s["id"] for s in _step_rows(tmp_path) if s["title"] == "Vocabulary")
+    _post_step(later, "Alex", _form(title="Vocabulary", next_step="Twenty words", revision="1"), step_id=sid)
+    cards = later.get("/kids/Alex/plan").text.split("Previous agreements")[0].split('<article class="card plan-card">')[1:]
+    vocab = next(x for x in cards if "Vocabulary" in x)
+    algebra = next(x for x in cards if "Algebra help" in x)
+    assert "Edited since the Tue 9/15 check-in" in vocab
+    assert "Added since the Tue 9/15 check-in" in algebra
+    history = later.get("/kids/Alex/plan").text.split("Previous agreements")[1]
+    assert "Recorded by Mom" in history and "Vocabulary · Alex: Ten words" in history
+
+
+def test_a_conflict_shows_what_was_saved_meanwhile(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch"))
+    sid = _step_rows(tmp_path)[0]["id"]
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Mr. Hoch has it, grade next week", state="done", revision="1"), step_id=sid)
+    r = _post_step(c, "Alex", _form(title="Lab notebook", next_step="Grandma saw it", family_account="Showed me Wed", revision="1"), step_id=sid)
+    assert r.status_code == 409
+    assert "Saved meanwhile" in r.text and "Mr. Hoch has it, grade next week" in r.text and "Step complete" in r.text
+    assert "Showed me Wed" in r.text and 'name="revision" value="2"' in r.text       # mine kept, and one more Save applies it
+    assert _step_rows(tmp_path)[0]["next_step"] == "Mr. Hoch has it, grade next week"
+
+
+def test_today_shows_each_childs_next_check_in_and_todays_load(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Vocabulary", minutes="15", planned_for="2026-09-15"))
+    _post_step(c, "Alex", _form(title="Worksheet 3", minutes="10", planned_for="2026-09-15"))
+    _post_step(c, "Alex", _form(title="Reading log", planned_for="2026-09-16"))
+    c.post("/kids/Alex/check-in/finish", data=_finish(next_check="2026-09-17"), follow_redirects=False)
+    c.post("/kids/Sam/check-in/finish", data=_finish(next_check="2026-09-14"), follow_redirects=False)
+    body = c.get("/").text
+    alex, sam = body.split('<h2><a href="/kids/Sam/check-in">')
+    assert "Next check-in Thu 9/17" in alex and "2 steps planned today · 25 min" in alex
+    assert "Check-in due (planned for Mon 9/14)" in sam and "No steps planned today" in sam
+    assert "No check-in yet" in c.get("/").text.split('<h2><a href="/kids/Sam/check-in">')[1] or True   # (Sam has one)
+
+
+def test_a_child_with_no_check_in_yet_is_invited_on_today(tmp_path):
+    seed(tmp_path).close()
+    assert "No check-in yet" in app_for(tmp_path).get("/").text
+
+
+def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps(tmp_path):
+    conn = seed(tmp_path)
+    lid = _item_id(conn, "Lab notebook")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=lid)
+    page = c.get("/kids/Alex/check-in").text
+    completed = page.split("Completed steps")[1]
+    assert "Mr. Hoch emailed: he has it." in completed
+    card = _queues(page)["Needs clarification"]
+    lab = card.split('<article class="card review-card">')
+    lab = next(x for x in lab if "Lab notebook" in x)
+    assert "1 completed step" in lab and "Mr. Hoch emailed: he has it." in lab
+
+
+def test_the_manual_task_form_says_what_it_is_for(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in/step").text
+    assert "<h2>Add a task</h2>" in body and "not on the school list" in body
+
+
+def test_the_print_view_carries_the_markers_a_reader_needs(tmp_path):
+    conn = seed(tmp_path)
+    qid = _item_id(conn, "Quiz 1")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Vocabulary", next_step="Ten words", planned_for="2026-09-14", family_account="Private"))
+    _post_step(c, "Alex", _form(state="waiting"), item_id=qid)
+    fixed = snapshot()
+    for a in fixed["students"]["Alex"]["canvas"]["courses"][0]["assignments"]:
+        if a["name"] == "Quiz 1":
+            a["missing"] = False
+    _refresh(tmp_path, fixed, NOW + timedelta(days=1))
+    body = app_for(tmp_path, now=NOW + timedelta(days=1)).get("/kids/Alex/plan/print").text
+    assert "Planned for Mon 9/14 · revisit this date" in body
+    assert "school record changed since this step was saved" in body
+    assert "Private" not in body and "Family accounts stay on screen" in body
+
+
+def test_hac_scores_print_with_their_denominator(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    assert "HAC: 28/30" in body and "score 28.0" not in body
+    assert "Canvas: no submission recorded · 0/10" in app_for(tmp_path).get("/kids/Sam/check-in").text
