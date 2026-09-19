@@ -4,7 +4,7 @@
 <p><a href="{{ base }}#plan">← {{ student.key | nickname }}’s check-in</a></p>
 <h2>{{ 'Edit a step' if step_id else 'Choose a next step' }}</h2>
 <p>What happened, and what would help move this forward?</p>
-{% if error %}<p role="alert" class="notice warn">{{ error }}</p>{% endif %}
+{% if error %}<p role="alert" class="notice warn">{{ error }}{% if conflict %} <a href="{{ base }}/step?step_id={{ step_id }}">Open the latest version of this step</a> in a new tab, then copy your words across.{% endif %}</p>{% endif %}
 {% if view %}<div class="card">{% include "_planning_evidence.html" %}</div>{% endif %}
 <form class="plan-form card" method="post" action="{{ base }}/step{% if step_id %}?step_id={{ step_id }}{% elif item_id %}?item_id={{ item_id }}{% endif %}">
   <input type="hidden" name="request_key" value="{{ values.request_key }}"><input type="hidden" name="revision" value="{{ values.revision }}">

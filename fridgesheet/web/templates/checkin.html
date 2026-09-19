@@ -26,7 +26,7 @@
       <p class="eyebrow">{{ view.course_short }}</p><h4>{{ view.name }}</h4>
       {% include "_planning_evidence.html" %}
       {% if view.open_in and view.due %}<p class="muted">Configured late-work cutoff: {{ rules.deadline(student.key, view.course_name, view.due) | wd_md_time }}. Confirm any individual extension with the teacher.</p>{% endif %}
-      <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}">Choose a next step</a>
+      <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}{% if label == waiting_group %}&amp;state=waiting{% endif %}">Choose a next step</a>
     </article>
     {% else %}<p class="muted">Nothing in this group.</p>{% endfor %}
   </details>

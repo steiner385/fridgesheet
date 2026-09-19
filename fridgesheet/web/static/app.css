@@ -153,9 +153,14 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
   .form-pair { grid-template-columns: minmax(0, 1fr); }
   .workspace-heading h2 { font-size: 24px; }
 }
+/* The printable plan is its own page (no shell): a readable column on screen, the bare
+   agreement on paper. */
+.print-page main { max-width: 720px; margin: 0 auto; }
+.print-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.print-controls p { flex-basis: 100%; margin: 0; }
+.print-plan h2 { margin: 0 0 4px; }
 @media print {
-  body:has(.print-plan) { background: white; }
-  body:has(.print-plan) .rail, body:has(.print-plan) .status, .print-controls { display: none; }
-  body:has(.print-plan) .shell { display: block; min-height: 0; }
-  body:has(.print-plan) main { padding: 0; max-width: none; }
+  .print-page { background: white; }
+  .print-controls { display: none; }
+  .print-page main { padding: 0; max-width: none; margin: 0; }
 }

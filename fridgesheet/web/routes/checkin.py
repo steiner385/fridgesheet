@@ -1,4 +1,9 @@
-"""A child-scoped conversation, durable next steps, and a browser-printable plan."""
+"""A child-scoped conversation, durable next steps, and a browser-printable plan.
+
+Three layers, kept apart on purpose: the school record (observations and flags, never
+written here), the family's account of what happened, and the step they agreed on. The
+review queue is built from the first; everything saved is the second and third.
+"""
 from __future__ import annotations
 
 from datetime import date
@@ -8,14 +13,46 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from .. import outcomes
 from ..app import Db, State, render, student_or_404
 from ..stores import items, plans
 
 router = APIRouter()
 
+QUEUES = ("Work to consider", "Needs clarification", "Submitted · waiting for a grade")
+
 
 def root(key):
     return f"/kids/{quote(key, safe='')}/check-in"
+
+
+def _id(value: str | None) -> int | None:
+    """A row id from the query string, or 404: `?step_id=abc` is a wrong address, not a form
+    error (FastAPI would answer a typed `int` parameter with 422 JSON)."""
+    if value is None or value == "":
+        return None
+    if not value.isdigit():
+        raise HTTPException(404, "no such row")
+    return int(value)
+
+
+def _group(v) -> str | None:
+    """Which review group a live item belongs in, or None when there is nothing to talk about.
+
+    Handled work and existing commitments are skipped by the caller. Anything the sources
+    cannot settle -- a zero, a disagreement, paper work with no grade -- is a question before it
+    is a task. Submitted but ungraded work is waiting on the teacher, not on the child."""
+    if v.outcome in (outcomes.EXCUSED, outcomes.UNPUBLISHED):
+        return None
+    submitted = v.canvas is not None and v.canvas["submitted_at"]
+    ungraded = submitted and v.canvas["score"] is None and (v.hac is None or v.hac["score"] is None)
+    uncertain = v.grade_zero or v.outcome == outcomes.UNKNOWN or "disagree" in v.case_kinds
+    # Undated work (HAC lists some) is never "open" or "upcoming" by date; unfinished, it still
+    # deserves a look rather than silence.
+    undated = v.due is None and v.outcome == outcomes.NOT_DUE
+    if not (v.open_in or v.upcoming or ungraded or undated):
+        return None
+    return QUEUES[1] if uncertain else QUEUES[2] if ungraded else QUEUES[0]
 
 
 def _context(conn, student, state):
@@ -29,17 +66,18 @@ def _context(conn, student, state):
         step["changed"] = view is not None and step["evidence"] != plans.evidence(view)
     # Finishing a small step does not complete its assignment: it returns to review.
     covered = {s["item_id"] for s in steps if s["state"] != "done"}
-    queues = {"Work to consider": [], "Needs clarification": [], "Submitted · waiting for a grade": []}
+    queues = {label: [] for label in QUEUES}
     for v in views:
-        if v.handled or v.id in covered or v.outcome in ("excused", "unpublished"):
+        if v.handled or v.id in covered:
             continue
-        submitted = v.canvas is not None and v.canvas["submitted_at"]
-        ungraded = submitted and v.canvas["score"] is None and (v.hac is None or v.hac["score"] is None)
-        uncertain = v.grade_zero or v.outcome == "unknown" or "disagree" in v.case_kinds
-        if not (v.open_in or v.upcoming or ungraded):
-            continue
-        group = "Needs clarification" if uncertain else "Submitted · waiting for a grade" if ungraded else "Work to consider"
-        queues[group].append(v)
+        group = _group(v)
+        if group:
+            queues[group].append(v)
+    # Due date order, except that work past its late-credit window goes after work that can
+    # still earn credit: a month-old zero must not sit above tonight's deadline. It stays
+    # visible -- a cutoff in the rules is not the teacher's last word.
+    for rows in queues.values():
+        rows.sort(key=lambda v: bool(v.open_in) and not v.actionable)
     history = plans.history(conn, student["id"])
     active = [s for s in steps if s["state"] != "done"]
     today_steps = [s for s in active if s["state"] == "planned" and s["planned_for"] == now.date().isoformat()]
@@ -48,7 +86,7 @@ def _context(conn, student, state):
                 last_check=history[0] if history else None, today=now.date().isoformat(),
                 total_minutes=sum(s["minutes"] or 0 for s in today_steps),
                 unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
-                finish_token=str(uuid4()), rules=rules, saved=False, error=None)
+                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=QUEUES[2])
 
 
 @router.get("/kids/{key}/check-in")
@@ -65,7 +103,7 @@ def print_plan(key: str, request: Request, conn=Db, state=State):
     return render(request, conn, "plan_print.html", **_context(conn, student_or_404(conn, key), state))
 
 
-def _form_context(conn, student, state, item_id=None, step_id=None):
+def _form_context(conn, student, state, item_id=None, step_id=None, default_state="planned"):
     values = plans.one(conn, student["id"], step_id) if step_id is not None else None
     if step_id is not None and values is None:
         raise HTTPException(404, "No such plan step")
@@ -76,51 +114,70 @@ def _form_context(conn, student, state, item_id=None, step_id=None):
     view = items.one(conn, student, item_id, now=state.now(), rules=state.rules()) if item_id else None
     if values is None:
         values = dict(title=view.name if view else "", family_account="", next_step="", owner=state.settings.nicknames.get(student["key"], student["key"]),
-                      planned_for=state.now().date().isoformat(), minutes="", state="planned", position=10,
+                      planned_for=state.now().date().isoformat(), minutes="",
+                      state=default_state if default_state in plans.STATES else "planned", position=10,
                       revision=0, request_key=str(uuid4()))
     return dict(student=student, current=f"kid:{student['key']}", base=root(student["key"]),
-                values=values, view=view, item_id=item_id, step_id=step_id, states=plans.STATES, error=None)
+                values=values, view=view, item_id=item_id, step_id=step_id, states=plans.STATES, error=None, conflict=False)
 
 
 @router.get("/kids/{key}/check-in/step")
-def step_form(key: str, request: Request, item_id: int | None = None, step_id: int | None = None, conn=Db, state=State):
-    return render(request, conn, "plan_step.html", **_form_context(conn, student_or_404(conn, key), state, item_id, step_id))
+def step_form(key: str, request: Request, item_id: str | None = None, step_id: str | None = None, conn=Db, state=State):
+    ctx = _form_context(conn, student_or_404(conn, key), state, _id(item_id), _id(step_id),
+                        default_state=request.query_params.get("state", "planned"))
+    return render(request, conn, "plan_step.html", **ctx)
 
 
-def _date(value):
-    parsed = date.fromisoformat(value)
-    if parsed.isoformat() != value:
-        raise ValueError("Use a date in YYYY-MM-DD format.")
+def _date(value, label):
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError:
+        parsed = None
+    if parsed is None or parsed.isoformat() != value:
+        raise ValueError(f"{label}: use a date in YYYY-MM-DD format, like {date.today().isoformat()}.")
     return value
 
 
+def _number(value, label, lo, hi, *, blank=None):
+    """A whole number between `lo` and `hi`, explained in the parent's words when it is not."""
+    if value == "" and blank is not None:
+        return blank
+    try:
+        n = int(value)
+    except ValueError:
+        n = None
+    if n is None or not lo <= n <= hi:
+        raise ValueError(f"{label}: use a whole number from {lo:,} to {hi:,}" + (", or leave it blank." if blank is not None else "."))
+    return n
+
+
 @router.post("/kids/{key}/check-in/step")
-async def save_step(key: str, request: Request, item_id: int | None = None, step_id: int | None = None, conn=Db, state=State):
+async def save_step(key: str, request: Request, item_id: str | None = None, step_id: str | None = None, conn=Db, state=State):
     student = student_or_404(conn, key)
+    item_id, step_id = _id(item_id), _id(step_id)
     ctx = _form_context(conn, student, state, item_id, step_id)
     form = await request.form()
     values = {k: str(form.get(k, "")).strip() for k in (*plans.FIELDS, "request_key", "revision")}
     try:
-        for k in ("title", "next_step", "owner"):
+        for k, label in (("title", "Assignment or task"), ("next_step", "Agreed next step"), ("owner", "Who will do this")):
             if not values[k] or len(values[k]) > 500:
-                raise ValueError("Add a title, next step, and owner (each up to 500 characters).")
+                raise ValueError(f"{label}: add a few words (up to 500 characters).")
         if len(values["family_account"]) > 4000:
-            raise ValueError("Keep the family account under 4,000 characters.")
-        values["planned_for"] = _date(values["planned_for"])
-        values["minutes"] = int(values["minutes"]) if values["minutes"] else None
-        if values["minutes"] is not None and not 1 <= values["minutes"] <= 1440:
-            raise ValueError("Choose an estimate between 1 and 1,440 minutes, or leave it blank.")
-        values["position"] = int(values["position"])
-        if not 1 <= values["position"] <= 999 or values["state"] not in plans.STATES:
-            raise ValueError("Choose a valid state and an order between 1 and 999.")
-        if not 1 <= len(values["request_key"]) <= 100:
+            raise ValueError("Family account: keep it under 4,000 characters.")
+        values["planned_for"] = _date(values["planned_for"], "Planned date")
+        values["minutes"] = _number(values["minutes"], "Estimated minutes", 1, 1440, blank=None) if values["minutes"] else None
+        values["position"] = _number(values["position"], "Order within this day", 1, 999)
+        if values["state"] not in plans.STATES:
+            raise ValueError("State: choose one of the listed states.")
+        if not 1 <= len(values["request_key"]) <= 100 or not values["revision"].isdigit():
             raise ValueError("Reload this form before saving.")
         values["evidence"] = plans.evidence(ctx["view"])
         plans.save(conn, student["id"], values, now=state.now().isoformat(), request_key=values["request_key"],
                    item_id=ctx["item_id"], step_id=step_id, revision=int(values["revision"]))
-    except (ValueError, TypeError) as exc:
-        ctx.update(values=values, error=str(exc))
-        return render(request, conn, "plan_step.html", status_code=409 if isinstance(exc, plans.Conflict) else 422, **ctx)
+    except ValueError as exc:
+        conflict = isinstance(exc, plans.Conflict)
+        ctx.update(values=values, error=str(exc), conflict=conflict)
+        return render(request, conn, "plan_step.html", status_code=409 if conflict else 422, **ctx)
     return RedirectResponse(root(key) + "?saved=1#plan", status_code=303)
 
 
@@ -129,12 +186,14 @@ async def finish(key: str, request: Request, conn=Db, state=State):
     student = student_or_404(conn, key)
     form = await request.form()
     try:
-        next_check = _date(str(form.get("next_check", "")))
-        available = int(str(form.get("available_minutes", "")))
+        next_check = _date(str(form.get("next_check", "")), "Next check-in")
+        available = _number(str(form.get("available_minutes", "")).strip(), "Time available today", 1, 1440)
         summary = str(form.get("summary", "")).strip()
         token = str(form.get("request_key", ""))
-        if not 1 <= available <= 1440 or len(summary) > 4000 or not 1 <= len(token) <= 100:
-            raise ValueError("Choose 1–1,440 available minutes and a summary under 4,000 characters.")
+        if len(summary) > 4000:
+            raise ValueError("What we agreed: keep it under 4,000 characters.")
+        if not 1 <= len(token) <= 100:
+            raise ValueError("Reload this page before finishing the check-in.")
         plans.finish(conn, student["id"], now=state.now().isoformat(), next_check=next_check,
                      available_minutes=available, summary=summary, request_key=token)
     except ValueError as exc:
