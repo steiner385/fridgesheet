@@ -153,3 +153,8 @@ function attachCharts(root, tries) {
 }
 document.addEventListener("DOMContentLoaded", function () { attachCharts(document); });
 document.addEventListener("htmx:afterSwap", function (e) { attachCharts(e.detail.target); });
+
+// Printing is explicit: opening a saved plan never starts a print job.
+document.addEventListener("click", function (event) {
+  if (event.target.closest("[data-print-plan]")) window.print();
+});

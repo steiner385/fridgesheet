@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ student.key | nickname }} · {{ 'Plan' if plan_only else 'Check-in' }} · Fridge Sheet{% endblock %}
+{% block content %}
+<div class="workspace-heading">
+  <div><p class="eyebrow">One step at a time</p><h2>{{ student.key | nickname }}’s {{ 'plan' if plan_only else 'check-in' }}</h2></div>
+  <a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a>
+</div>
+{% set workspace = 'plan' if plan_only else 'checkin' %}{% include "_child_nav.html" %}
+{% if saved %}<p class="notice" role="status">Saved. Your family plan is separate from the school record.</p>{% endif %}
+{% if error %}<p class="notice warn" role="alert">{{ error }}</p>{% endif %}
+<div class="checkin-intro">
+  <p>What went well? What needs an explanation? Choose a few next steps together.</p>
+  {% if last_check %}<p class="muted">Last check-in {{ last_check.finished_at | wd_md_time }} · Next check-in {{ last_check.next_check }}{% if last_check.next_check <= today %} · <strong>time to check in</strong>{% endif %}</p>{% else %}<p class="muted">Start with what’s already been handed in, then decide what fits today.</p>{% endif %}
+  <p class="muted">School records can lag behind. Check the source status above before relying on a missing flag or grade.</p>
+</div>
+<div class="checkin-layout {{ 'plan-only' if plan_only }}">
+{% if not plan_only %}
+<section class="review-queue" aria-labelledby="review-heading">
+  <h3 id="review-heading">Review together</h3>
+  <p class="muted">These are possibilities, not tonight’s obligations. Existing commitments are in your plan.</p>
+  {% for label, rows in queues.items() %}
+  <details class="queue-group" {{ 'open' if loop.first }}>
+    <summary>{{ label }} <span class="badge">{{ rows | length }}</span></summary>
+    {% for view in rows %}
+    <article class="card review-card">
+      <p class="eyebrow">{{ view.course_short }}</p><h4>{{ view.name }}</h4>
+      {% include "_planning_evidence.html" %}
+      {% if view.open_in and view.due %}<p class="muted">Configured late-work cutoff: {{ rules.deadline(student.key, view.course_name, view.due) | wd_md_time }}. Confirm any individual extension with the teacher.</p>{% endif %}
+      <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}">Choose a next step</a>
+    </article>
+    {% else %}<p class="muted">Nothing in this group.</p>{% endfor %}
+  </details>
+  {% endfor %}
+  <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this review queue.</p>
+</section>
+{% endif %}
+<section id="plan" class="plan-panel" aria-labelledby="plan-heading">
+  <div class="workspace-heading"><h3 id="plan-heading">Our next steps</h3><a href="{{ base }}/step">Add a task</a></div>
+  <p class="plan-total"><strong>{{ total_minutes }} min estimated for today</strong>{% if unestimated %} · {{ unestimated }} step{{ 's' if unestimated != 1 }} without an estimate{% endif %}</p>
+  {% if last_check %}<p class="muted">Last agreed time budget: {{ last_check.available_minutes }} min{% if total_minutes > last_check.available_minutes %} · <strong class="warn">Today’s estimate exceeds that budget. Choose what can move.</strong>{% endif %}</p>{% endif %}
+  {% for label in ('planned', 'blocked', 'waiting') %}
+  <h4>{{ states[label] }}</h4>
+  {% for step in steps if step.state == label %}
+  <article class="card plan-card">
+    <h4>{{ step.title }}</h4><p class="next-step">{{ step.next_step }}</p>
+    <p><strong>{{ step.owner }}</strong> · {{ 'Check again' if label in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
+    {% if step.family_account %}<p class="family-account"><strong>Family account:</strong> {{ step.family_account }}</p>{% endif %}
+    {% if step.changed %}<p class="review-note">School evidence changed since this step was saved. Review it together; your agreement is still here.</p>{% endif %}
+    {% if step.view %}<details><summary>School evidence</summary>{% with view=step.view %}{% include "_planning_evidence.html" %}{% endwith %}</details>{% elif step.item_id %}<p class="muted">This assignment is no longer in the current school list. Your step is still saved.</p>{% else %}<p class="muted">Family-added task</p>{% endif %}
+    <p><a href="{{ base }}/step?step_id={{ step.id }}">Edit or complete step</a></p>
+  </article>
+  {% else %}<p class="muted">No steps here yet.</p>{% endfor %}
+  {% endfor %}
+  <details class="queue-group"><summary>Completed steps · {{ completed | length }}</summary>
+    <p class="muted">Finishing a step does not mark the school assignment submitted.</p>
+    {% for step in completed %}<div class="card plan-card"><strong>{{ step.title }}</strong><p>{{ step.next_step }} · {{ step.owner }}</p><a href="{{ base }}/step?step_id={{ step.id }}">Edit or reopen</a>{% if step.item_id %} · <a href="{{ base }}/step?item_id={{ step.item_id }}">Add another step</a>{% endif %}</div>{% endfor %}
+  </details>
+</section>
+</div>
+<section class="card finish-checkin">
+  <h3>Agree and wrap up</h3><p>Check that the plan fits. Save what you agreed, including who will help and when you’ll meet again.</p>
+  {% set fv = finish_values | default({}) %}
+  <form method="post" action="{{ base }}/finish" class="plan-form">
+    <input type="hidden" name="request_key" value="{{ finish_token }}">
+    <div class="form-pair"><label>Time available today (minutes)<input type="number" name="available_minutes" min="1" max="1440" required value="{{ fv.get('available_minutes', last_check.available_minutes if last_check else 40) }}"></label>
+    <label>Next check-in<input type="date" name="next_check" required value="{{ fv.get('next_check', today) }}"></label></div>
+    <label>What we agreed<textarea name="summary" maxlength="4000" placeholder="What will we do first? What help do we need?">{{ fv.get('summary', '') }}</textarea></label>
+    <button class="primary">Finish check-in</button>
+  </form>
+</section>
+{% if history %}<details class="queue-group"><summary>Previous agreements</summary>{% for check in history %}<article class="card plan-card"><h4>{{ check.finished_at | wd_md_time }}</h4><p>{{ check.summary }}</p><p>Next check-in {{ check.next_check }} · {{ check.available_minutes }} min available</p><ul>{% for step in check.steps %}<li>{{ step.owner }}: {{ step.next_step }} — {{ step.planned_for }} ({{ states[step.state] }})</li>{% else %}<li>No active steps at this check-in.</li>{% endfor %}</ul></article>{% endfor %}</details>{% endif %}
+{% endblock %}

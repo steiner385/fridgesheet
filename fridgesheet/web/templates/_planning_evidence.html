@@ -1,0 +1,11 @@
+<div class="school-evidence">
+  <p><strong>School record</strong>{% if view.due %} · due {{ view.due | wd_md_time }}{% else %} · no due date listed{% endif %}</p>
+  {% if view.canvas %}
+  <p>Canvas: {% if view.canvas.missing %}<strong>marked missing</strong> · {% endif %}{% if view.canvas.submitted_at %}submitted {{ view.canvas.submitted_at | wd_md_time }}{% if view.canvas.late %} (late){% endif %}{% elif view.kind in ('paper', 'in class') %}paper / in-class work; no online submission expected{% else %}no submission recorded{% endif %}
+    · {% if view.canvas.score is not none %}score {{ view.canvas.score | round(1) }}{% elif view.canvas.grade %}grade {{ view.canvas.grade }}{% else %}no grade posted{% endif %}</p>
+  {% endif %}
+  {% if view.hac %}<p>HAC: {% if view.hac.score is not none %}score {{ view.hac.score | round(1) }}{% else %}no grade posted{% endif %}</p>{% endif %}
+  {% if view.grade_zero %}<p class="review-note">Zero recorded — clarify whether work needs completing, correcting, or checking.</p>{% endif %}
+  {% if 'disagree' in view.case_kinds %}<p class="review-note">The sources disagree. Hear what happened before choosing more work.</p>{% endif %}
+  {% if view.flag %}<p>Existing family flag: {{ view.flag.replace('_', ' ') }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}
+</div>

@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -144,6 +144,40 @@ CREATE INDEX runs_started ON runs(started_at);
 """
 
 
+_SCHEMA_V2 = """
+CREATE TABLE plan_steps (
+    id INTEGER PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES students(id),
+    item_id INTEGER REFERENCES items(id),
+    title TEXT NOT NULL,
+    family_account TEXT NOT NULL DEFAULT '',
+    next_step TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    planned_for TEXT NOT NULL,
+    minutes INTEGER CHECK (minutes IS NULL OR minutes BETWEEN 1 AND 1440),
+    state TEXT NOT NULL CHECK (state IN ('planned', 'waiting', 'blocked', 'done')),
+    position INTEGER NOT NULL DEFAULT 10,
+    evidence TEXT NOT NULL DEFAULT '{}',
+    request_key TEXT NOT NULL UNIQUE,
+    revision INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX plan_steps_student ON plan_steps(student_id, planned_for, position);
+CREATE TABLE checkins (
+    id INTEGER PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES students(id),
+    finished_at TEXT NOT NULL,
+    next_check TEXT NOT NULL,
+    available_minutes INTEGER NOT NULL CHECK (available_minutes BETWEEN 1 AND 1440),
+    summary TEXT NOT NULL DEFAULT '',
+    plan TEXT NOT NULL,
+    request_key TEXT NOT NULL UNIQUE
+);
+CREATE INDEX checkins_student ON checkins(student_id, id);
+"""
+
+
 def db_path(home: Path) -> Path:
     return home / DB_NAME
 
@@ -193,6 +227,9 @@ def migrate(conn: sqlite3.Connection) -> int:
         # BEGIN/COMMIT to make the whole migration atomic.
         conn.executescript("BEGIN;\n" + _SCHEMA_V1 + "\nINSERT INTO schema_version(version) VALUES (1);\nCOMMIT;")
         v = 1
+    if v < 2:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V2 + "\nUPDATE schema_version SET version = 2;\nCOMMIT;")
+        v = 2
     return v
 
 
