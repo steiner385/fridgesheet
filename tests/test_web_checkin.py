@@ -460,6 +460,10 @@ def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path)
         body = c.get(path).text
         assert 'aria-label="Child workspace"' in body, path
         assert re.search(rf'aria-current="page"[^>]*>{current}<', body), (path, current)
+    # On a phone the queue runs two screens before the plan: the check-in page offers a jump.
+    checkin = c.get("/kids/Alex/check-in").text
+    assert '<a class="button-link" href="#plan">Jump to our next steps</a>' in checkin
+    assert 'href="#plan">Jump to our next steps' not in c.get("/kids/Alex/plan").text
     table = c.get("/kids/Alex?show=all&flagged=none&sort=name").text
     assert "Essay draft" in table and 'name="show"' in table
     detail_link = f'href="/kids/Alex/check-in/step?item_id='
@@ -617,3 +621,20 @@ def test_hac_scores_print_with_their_denominator(tmp_path):
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     assert "HAC: 28/30" in body and "score 28.0" not in body
     assert "Canvas: no submission recorded · 0/10" in app_for(tmp_path).get("/kids/Sam/check-in").text
+
+
+def test_a_step_added_by_mistake_can_be_removed_but_only_by_its_own_child(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Oops", next_step="Made by mistake"))
+    _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the parts", owner="Sam"))
+    alex_step, sam_step = (r["id"] for r in _step_rows(tmp_path))
+    edit = c.get(f"/kids/Alex/check-in/step?step_id={alex_step}").text
+    assert f'action="/kids/Alex/check-in/step/{alex_step}/delete"' in edit and "data-confirm" in edit
+    assert c.post(f"/kids/Alex/check-in/step/{sam_step}/delete", follow_redirects=False).status_code == 404
+    assert c.post(f"/kids/Alex/check-in/step/abc/delete", follow_redirects=False).status_code == 404
+    r = c.post(f"/kids/Alex/check-in/step/{alex_step}/delete", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/check-in?saved=1#plan"
+    assert [s["title"] for s in _step_rows(tmp_path)] == ["Cell diagram"]
+    assert "Made by mistake" not in c.get("/kids/Alex/plan").text
+    assert c.post(f"/kids/Alex/check-in/step/{alex_step}/delete", follow_redirects=False).status_code == 404   # already gone

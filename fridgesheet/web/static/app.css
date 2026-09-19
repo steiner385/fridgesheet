@@ -115,6 +115,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 /* Check-in: school evidence, family context, and commitments stay visually distinct. */
 .workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .workspace-heading h2 { margin: 0 0 12px; font-size: 27px; letter-spacing: -.5px; }
+.heading-actions { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
 .child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 12px 0 20px; }
 .child-nav a { padding: 10px 14px; text-decoration: none; }

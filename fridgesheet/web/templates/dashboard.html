@@ -9,8 +9,7 @@
     <h2><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h2>
     <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a></p>
     {# The family layer first: is a check-in due, and what did we plan for today? #}
-    <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %}
-      · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
+    <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %} · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
     <p><a href="/kids/{{ s.key | urlencode }}?show=actionable" class="big">{{ c.actionable }} actionable</a></p>
     <p class="muted">{{ c.due_today }} due today · {{ c.due_tomorrow }} due tomorrow · {{ c.new_since_yesterday }} new since yesterday</p>
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
