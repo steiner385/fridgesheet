@@ -1,0 +1,74 @@
+"""Family commitments are independent of school observations and handled flags."""
+from __future__ import annotations
+
+import json
+import sqlite3
+
+STATES = {"planned": "Work to do", "waiting": "Waiting", "blocked": "Need help", "done": "Step complete"}
+FIELDS = ("title", "family_account", "next_step", "owner", "planned_for", "minutes", "state", "position", "evidence")
+
+
+class Conflict(ValueError):
+    pass
+
+
+def for_student(conn, student_id):
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM plan_steps WHERE student_id = ? ORDER BY planned_for, position, id", (student_id,))]
+
+
+def one(conn, student_id, step_id):
+    row = conn.execute("SELECT * FROM plan_steps WHERE student_id = ? AND id = ?", (student_id, step_id)).fetchone()
+    return dict(row) if row else None
+
+
+def save(conn, student_id, values, *, now, request_key, item_id=None, step_id=None, revision=0):
+    if item_id is not None and not conn.execute(
+            "SELECT 1 FROM items WHERE id = ? AND student_id = ?", (item_id, student_id)).fetchone():
+        raise ValueError("That assignment does not belong to this child.")
+    data = [values[k] for k in FIELDS]
+    if step_id is not None:
+        cur = conn.execute(
+            f"UPDATE plan_steps SET {', '.join(k + ' = ?' for k in FIELDS)}, updated_at = ?, revision = revision + 1 "
+            "WHERE student_id = ? AND id = ? AND revision = ?",
+            (*data, now, student_id, step_id, revision))
+        if not cur.rowcount:
+            raise Conflict("This step changed in another window. Your changes have not been saved. Open the latest plan before trying again.")
+        return step_id
+    # A double-click or POST retry must not create two identical commitments.
+    conn.execute(
+        f"INSERT INTO plan_steps(student_id, item_id, {', '.join(FIELDS)}, request_key, created_at, updated_at) "
+        f"VALUES ({', '.join('?' for _ in range(len(FIELDS) + 5))}) ON CONFLICT(request_key) DO NOTHING",
+        (student_id, item_id, *data, request_key, now, now))
+    row = conn.execute("SELECT id, student_id FROM plan_steps WHERE request_key = ?", (request_key,)).fetchone()
+    if row["student_id"] != student_id:
+        raise ValueError("This form belongs to another child. Reload the page.")
+    return row["id"]
+
+
+def history(conn, student_id):
+    result = []
+    for row in conn.execute("SELECT * FROM checkins WHERE student_id = ? ORDER BY id DESC LIMIT 10", (student_id,)):
+        result.append({**dict(row), "steps": json.loads(row["plan"])})
+    return result
+
+
+def finish(conn, student_id, *, now, next_check, available_minutes, summary, request_key):
+    # Keep a snapshot of the agreement, so subsequent edits do not rewrite the conversation.
+    with conn:
+        conn.execute("BEGIN IMMEDIATE")
+        plan = [s for s in for_student(conn, student_id) if s["state"] != "done"]
+        conn.execute(
+            "INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, request_key) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_key) DO NOTHING",
+            (student_id, now, next_check, available_minutes, summary, json.dumps(plan), request_key))
+
+
+def evidence(view):
+    """Compare facts, not refresh IDs: unchanged missing flags are not new problems."""
+    if view is None:
+        return "{}"
+    fields = ("state", "score", "grade", "submitted_at", "late", "missing", "excused", "published")
+    return json.dumps({"due": view.due.isoformat() if view.due else None,
+                       **{name: {k: obs[k] for k in fields} for name, obs in
+                          (("canvas", view.canvas), ("hac", view.hac)) if obs is not None}}, sort_keys=True)

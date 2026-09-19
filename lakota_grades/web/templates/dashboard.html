@@ -1,14 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · Lakota Sheet{% endblock %}
+{% block title %}Today · Lakota Sheet{% endblock %}
 {% block content %}
 {% block partial %}
+<div class="workspace-heading"><div><p class="eyebrow">A little clarity for today</p><h2>What needs our attention?</h2></div></div>
 <div class="cards">
   {% for s, c in cards %}
   <div class="card">
-    <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
+    <h2><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h2>
+    <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a></p>
     <p><a href="/kids/{{ s.key }}?show=actionable" class="big">{{ c.actionable }} actionable</a></p>
     <p class="muted">{{ c.due_today }} due today · {{ c.due_tomorrow }} due tomorrow · {{ c.new_since_yesterday }} new since yesterday</p>
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
+    <details><summary>School record so far</summary>
     <p class="record">
       <a href="/kids/{{ s.key }}?outcome=on_time">{{ c.record.on_time }} on time</a> ·
       <a href="/kids/{{ s.key }}?outcome=late">{{ c.record.late }} late</a> ·
@@ -16,7 +19,7 @@
       <a href="/kids/{{ s.key }}?outcome=done_offline">{{ c.record.done_offline }} on paper</a> ·
       <a href="/kids/{{ s.key }}?outcome=unknown" class="{{ 'warn' if c.record.unknown }}">{{ c.record.unknown }} unknown</a>
       <span class="muted">· of {{ c.record.total }} due so far</span>
-    </p>
+    </p></details>
     {% endif %}
   </div>
   {% else %}
