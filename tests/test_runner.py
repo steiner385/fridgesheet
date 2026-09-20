@@ -402,6 +402,26 @@ def test_no_refresh_and_skips_still_record_but_do_not_ingest(env):
     assert [tuple(r) for r in rows] == [("web", "OK"), ("cli", "SKIP")]
 
 
+def test_no_refresh_still_hard_fails_on_a_truly_stale_snapshot(env):
+    """`no_refresh=True` means "use the snapshot as is", not "print whatever is there no matter
+    how old" -- the same MAX_DATA_AGE_HOURS ceiling a failed refresh already enforces applies
+    here too, so a broken data-refresh schedule (or nobody ever having clicked "Refresh now")
+    cannot silently print week-old grades as though they were current."""
+    s, calls, refresh, print_pdf, toast = env
+    old = FRI_2PM - timedelta(hours=30)
+    snap = _snapshot()
+    snap["fetched_at_epoch"] = old.timestamp()
+    (s.cache_dir / "snapshot.json").write_text(json.dumps(snap))
+
+    def refresh_never_called(settings, **kw):
+        raise AssertionError("no_refresh=True must never call refresh")
+
+    rc = _run(s, runner.RunOptions(no_refresh=True), refresh=refresh_never_called, print_pdf=print_pdf, toast=toast)
+    assert rc == 1 and calls["print"] == []
+    log = (s.home / runner.LOG_NAME).read_text()
+    assert "stale" in log and "no refresh was requested" in log
+
+
 def test_run_recording_failure_is_a_warning(env):
     """The database is a passenger even when it opened cleanly. Here the `runs` table
     disappears under a healthy connection mid-run (another process, a bad migration), which

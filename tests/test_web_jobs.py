@@ -60,11 +60,11 @@ class FakeActions:
     def refresh(self, *, home, log, settings):
         self.calls.append("refresh"); log("refreshing"); return actions.RefreshResult(True, "refresh OK", 1)
 
-    def preview(self, *, home, log, settings, report_key="open-work"):
-        self.calls.append(("preview", report_key)); log("building"); return home / "sheets" / "2026-09-15" / "sheet.pdf"
+    def preview(self, *, home, log, settings, report_key="open-work", refresh=False):
+        self.calls.append(("preview", report_key, refresh)); log("building"); return home / "sheets" / "2026-09-15" / "sheet.pdf"
 
-    def print_now(self, *, home, log, settings, date=None, report_key="open-work"):
-        self.calls.append(("print", date, report_key)); log("printing"); return 0
+    def print_now(self, *, home, log, settings, date=None, report_key="open-work", refresh=False):
+        self.calls.append(("print", date, report_key, refresh)); log("printing"); return 0
 
     def run_doctor(self, *, home, log, settings):
         self.calls.append("doctor"); log("OK    python: 3.12"); return True
@@ -98,7 +98,7 @@ def test_worker_print_passes_the_date_and_maps_rc_to_outcome(tmp_path):
     application, w = _worker(tmp_path, fake)
     job = w.submit("print", date="2026-09-14")
     w.run_pending()
-    assert ("print", "2026-09-14", "open-work") in fake.calls and job.outcome == "OK"
+    assert ("print", "2026-09-14", "open-work", False) in fake.calls and job.outcome == "OK"
     fake.print_now = lambda **kw: 1
     job = w.submit("print"); w.run_pending()
     assert job.outcome == "FAIL"
@@ -241,3 +241,19 @@ def test_a_job_carries_the_report_key(tmp_path):
     w.run_pending()
     assert ("print", "open-work") in [(k[0], k[2]) for k in fake.calls if isinstance(k, tuple) and k[0] == "print"]
     assert c.post("/jobs/print", data={"report": "view:999"}).status_code == 400
+
+
+def test_refresh_first_checkbox_reaches_the_action_only_when_checked(tmp_path):
+    """The Dashboard's "Refresh data first" checkbox (and the Reports page's "Refresh first")
+    is an ordinary unchecked-by-default HTML checkbox: unchecked, the browser omits the field
+    entirely, and `preview`/`print_now` must default to the fast, no-live-pull path."""
+    from fastapi.testclient import TestClient
+    fake = FakeActions()
+    application, w = _worker(tmp_path, fake)
+    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    assert c.post("/jobs/preview").status_code == 200
+    w.run_pending()
+    assert ("preview", "open-work", False) in fake.calls
+    assert c.post("/jobs/print", data={"refresh_first": "on"}).status_code == 200
+    w.run_pending()
+    assert ("print", None, "open-work", True) in fake.calls
