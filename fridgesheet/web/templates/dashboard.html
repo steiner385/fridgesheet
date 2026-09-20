@@ -7,7 +7,7 @@
   <div class="card">
     <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
     <p><a href="/kids/{{ s.key }}?show=actionable" class="big">{{ c.actionable }} actionable</a></p>
-    <p class="muted">{{ c.due_today }} due today · {{ c.due_tomorrow }} due tomorrow · {{ c.new_since_yesterday }} new since yesterday</p>
+    <p class="muted"><a href="/open#{{ s.key }}">{{ c.due_today }} due today · {{ c.due_tomorrow }} due tomorrow</a> · {{ c.new_since_yesterday }} new since yesterday</p>
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
     <p class="record">
       <a href="/kids/{{ s.key }}?outcome=on_time">{{ c.record.on_time }} on time</a> ·
