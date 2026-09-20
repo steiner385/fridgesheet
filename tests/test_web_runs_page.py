@@ -70,9 +70,9 @@ def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
     assert fields == {"date": "2026-09-16", "report": f"view:{rid}"}
 
     assert c.post("/jobs/print", data=fields).status_code == 200
-    assert w.current.params == {"date": "2026-09-16", "report": f"view:{rid}"}
+    assert w.current.params == {"date": "2026-09-16", "report": f"view:{rid}", "refresh_first": False}
     w.run_pending()
-    assert ("print", "2026-09-16", f"view:{rid}") in fake.calls
+    assert ("print", "2026-09-16", f"view:{rid}", False) in fake.calls
 
 
 def test_pdf_is_served_from_home_and_refused_elsewhere(tmp_path):

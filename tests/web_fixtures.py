@@ -46,7 +46,7 @@ def _h(name, due, score, points=10.0, assigned="09/01/2026"):
 
 def snapshot() -> dict:
     return {
-        "fetched_at": "2026-09-15T13:50:00-04:00", "fetched_at_epoch": 1789000000, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
+        "fetched_at": "2026-09-15T13:50:00-04:00", "fetched_at_epoch": 1789494600, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
         "students": {
             "Alex": {"name": "Alex Example", "canvas_id": 1, "hac_name": "Alex Example",
                 "canvas": {"courses": [

@@ -27,7 +27,7 @@ def _worker(state) -> jobmod.Worker:
 
 @router.post("/jobs/{kind}")
 def start(kind: str, request: Request, date: str | None = Form(None), report: str = Form("open-work"),
-          conn: sqlite3.Connection = Db, state=State):
+          refresh_first: bool = Form(False), conn: sqlite3.Connection = Db, state=State):
     if kind not in jobmod.KINDS:
         raise HTTPException(404, f"no job kind {kind!r}")
     w = _worker(state)
@@ -38,6 +38,7 @@ def start(kind: str, request: Request, date: str | None = Form(None), report: st
         except registry.ReportError as e:
             raise HTTPException(400, str(e)) from None
         params["report"] = report
+        params["refresh_first"] = refresh_first
     job = w.submit(kind, **params)
     if job is None:
         r = render_partial(request, conn, "_job.html", job=w.current, busy=True, pdf=_pdf(state, w.current))

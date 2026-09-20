@@ -18,10 +18,17 @@ from . import ScheduleInfo, SchedulingError, task_name  # noqa: F401  re-exporte
 
 
 def command_for(key: str) -> tuple[str, str, str]:
-    """(exe, args, workdir) that runs the report from this installation."""
+    """(exe, args, workdir) that runs the report from this installation.
+
+    `--no-refresh` so a scheduled print never pulls Canvas/HAC itself: it trusts the
+    independently-scheduled data refresh (section 5's timer, or a manual "Refresh now") to
+    have kept the snapshot warm, the same "one pull, many tools" design the README promises.
+    An interactive `fridgesheet run`/`print-sheet` from a terminal keeps refreshing by
+    default -- someone typing the command is presumably fine waiting for it.
+    """
     if getattr(sys, "frozen", False):
-        return sys.executable, f"run {key}", str(Path(sys.executable).parent)
-    return sys.executable, f"-m fridgesheet.cli run {key}", str(Path.cwd())
+        return sys.executable, f"run {key} --no-refresh", str(Path(sys.executable).parent)
+    return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh", str(Path.cwd())
 
 
 if IS_WINDOWS:

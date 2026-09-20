@@ -13,6 +13,7 @@
     {% if jobs %}
     <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.title }} now?">
       <input type="hidden" name="report" value="{{ r.key }}">
+      <label><input type="checkbox" name="refresh_first"> Refresh first</label>
       <button>Print</button>
     </form>
     {% endif %}
@@ -32,6 +33,7 @@
     {% if jobs %}
     <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.name }} now?">
       <input type="hidden" name="report" value="view:{{ r.id }}">
+      <label><input type="checkbox" name="refresh_first"> Refresh first</label>
       <button>Print</button>
     </form>
     {% endif %}
