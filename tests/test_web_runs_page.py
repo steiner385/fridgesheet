@@ -31,7 +31,8 @@ def test_runs_page_lists_history_newest_first_with_badges_and_links(tmp_path):
     assert 'class="badge OK"' in body and 'class="badge FAIL"' in body and 'class="badge SKIP"' in body
     assert f'href="/runs/{ids[0]}/pdf"' in body
     assert f'href="/runs/{ids[2]}/pdf"' not in body            # the file is gone: no link
-    assert "Mon 9/14" in body and "schedule" in body and "cli" in body
+    # The trigger is shown in words now (#11 item 20), not as the runner's own vocabulary.
+    assert "Mon 9/14" in body and "On a schedule" in body and "At a terminal" in body
 
 
 def test_reprint_button_only_for_printable_ok_runs_when_a_worker_exists(tmp_path):

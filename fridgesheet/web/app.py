@@ -110,7 +110,8 @@ def _filters(state: AppState) -> dict:
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
 
-    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname}
+    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
+            "trigger_words": runs.trigger_label}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

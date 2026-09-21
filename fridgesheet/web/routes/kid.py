@@ -21,7 +21,14 @@ def _filters(request: Request) -> dict:
         "show": q.get("show", "open"), "source": q.get("source") or None,
         "course_id": int(course) if course and course.isdigit() else None,
         "kind": q.get("kind") or None, "flagged": q.get("flagged") or None, "outcome": q.get("outcome") or None, "sort": q.get("sort", "due"),
+        "direction": _direction(q.get("dir")),
     }
+
+
+def _direction(raw: str | None) -> str:
+    """Ascending unless the query string clearly asks otherwise -- `items.sorted_views` makes
+    the same choice about the same value, and the header arrow has to agree with the rows."""
+    return "desc" if raw == "desc" else "asc"
 
 
 def _sort_base(key: str, f: dict) -> str:
@@ -40,6 +47,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     f = _filters(request)
     rows = items.list_items(conn, s, now=now, rules=rules, **f)
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
+                  sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
                   SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,
                   OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
@@ -65,16 +73,17 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
         raise HTTPException(404, "no such course")
     now, rules = state.now(), state.rules()
     sort = request.query_params.get("sort", "due")
+    direction = _direction(request.query_params.get("dir"))
     peer = students.course(conn, c["peer_course_id"]) if c["peer_course_id"] else None
     grades = students.latest_grades(conn, s["id"])
     # This course and its twin in the other source are one list to a parent, so the peer's
     # rows join it -- and the headers sort the merged list, not each half.
-    rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort)
+    rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction)
     if peer is not None:
-        rows += items.list_items(conn, s, now=now, rules=rules, show="all", course_id=peer["id"], sort=sort)
-        rows = items.sorted_views(rows, sort)
+        rows += items.list_items(conn, s, now=now, rules=rules, show="all", course_id=peer["id"], sort=sort, direction=direction)
+        rows = items.sorted_views(rows, sort, direction)
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None,
-                  history=students.grade_history(conn, course_id), rows=rows, sort=sort,
+                  history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,
                   sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
                   notes=notes.for_target(conn, "course", course_id))

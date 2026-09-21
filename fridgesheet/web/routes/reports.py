@@ -37,6 +37,7 @@ def definition_from_form(form) -> views.Definition:
 def _page(request, conn, state, *, messages=(), errors=()):
     return render(request, conn, "reports.html", current="reports",
                   saved=store.all(conn), code=list(registry.REPORTS.values()),
+                  TEMPLATES=store.TEMPLATES,
                   messages=list(messages), errors=list(errors))
 
 
