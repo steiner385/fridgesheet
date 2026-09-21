@@ -26,3 +26,7 @@ def wd_md_time(d: datetime) -> str:
 
 def long_date(d: date) -> str:
     return f"{d:%A}, {d:%B} {d.day}, {d.year}"
+
+
+def parse_iso(s: str | None) -> datetime | None:
+    return datetime.fromisoformat(s) if s else None
