@@ -822,9 +822,11 @@ the same numbers, which is exactly the failure this flag exists to prevent.
 """
 from __future__ import annotations
 
+import pytest
+
 from fridgesheet.web import db
 from fridgesheet.web.stores import runs
-from tests.web_fixtures import TZ, snapshot
+from tests.web_fixtures import snapshot
 
 
 def test_refresh_record_ingests_and_records_with_the_schedule_trigger(tmp_path, monkeypatch):
@@ -863,7 +865,10 @@ def test_the_cli_flag_is_wired_to_that_function(monkeypatch, tmp_path):
 
     monkeypatch.setattr("fridgesheet.web.actions.refresh", fake_refresh)
     monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
-    assert cli.main(["refresh", "--record"]) == 0
+    # `cli.main` ends in `sys.exit(args.fn(args))` (cli.py:461): it raises, never returns.
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["refresh", "--record"])
+    assert exc.value.code == 0
     assert seen["trigger"] == "schedule"
 
 
@@ -875,7 +880,8 @@ def test_bare_refresh_still_does_not_ingest(tmp_path, monkeypatch):
     monkeypatch.setattr(cli.collector, "collect", lambda *a, **k: snapshot())
     monkeypatch.setattr(cli.collector, "summary", lambda *a, **k: {"sources": {"canvas": "ok"}})
     monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
-    cli.main(["refresh"])
+    with pytest.raises(SystemExit):
+        cli.main(["refresh"])
     assert called["actions"] is False
 ```
 
@@ -1202,7 +1208,7 @@ Expected: PASS
 
 ```bash
 git add fridgesheet/web/schedules.py fridgesheet/web/routes/schedules.py \
-        fridgesheet/web/templates/schedules.html tests/web_fixtures.py \
+        fridgesheet/web/templates/schedules.html \
         tests/test_web_schedules.py tests/test_web_schedules_page.py
 git commit -m "schedules: an editor for the app's own data refresh
 
@@ -1231,6 +1237,7 @@ Create `tests/test_web_staleness.py`:
 from __future__ import annotations
 
 import json
+import re
 from datetime import timedelta
 
 from fridgesheet import runner
@@ -1290,7 +1297,8 @@ def test_the_banner_renders_on_every_page_when_the_data_is_old(tmp_path):
     for path in ("/", "/runs", "/settings"):
         body = app_for(tmp_path).get(path).text
         assert "31 hours old" in body, path
-        assert 'href="/"' in body          # the Refresh now control lives on the Dashboard
+        banner = re.search(r'<p class="stale">.*?</p>', body, re.S)
+        assert banner and 'href="/">Refresh now</a>' in banner.group(0), path
 
 
 def test_no_banner_when_the_data_is_fresh(tmp_path):
@@ -1363,10 +1371,16 @@ def check(conn: sqlite3.Connection, now: datetime, ceiling_hours: int = CEILING_
     return Staleness(hours=hours, last_good=good["started_at"], reason=_why(conn))
 ```
 
-`web/app.py:90::_parse` is the ISO parser the header filters already use. Importing it here would
-be a cycle (`app` imports `staleness`), so move `_parse` into `fridgesheet/dates.py` as
-`parse_iso` in this step, have `app.py` import it from there, and have `staleness.py` do the
-same. One parser, no cycle.
+`web/app.py:90::_parse` is the ISO parser the header filters already use. Importing it from
+`app` here would be a cycle (`app` imports `staleness`), so in this step move the body of
+`_parse` into `fridgesheet/dates.py` as `parse_iso`, delete it from `app.py`, and import it
+there **under its old name** so the three call sites at `app.py:96,104,110` are untouched:
+
+```python
+from ..dates import parse_iso as _parse
+```
+
+`staleness.py` imports `parse_iso` directly. One parser, no cycle, no call-site churn.
 
 In `fridgesheet/web/app.py`, add to the `page_context` dict:
 
