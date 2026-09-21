@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .. import config, host, reports as registry
+from .. import config, host, refresh_schedule, reports as registry
 
 log = logging.getLogger("fridgesheet.web.schedules")
 
@@ -193,6 +193,10 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     scheduler that refuses costs the install and never the parent's typing -- the message says
     exactly that.
     """
+    if host.is_reserved(key):
+        return Outcome(False, errors=[
+            f"{key!r} is a reserved name Fridge Sheet uses for its own data-refresh schedule; "
+            "a report cannot be scheduled under it. Rename the report and save again."])
     if scheduling is None:
         from ..host import scheduling
     try:
@@ -243,5 +247,98 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     except host.SchedulingError as e:
         return Outcome(False, messages, [f"Saved, but the schedule could not be installed: {e}"])
     messages.append(f"Scheduled: {', '.join(days)} at {time}" + ("" if prints else ", PDF only") + ".")
+    log(messages[-1])
+    return Outcome(True, messages)
+
+
+@dataclass(frozen=True)
+class RefreshRow:
+    """The app's own data-refresh schedule, as the page shows it."""
+    enabled: bool
+    every_hours: int
+    start: str
+    end: str
+    days: list[str]
+    times: list[str]                        # the expansion, or [] when it does not expand
+    problem: str = ""                       # why it does not expand, shown in place of the times
+    info: host.ScheduleInfo | None = None
+    unsupported: str = ""
+
+
+def refresh_row(home: Path, *, scheduling=None) -> RefreshRow:
+    if scheduling is None:
+        from ..host import scheduling
+    rc = _settings_for(home).refresh
+    times, problem = [], ""
+    try:
+        times = refresh_schedule.refresh_times(rc.start, rc.end, rc.every_hours)
+    except config.ConfigError as e:
+        problem = str(e)
+    info, unsupported = None, ""
+    try:
+        info = scheduling.describe(host.DATA_REFRESH_KEY)
+    except host.NotSupported as e:
+        unsupported = str(e)
+    except Exception as e:                  # noqa: BLE001  same swallow as rows()
+        log.warning("could not describe the data-refresh schedule (%s): %s", type(e).__name__, e)
+        unsupported = f"the scheduler could not be read: {str(e)[:200]}"
+    return RefreshRow(enabled=rc.enabled, every_hours=rc.every_hours, start=rc.start, end=rc.end,
+                      days=list(rc.days), times=times, problem=problem, info=info, unsupported=unsupported)
+
+
+def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days: list[str],
+                 home: Path, log: Callable[[str], None], scheduling=None) -> Outcome:
+    """Write `[refresh]`, then make the host agree with it.
+
+    Same order as `save`: validate before writing, write the file before calling the
+    scheduler, so a scheduler that refuses costs the install and never the parent's typing.
+    There is no ownership check: `data-refresh` is this app's own key and nothing else
+    installs it -- the hand-written refresh pair lives at a different name and stays
+    protected by `_HAND_WRITTEN_REFRESH`.
+    """
+    if scheduling is None:
+        from ..host import scheduling
+    try:
+        times = refresh_schedule.refresh_times(start, end, every_hours)
+        host.check_schedule_times(times, days)
+    except (config.ConfigError, host.SchedulingError) as e:
+        return Outcome(False, errors=[str(e)])
+
+    path = home / CONFIG_NAME
+    doc = config.load_config_doc(path)
+    tbl = _table(doc, "refresh")
+    tbl.update(enabled=bool(enabled), every_hours=int(every_hours), start=str(start),
+               end=str(end), days=[str(d) for d in days])
+    config.save_config_doc(path, doc)
+    messages = ["Saved the refresh schedule."]
+    log(messages[-1])
+
+    if not enabled:
+        try:
+            scheduling.remove(host.DATA_REFRESH_KEY)
+        except host.NotSupported as e:
+            return Outcome(True, messages + [str(e)])
+        except host.SchedulingError as e:
+            return Outcome(False, messages, [f"Saved, but the schedule could not be removed: {e}"])
+        messages.append("The data is not refreshed on a schedule.")
+        log(messages[-1])
+        return Outcome(True, messages)
+
+    if not (home / LOGIN_STAMP).exists():
+        messages.append("Saved, but nothing is installed yet: run Test login on the Settings page first, "
+                        "then save this schedule again.")
+        log(messages[-1])
+        return Outcome(True, messages)
+
+    s = _settings_for(home)
+    exe, args, workdir = scheduling.command_for(host.DATA_REFRESH_KEY)
+    try:
+        scheduling.install(host.DATA_REFRESH_KEY, times, days, exe, args, workdir,
+                           title="Data refresh", home=str(home), timezone=s.timezone)
+    except host.NotSupported as e:
+        return Outcome(True, messages + [str(e)])
+    except host.SchedulingError as e:
+        return Outcome(False, messages, [f"Saved, but the schedule could not be installed: {e}"])
+    messages.append(f"Refreshing at {', '.join(times)} on {', '.join(days)}.")
     log(messages[-1])
     return Outcome(True, messages)
