@@ -616,3 +616,40 @@ def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install"])
     assert e.value.code == 2 and "systemd" in capsys.readouterr().err
+
+
+# --- multi-time schedules and the reserved data-refresh key ----------------------------
+
+def test_check_schedule_times_accepts_a_list():
+    host.check_schedule_times(["06:00", "09:00", "12:00"], ["Mon", "Tue"])
+
+
+def test_check_schedule_times_refuses_an_empty_list():
+    with pytest.raises(host.SchedulingError, match="no times"):
+        host.check_schedule_times([], ["Mon"])
+
+
+def test_check_schedule_times_refuses_the_one_bad_time_among_good_ones():
+    """Every time is checked before any file is written, so a bad one leaves nothing behind."""
+    with pytest.raises(host.SchedulingError, match="HH:MM"):
+        host.check_schedule_times(["06:00", "9:00", "12:00"], ["Mon"])
+
+
+def test_the_data_refresh_key_is_reserved_however_it_is_spelled():
+    """Task Scheduler's namespace is case-insensitive, so a hand-edited [reports.Data-Refresh]
+    would otherwise collide with the app's own task."""
+    for spelling in ("data-refresh", "Data-Refresh", "DATA-REFRESH", " data-refresh "):
+        assert host.is_reserved(spelling), spelling
+    assert not host.is_reserved("open-work")
+    assert not host.is_reserved("view:3")
+
+
+def test_the_reserved_key_does_not_collide_with_a_protected_name():
+    """The whole point of the name: the hand-written refresh pair stays protected and the
+    app's own schedule sits beside it."""
+    from fridgesheet.host import scheduling_linux, scheduling_windows
+    unit = scheduling_linux.timer_unit(host.DATA_REFRESH_KEY)
+    assert unit not in scheduling_linux._FOREIGN_UNITS
+    assert unit == "fridgesheet-data-refresh.timer"
+    name = host.task_name(host.DATA_REFRESH_KEY)
+    assert name.strip().casefold() not in scheduling_windows._FOREIGN_TASKS_FOLDED

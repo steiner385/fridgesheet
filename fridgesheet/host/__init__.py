@@ -80,6 +80,38 @@ def check_schedule(time: str, days: list[str]) -> None:
         raise SchedulingError(f"time must be HH:MM (24-hour), got {time!r}")
 
 
+def check_schedule_times(times: list[str], days: list[str]) -> None:
+    """`check_schedule` for a schedule with several times a day.
+
+    Every time is validated before any caller writes a file, so one bad time never leaves a
+    half-installed schedule behind -- the same ordering `install` already relies on.
+    """
+    if not times:
+        raise SchedulingError("no times configured for the schedule")
+    for t in times:
+        check_schedule(t, days)
+
+
+#: The app's own data-refresh schedule. Deliberately *not* "refresh": on Linux that would
+#: render to `fridgesheet-refresh.timer`, which `scheduling_linux._HAND_WRITTEN_REFRESH`
+#: protects by name. A distinct key lets a household's hand-written refresh timer and this
+#: one sit on the same machine, neither touching the other.
+DATA_REFRESH_KEY = "data-refresh"
+
+#: Keys a report may never claim. Compared stripped and case-folded, for the same reason
+#: `scheduling_windows._FOREIGN_TASKS_FOLDED` is: Task Scheduler treats "Fridge Sheet -
+#: Data-Refresh" and "Fridge Sheet - data-refresh" as one task, so a hand-edited
+#: `[reports.Data-Refresh]` in config.toml would otherwise reach this app's own schedule.
+#: The key is what is held here, not the rendered name: `task_name` only applies `safe_key`
+#: to keys containing a colon.
+RESERVED_KEYS = frozenset({DATA_REFRESH_KEY})
+_RESERVED_FOLDED = frozenset(k.strip().casefold() for k in RESERVED_KEYS)
+
+
+def is_reserved(key: str) -> bool:
+    return str(key).strip().casefold() in _RESERVED_FOLDED
+
+
 def task_name(key: str) -> str:
     """The Windows task's display name. `safe_key`'s hyphens read badly in a title, so they
     become spaces here; this is a label, not a file name."""
