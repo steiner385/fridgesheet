@@ -348,7 +348,7 @@ def cmd_schedule(args) -> int:
             r = reports.resolve(key, s.home)       # a saved view report is schedulable too (#35)
             rc = s.report_config(key, r.default_time)
             exe, a, wd = scheduling.command_for(key)
-            scheduling.install(key, rc.time, rc.days, exe, a, wd, title=r.title,
+            scheduling.install(key, [rc.time], rc.days, exe, a, wd, title=r.title,
                                home=str(s.home), timezone=s.timezone)
             print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {rc.time}")
         elif args.action == "remove":

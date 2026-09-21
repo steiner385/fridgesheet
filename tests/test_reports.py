@@ -105,8 +105,8 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
         def command_for(key):
             return ("/py", f"run {key}", "/wd")
         @staticmethod
-        def install(key, time, days, exe, args, workdir, **kw):
-            installed.update(key=key, time=time, days=list(days), title=kw.get("title"))
+        def install(key, times, days, exe, args, workdir, **kw):
+            installed.update(key=key, times=list(times), days=list(days), title=kw.get("title"))
         @staticmethod
         def display_name(key):
             return f"fridgesheet-{key}.{{service,timer}}"
@@ -120,4 +120,4 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
         cli.main(["schedule", "install", "view:1"])
     assert e.value.code == 0
     assert installed["key"] == "view:1" and installed["title"] == "Weekly summary"
-    assert installed["time"] == "16:00"          # the view report's own default_time
+    assert installed["times"] == ["16:00"]          # the view report's own default_time

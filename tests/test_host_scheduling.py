@@ -167,7 +167,7 @@ def test_linux_install_and_remove_are_no_longer_refused(tmp_path):
     def run(argv, **kw):
         calls.append(argv)
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
-    scheduling_linux.install("view:3", "14:00", ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
+    scheduling_linux.install("view:3", ["14:00"], ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
     assert (tmp_path / "fridgesheet-view-3.timer").is_file()
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],

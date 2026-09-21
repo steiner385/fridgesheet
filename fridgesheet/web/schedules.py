@@ -236,7 +236,7 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     s = _settings_for(home)
     exe, args, workdir = scheduling.command_for(key)
     try:
-        scheduling.install(key, time, days, exe, args, workdir, title=report.title,
+        scheduling.install(key, [time], days, exe, args, workdir, title=report.title,
                            home=str(home), timezone=s.timezone)
     except host.NotSupported as e:
         return Outcome(True, messages + [str(e)])
