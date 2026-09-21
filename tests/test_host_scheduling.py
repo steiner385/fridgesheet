@@ -55,7 +55,7 @@ def test_day_tags_keys_come_from_day_names_not_a_second_spelling():
 
 
 def test_task_xml_description_can_be_the_reports_title():
-    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", ["16:00"], ["Fri"], "x", "run view:7", ".",
                                              description="Fridge Sheet: Weekly summary")
     assert "<Description>Fridge Sheet: Weekly summary</Description>" in xml
 
@@ -70,13 +70,13 @@ def test_windows_install_takes_the_same_keywords_as_the_linux_one():
         seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_text(encoding="utf-16")
         return _R(0, "SUCCESS")
 
-    scheduling_windows.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run,
+    scheduling_windows.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=run,
                                title="Weekly summary", home="/anything", timezone="America/New_York")
     assert "<Description>Fridge Sheet: Weekly summary</Description>" in seen["xml"]
 
 
 def test_task_xml_has_the_trigger_settings_and_action():
-    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", ["14:00"], ["Mon", "Tue", "Wed", "Thu", "Fri"],
                                              r"C:\Apps\FridgeSheet.exe", "run open-work", r"C:\Apps")
     assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
     assert "<Monday />" in xml and "<Friday />" in xml and "<Saturday />" not in xml
@@ -93,29 +93,29 @@ def test_task_xml_has_the_trigger_settings_and_action():
 
 
 def test_task_xml_escapes_paths_with_ampersands():
-    xml = scheduling_windows.render_task_xml("n", "08:05", ["Sat"], r"C:\A & B\x.exe", "run k", r"C:\A & B")
+    xml = scheduling_windows.render_task_xml("n", ["08:05"], ["Sat"], r"C:\A & B\x.exe", "run k", r"C:\A & B")
     assert r"<Command>C:\A &amp; B\x.exe</Command>" in xml and "<Saturday />" in xml and "T08:05:00" in xml
 
 
 def test_task_xml_rejects_unknown_or_empty_days():
     with pytest.raises(scheduling.SchedulingError, match="Monday"):
-        scheduling_windows.render_task_xml("n", "14:00", ["Mon", "Monday"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:00"], ["Mon", "Monday"], "x", "run k", ".")
     with pytest.raises(scheduling.SchedulingError, match="no days"):
-        scheduling_windows.render_task_xml("n", "14:00", [], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:00"], [], "x", "run k", ".")
 
 
 def test_task_xml_rejects_bad_time():
     with pytest.raises(scheduling.SchedulingError, match="HH:MM"):
-        scheduling_windows.render_task_xml("n", "9:00", ["Mon"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["9:00"], ["Mon"], "x", "run k", ".")
     with pytest.raises(scheduling.SchedulingError, match="HH:MM"):
-        scheduling_windows.render_task_xml("n", "14:60", ["Mon"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:60"], ["Mon"], "x", "run k", ".")
 
 
 def test_windows_install_with_bad_days_never_calls_schtasks():
     def run(cmd, **kw):
         raise AssertionError("schtasks must not run")
     with pytest.raises(scheduling.SchedulingError):
-        scheduling_windows.install("k", "14:00", ["Funday"], "x", "run k", ".", run=run)
+        scheduling_windows.install("k", ["14:00"], ["Funday"], "x", "run k", ".", run=run)
 
 
 def test_windows_install_writes_utf16_xml_and_calls_schtasks():
@@ -126,7 +126,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
         seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_bytes()
         return _R(0, "SUCCESS: The scheduled task has been created.")
 
-    scheduling_windows.install("open-work", "14:00", ["Mon"], r"C:\x.exe", "run open-work", "C:\\", run=run)
+    scheduling_windows.install("open-work", ["14:00"], ["Mon"], r"C:\x.exe", "run open-work", "C:\\", run=run)
     assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - open-work"] and seen["cmd"][-1] == "/F"
     assert seen["xml"].startswith(b"\xff\xfe") and seen["xml"].decode("utf-16").startswith('<?xml version="1.0" encoding="UTF-16"?>')
     assert seen["kw"]["creationflags"] == scheduling_windows.CREATE_NO_WINDOW
@@ -135,7 +135,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
 
 def test_windows_install_failure_surfaces_stderr():
     with pytest.raises(scheduling.SchedulingError, match="Access is denied"):
-        scheduling_windows.install("k", "14:00", ["Mon"], "x", "run k", ".", run=lambda c, **k: _R(1, "", "ERROR: Access is denied."))
+        scheduling_windows.install("k", ["14:00"], ["Mon"], "x", "run k", ".", run=lambda c, **k: _R(1, "", "ERROR: Access is denied."))
 
 
 def test_windows_remove_and_describe():
@@ -189,7 +189,7 @@ def test_windows_refuses_the_web_servers_own_logon_task_before_any_schtasks_call
         raise AssertionError("schtasks must not run for a task this app did not schedule")
 
     with pytest.raises(scheduling.SchedulingError, match="refusing"):
-        scheduling_windows.install("web", "14:00", ["Mon"], "x", "run web", ".", run=run)
+        scheduling_windows.install("web", ["14:00"], ["Mon"], "x", "run web", ".", run=run)
     with pytest.raises(scheduling.SchedulingError, match="refusing"):
         scheduling_windows.remove("web", run=run)
 
@@ -210,7 +210,7 @@ def test_windows_refuses_the_logon_task_however_the_key_is_cased():
         with pytest.raises(scheduling.SchedulingError, match="refusing"):
             scheduling_windows.remove(key, run=run)
         with pytest.raises(scheduling.SchedulingError, match="refusing"):
-            scheduling_windows.install(key, "14:00", ["Mon"], "x", f"run {key}", ".", run=run)
+            scheduling_windows.install(key, ["14:00"], ["Mon"], "x", f"run {key}", ".", run=run)
 
 
 def test_display_name_is_what_this_platform_actually_installed(tmp_path):
@@ -653,3 +653,28 @@ def test_the_reserved_key_does_not_collide_with_a_protected_name():
     assert unit == "fridgesheet-data-refresh.timer"
     name = host.task_name(host.DATA_REFRESH_KEY)
     assert name.strip().casefold() not in scheduling_windows._FOREIGN_TASKS_FOLDED
+
+
+def test_one_time_renders_exactly_what_it_rendered_before():
+    """The byte-identical promise: every task already installed keeps its current XML, so
+    nothing on a machine the author cannot reach needs reinstalling."""
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", ["14:00"], ["Mon", "Fri"],
+                                             "C:\\app\\FridgeSheet.exe", "run open-work --no-refresh", "C:\\app")
+    assert xml.count("<CalendarTrigger>") == 1
+    assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
+    assert "          <Monday />\n          <Friday />" in xml
+
+
+def test_several_times_render_one_trigger_each():
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - data-refresh", ["06:00", "09:00", "12:00"],
+                                             ["Mon"], "C:\\app\\FridgeSheet.exe", "refresh --record", "C:\\app")
+    assert xml.count("<CalendarTrigger>") == 3
+    for t in ("06:00", "09:00", "12:00"):
+        assert f"<StartBoundary>2026-01-01T{t}:00</StartBoundary>" in xml
+    assert xml.count("<Monday />") == 3          # every trigger carries its own day list
+
+
+def test_a_bad_time_among_good_ones_renders_nothing():
+    with pytest.raises(host.SchedulingError):
+        scheduling_windows.render_task_xml("Fridge Sheet - data-refresh", ["06:00", "nope"], ["Mon"],
+                                           "exe", "args", "wd")
