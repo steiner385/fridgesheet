@@ -116,6 +116,14 @@ def cmd_check(args) -> int:
 
 def cmd_refresh(args) -> int:
     s = load_settings()
+    if args.record:
+        # The full path the Refresh now button takes: collect, ingest into the database the
+        # web app renders from, and record the run. Bare `refresh` below writes only the
+        # snapshot, which every MCP tool reads -- the database came later, with the web app.
+        from .web import actions
+        result = actions.refresh(home=s.home, log=lambda m: print(m), trigger="schedule")
+        print(result.message)
+        return 0 if result.ok else 1
     snap = collector.collect(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
     print(json.dumps(collector.summary(s, snap), indent=2))
     return 0 if all(v == "ok" for v in snap["sources"].values() if v) else 1
@@ -412,6 +420,8 @@ def main(argv=None) -> None:
     r.add_argument("--no-hac", action="store_true")
     r.add_argument("--no-canvas", action="store_true")
     r.add_argument("--kids", nargs="*", help="first names to include (default all)")
+    r.add_argument("--record", action="store_true",
+                   help="also ingest into the app's database and record the run (what a schedule runs)")
     r.set_defaults(fn=cmd_refresh)
     sub.add_parser("status", help="show cache age and last source status").set_defaults(fn=cmd_status)
     sub.add_parser("printers", help="list printers; * marks the system default").set_defaults(fn=cmd_printers)

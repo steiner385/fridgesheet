@@ -485,10 +485,15 @@ class RefreshResult:
 
 
 def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
-            collect=None, now: datetime | None = None) -> RefreshResult:
+            collect=None, now: datetime | None = None, trigger: str = "web") -> RefreshResult:
     """Refresh now: pull Canvas and HAC, ingest the snapshot, record the run. Holds the runner's
     lock so a scheduled print in progress is never pulled out from under. Every failure is a
-    result, never an exception -- the page shows it."""
+    result, never an exception -- the page shows it.
+
+    `trigger` is what the run is recorded as: "web" for the Refresh now button, "schedule"
+    for the app's own data-refresh task. It is the only thing that differs between them --
+    a scheduled refresh is this same collect / ingest / record, under the same lock.
+    """
     from .. import collector
     from . import db, ingest
     from .stores import runs as runstore
@@ -504,7 +509,7 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         try:
             conn = db.open_db(home)
             try:
-                runstore.record(conn, "refresh", started.isoformat(), now2, "web", "FAIL", message)
+                runstore.record(conn, "refresh", started.isoformat(), now2, trigger, "FAIL", message)
             finally:
                 conn.close()
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
@@ -535,7 +540,7 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         try:
             conn2 = db.open_db(home)
             try:
-                runstore.record(conn2, "refresh", started.isoformat(), datetime.now(tz).isoformat(), "web", outcome, message)
+                runstore.record(conn2, "refresh", started.isoformat(), datetime.now(tz).isoformat(), trigger, outcome, message)
             finally:
                 conn2.close()
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
