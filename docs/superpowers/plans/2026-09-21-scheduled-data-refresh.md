@@ -183,7 +183,7 @@ def refresh_times(start: str, end: str, every_hours: int) -> list[str]:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_refresh_schedule.py -q`
-Expected: PASS, 15 passed
+Expected: PASS, 14 passed
 
 - [ ] **Step 5: Commit**
 
