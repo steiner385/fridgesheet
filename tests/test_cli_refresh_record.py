@@ -56,6 +56,40 @@ def test_the_cli_flag_is_wired_to_that_function(monkeypatch, tmp_path):
     assert seen["trigger"] == "schedule"
 
 
+@pytest.mark.parametrize("flag", ["--no-hac", "--no-canvas", "--kids"])
+def test_record_rejects_a_partial_pull_flag(tmp_path, monkeypatch, flag):
+    """`--record` is the schedule's own path; a scheduled refresh has no use for a partial
+    pull, and `web.actions.refresh` takes no such filters -- so these must be rejected, not
+    silently ignored (the bug: the --record branch used to return before any of them were
+    even read)."""
+    from fridgesheet import cli
+
+    def boom(**kw):
+        raise AssertionError("actions.refresh must not run when a partial-pull flag is rejected")
+
+    monkeypatch.setattr("fridgesheet.web.actions.refresh", boom)
+    monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["refresh", "--record", flag])
+    assert exc.value.code == 2
+
+
+def test_record_alone_still_works(tmp_path, monkeypatch):
+    from fridgesheet import cli
+    seen = {}
+
+    def fake_refresh(**kw):
+        seen.update(kw)
+        return type("R", (), {"ok": True, "message": "done", "refresh_id": 1})()
+
+    monkeypatch.setattr("fridgesheet.web.actions.refresh", fake_refresh)
+    monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["refresh", "--record"])
+    assert exc.value.code == 0
+    assert seen["trigger"] == "schedule"
+
+
 def test_bare_refresh_still_does_not_ingest(tmp_path, monkeypatch):
     from fridgesheet import cli
     called = {"actions": False}

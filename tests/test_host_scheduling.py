@@ -244,6 +244,47 @@ def test_schedule_remove_refuses_a_key_that_is_not_a_report(monkeypatch, capsys,
     assert e.value.code == 1 and "web" in capsys.readouterr().err
 
 
+def test_schedule_remove_data_refresh_is_an_escape_hatch(monkeypatch, capsys, tmp_path):
+    """`data-refresh` is not a report (`[refresh]`, not `[reports.<key>]`), so the ordinary
+    `reports.resolve` gate `remove` otherwise applies would refuse it exactly like `remove web`
+    does above -- leaving a parent with no single-key way to turn off a refresh schedule whose
+    `[refresh]` table is already gone, only the blunt `schedule remove --all`. `data-refresh` is
+    admitted by exact name, not by loosening the gate itself: it is a fixed, reserved key
+    (`host.RESERVED_KEYS`) a report can never be saved under, so this costs nothing the gate
+    was protecting."""
+    from fridgesheet import cli
+    from fridgesheet.config import Settings
+    monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
+
+    removed = []
+    monkeypatch.setattr(scheduling, "remove", lambda key, **kw: removed.append(key))
+    monkeypatch.setattr(scheduling, "describe",
+                        lambda key, **kw: scheduling.ScheduleInfo("systemd", False, None, None))
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "remove", "data-refresh"])
+    assert e.value.code == 0
+    assert removed == ["data-refresh"]
+    assert "not scheduled" in capsys.readouterr().out
+
+
+def test_schedule_removal_keys_always_includes_the_data_refresh_key(tmp_path):
+    """The bug this closes: `[refresh]` lives outside `[reports.<key>]` and is not a report, so
+    it never appeared in `_schedule_removal_keys`' output before this fix -- a household that
+    enabled the refresh schedule and then uninstalled kept `Fridge Sheet - data-refresh` firing
+    at a deleted exe forever, with no `[UninstallRun]` step that would ever remove it.
+
+    Pinned with a bare `Settings()` and no `config.toml` at all under `tmp_path` -- not just no
+    `[refresh]` table, no file -- because the fix must be unconditional: it cannot depend on
+    `[refresh]` having ever been written, since the whole point is to remove a task whose
+    config may already be gone."""
+    from fridgesheet import cli, config, host
+
+    s = config.Settings(home=tmp_path)
+    keys, complete = cli._schedule_removal_keys(s)
+    assert host.DATA_REFRESH_KEY in keys
+    assert complete is True
+
+
 def test_schedule_remove_all_removes_every_available_reports_schedule(monkeypatch, capsys, tmp_path):
     """The uninstaller's own call (installer.iss's `[UninstallRun]` now runs `schedule remove
     --all` instead of a bare `schedule remove`, which only ever named the default report):
@@ -269,7 +310,7 @@ def test_schedule_remove_all_removes_every_available_reports_schedule(monkeypatc
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 0
-    assert sorted(removed) == ["open-work", "view:1"]
+    assert sorted(removed) == ["data-refresh", "open-work", "view:1"]
     # What it says it removed is this platform's own object, not a Windows task name on Linux.
     assert f"Removed {scheduling.display_name('open-work')}" in capsys.readouterr().out
 
@@ -299,7 +340,8 @@ def test_schedule_remove_all_keeps_going_past_one_reports_refusal(monkeypatch, t
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 1
-    assert removed == ["view:1"]
+    # sorted order: "data-refresh" comes before "open-work" (which raises) and "view:1"
+    assert removed == ["data-refresh", "view:1"]
 
 
 def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys, tmp_path):
@@ -333,7 +375,7 @@ def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 2
     assert "scheduling is not available" in capsys.readouterr().err
-    assert calls == ["open-work"]          # stopped at the first key -- "view:1" never attempted
+    assert calls == ["data-refresh"]       # stopped at the first key, sorted first -- the rest never attempted
 
 
 def test_schedule_remove_all_is_refused_with_install_or_show(monkeypatch, capsys, tmp_path):
@@ -385,7 +427,8 @@ def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0
-    assert removed == ["open-work"]          # no config.toml, no database: only the code report
+    assert removed == ["data-refresh", "open-work"]  # no config.toml, no database: the code report,
+                                                      # plus the refresh key added unconditionally
     assert not home.exists()                 # neither the folder...
     assert not web_db.db_path(home).exists() # ...nor fridgesheet.db was created to check for more
 
@@ -413,7 +456,7 @@ def test_schedule_remove_all_still_removes_what_it_can_when_config_toml_will_not
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 1                 # incomplete -- the same 1 an unreadable database gives
-    assert removed == ["open-work"]          # the code reports still go, whatever the file says
+    assert removed == ["data-refresh", "open-work"]  # the code reports (and the refresh key) still go
     err = capsys.readouterr().err
     assert "cannot parse" in err and "config.toml" in err
 
@@ -454,7 +497,7 @@ def test_schedule_remove_all_survives_a_reports_value_of_the_wrong_shape(monkeyp
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0
-    assert removed == ["open-work"]          # the code reports still go, whatever the file says
+    assert removed == ["data-refresh", "open-work"]  # the code reports (and the refresh key) still go
     assert "Traceback" not in capsys.readouterr().err
 
 
@@ -521,7 +564,7 @@ def test_schedule_remove_all_survives_one_unusable_report_time(monkeypatch, caps
 
     assert e.value.code == 1
     # view:5 is the one that raised, and it is still removed: the key is all `remove` needs.
-    assert sorted(removed) == ["open-work", "view:5", "view:7"]
+    assert sorted(removed) == ["data-refresh", "open-work", "view:5", "view:7"]
     assert "HH:MM" in capsys.readouterr().err
 
 
@@ -549,7 +592,7 @@ def test_schedule_remove_all_leaves_alone_a_config_key_that_is_not_a_report(monk
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0                             # nothing of ours was left behind
-    assert sorted(removed) == ["open-work", "view:7"]    # not Web, not web, not view:007
+    assert sorted(removed) == ["data-refresh", "open-work", "view:7"]    # not Web, not web, not view:007
     err = capsys.readouterr().err
     assert "Web" in err and "web" in err and "view:007" in err   # skipped out loud, not silently
 
@@ -587,7 +630,7 @@ def test_schedule_remove_all_still_removes_everything_it_knows_about_when_the_da
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 1              # incomplete, not a clean 0 -- something could not be read
-    assert sorted(removed) == ["open-work", "view:7"]   # ...but still removed, via config.toml alone
+    assert sorted(removed) == ["data-refresh", "open-work", "view:7"]   # ...but still removed, via config.toml alone
 
 
 def test_command_for_source_and_frozen(monkeypatch, tmp_path):
@@ -696,3 +739,16 @@ def test_command_for_a_report_is_unchanged(monkeypatch):
     monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
     _, args, _ = scheduling.command_for("open-work")
     assert args.endswith("run open-work --no-refresh")
+
+
+def test_command_for_the_refresh_key_records_the_run_when_frozen(monkeypatch, tmp_path):
+    """The PyInstaller branch is the production path on the household's Windows machine (a
+    frozen `FridgeSheet.exe`), but only the non-frozen branch above was ever pinned. Same
+    assertion as `test_command_for_the_refresh_key_records_the_run`, against `sys.frozen`."""
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(scheduling.sys, "executable", str(tmp_path / "FridgeSheet.exe"))
+    exe, args, wd = scheduling.command_for(host.DATA_REFRESH_KEY)
+    assert exe.endswith("FridgeSheet.exe")
+    assert args == "refresh --record"          # no "-m fridgesheet.cli" prefix, and no --no-refresh
+    assert wd == str(tmp_path)

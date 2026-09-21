@@ -138,3 +138,17 @@ def test_the_page_shows_the_refresh_editor_with_its_expanded_times(tmp_path):
     assert "Refresh the data" in body
     assert 'name="every_hours"' in body and 'name="start"' in body and 'name="end"' in body
     assert 'hx-post="/schedules/refresh"' in body
+
+
+def test_a_junk_every_hours_does_not_500(tmp_path):
+    """`int(form.get("every_hours") or 3)` used to raise `ValueError` straight out of the
+    route for anything that is not an integer -- a 500, where every neighbouring field
+    (start/end/days) degrades instead of failing outright. A junk value falls back to the
+    same default (3) the field itself defaults to."""
+    c, _ = _client(tmp_path)
+    r = c.post("/schedules/refresh", data={"every_hours": "not-a-number", "start": "06:00",
+                                           "end": "21:00", "days": ["Mon"]})
+    assert r.status_code == 200
+    assert "Traceback" not in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"]["every_hours"] == 3

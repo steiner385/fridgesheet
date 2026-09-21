@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
@@ -50,26 +49,21 @@ class ConfigError(RuntimeError):
     pass
 
 
-_TIME_RE = re.compile(r"^\d{2}:\d{2}$")
-
-
 def _validate_report_time(key: str, value) -> None:
-    """A [reports.<key>].time must be HH:MM, 24-hour. Raises ConfigError otherwise."""
-    ok = False
-    if _TIME_RE.match(str(value)):
-        h, m = (int(x) for x in str(value).split(":"))
-        ok = 0 <= h <= 23 and 0 <= m <= 59
-    if not ok:
+    """A [reports.<key>].time must be HH:MM, 24-hour. Raises ConfigError otherwise.
+
+    The pattern itself is `host.TIME_RE` -- the one HH:MM validator every caller in this app
+    delegates to, so a loosened or tightened definition cannot drift between them. Only the
+    exception type and wording are this caller's own.
+    """
+    if not host.TIME_RE.match(str(value)):
         raise ConfigError(f"[reports.{key}] time must be HH:MM (24-hour), got {value!r}")
 
 
 def _validate_refresh_time(field_name: str, value) -> None:
-    """A [refresh].start/.end must be HH:MM, 24-hour. Raises ConfigError otherwise."""
-    ok = False
-    if _TIME_RE.match(str(value)):
-        h, m = (int(x) for x in str(value).split(":"))
-        ok = 0 <= h <= 23 and 0 <= m <= 59
-    if not ok:
+    """A [refresh].start/.end must be HH:MM, 24-hour. Raises ConfigError otherwise. See
+    `_validate_report_time` above for why the pattern itself lives in `host.TIME_RE`."""
+    if not host.TIME_RE.match(str(value)):
         raise ConfigError(f"[refresh] {field_name} must be HH:MM (24-hour), got {value!r}")
 
 

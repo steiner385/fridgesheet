@@ -62,12 +62,22 @@ async def save(request: Request, conn: sqlite3.Connection = Db, state=State):
     return _page(request, conn, state, messages=out.messages, errors=out.errors)
 
 
+def _int_or(value, default: int) -> int:
+    """A form field coerced the way every neighbouring field already is: a bad value falls
+    back to the default rather than raising -- `int("")`/`int("junk")` would otherwise be a
+    500 on a POST, where `start`/`end`/`days` all degrade instead of failing outright."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 @router.post("/schedules/refresh")
 async def save_refresh(request: Request, conn: sqlite3.Connection = Db, state=State):
     form = await request.form()
     out = schedules.save_refresh(
         enabled=bool(form.get("enabled")),
-        every_hours=int(form.get("every_hours") or 3),
+        every_hours=_int_or(form.get("every_hours"), 3),
         start=str(form.get("start") or "06:00"),
         end=str(form.get("end") or "21:00"),
         days=[str(d) for d in form.getlist("days")],

@@ -19,8 +19,8 @@
 {# One bar on the page that says something is wrong, beside `warnings` rather than competing
    with them. "Refresh now" is a link to the Dashboard, where that control already lives --
    the header would otherwise need its own jobs-worker check, htmx target and busy state. #}
-<p class="stale">⚠ <strong>This data is {{ staleness.hours }} hours old.</strong>
-  {% if staleness.last_good %}Last good refresh {{ staleness.last_good | wd_md_time }}.{% else %}Nothing has been refreshed yet.{% endif %}
+<p class="stale">⚠ <strong>{% if staleness.last_good %}This data is {{ staleness.hours }} hours old.{% else %}Nothing has been refreshed yet.{% endif %}</strong>
+  {% if staleness.last_good %}Last good refresh {{ staleness.last_good | wd_md_time }}.{% endif %}
   {% if staleness.reason %} {{ staleness.reason }}.{% endif %}
   <a href="/">Refresh now</a></p>
 {% endif %}

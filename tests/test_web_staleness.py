@@ -69,3 +69,18 @@ def test_the_banner_renders_on_every_page_when_the_data_is_old(tmp_path):
 def test_no_banner_when_the_data_is_fresh(tmp_path):
     seed(tmp_path).close()
     assert "hours old" not in app_for(tmp_path).get("/").text
+
+
+def test_the_banner_does_not_invent_an_age_when_nothing_has_ever_refreshed(tmp_path):
+    """`staleness.check` answers `hours=ceiling_hours + 1` when there is no successful refresh
+    at all (there is no real age to report), which used to render two contradicting sentences:
+    "This data is 25 hours old. Nothing has been refreshed yet." The hours clause must be
+    suppressed instead -- the banner says only that nothing has been refreshed yet."""
+    # An empty database: db.open_db creates the schema but no `refreshes` row at all.
+    from fridgesheet.web import db
+    db.open_db(tmp_path).close()
+    body = app_for(tmp_path).get("/").text
+    banner = re.search(r'<p class="stale">.*?</p>', body, re.S)
+    assert banner, body
+    assert "Nothing has been refreshed yet." in banner.group(0)
+    assert "hours old" not in banner.group(0)

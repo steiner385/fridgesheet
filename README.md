@@ -166,6 +166,16 @@ time = "14:00"
 days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 days_ahead = 14
 overdue_days = 14
+
+# How often the app pulls Canvas and HAC by itself. A scheduled report reads whatever the
+# last refresh left behind, so this is what keeps a printed sheet, and the browser page,
+# current. At most 12 refreshes a day.
+[refresh]
+enabled = true
+every_hours = 3
+start = "06:00"
+end = "21:00"
+days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 ```
 
 `fridgesheet run open-work` is the general form of `print-sheet` (same flags); `print-sheet` always passes its own `--days`/`--overdue-days` defaults (14), so `days_ahead`/`overdue_days` in `config.toml` apply to `run open-work` but not to the alias. `fridgesheet reports` lists report types and their schedules; `fridgesheet schedule show <key>` prints the next run and who manages it. `fridgesheet schedule install <key>` writes the schedule itself — the Task Scheduler task on Windows, a systemd user timer pair on Linux (below).

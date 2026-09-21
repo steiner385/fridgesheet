@@ -9,8 +9,7 @@ out, by a different amount on every machine.
 """
 from __future__ import annotations
 
-import re
-
+from . import host
 from .config import ConfigError
 
 #: The most refreshes a day this will install. A refresh drives a real browser through
@@ -19,11 +18,11 @@ from .config import ConfigError
 #: district's systems. Hourly inside a twelve-hour window is still available.
 MAX_PER_DAY = 12
 
-_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
-
 
 def _minutes(label: str, value: str) -> int:
-    if not _TIME_RE.match(str(value)):
+    # `host.TIME_RE` is the one HH:MM pattern every validator in this app shares; only the
+    # exception type and wording (ConfigError, "[refresh] ...") are this module's own.
+    if not host.TIME_RE.match(str(value)):
         raise ConfigError(f"[refresh] {label} must be HH:MM (24-hour), got {value!r}")
     h, m = (int(x) for x in str(value).split(":"))
     return h * 60 + m

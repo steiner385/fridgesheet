@@ -51,7 +51,17 @@ class ScheduleInfo:
 
 DAY_NAMES: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
-_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
+#: The one HH:MM (24-hour) pattern every clock-time validator in this app matches against --
+#: `config._validate_report_time`/`_validate_refresh_time`, `refresh_schedule._minutes` and
+#: `check_schedule` below. Three separate copies of this regex used to exist, all accepting
+#: exactly the same language (this one, and `config`'s own looser `\d{2}:\d{2}$` plus a
+#: separate 0-23/0-59 range check) -- harmless while they agreed, but the next person to loosen
+#: one copy would not be touching the other two. `host` is the shared ancestor both `config`
+#: (which already imports `host`) and `refresh_schedule` (which imports `config`) can reach
+#: without either importing the other, so this is where the one copy lives. Each caller keeps
+#: its own exception type and message -- `ConfigError` and `SchedulingError` mean different
+#: things to different callers, and merging those would be its own kind of parallel-implementation.
+TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -76,7 +86,7 @@ def check_schedule(time: str, days: list[str]) -> None:
         raise SchedulingError("no days configured for the schedule")
     if bad:
         raise SchedulingError(f"unknown day name(s) {bad!r}; use {', '.join(DAY_NAMES)}")
-    if not _TIME_RE.match(str(time)):
+    if not TIME_RE.match(str(time)):
         raise SchedulingError(f"time must be HH:MM (24-hour), got {time!r}")
 
 
