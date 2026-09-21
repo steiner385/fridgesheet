@@ -108,6 +108,10 @@ Thursday 11:30 and daily 06:00. The unit sets `TimeoutStartSec=900`: a full pull
 
 This is unrelated to report scheduling below — it only keeps the snapshot warm, and it is not something the app will ever touch (`fridgesheet-refresh.{service,timer}` are refused by name by every `schedule` command, the same as the hand-written print timer in the next section). A report's own printing schedule, including the weekday sheet's, is what the app now writes itself.
 
+The app can now schedule this itself, on Windows as well as Linux: tick **Refresh on a schedule** on the Schedules page and set an interval and a window. It installs under its own name (`fridgesheet-data-refresh.timer`, or the task `Fridge Sheet - data-refresh`), so a hand-written timer from this section and the app's own schedule can both exist on one machine — the app never touches the hand-written pair. If you use the app's schedule, disable the hand-written one yourself:
+
+    systemctl --user disable --now fridgesheet-refresh.timer
+
 ## 6. Printing a report on a schedule
 
 `fridgesheet run <key>` refreshes, builds one report's PDF, prints it, and records the run — it's what a schedule executes, however it was installed, except a schedule the app itself installed passes `--no-refresh` (below): the same "one pull, many tools" promise as section 4's tools, so a scheduled print never waits on, or repeats, a Canvas/HAC pull the refresh timer above already did. Typed by hand with no flag, `run` and `print-sheet` still refresh first, same as always — someone at a terminal is presumably fine waiting a few minutes; so does the household's hand-written print timer, which the app never touches. A report key is `open-work` (the built-in kids' sheet: one letter-portrait PDF with a section per kid) or `view:<id>` (a report built on the Reports page). `fridgesheet reports` lists every key with its enabled state, schedule and whether it's PDF-only:
