@@ -678,3 +678,21 @@ def test_a_bad_time_among_good_ones_renders_nothing():
     with pytest.raises(host.SchedulingError):
         scheduling_windows.render_task_xml("Fridge Sheet - data-refresh", ["06:00", "nope"], ["Mon"],
                                            "exe", "args", "wd")
+
+
+def test_command_for_the_refresh_key_records_the_run(monkeypatch):
+    """A report's schedule runs `--no-refresh` and trusts the snapshot. This is what makes
+    the snapshot trustworthy -- and it must be `refresh --record`, not bare `refresh`, which
+    writes snapshot.json and never ingests, so the kiosk would never change."""
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
+    _, args, _ = scheduling.command_for(host.DATA_REFRESH_KEY)
+    assert args.endswith("refresh --record")
+    assert "--no-refresh" not in args
+
+
+def test_command_for_a_report_is_unchanged(monkeypatch):
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
+    _, args, _ = scheduling.command_for("open-work")
+    assert args.endswith("run open-work --no-refresh")
