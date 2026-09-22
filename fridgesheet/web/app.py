@@ -10,7 +10,7 @@ import ipaddress
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from html import escape
 from importlib import metadata
 from pathlib import Path
@@ -110,8 +110,17 @@ def _filters(state: AppState) -> dict:
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
 
+    def wd_md(v):
+        """"Thu 9/17". A plain date ("2026-09-17" or a `date`) has no time of day, so nothing
+        is converted between zones; a timestamp is moved into the app's zone first."""
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v) if "T" in v else date.fromisoformat(v)
+        if isinstance(v, datetime):
+            v = v.astimezone(state.tz)
+        return dates.wd_md(v) if v else ""
+
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
-            "trigger_words": runs.trigger_label}
+            "wd_md": wd_md, "trigger_words": runs.trigger_label}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
@@ -410,8 +419,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
-    for r in (dashboard.router, kid.router, note_routes.router, flag_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
+    for r in (dashboard.router, checkin.router, kid.router, note_routes.router, flag_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
         app.include_router(r)
     return app
 

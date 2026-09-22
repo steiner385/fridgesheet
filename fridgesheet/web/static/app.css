@@ -121,6 +121,70 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
 .rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
+/* Check-in: school evidence, family context, and commitments stay visually distinct. */
+.workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.workspace-heading h2 { margin: 0 0 12px; font-size: 27px; letter-spacing: -.5px; }
+.heading-actions { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
+.child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 12px 0 20px; }
+.child-nav a { padding: 10px 14px; text-decoration: none; }
+.child-nav a[aria-current] { border-bottom: 3px solid #286454; color: #214f43; font-weight: 650; }
+.button-link { display: inline-block; padding: 8px 12px; border: 1px solid #b7cdc5; border-radius: 6px; background: #edf5f1; color: #214f43; text-decoration: none; }
+.notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; }
+.checkin-intro { max-width: 760px; margin-bottom: 24px; }
+.checkin-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
+.checkin-layout h3 { margin-top: 0; }
+.queue-group { margin: 16px 0; }
+.queue-group > summary { padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 650; cursor: pointer; }
+.review-card, .plan-card { margin-top: 12px; overflow-wrap: anywhere; }
+.review-card h4, .plan-card h4 { font-size: 17px; margin: 0 0 8px; }
+.school-evidence { font-size: 13px; color: #4f5754; }
+.school-evidence p { margin: 6px 0; }
+.review-note { border-left: 3px solid #aa7c32; padding-left: 10px; color: #725017; }
+.plan-panel { background: #eef3ef; padding: 18px; border-radius: 12px; }
+.plan-total { border-bottom: 1px solid #c9d8cd; padding-bottom: 14px; }
+.next-step { font-size: 16px; }
+.family-account { border-left: 3px solid #a2bdb3; padding-left: 10px; white-space: pre-wrap; }
+.plan-form { display: grid; gap: 16px; max-width: 760px; margin-top: 18px; }
+.plan-form label { display: grid; gap: 6px; font-weight: 550; min-width: 0; }
+.plan-form input, .plan-form select, .plan-form textarea { width: 100%; min-width: 0; }
+.plan-form textarea { min-height: 88px; border: 1px solid var(--rule); border-radius: 6px; padding: 8px; }
+.plan-form p { margin: 0; }
+.plan-form > button { justify-self: start; }
+.form-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.finish-checkin { margin-top: 28px; max-width: 760px; }
+.print-step { border-bottom: 1px solid var(--rule); padding: 12px 0; break-inside: avoid; overflow-wrap: anywhere; }
+.print-step h4, .print-step p { margin: 4px 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 800px) {
+  .checkin-layout { grid-template-columns: minmax(0, 1fr); }
+  .plan-panel { padding: 12px; }
+  .form-pair { grid-template-columns: minmax(0, 1fr); }
+  .workspace-heading h2 { font-size: 24px; }
+}
+/* The printable plan is its own page (no shell): a readable column on screen, the bare
+   agreement on paper. */
+.print-page main { max-width: 720px; margin: 0 auto; }
+.print-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.print-controls p { flex-basis: 100%; margin: 0; }
+.print-plan h2 { margin: 0 0 4px; }
+.conflict { border-left: 4px solid var(--warn); }
+.stamp { font-size: 12px; }
+.stamp .badge { margin-right: 6px; }
+.family-plan { margin: 4px 0 8px; }
+.remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: 760px; }
+@media (pointer: coarse) {
+  /* The links a finger meets on the check-in pages, at the same 44px as every button. */
+  .button-link, .child-nav a, .plan-card a, .review-card a, .queue-group > summary, .plan-card details > summary,
+  .print-controls a, .plan-step-back a, .plan-form .actions a { min-height: 44px; display: inline-flex; align-items: center; }
+  .plan-card details > summary, .queue-group > summary { display: flex; }
+}
+@media print {
+  .print-page { background: white; }
+  .print-controls { display: none; }
+  .print-page main { padding: 0; max-width: none; margin: 0; }
+}
 /* The data is older than the runner will print from (web/staleness.py). Loud, because on a
    kiosk nobody reads the Runs page. */
 .stale { background: #fdecea; border: 1px solid var(--warn); color: var(--warn);
