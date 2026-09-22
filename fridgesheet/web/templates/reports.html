@@ -4,13 +4,27 @@
 <h2>Reports</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-<p><a class="badge" href="/reports/new">New report</a>
-   {% if not saved %}<button hx-post="/reports/seed" hx-target="body">Add the starter reports</button>{% endif %}</p>
+{# The "Key" column used to sit here showing `open-work` and `view:3` -- the name the
+   scheduler and `fridgesheet run` know a report by, which is not a fact a parent reading
+   this page is looking for (#11 item 13). It stays as each report's title attribute, so the
+   README's command line still has somewhere to read it from. #}
+<p><a class="badge" href="/reports/new">New report</a></p>
+{% if not saved %}
+<p class="muted">Starter reports are four ready-made ones you can print, edit or delete:
+  {% for name, _ in TEMPLATES %}<strong>{{ name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
+  <button hx-post="/reports/seed" hx-target="body">Add the starter reports</button></p>
+{% endif %}
 <h3>Built in</h3>
-<table class="items"><tr><th>Report</th><th>Key</th><th></th></tr>
-{% for r in code %}<tr><td>{{ r.title }}</td><td class="muted">{{ r.key }}</td>
+<table class="items"><tr><th>Report</th><th></th></tr>
+{% for r in code %}<tr><td title="{{ r.key }}">{{ r.title }}</td>
   <td>
     {% if jobs %}
+    {# Preview first, then Print: the Dashboard's order, and the one that lets a parent look
+       before spending paper. #}
+    <form style="display:inline" hx-post="/jobs/preview" hx-target="#job" hx-swap="outerHTML">
+      <input type="hidden" name="report" value="{{ r.key }}">
+      <button>Preview</button>
+    </form>
     <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.title }} now?">
       <input type="hidden" name="report" value="{{ r.key }}">
       <label><input type="checkbox" name="refresh_first"> Refresh first</label>
@@ -21,16 +35,19 @@
 </table>
 <h3>Yours</h3>
 {% if saved %}
-<table class="items"><tr><th>Report</th><th>Key</th><th>Updated</th><th></th></tr>
+<table class="items"><tr><th>Report</th><th>Updated</th><th></th></tr>
 {% for r in saved %}
 <tr>
-  <td><a href="/reports/{{ r.id }}">{{ r.name }}</a></td>
-  <td class="muted">view:{{ r.id }}</td>
+  <td><a href="/reports/{{ r.id }}" title="view:{{ r.id }}">{{ r.name }}</a></td>
   <td class="muted">{{ r.updated_at | wd_md_time }}</td>
   <td>
     <a class="badge" href="/reports/{{ r.id }}/export.csv">CSV</a>
     <a class="badge" href="/reports/{{ r.id }}/export.json">JSON</a>
     {% if jobs %}
+    <form style="display:inline" hx-post="/jobs/preview" hx-target="#job" hx-swap="outerHTML">
+      <input type="hidden" name="report" value="view:{{ r.id }}">
+      <button>Preview</button>
+    </form>
     <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.name }} now?">
       <input type="hidden" name="report" value="view:{{ r.id }}">
       <label><input type="checkbox" name="refresh_first"> Refresh first</label>

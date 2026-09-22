@@ -4,10 +4,10 @@
 <h2>Runs</h2>
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
 <table class="items">
-  <tr><th>Started</th><th>Report</th><th>How</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
+  <tr><th>Started</th><th>Report</th><th>Started by</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
   {% for r in rows %}
   <tr>
-    <td>{{ r.started_at | wd_md_time }}</td><td>{{ r.report_key }}</td><td class="muted">{{ r.trigger }}</td>
+    <td>{{ r.started_at | wd_md_time }}</td><td>{{ r.report_key }}</td><td class="muted">{{ r.trigger | trigger_words }}</td>
     <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
     <td>{{ r.message }}</td>
     <td>{% if pdfs[r.id] %}<a href="/runs/{{ r.id }}/pdf">open</a>{% endif %}</td>
