@@ -59,7 +59,7 @@ class ItemView:
     #: "morning" | "afternoon" | "evening" | "" -- `due_time`'s hour as a word, for the
     #: youngest readers (`dates.day_part`).
     due_part: str = ""
-    handed_in: str = ""             # "Yes", "Late", "No", "Excused", "—" (nothing to hand in online)
+    handed_in: str = ""             # "Yes", "Late", "No", "Excused", "On paper", "Unknown"
     handed_in_at: datetime | None = None
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
     grade_zero: bool = False        # a real zero, styled as the warning it is
@@ -142,18 +142,23 @@ _NOTHING_TO_SUBMIT = ("paper", "in class")
 
 
 def handed_in_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str, datetime | None]:
-    """Whether it was handed in, and when. Only Canvas knows; HAC records grades, not
-    submissions, so a HAC-only item answers "—" rather than pretending."""
+    """Whether it was handed in, and when.
+
+    Two of the answers are not yes or no, and they are not the same answer. "On paper" means
+    there was never anything to hand in online; "Unknown" means nobody recorded it -- only
+    Canvas tracks submissions, and HAC keeps grades. Both once printed as "—", which left a
+    parent reading one glyph for "not applicable", "not answered" and, at a glance, "no".
+    A cell that cannot be read is worse than a longer column."""
     c = obs.get("canvas")
     if c is None:
-        return ("—", None) if obs else ("", None)
+        return "Unknown", None
     if c["excused"]:
         return "Excused", None
     if c["submitted_at"]:
         at = datetime.fromisoformat(c["submitted_at"])
         return ("Late" if c["late"] else "Yes"), at
     if item["kind"] in _NOTHING_TO_SUBMIT:
-        return "—", None
+        return "On paper", None
     return "No", None
 
 

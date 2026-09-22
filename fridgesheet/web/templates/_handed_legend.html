@@ -1,0 +1,11 @@
+{# The "Handed in" column in one line, under the table that uses it.
+
+   Four of its six answers explain themselves; two do not, and both used to print as "—",
+   so one glyph stood for "there was nothing to hand in", "nobody recorded it" and -- to a
+   parent skimming -- "no". The words themselves come from `phrasing.PHRASES` so this line
+   says whatever the child's tier says; only the sentence around them lives here.
+
+   A legend rather than a `title=`: the households reading this are on phones and a kiosk,
+   where a hover tooltip is a tooltip nobody sees. Expects `tier` in scope ("" is fine). #}
+<p class="legend muted"><strong>{{ 'On paper' | phrase(tier) }}</strong> &mdash; nothing to hand in online; this one is done on paper or in class.
+   <strong>{{ 'Unknown' | phrase(tier) }}</strong> &mdash; the gradebook lists it but does not record hand-ins.</p>

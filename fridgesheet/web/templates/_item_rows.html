@@ -39,7 +39,7 @@
         {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}</span>{% endif %}
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
         {% for k in v.case_kinds %}<span class="badge warn">{{ k | phrase(tier) }}</span>{% endfor %}</td>
-    <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}{% if v.handed_in_at %} <span class="rel">{{ v.handed_in_at | md }}</span>{% endif %}</td>
+    <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}{% if v.handed_in_at %} <span class="rel">{{ v.handed_in_at | md }}</span>{% endif %}</td>
     <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
     <td class="muted sources">{{ v.sources | join(' + ') }}</td>
   </tr>
@@ -49,3 +49,4 @@
   {% endfor %}
   </tbody>
 </table>
+{% include "_handed_legend.html" %}
