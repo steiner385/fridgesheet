@@ -324,41 +324,106 @@ def status_line(home: Path, describe=None) -> str:
     return f"{last} · next run {info.next_run}{suffix}"
 
 
-EDITABLE = {"late-rules.toml", "no-print-days.txt"}
+def late_rules_settings(home: Path) -> late_rules.LateRules:
+    """The parsed register for the graphical editor, seeding the file first if this is its
+    first touch (never overwriting an existing one)."""
+    path = home / "late-rules.toml"
+    late_rules.ensure_seed(path)
+    return late_rules.load(path)
 
 
-def read_editable(home: Path, name: str) -> str:
-    """The file's text, seeding it first if it does not exist (never overwriting)."""
-    if name not in EDITABLE:
-        raise ValueError(f"not an editable settings file: {name}")
-    path = home / name
-    if name == "late-rules.toml":
-        late_rules.ensure_seed(path)
-    elif not path.exists():
+def late_rules_view(rules: late_rules.LateRules) -> dict:
+    """A register as the plain strings the editor's inputs hold -- the same shape a rejected
+    submission is redisplayed in, so an invalid Save shows what was typed, not the file on disk."""
+    return {
+        "default_late_days": str(rules.default.late_days),
+        "default_credit": rules.default.credit,
+        "quarters": [str(q) for q in rules.quarters],
+        "rules": [{
+            "kid": r.kid, "course": r.course,
+            "mode": "quarter_end" if r.until == "quarter_end" else "days",
+            "late_days": "" if r.late_days is None else str(r.late_days),
+            "credit": r.credit, "source": r.source,
+        } for r in rules.rules],
+    }
+
+
+def no_print_days_view(entries: list[runner.SkipEntry]) -> list[dict]:
+    """Entries as the plain strings the editor's inputs hold, for the same reason as `late_rules_view`."""
+    return [{"start": e.start.isoformat(), "end": e.end.isoformat() if e.end else "", "note": e.note} for e in entries]
+
+
+def _parsed_int(label: str, text: str, errors: list[str]) -> int | None:
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        errors.append(f"{label}: enter a whole number of days, not {text!r}.")
+        return None
+
+
+def save_late_rules(home: Path, *, default_late_days: str, default_credit: str, quarter_dates: list[str],
+                     rule_kid: list[str], rule_course: list[str], rule_mode: list[str],
+                     rule_late_days: list[str], rule_credit: list[str], rule_source: list[str]) -> list[str]:
+    """Build a register from the graphical editor's rows, validate it the same way a hand-typed
+    file would be, then write. Errors mean nothing was written."""
+    import tempfile
+    errors: list[str] = []
+    default_days = _parsed_int("Default", default_late_days, errors)
+    quarters: list[date] = []
+    for i, text in enumerate(quarter_dates, start=1):
+        if not text:
+            continue
+        try:
+            quarters.append(date.fromisoformat(text))
+        except ValueError:
+            errors.append(f"Quarter {i}: {text!r} is not a date (yyyy-mm-dd).")
+    rules: list[late_rules.Rule] = []
+    for i, (kid, course, mode, days_text, credit, source) in enumerate(
+            zip(rule_kid, rule_course, rule_mode, rule_late_days, rule_credit, rule_source), start=1):
+        if mode == "quarter_end":
+            rules.append(late_rules.Rule(kid=kid, course=course, until="quarter_end", late_days=None,
+                                         credit=credit, source=source))
+        else:
+            days = _parsed_int(f"Rule {i}", days_text, errors)
+            if days is not None:
+                rules.append(late_rules.Rule(kid=kid, course=course, late_days=days, credit=credit, source=source))
+    if errors:
+        return errors
+    text = late_rules.to_toml(late_rules.LateRules(late_rules.Rule(late_days=default_days, credit=default_credit),
+                                                    rules, quarters))
+    with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False, encoding="utf-8") as tmp:
+        tmp.write(text)
+    try:
+        late_rules.load(Path(tmp.name))
+    except late_rules.LateRulesError as e:
+        return [str(e)]
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+    path = home / "late-rules.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return []
+
+
+def no_print_days_settings(home: Path) -> list[runner.SkipEntry]:
+    """The parsed skip list for the graphical editor, seeding the file first if this is its
+    first touch (never overwriting an existing one)."""
+    path = home / "no-print-days.txt"
+    if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(runner.SKIP_SEED)
-    return path.read_text(encoding="utf-8")
+    return runner.parse_skip_entries(path.read_text(encoding="utf-8"))
 
 
-def save_editable(home: Path, name: str, text: str) -> list[str]:
+def save_no_print_days(home: Path, entries: list[runner.SkipEntry]) -> list[str]:
     """Validate, then write. Errors mean nothing was written."""
-    import tempfile
-    if name not in EDITABLE:
-        raise ValueError(f"not an editable settings file: {name}")
-    if name == "late-rules.toml":
-        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False, encoding="utf-8") as tmp:
-            tmp.write(text)
-        try:
-            late_rules.load(Path(tmp.name))
-        except late_rules.LateRulesError as e:
-            return [str(e)]
-        finally:
-            Path(tmp.name).unlink(missing_ok=True)
-    else:
-        runner.parse_skip_days(text)          # never raises; a line it cannot read is ignored, as the runner does
-    path = home / name
+    errors = [f"Row {i}: the end date is before the start date." for i, e in enumerate(entries, start=1)
+              if e.end is not None and e.end < e.start]
+    if errors:
+        return errors
+    path = home / "no-print-days.txt"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+    path.write_text(runner.format_skip_entries(entries), encoding="utf-8")
     return []
 
 

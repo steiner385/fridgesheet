@@ -300,7 +300,9 @@ def test_settings_page_shows_current_values_and_the_password_field_on_loopback(t
     assert 'value="parent@example.org"' in body and 'name="password"' in body and 'type="password"' in body
     assert '<option value="Brother" selected' in body and 'value="Canon"' in body
     assert "Alex=Al" in body and 'name="port"' in body and 'name="allow_lan"' in body
-    assert "[default]" in body and 'name="text"' in body                 # the late-rules editor, seeded
+    assert 'name="default_late_days" value="14"' in body                 # the late-rules editor, seeded
+    assert 'name="quarter_date" value="2026-10-15"' in body
+    assert "Labor Day" in body                                           # the no-print-days editor, seeded
     assert 'hx-post="/jobs/login"' not in body                            # no worker: no Test login button
     assert "Fridge Sheet" in body and "MIT" in body                       # about
 
@@ -454,12 +456,41 @@ def test_a_schedule_set_on_the_schedules_page_survives_a_settings_save(tmp_path)
     assert doc["reports"]["open-work"]["days"] == ["Mon"]
 
 
-def test_editors_validate_and_save(tmp_path):
+def test_late_rules_editor_validates_and_saves(tmp_path):
     c, app = _client(tmp_path)
-    r = c.post("/settings/files/late-rules.toml", data={"text": "[default]\nlate_days = 'x'\n"})
-    assert r.status_code == 200 and "late-rules" in r.text and "[default]" in (tmp_path / "late-rules.toml").read_text()
-    r = c.post("/settings/files/late-rules.toml", data={"text": "[default]\nlate_days = 3\n"})
-    assert "Saved" in r.text and "late_days = 3" in (tmp_path / "late-rules.toml").read_text()
-    r = c.post("/settings/files/no-print-days.txt", data={"text": "2026-12-25 Christmas\n"})
-    assert "Saved" in r.text and "Christmas" in (tmp_path / "no-print-days.txt").read_text()
-    assert c.post("/settings/files/config.toml", data={"text": "x"}).status_code == 404
+    r = c.post("/settings/late-rules", data={"default_late_days": "x", "default_credit": "?"})
+    assert r.status_code == 200 and "whole number" in r.text
+    assert "late_days = 14" in (tmp_path / "late-rules.toml").read_text()     # unchanged: still the seed
+
+    r = c.post("/settings/late-rules", data={
+        "default_late_days": "10", "default_credit": "?",
+        "quarter_date": ["2026-10-15"],
+        "rule_kid": ["Alex"], "rule_course": ["Band"], "rule_mode": ["days"],
+        "rule_late_days": ["7"], "rule_credit": ["50%"], "rule_source": ["syllabus"],
+    })
+    assert r.status_code == 200 and "Saved" in r.text
+    saved = (tmp_path / "late-rules.toml").read_text()
+    assert "late_days = 10" in saved and "Alex" in saved and "Band" in saved
+
+
+def test_late_rules_editor_supports_a_quarter_end_rule(tmp_path):
+    c, app = _client(tmp_path)
+    r = c.post("/settings/late-rules", data={
+        "default_late_days": "14", "default_credit": "?",
+        "quarter_date": ["2026-10-15"],
+        "rule_kid": [""], "rule_course": ["Band"], "rule_mode": ["quarter_end"],
+        "rule_late_days": [""], "rule_credit": [""], "rule_source": [""],
+    })
+    assert r.status_code == 200 and "Saved" in r.text
+    assert 'until = "quarter_end"' in (tmp_path / "late-rules.toml").read_text()
+
+
+def test_no_print_days_editor_validates_and_saves(tmp_path):
+    c, app = _client(tmp_path)
+    r = c.post("/settings/no-print-days", data={"start": ["2026-12-25"], "end": [""], "note": ["Christmas"]})
+    assert r.status_code == 200 and "Saved" in r.text
+    assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()
+
+    r = c.post("/settings/no-print-days", data={"start": ["2026-12-25"], "end": ["2026-12-20"], "note": [""]})
+    assert r.status_code == 200 and "before the start" in r.text
+    assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()        # unchanged
