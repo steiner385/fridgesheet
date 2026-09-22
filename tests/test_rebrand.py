@@ -22,6 +22,7 @@ EXEMPT = {
     "packaging/windows/installer.iss",       # uninstalls the old AppId; names the old task
     "docs/release-checklist.md",             # the upgrade-from-Lakota-Sheet section
     "docs/windows.md",                       # tells a parent what happened to the old install
+    "docs/product/features/product-rebrand-migration.md",   # the feature whose subject is the rename
     "scripts/lakota-sheet-desktop.sh",       # the one-release wrapper
     "README.md",                             # the "old name" paragraph
     "pyproject.toml",                        # the `lakota-grades` shim entry point
