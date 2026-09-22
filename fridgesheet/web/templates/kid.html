@@ -15,7 +15,10 @@
     <select name="flagged"><option value="">all</option>{% for v in FLAGGED %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ 'any flag' if v == 'any' else v }}</option>{% endfor %}</select></label>
   <label>Outcome
     <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+  {# The filter form re-asks for the whole table; without these the sort and its direction
+     would reset to "due, ascending" every time a parent narrowed to one course. #}
   <input type="hidden" name="sort" value="{{ f.sort }}">
+  <input type="hidden" name="dir" value="{{ f.direction }}">
 </form>
 <div id="items">
 {% block partial %}

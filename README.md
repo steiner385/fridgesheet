@@ -108,16 +108,20 @@ Thursday 11:30 and daily 06:00. The unit sets `TimeoutStartSec=900`: a full pull
 
 This is unrelated to report scheduling below — it only keeps the snapshot warm, and it is not something the app will ever touch (`fridgesheet-refresh.{service,timer}` are refused by name by every `schedule` command, the same as the hand-written print timer in the next section). A report's own printing schedule, including the weekday sheet's, is what the app now writes itself.
 
+The app can now schedule this itself, on Windows as well as Linux: tick **Refresh on a schedule** on the Schedules page and set an interval and a window. It installs under its own name (`fridgesheet-data-refresh.timer`, or the task `Fridge Sheet - data-refresh`), so a hand-written timer from this section and the app's own schedule can both exist on one machine — the app never touches the hand-written pair. If you use the app's schedule, disable the hand-written one yourself:
+
+    systemctl --user disable --now fridgesheet-refresh.timer
+
 ## 6. Printing a report on a schedule
 
-`fridgesheet run <key>` refreshes, builds one report's PDF, prints it, and records the run — it's what a schedule executes, however it was installed. A report key is `open-work` (the built-in kids' sheet: one letter-portrait PDF with a section per kid) or `view:<id>` (a report built on the Reports page). `fridgesheet reports` lists every key with its enabled state, schedule and whether it's PDF-only:
+`fridgesheet run <key>` refreshes, builds one report's PDF, prints it, and records the run — it's what a schedule executes, however it was installed, except a schedule the app itself installed passes `--no-refresh` (below): the same "one pull, many tools" promise as section 4's tools, so a scheduled print never waits on, or repeats, a Canvas/HAC pull the refresh timer above already did. Typed by hand with no flag, `run` and `print-sheet` still refresh first, same as always — someone at a terminal is presumably fine waiting a few minutes; so does the household's hand-written print timer, which the app never touches. A report key is `open-work` (the built-in kids' sheet: one letter-portrait PDF with a section per kid) or `view:<id>` (a report built on the Reports page). `fridgesheet reports` lists every key with its enabled state, schedule and whether it's PDF-only:
 
 ```bash
 fridgesheet reports
 # open-work    Open Work Sheet      disabled  14:00 Mon,Tue,Wed,Thu,Fri
 ```
 
-`fridgesheet print-sheet` still exists — it's `run open-work` under its original name, sending the PDF to CUPS as one duplex job, except it always applies its own `--days`/`--overdue-days` defaults (14) rather than `config.toml`'s. The household's live hand-written timer still calls it by that name; a schedule installed since (from the CLI or the Schedules page) calls `run <key>` instead.
+`fridgesheet print-sheet` still exists — it's `run open-work` under its original name, sending the PDF to CUPS as one duplex job, except it always applies its own `--days`/`--overdue-days` defaults (14) rather than `config.toml`'s. The household's live hand-written timer still calls it by that name (and still refreshes); a schedule installed since (from the CLI or the Schedules page) calls `run <key> --no-refresh` instead.
 
 ```bash
 fridgesheet run open-work --dry-run                    # build sheets/<today>/sheet.pdf, print nothing
@@ -162,6 +166,16 @@ time = "14:00"
 days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
 days_ahead = 14
 overdue_days = 14
+
+# How often the app pulls Canvas and HAC by itself. A scheduled report reads whatever the
+# last refresh left behind, so this is what keeps a printed sheet, and the browser page,
+# current. At most 12 refreshes a day.
+[refresh]
+enabled = true
+every_hours = 3
+start = "06:00"
+end = "21:00"
+days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 ```
 
 `fridgesheet run open-work` is the general form of `print-sheet` (same flags); `print-sheet` always passes its own `--days`/`--overdue-days` defaults (14), so `days_ahead`/`overdue_days` in `config.toml` apply to `run open-work` but not to the alias. `fridgesheet reports` lists report types and their schedules; `fridgesheet schedule show <key>` prints the next run and who manages it. `fridgesheet schedule install <key>` writes the schedule itself — the Task Scheduler task on Windows, a systemd user timer pair on Linux (below).
@@ -197,7 +211,11 @@ Both the hand-written timer and an app-installed one fire from an `OnCalendar=` 
 
 ### The browser app
 
+<<<<<<< HEAD
 `fridgesheet web` runs a small local web server (127.0.0.1:8433 by default) and opens it in your browser. **Dashboard** shows each kid's open work and the last refresh, with **Refresh now**, **Preview** and **Print now** buttons whose progress streams into the page as the job runs. Each kid also has their own page: the item list with filters, an expandable row, and a course view. **Open work** is the printed sheet on a screen: per kid, what is past due and still inside its late-work window (with the day the window closes), then what is coming due within the Days ahead setting, with the rest counted underneath. **Reconcile** shows what the sources and your flags don't agree on, per kid. **Reports** lists the built-in and saved report types and holds the builder — pick a source, columns, filters, sort and grouping, preview it live, export CSV/JSON. **Schedules** is one row per report, built-in or saved: enable it, set its days, time, printer and whether it's PDF-only, and saving writes both `config.toml` and the OS timer or task — the same `schedule install`/`remove` section 6 describes. A report already scheduled by a unit this app did not write shows up here too, but disabled, with the `systemctl` command to turn it off yourself first. **Changes** is a feed of everything that moved since a chosen moment. **Trends** plots grade lines per class and weekly missing/late/on-time counts, and lists what has sat open longest. **Runs** lists run history — what ran, how it went, the PDF, print it again. **Settings** edits the same values as `config.toml` (plus a **Test login** button that records a passing login in `~/.fridgesheet/login-ok.txt`, and in-browser editors for `late-rules.toml` and `no-print-days.txt`). **Diagnostics** runs the doctor and shows the report.
+=======
+`fridgesheet web` runs a small local web server (127.0.0.1:8433 by default) and opens it in your browser. **Dashboard** shows each kid's open work and the last refresh, with **Refresh now**, **Preview** and **Print now** buttons whose progress streams into the page as the job runs; **Preview** and **Print now** build from the last refresh by default (no live pull, seconds not minutes) unless the **Refresh data first** checkbox next to them is ticked. The Reports page's own **Print** buttons offer the same **Refresh first** checkbox. Each kid also has their own page: the item list with filters, an expandable row, and a course view. **Reconcile** shows what the sources and your flags don't agree on, per kid. **Reports** lists the built-in and saved report types and holds the builder — pick a source, columns, filters, sort and grouping, preview it live, export CSV/JSON. **Schedules** is one row per report, built-in or saved: enable it, set its days, time, printer and whether it's PDF-only, and saving writes both `config.toml` and the OS timer or task — the same `schedule install`/`remove` section 6 describes. A report already scheduled by a unit this app did not write shows up here too, but disabled, with the `systemctl` command to turn it off yourself first. **Changes** is a feed of everything that moved since a chosen moment. **Trends** plots grade lines per class and weekly missing/late/on-time counts, and lists what has sat open longest. **Runs** lists run history — what ran, how it went, the PDF, print it again. **Settings** edits the same values as `config.toml` (plus a **Test login** button that records a passing login in `~/.fridgesheet/login-ok.txt`, and in-browser editors for `late-rules.toml` and `no-print-days.txt`). **Diagnostics** runs the doctor and shows the report.
+>>>>>>> main
 
 Once a day the app asks GitHub whether a newer release exists and says so on Settings and in the header — the one thing it talks to besides the school systems; it sends nothing, and the Settings checkbox turns it off.
 

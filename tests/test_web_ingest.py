@@ -408,6 +408,43 @@ def test_the_fallback_pairs_only_when_exactly_one_canvas_item_fits(tmp_path):
     assert conn.execute("SELECT COUNT(*) FROM items WHERE key LIKE 'hac:%'").fetchone()[0] == 1   # stays HAC-only
 
 
+def test_two_canvas_assignments_with_the_same_title_stay_two_items(tmp_path):
+    """#11 item 21: a real gradebook listed "Cool-down: Find the Volume of a Figure" twice for
+    one kid, same course, same 4 points, same due date, as Canvas assignments 2571430 and
+    2571431. The audit wondered whether that was a dedupe miss. It is not: they are two
+    assignments the teacher created, and `items.key` is `canvas:<id>` -- the source's own
+    identity -- precisely so the app never decides two of a teacher's assignments are one.
+
+    Collapsing them would under-count the work and let a kid hand in one of the two and look
+    finished. This pins that they stay apart.
+    """
+    conn = db.open_db(tmp_path)
+    snap = _snap_with([_assignment(2571430, "Cool-down: Find the Volume of a Figure",
+                                   due="2026-09-10T23:59:00-04:00", points_possible=4.0),
+                       _assignment(2571431, "Cool-down: Find the Volume of a Figure",
+                                   due="2026-09-10T23:59:00-04:00", points_possible=4.0)], [])
+    ingest.record(conn, snap, tz=TZ, now=T1)
+    rows = conn.execute("SELECT key FROM items WHERE name LIKE 'Cool-down%' ORDER BY key").fetchall()
+    assert [r["key"] for r in rows] == ["canvas:2571430", "canvas:2571431"]
+
+
+def test_a_hac_row_will_not_guess_between_two_identical_canvas_assignments(tmp_path):
+    """The other half of the same fact. When the teacher has entered the work twice in Canvas,
+    a HAC row that matches both on date and points matches neither: `_twin_by_date_and_points`
+    pairs only when exactly one candidate fits, so an ambiguous grade is never attached to an
+    arbitrary one of the two."""
+    conn = db.open_db(tmp_path)
+    snap = _snap_with([_assignment(2571430, "Cool-down: Find the Volume of a Figure",
+                                   due="2026-08-21T23:59:00-04:00", submission_types=["on_paper"],
+                                   missing=False, points_possible=10.0),
+                       _assignment(2571431, "Cool-down: Find the Volume of a Figure",
+                                   due="2026-08-21T23:59:00-04:00", submission_types=["on_paper"],
+                                   missing=False, points_possible=10.0)],
+                      [_hac_row("Volume cool down")])
+    ingest.record(conn, snap, tz=TZ, now=T1)
+    assert conn.execute("SELECT COUNT(*) FROM items WHERE key LIKE 'hac:%'").fetchone()[0] == 1
+
+
 def test_the_fallback_never_crosses_a_number(tmp_path):
     """Same day, same points, but "Week 1" is not "Week 2" however the rest of the title reads."""
     conn = db.open_db(tmp_path)

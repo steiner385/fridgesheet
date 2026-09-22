@@ -41,6 +41,15 @@ tr.overdue td.due { color: var(--warn); }
 td .rel { color: var(--muted); font-size: 12px; white-space: nowrap; }
 /* The Open work page's "thru Sat 9/26": one line, like the sheet prints it. */
 td.thru { white-space: nowrap; }
+/* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
+   taller than its neighbours all the way down the page (#11 item 9). */
+td.sources { white-space: nowrap; }
+/* The parent's own verdict on a row, where the Flag column used to be a column. */
+.badge.flag { background: var(--wash); border: 1px solid var(--rule); color: var(--ink); }
+th .arrow { color: var(--muted); font-size: 11px; }
+/* The hour an assignment is actually due. Darker than `.rel`, because "7:20am" is the fact
+   that decides whether tonight is the deadline; never wrapped away from its date. */
+td .at { font-size: 12px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
@@ -113,3 +122,9 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 /* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
 .rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
 .rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+
+/* The data is older than the runner will print from (web/staleness.py). Loud, because on a
+   kiosk nobody reads the Runs page. */
+.stale { background: #fdecea; border: 1px solid var(--warn); color: var(--warn);
+         padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
+.stale a { color: var(--warn); }

@@ -14,14 +14,30 @@ import sys
 from pathlib import Path
 
 from . import IS_WINDOWS
-from . import ScheduleInfo, SchedulingError, task_name  # noqa: F401  re-exported
+from . import ScheduleInfo, SchedulingError, DATA_REFRESH_KEY, task_name  # noqa: F401  re-exported
 
 
 def command_for(key: str) -> tuple[str, str, str]:
-    """(exe, args, workdir) that runs the report from this installation."""
+    """(exe, args, workdir) that runs `key` from this installation.
+
+    A report gets `--no-refresh` so a scheduled print never pulls Canvas/HAC itself: it
+    trusts the independently-scheduled data refresh to have kept the snapshot warm, the same
+    "one pull, many tools" design the README promises. An interactive `fridgesheet run`/
+    `print-sheet` from a terminal keeps refreshing by default -- someone typing the command
+    is presumably fine waiting for it.
+
+    `DATA_REFRESH_KEY` is the other side of that bargain: the schedule that does the pulling.
+    It runs `refresh --record` rather than bare `refresh`, because bare `refresh` writes
+    `snapshot.json` and stops -- it does not ingest into the database the web app renders
+    from, so a schedule wired to it would report success while the page never changed.
+    """
+    if key == DATA_REFRESH_KEY:
+        if getattr(sys, "frozen", False):
+            return sys.executable, "refresh --record", str(Path(sys.executable).parent)
+        return sys.executable, "-m fridgesheet.cli refresh --record", str(Path.cwd())
     if getattr(sys, "frozen", False):
-        return sys.executable, f"run {key}", str(Path(sys.executable).parent)
-    return sys.executable, f"-m fridgesheet.cli run {key}", str(Path.cwd())
+        return sys.executable, f"run {key} --no-refresh", str(Path(sys.executable).parent)
+    return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh", str(Path.cwd())
 
 
 if IS_WINDOWS:

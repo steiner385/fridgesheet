@@ -35,8 +35,9 @@
     {% if jobs %}
     <p class="actions">
       <button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button>
-      <button hx-post="/jobs/preview" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
-      <button class="primary" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ settings.printer or 'the default printer' }}?">Print now</button>
+      <label><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label>
+      <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
+      <button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ settings.printer or 'the default printer' }}?">Print now</button>
     </p>
     <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
     {% endif %}

@@ -28,7 +28,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import dates, late_rules
 from ..config import Settings
-from . import db, updates
+from ..dates import parse_iso as _parse
+from . import db, staleness, updates
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
 from .stores.items import DAYS_AHEAD
@@ -101,10 +102,6 @@ class AppState:
         return n if n > 0 else DAYS_AHEAD
 
 
-def _parse(s: str | None) -> datetime | None:
-    return datetime.fromisoformat(s) if s else None
-
-
 def _filters(state: AppState) -> dict:
     def wd_md_time(v):
         d = _parse(v) if isinstance(v, str) else v
@@ -134,7 +131,8 @@ def _filters(state: AppState) -> dict:
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
 
-    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "wd_md": wd_md, "nickname": nickname}
+    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
+            "wd_md": wd_md, "trigger_words": runs.trigger_label}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
@@ -173,6 +171,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "job": state.jobs.current if state.jobs and state.jobs.current else None,
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
+        "staleness": staleness.check(conn, state.now()),
     }
 
 

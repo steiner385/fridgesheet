@@ -388,6 +388,13 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
                 if age_h > MAX_DATA_AGE_HOURS:
                     return finish("FAIL", f"refresh failed ({refresh_error}) and snapshot is stale ({age_h:.0f} h old, data from {as_of:%Y-%m-%d %H:%M}); nothing printed", 1)
                 stale_note = f"refresh failed at {time12(now)}; data from {wd_md_time(as_of)}"
+            elif opts.no_refresh and age_h > MAX_DATA_AGE_HOURS:
+                # No refresh was even attempted -- the caller asked to use the snapshot as is,
+                # trusting the independent refresh schedule (or a manual "Refresh now") to have
+                # kept it warm. The same ceiling as a failed refresh still applies: past this
+                # age the snapshot is not "as is", it is abandoned, and nothing should print or
+                # build as though it were current.
+                return finish("FAIL", f"snapshot is stale ({age_h:.0f} h old, data from {as_of:%Y-%m-%d %H:%M}) and no refresh was requested; nothing printed", 1)
 
             # --- build ------------------------------------------------------------------
             prev_rows, prev_label = _previous_rows(out_root, day)

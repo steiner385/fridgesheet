@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
@@ -50,17 +49,22 @@ class ConfigError(RuntimeError):
     pass
 
 
-_TIME_RE = re.compile(r"^\d{2}:\d{2}$")
-
-
 def _validate_report_time(key: str, value) -> None:
-    """A [reports.<key>].time must be HH:MM, 24-hour. Raises ConfigError otherwise."""
-    ok = False
-    if _TIME_RE.match(str(value)):
-        h, m = (int(x) for x in str(value).split(":"))
-        ok = 0 <= h <= 23 and 0 <= m <= 59
-    if not ok:
+    """A [reports.<key>].time must be HH:MM, 24-hour. Raises ConfigError otherwise.
+
+    The pattern itself is `host.TIME_RE` -- the one HH:MM validator every caller in this app
+    delegates to, so a loosened or tightened definition cannot drift between them. Only the
+    exception type and wording are this caller's own.
+    """
+    if not host.TIME_RE.match(str(value)):
         raise ConfigError(f"[reports.{key}] time must be HH:MM (24-hour), got {value!r}")
+
+
+def _validate_refresh_time(field_name: str, value) -> None:
+    """A [refresh].start/.end must be HH:MM, 24-hour. Raises ConfigError otherwise. See
+    `_validate_report_time` above for why the pattern itself lives in `host.TIME_RE`."""
+    if not host.TIME_RE.match(str(value)):
+        raise ConfigError(f"[refresh] {field_name} must be HH:MM (24-hour), got {value!r}")
 
 
 def _default_home() -> Path:
@@ -169,6 +173,21 @@ class ReportConfig:
 
 
 @dataclass
+class RefreshConfig:
+    """`[refresh]`: the app's own data-refresh schedule, independent of any report's.
+
+    An app-installed report schedule runs `--no-refresh` and trusts the snapshot to be warm.
+    This is what keeps it warm. `days` defaults to all seven: grades post at weekends, and a
+    kiosk on the wall is read then too.
+    """
+    enabled: bool = False
+    every_hours: int = 3
+    start: str = "06:00"
+    end: str = "21:00"
+    days: list[str] = field(default_factory=lambda: list(host.DAY_NAMES))
+
+
+@dataclass
 class Settings:
     home: Path = field(default_factory=lambda: DEFAULT_HOME)
     canvas_base: str = "https://lakota.instructure.com"
@@ -183,6 +202,7 @@ class Settings:
     printer: str = ""                  # blank = the system default printer
     nicknames: dict[str, str] = field(default_factory=dict)
     reports: dict[str, ReportConfig] = field(default_factory=dict)
+    refresh: RefreshConfig = field(default_factory=RefreshConfig)
     web_host: str = "127.0.0.1"        # [web] host; bind address when allow_lan is off
     web_port: int = 8433
     web_allow_lan: bool = False        # [web] allow_lan; True binds 0.0.0.0 (spec section 8)
@@ -328,6 +348,19 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
             prints=bool(sect.get("print", True)),
             options={k: v for k, v in sect.items() if k not in known},
         )
+    raw_refresh = doc.get("refresh")
+    if isinstance(raw_refresh, dict):
+        start = raw_refresh.get("start", s.refresh.start)
+        end = raw_refresh.get("end", s.refresh.end)
+        _validate_refresh_time("start", start)
+        _validate_refresh_time("end", end)
+        # `bool` is an `int` subclass, so `every_hours = true` would otherwise read as 1.
+        raw_every = raw_refresh.get("every_hours", s.refresh.every_hours)
+        every = raw_every if isinstance(raw_every, int) and not isinstance(raw_every, bool) else s.refresh.every_hours
+        raw_days = raw_refresh.get("days", host.DAY_NAMES)
+        days = [str(d) for d in raw_days] if isinstance(raw_days, (list, tuple)) else list(host.DAY_NAMES)
+        s.refresh = RefreshConfig(enabled=bool(raw_refresh.get("enabled", False)),
+                                  every_hours=every, start=str(start), end=str(end), days=days)
 
 
 def load_settings() -> Settings:

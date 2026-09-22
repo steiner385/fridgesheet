@@ -55,7 +55,7 @@ def test_day_tags_keys_come_from_day_names_not_a_second_spelling():
 
 
 def test_task_xml_description_can_be_the_reports_title():
-    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", "16:00", ["Fri"], "x", "run view:7", ".",
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - view-7", ["16:00"], ["Fri"], "x", "run view:7", ".",
                                              description="Fridge Sheet: Weekly summary")
     assert "<Description>Fridge Sheet: Weekly summary</Description>" in xml
 
@@ -70,13 +70,13 @@ def test_windows_install_takes_the_same_keywords_as_the_linux_one():
         seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_text(encoding="utf-16")
         return _R(0, "SUCCESS")
 
-    scheduling_windows.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run,
+    scheduling_windows.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=run,
                                title="Weekly summary", home="/anything", timezone="America/New_York")
     assert "<Description>Fridge Sheet: Weekly summary</Description>" in seen["xml"]
 
 
 def test_task_xml_has_the_trigger_settings_and_action():
-    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", ["14:00"], ["Mon", "Tue", "Wed", "Thu", "Fri"],
                                              r"C:\Apps\FridgeSheet.exe", "run open-work", r"C:\Apps")
     assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
     assert "<Monday />" in xml and "<Friday />" in xml and "<Saturday />" not in xml
@@ -93,29 +93,29 @@ def test_task_xml_has_the_trigger_settings_and_action():
 
 
 def test_task_xml_escapes_paths_with_ampersands():
-    xml = scheduling_windows.render_task_xml("n", "08:05", ["Sat"], r"C:\A & B\x.exe", "run k", r"C:\A & B")
+    xml = scheduling_windows.render_task_xml("n", ["08:05"], ["Sat"], r"C:\A & B\x.exe", "run k", r"C:\A & B")
     assert r"<Command>C:\A &amp; B\x.exe</Command>" in xml and "<Saturday />" in xml and "T08:05:00" in xml
 
 
 def test_task_xml_rejects_unknown_or_empty_days():
     with pytest.raises(scheduling.SchedulingError, match="Monday"):
-        scheduling_windows.render_task_xml("n", "14:00", ["Mon", "Monday"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:00"], ["Mon", "Monday"], "x", "run k", ".")
     with pytest.raises(scheduling.SchedulingError, match="no days"):
-        scheduling_windows.render_task_xml("n", "14:00", [], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:00"], [], "x", "run k", ".")
 
 
 def test_task_xml_rejects_bad_time():
     with pytest.raises(scheduling.SchedulingError, match="HH:MM"):
-        scheduling_windows.render_task_xml("n", "9:00", ["Mon"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["9:00"], ["Mon"], "x", "run k", ".")
     with pytest.raises(scheduling.SchedulingError, match="HH:MM"):
-        scheduling_windows.render_task_xml("n", "14:60", ["Mon"], "x", "run k", ".")
+        scheduling_windows.render_task_xml("n", ["14:60"], ["Mon"], "x", "run k", ".")
 
 
 def test_windows_install_with_bad_days_never_calls_schtasks():
     def run(cmd, **kw):
         raise AssertionError("schtasks must not run")
     with pytest.raises(scheduling.SchedulingError):
-        scheduling_windows.install("k", "14:00", ["Funday"], "x", "run k", ".", run=run)
+        scheduling_windows.install("k", ["14:00"], ["Funday"], "x", "run k", ".", run=run)
 
 
 def test_windows_install_writes_utf16_xml_and_calls_schtasks():
@@ -126,7 +126,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
         seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_bytes()
         return _R(0, "SUCCESS: The scheduled task has been created.")
 
-    scheduling_windows.install("open-work", "14:00", ["Mon"], r"C:\x.exe", "run open-work", "C:\\", run=run)
+    scheduling_windows.install("open-work", ["14:00"], ["Mon"], r"C:\x.exe", "run open-work", "C:\\", run=run)
     assert seen["cmd"][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - open-work"] and seen["cmd"][-1] == "/F"
     assert seen["xml"].startswith(b"\xff\xfe") and seen["xml"].decode("utf-16").startswith('<?xml version="1.0" encoding="UTF-16"?>')
     assert seen["kw"]["creationflags"] == scheduling_windows.CREATE_NO_WINDOW
@@ -135,7 +135,7 @@ def test_windows_install_writes_utf16_xml_and_calls_schtasks():
 
 def test_windows_install_failure_surfaces_stderr():
     with pytest.raises(scheduling.SchedulingError, match="Access is denied"):
-        scheduling_windows.install("k", "14:00", ["Mon"], "x", "run k", ".", run=lambda c, **k: _R(1, "", "ERROR: Access is denied."))
+        scheduling_windows.install("k", ["14:00"], ["Mon"], "x", "run k", ".", run=lambda c, **k: _R(1, "", "ERROR: Access is denied."))
 
 
 def test_windows_remove_and_describe():
@@ -167,7 +167,7 @@ def test_linux_install_and_remove_are_no_longer_refused(tmp_path):
     def run(argv, **kw):
         calls.append(argv)
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
-    scheduling_linux.install("view:3", "14:00", ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
+    scheduling_linux.install("view:3", ["14:00"], ["Mon"], "x", "run view:3", ".", run=run, unit_dir=tmp_path)
     assert (tmp_path / "fridgesheet-view-3.timer").is_file()
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],
@@ -189,7 +189,7 @@ def test_windows_refuses_the_web_servers_own_logon_task_before_any_schtasks_call
         raise AssertionError("schtasks must not run for a task this app did not schedule")
 
     with pytest.raises(scheduling.SchedulingError, match="refusing"):
-        scheduling_windows.install("web", "14:00", ["Mon"], "x", "run web", ".", run=run)
+        scheduling_windows.install("web", ["14:00"], ["Mon"], "x", "run web", ".", run=run)
     with pytest.raises(scheduling.SchedulingError, match="refusing"):
         scheduling_windows.remove("web", run=run)
 
@@ -210,7 +210,7 @@ def test_windows_refuses_the_logon_task_however_the_key_is_cased():
         with pytest.raises(scheduling.SchedulingError, match="refusing"):
             scheduling_windows.remove(key, run=run)
         with pytest.raises(scheduling.SchedulingError, match="refusing"):
-            scheduling_windows.install(key, "14:00", ["Mon"], "x", f"run {key}", ".", run=run)
+            scheduling_windows.install(key, ["14:00"], ["Mon"], "x", f"run {key}", ".", run=run)
 
 
 def test_display_name_is_what_this_platform_actually_installed(tmp_path):
@@ -244,6 +244,47 @@ def test_schedule_remove_refuses_a_key_that_is_not_a_report(monkeypatch, capsys,
     assert e.value.code == 1 and "web" in capsys.readouterr().err
 
 
+def test_schedule_remove_data_refresh_is_an_escape_hatch(monkeypatch, capsys, tmp_path):
+    """`data-refresh` is not a report (`[refresh]`, not `[reports.<key>]`), so the ordinary
+    `reports.resolve` gate `remove` otherwise applies would refuse it exactly like `remove web`
+    does above -- leaving a parent with no single-key way to turn off a refresh schedule whose
+    `[refresh]` table is already gone, only the blunt `schedule remove --all`. `data-refresh` is
+    admitted by exact name, not by loosening the gate itself: it is a fixed, reserved key
+    (`host.RESERVED_KEYS`) a report can never be saved under, so this costs nothing the gate
+    was protecting."""
+    from fridgesheet import cli
+    from fridgesheet.config import Settings
+    monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
+
+    removed = []
+    monkeypatch.setattr(scheduling, "remove", lambda key, **kw: removed.append(key))
+    monkeypatch.setattr(scheduling, "describe",
+                        lambda key, **kw: scheduling.ScheduleInfo("systemd", False, None, None))
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "remove", "data-refresh"])
+    assert e.value.code == 0
+    assert removed == ["data-refresh"]
+    assert "not scheduled" in capsys.readouterr().out
+
+
+def test_schedule_removal_keys_always_includes_the_data_refresh_key(tmp_path):
+    """The bug this closes: `[refresh]` lives outside `[reports.<key>]` and is not a report, so
+    it never appeared in `_schedule_removal_keys`' output before this fix -- a household that
+    enabled the refresh schedule and then uninstalled kept `Fridge Sheet - data-refresh` firing
+    at a deleted exe forever, with no `[UninstallRun]` step that would ever remove it.
+
+    Pinned with a bare `Settings()` and no `config.toml` at all under `tmp_path` -- not just no
+    `[refresh]` table, no file -- because the fix must be unconditional: it cannot depend on
+    `[refresh]` having ever been written, since the whole point is to remove a task whose
+    config may already be gone."""
+    from fridgesheet import cli, config, host
+
+    s = config.Settings(home=tmp_path)
+    keys, complete = cli._schedule_removal_keys(s)
+    assert host.DATA_REFRESH_KEY in keys
+    assert complete is True
+
+
 def test_schedule_remove_all_removes_every_available_reports_schedule(monkeypatch, capsys, tmp_path):
     """The uninstaller's own call (installer.iss's `[UninstallRun]` now runs `schedule remove
     --all` instead of a bare `schedule remove`, which only ever named the default report):
@@ -269,7 +310,7 @@ def test_schedule_remove_all_removes_every_available_reports_schedule(monkeypatc
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 0
-    assert sorted(removed) == ["open-work", "view:1"]
+    assert sorted(removed) == ["data-refresh", "open-work", "view:1"]
     # What it says it removed is this platform's own object, not a Windows task name on Linux.
     assert f"Removed {scheduling.display_name('open-work')}" in capsys.readouterr().out
 
@@ -299,7 +340,8 @@ def test_schedule_remove_all_keeps_going_past_one_reports_refusal(monkeypatch, t
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 1
-    assert removed == ["view:1"]
+    # sorted order: "data-refresh" comes before "open-work" (which raises) and "view:1"
+    assert removed == ["data-refresh", "view:1"]
 
 
 def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys, tmp_path):
@@ -333,7 +375,7 @@ def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys
         cli.main(["schedule", "remove", "--all"])
     assert e.value.code == 2
     assert "scheduling is not available" in capsys.readouterr().err
-    assert calls == ["open-work"]          # stopped at the first key -- "view:1" never attempted
+    assert calls == ["data-refresh"]       # stopped at the first key, sorted first -- the rest never attempted
 
 
 def test_schedule_remove_all_is_refused_with_install_or_show(monkeypatch, capsys, tmp_path):
@@ -385,7 +427,8 @@ def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0
-    assert removed == ["open-work"]          # no config.toml, no database: only the code report
+    assert removed == ["data-refresh", "open-work"]  # no config.toml, no database: the code report,
+                                                      # plus the refresh key added unconditionally
     assert not home.exists()                 # neither the folder...
     assert not web_db.db_path(home).exists() # ...nor fridgesheet.db was created to check for more
 
@@ -413,7 +456,7 @@ def test_schedule_remove_all_still_removes_what_it_can_when_config_toml_will_not
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 1                 # incomplete -- the same 1 an unreadable database gives
-    assert removed == ["open-work"]          # the code reports still go, whatever the file says
+    assert removed == ["data-refresh", "open-work"]  # the code reports (and the refresh key) still go
     err = capsys.readouterr().err
     assert "cannot parse" in err and "config.toml" in err
 
@@ -454,7 +497,7 @@ def test_schedule_remove_all_survives_a_reports_value_of_the_wrong_shape(monkeyp
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0
-    assert removed == ["open-work"]          # the code reports still go, whatever the file says
+    assert removed == ["data-refresh", "open-work"]  # the code reports (and the refresh key) still go
     assert "Traceback" not in capsys.readouterr().err
 
 
@@ -521,7 +564,7 @@ def test_schedule_remove_all_survives_one_unusable_report_time(monkeypatch, caps
 
     assert e.value.code == 1
     # view:5 is the one that raised, and it is still removed: the key is all `remove` needs.
-    assert sorted(removed) == ["open-work", "view:5", "view:7"]
+    assert sorted(removed) == ["data-refresh", "open-work", "view:5", "view:7"]
     assert "HH:MM" in capsys.readouterr().err
 
 
@@ -549,7 +592,7 @@ def test_schedule_remove_all_leaves_alone_a_config_key_that_is_not_a_report(monk
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 0                             # nothing of ours was left behind
-    assert sorted(removed) == ["open-work", "view:7"]    # not Web, not web, not view:007
+    assert sorted(removed) == ["data-refresh", "open-work", "view:7"]    # not Web, not web, not view:007
     err = capsys.readouterr().err
     assert "Web" in err and "web" in err and "view:007" in err   # skipped out loud, not silently
 
@@ -587,18 +630,18 @@ def test_schedule_remove_all_still_removes_everything_it_knows_about_when_the_da
         cli.main(["schedule", "remove", "--all"])
 
     assert e.value.code == 1              # incomplete, not a clean 0 -- something could not be read
-    assert sorted(removed) == ["open-work", "view:7"]   # ...but still removed, via config.toml alone
+    assert sorted(removed) == ["data-refresh", "open-work", "view:7"]   # ...but still removed, via config.toml alone
 
 
 def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     import sys
     monkeypatch.delattr(sys, "frozen", raising=False)
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work" and wd == str(Path.cwd())
+    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work --no-refresh" and wd == str(Path.cwd())
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "FridgeSheet.exe"))
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe.endswith("FridgeSheet.exe") and args == "run open-work" and wd == str(tmp_path)
+    assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh" and wd == str(tmp_path)
 
 
 def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
@@ -616,3 +659,96 @@ def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install"])
     assert e.value.code == 2 and "systemd" in capsys.readouterr().err
+
+
+# --- multi-time schedules and the reserved data-refresh key ----------------------------
+
+def test_check_schedule_times_accepts_a_list():
+    host.check_schedule_times(["06:00", "09:00", "12:00"], ["Mon", "Tue"])
+
+
+def test_check_schedule_times_refuses_an_empty_list():
+    with pytest.raises(host.SchedulingError, match="no times"):
+        host.check_schedule_times([], ["Mon"])
+
+
+def test_check_schedule_times_refuses_the_one_bad_time_among_good_ones():
+    """Every time is checked before any file is written, so a bad one leaves nothing behind."""
+    with pytest.raises(host.SchedulingError, match="HH:MM"):
+        host.check_schedule_times(["06:00", "9:00", "12:00"], ["Mon"])
+
+
+def test_the_data_refresh_key_is_reserved_however_it_is_spelled():
+    """Task Scheduler's namespace is case-insensitive, so a hand-edited [reports.Data-Refresh]
+    would otherwise collide with the app's own task."""
+    for spelling in ("data-refresh", "Data-Refresh", "DATA-REFRESH", " data-refresh "):
+        assert host.is_reserved(spelling), spelling
+    assert not host.is_reserved("open-work")
+    assert not host.is_reserved("view:3")
+
+
+def test_the_reserved_key_does_not_collide_with_a_protected_name():
+    """The whole point of the name: the hand-written refresh pair stays protected and the
+    app's own schedule sits beside it."""
+    from fridgesheet.host import scheduling_linux, scheduling_windows
+    unit = scheduling_linux.timer_unit(host.DATA_REFRESH_KEY)
+    assert unit not in scheduling_linux._FOREIGN_UNITS
+    assert unit == "fridgesheet-data-refresh.timer"
+    name = host.task_name(host.DATA_REFRESH_KEY)
+    assert name.strip().casefold() not in scheduling_windows._FOREIGN_TASKS_FOLDED
+
+
+def test_one_time_renders_exactly_what_it_rendered_before():
+    """The byte-identical promise: every task already installed keeps its current XML, so
+    nothing on a machine the author cannot reach needs reinstalling."""
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - open-work", ["14:00"], ["Mon", "Fri"],
+                                             "C:\\app\\FridgeSheet.exe", "run open-work --no-refresh", "C:\\app")
+    assert xml.count("<CalendarTrigger>") == 1
+    assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in xml
+    assert "          <Monday />\n          <Friday />" in xml
+
+
+def test_several_times_render_one_trigger_each():
+    xml = scheduling_windows.render_task_xml("Fridge Sheet - data-refresh", ["06:00", "09:00", "12:00"],
+                                             ["Mon"], "C:\\app\\FridgeSheet.exe", "refresh --record", "C:\\app")
+    assert xml.count("<CalendarTrigger>") == 3
+    for t in ("06:00", "09:00", "12:00"):
+        assert f"<StartBoundary>2026-01-01T{t}:00</StartBoundary>" in xml
+    assert xml.count("<Monday />") == 3          # every trigger carries its own day list
+
+
+def test_a_bad_time_among_good_ones_renders_nothing():
+    with pytest.raises(host.SchedulingError):
+        scheduling_windows.render_task_xml("Fridge Sheet - data-refresh", ["06:00", "nope"], ["Mon"],
+                                           "exe", "args", "wd")
+
+
+def test_command_for_the_refresh_key_records_the_run(monkeypatch):
+    """A report's schedule runs `--no-refresh` and trusts the snapshot. This is what makes
+    the snapshot trustworthy -- and it must be `refresh --record`, not bare `refresh`, which
+    writes snapshot.json and never ingests, so the kiosk would never change."""
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
+    _, args, _ = scheduling.command_for(host.DATA_REFRESH_KEY)
+    assert args.endswith("refresh --record")
+    assert "--no-refresh" not in args
+
+
+def test_command_for_a_report_is_unchanged(monkeypatch):
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
+    _, args, _ = scheduling.command_for("open-work")
+    assert args.endswith("run open-work --no-refresh")
+
+
+def test_command_for_the_refresh_key_records_the_run_when_frozen(monkeypatch, tmp_path):
+    """The PyInstaller branch is the production path on the household's Windows machine (a
+    frozen `FridgeSheet.exe`), but only the non-frozen branch above was ever pinned. Same
+    assertion as `test_command_for_the_refresh_key_records_the_run`, against `sys.frozen`."""
+    from fridgesheet.host import scheduling
+    monkeypatch.setattr(scheduling.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(scheduling.sys, "executable", str(tmp_path / "FridgeSheet.exe"))
+    exe, args, wd = scheduling.command_for(host.DATA_REFRESH_KEY)
+    assert exe.endswith("FridgeSheet.exe")
+    assert args == "refresh --record"          # no "-m fridgesheet.cli" prefix, and no --no-refresh
+    assert wd == str(tmp_path)
