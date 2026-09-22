@@ -2,7 +2,8 @@
 {% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>{{ student.key | nickname }}</h2>
-<form class="filters" hx-get="/kids/{{ student.key }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
+{% set workspace = "all" %}{% include "_child_nav.html" %}
+<form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
   <label>Show
     <select name="show">{% for v in SHOW %}<option value="{{ v }}" {{ 'selected' if f.show == v }}>{{ v }}</option>{% endfor %}</select></label>
   <label>Source

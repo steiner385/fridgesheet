@@ -15,9 +15,9 @@
   <aside class="rail">
     <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
     <nav>
-      <a href="/" class="{{ 'current' if current == 'dashboard' }}">Dashboard</a>
+      <a href="/" class="{{ 'current' if current == 'dashboard' }}">Today</a>
       <div class="group">Kids</div>
-      {% for s in students %}<a href="/kids/{{ s.key }}" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }}</a>{% endfor %}
+      {% for s in students %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }}</a>{% endfor %}
       <div class="group">Work</div>
       <a href="/open" class="{{ 'current' if current == 'open' }}">Open work</a>
       <a href="/reconcile" class="{{ 'current' if current == 'reconcile' }}">Reconcile</a>
