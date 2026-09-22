@@ -29,7 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .. import dates, late_rules
 from ..config import Settings
 from ..dates import parse_iso as _parse
-from . import db, staleness, tiers, updates
+from . import db, phrasing, staleness, tiers, updates
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
 from .stores.items import DAYS_AHEAD
@@ -134,6 +134,9 @@ def _filters(state: AppState) -> dict:
     def tier_of(key: str) -> str:
         return tiers.for_student(state.settings, key)
 
+    def phrase(word, tier: str = "") -> str:
+        return phrasing.phrase(str(word or ""), tier)
+
     def wd_md(v):
         """"Thu 9/17". A plain date ("2026-09-17" or a `date`) has no time of day, so nothing
         is converted between zones; a timestamp is moved into the app's zone first."""
@@ -144,7 +147,7 @@ def _filters(state: AppState) -> dict:
         return dates.wd_md(v) if v else ""
 
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
-            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of}
+            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
