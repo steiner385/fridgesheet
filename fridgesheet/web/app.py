@@ -28,7 +28,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import dates, late_rules
 from ..config import Settings
-from . import db, updates
+from ..dates import parse_iso as _parse
+from . import db, staleness, updates
 from .stores import refreshes, runs, students
 
 HERE = Path(__file__).parent
@@ -85,10 +86,6 @@ class AppState:
 
     def now(self) -> datetime:
         return self.clock()
-
-
-def _parse(s: str | None) -> datetime | None:
-    return datetime.fromisoformat(s) if s else None
 
 
 def _filters(state: AppState) -> dict:
@@ -152,6 +149,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "job": state.jobs.current if state.jobs and state.jobs.current else None,
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
+        "staleness": staleness.check(conn, state.now()),
     }
 
 

@@ -198,9 +198,9 @@ class FakeScheduling:
     def command_for(self, key):
         return ("/py", f"run {key}", "/wd")
 
-    def install(self, key, time, days, exe, args, workdir, **kw):
+    def install(self, key, times, days, exe, args, workdir, **kw):
         self._maybe_fail()
-        self.installed.append({"key": key, "time": time, "days": list(days), **kw})
+        self.installed.append({"key": key, "times": list(times), "days": list(days), **kw})
 
     def remove(self, key, **kw):
         self._maybe_fail()

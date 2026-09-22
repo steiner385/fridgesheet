@@ -9,7 +9,7 @@ from fridgesheet import config, host
 from fridgesheet.web import app as webapp, db, views
 from fridgesheet.web.routes import schedules as routes_schedules
 from fridgesheet.web.stores import reports as store
-from tests.web_fixtures import LOCAL_HOST_HEADERS, FakeScheduling, seed
+from tests.web_fixtures import LOCAL_HOST_HEADERS, FakeScheduling, app_for, seed
 
 
 def test_days_is_hosts_day_names_not_a_fourth_spelling():
@@ -131,3 +131,24 @@ def test_a_host_with_no_scheduler_says_so_on_every_row(tmp_path):
     c, _ = _client(tmp_path, _NoScheduler())
     body = c.get("/schedules").text
     assert "scheduling is not available on this host" in body
+
+
+def test_the_page_shows_the_refresh_editor_with_its_expanded_times(tmp_path):
+    body = app_for(tmp_path).get("/schedules").text
+    assert "Refresh the data" in body
+    assert 'name="every_hours"' in body and 'name="start"' in body and 'name="end"' in body
+    assert 'hx-post="/schedules/refresh"' in body
+
+
+def test_a_junk_every_hours_does_not_500(tmp_path):
+    """`int(form.get("every_hours") or 3)` used to raise `ValueError` straight out of the
+    route for anything that is not an integer -- a 500, where every neighbouring field
+    (start/end/days) degrades instead of failing outright. A junk value falls back to the
+    same default (3) the field itself defaults to."""
+    c, _ = _client(tmp_path)
+    r = c.post("/schedules/refresh", data={"every_hours": "not-a-number", "start": "06:00",
+                                           "end": "21:00", "days": ["Mon"]})
+    assert r.status_code == 200
+    assert "Traceback" not in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"]["every_hours"] == 3
