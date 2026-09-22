@@ -1,0 +1,69 @@
+<form class="card" id="late-rules" hx-post="/settings/late-rules" hx-target="this" hx-swap="outerHTML">
+  <h3>Late-work rules</h3>
+  {% if saved %}<p class="ok">Saved late-rules.toml.</p>{% endif %}
+  {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
+  <p class="muted">The printed sheet drops an overdue item once it can no longer earn credit.
+     The first rule below that matches wins; anything matching none of them uses the default.</p>
+
+  <fieldset>
+    <legend>Default</legend>
+    <label>Accepted late for <input type="number" name="default_late_days" value="{{ late_rules.default_late_days }}"
+           min="0" size="4"> days</label>
+    <label>Credit shown <input name="default_credit" value="{{ late_rules.default_credit }}"
+           size="6" placeholder="e.g. 50% or ?"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Quarters <span class="muted">grading-period end dates, for a "through end of quarter" rule</span></legend>
+    <div id="quarter-rows">
+      {% for q in late_rules.quarters %}
+      <p class="row"><input type="date" name="quarter_date" value="{{ q }}">
+        <button type="button" class="danger" data-remove-row>Remove</button></p>
+      {% endfor %}
+    </div>
+    <button type="button" data-add-row="quarter-row-tmpl" data-add-target="quarter-rows">Add quarter</button>
+    <template id="quarter-row-tmpl"><p class="row"><input type="date" name="quarter_date">
+      <button type="button" class="danger" data-remove-row>Remove</button></p></template>
+  </fieldset>
+
+  <fieldset>
+    <legend>Rules <span class="muted">checked top to bottom; the first match wins</span></legend>
+    <div id="rule-rows">
+      {% for r in late_rules.rules %}
+      <p class="row rule-row">
+        <input name="rule_kid" placeholder="Kid (optional)" value="{{ r.kid }}">
+        <input name="rule_course" placeholder="Course contains (optional)" value="{{ r.course }}">
+        <select name="rule_mode">
+          <option value="days" {{ "selected" if r.mode == "days" }}>Late for (days)</option>
+          <option value="quarter_end" {{ "selected" if r.mode == "quarter_end" }}>Through end of quarter</option>
+        </select>
+        <input type="number" name="rule_late_days" min="0" placeholder="days" size="3" value="{{ r.late_days }}">
+        <input name="rule_credit" placeholder="Credit shown" size="6" value="{{ r.credit }}">
+        <input name="rule_source" placeholder="Source (private note)" value="{{ r.source }}">
+        <button type="button" data-move-row="up" title="Move up">&uarr;</button>
+        <button type="button" data-move-row="down" title="Move down">&darr;</button>
+        <button type="button" class="danger" data-remove-row>Remove</button>
+      </p>
+      {% endfor %}
+    </div>
+    <button type="button" data-add-row="rule-row-tmpl" data-add-target="rule-rows">Add rule</button>
+    <template id="rule-row-tmpl">
+      <p class="row rule-row">
+        <input name="rule_kid" placeholder="Kid (optional)">
+        <input name="rule_course" placeholder="Course contains (optional)">
+        <select name="rule_mode">
+          <option value="days">Late for (days)</option>
+          <option value="quarter_end">Through end of quarter</option>
+        </select>
+        <input type="number" name="rule_late_days" min="0" placeholder="days" size="3">
+        <input name="rule_credit" placeholder="Credit shown" size="6">
+        <input name="rule_source" placeholder="Source (private note)">
+        <button type="button" data-move-row="up" title="Move up">&uarr;</button>
+        <button type="button" data-move-row="down" title="Move down">&darr;</button>
+        <button type="button" class="danger" data-remove-row>Remove</button>
+      </p>
+    </template>
+  </fieldset>
+
+  <p><button class="primary">Save late-rules.toml</button></p>
+</form>

@@ -10,10 +10,10 @@ from fridgesheet import config
 from fridgesheet.web import actions
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from fridgesheet import runner
+from fridgesheet import late_rules, runner
 from fridgesheet.config import Settings
 from fridgesheet.host import ScheduleInfo
 from fridgesheet.web import db
@@ -351,17 +351,109 @@ def test_save_writes_web_section_and_flags_a_restart(tmp_path):
     assert r.ok and not r.restart_needed
 
 
-def test_editables_seed_validate_and_write(tmp_path):
-    text = actions.read_editable(tmp_path, "late-rules.toml")
-    assert "[default]" in text and (tmp_path / "late-rules.toml").is_file()
-    assert actions.read_editable(tmp_path, "no-print-days.txt").startswith("#")
-    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 'seven'\n")
-    assert errs and "[default]" in (tmp_path / "late-rules.toml").read_text()      # unchanged
-    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 7\ncredit = '50%'\n")
-    assert errs == [] and "late_days = 7" in (tmp_path / "late-rules.toml").read_text()
-    assert actions.save_editable(tmp_path, "no-print-days.txt", "2026-12-25 Christmas\n") == []
-    with pytest.raises(ValueError):
-        actions.save_editable(tmp_path, "config.toml", "x")
+def test_late_rules_settings_seeds_the_file_and_parses_it(tmp_path):
+    rules = actions.late_rules_settings(tmp_path)
+    assert (tmp_path / "late-rules.toml").is_file()
+    assert rules.default.late_days == 14 and rules.default.credit == "?"
+
+
+def test_save_late_rules_writes_default_quarters_and_rules(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="10", default_credit="?",
+        quarter_dates=["2026-10-15", "2026-12-18"],
+        rule_kid=["Alex"], rule_course=["Band"], rule_mode=["days"],
+        rule_late_days=["7"], rule_credit=["50%"], rule_source=["syllabus"],
+    )
+    assert errors == []
+    rules = late_rules.load(tmp_path / "late-rules.toml")
+    assert rules.default.late_days == 10
+    assert rules.quarters == [date(2026, 10, 15), date(2026, 12, 18)]
+    r = rules.rules[0]
+    assert (r.kid, r.course, r.late_days, r.credit, r.source) == ("Alex", "Band", 7, "50%", "syllabus")
+
+
+def test_save_late_rules_supports_quarter_end_mode(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=["2026-10-15"],
+        rule_kid=[""], rule_course=["Band"], rule_mode=["quarter_end"],
+        rule_late_days=[""], rule_credit=[""], rule_source=[""],
+    )
+    assert errors == []
+    r = late_rules.load(tmp_path / "late-rules.toml").rules[0]
+    assert r.until == "quarter_end" and r.late_days is None
+
+
+def test_save_late_rules_rejects_a_non_numeric_default_and_writes_nothing(tmp_path):
+    actions.late_rules_settings(tmp_path)      # seed
+    before = (tmp_path / "late-rules.toml").read_text()
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="seven", default_credit="",
+        quarter_dates=[], rule_kid=[], rule_course=[], rule_mode=[], rule_late_days=[], rule_credit=[], rule_source=[],
+    )
+    assert errors
+    assert (tmp_path / "late-rules.toml").read_text() == before
+
+
+def test_save_late_rules_reports_a_bad_rule_days_value(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=[], rule_kid=[""], rule_course=["Band"], rule_mode=["days"],
+        rule_late_days=["not-a-number"], rule_credit=[""], rule_source=[""],
+    )
+    assert errors and not (Path(tmp_path) / "late-rules.toml").exists()
+
+
+def test_save_late_rules_reports_a_bad_quarter_date(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=["not-a-date"], rule_kid=[], rule_course=[], rule_mode=[], rule_late_days=[], rule_credit=[], rule_source=[],
+    )
+    assert errors
+
+
+def test_no_print_days_settings_seeds_the_file_and_parses_it(tmp_path):
+    entries = actions.no_print_days_settings(tmp_path)
+    assert (tmp_path / "no-print-days.txt").is_file()
+    assert any(e.note == "Labor Day" for e in entries)
+
+
+def test_save_no_print_days_writes_entries(tmp_path):
+    errors = actions.save_no_print_days(tmp_path, [runner.SkipEntry(date(2026, 12, 25), None, "Christmas")])
+    assert errors == []
+    assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()
+
+
+def test_late_rules_view_renders_a_register_as_editable_strings():
+    rules = late_rules.LateRules(
+        default=late_rules.Rule(late_days=14, credit="?"),
+        rules=[late_rules.Rule(course="Band", until="quarter_end", late_days=None),
+               late_rules.Rule(kid="Alex", late_days=7, credit="50%", source="syllabus")],
+        quarters=[date(2026, 10, 15)],
+    )
+    v = actions.late_rules_view(rules)
+    assert v["default_late_days"] == "14" and v["default_credit"] == "?"
+    assert v["quarters"] == ["2026-10-15"]
+    assert v["rules"][0] == {"kid": "", "course": "Band", "mode": "quarter_end", "late_days": "", "credit": "", "source": ""}
+    assert v["rules"][1] == {"kid": "Alex", "course": "", "mode": "days", "late_days": "7", "credit": "50%", "source": "syllabus"}
+
+
+def test_no_print_days_view_renders_entries_as_editable_strings():
+    entries = [runner.SkipEntry(date(2026, 9, 7), None, "Labor Day"),
+               runner.SkipEntry(date(2026, 12, 21), date(2027, 1, 1), "Holiday break")]
+    v = actions.no_print_days_view(entries)
+    assert v == [
+        {"start": "2026-09-07", "end": "", "note": "Labor Day"},
+        {"start": "2026-12-21", "end": "2027-01-01", "note": "Holiday break"},
+    ]
+
+
+def test_save_no_print_days_rejects_an_end_before_the_start(tmp_path):
+    actions.no_print_days_settings(tmp_path)   # seed
+    before = (tmp_path / "no-print-days.txt").read_text()
+    errors = actions.save_no_print_days(tmp_path, [runner.SkipEntry(date(2026, 12, 25), date(2026, 12, 20), "")])
+    assert errors
+    assert (tmp_path / "no-print-days.txt").read_text() == before
 
 
 def test_lan_url_uses_the_probe_and_tolerates_failure():

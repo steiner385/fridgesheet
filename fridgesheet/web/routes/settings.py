@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from datetime import date
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Form, Request
 
 from ..app import Db, State, loopback, render, render_partial
 from .. import actions, updates
-from ... import qr
+from ... import qr, runner
 
 router = APIRouter()
 log = logging.getLogger("fridgesheet.web.settings")
@@ -54,7 +55,8 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
-                  files={n: actions.read_editable(state.home, n) for n in sorted(actions.EDITABLE)})
+                  late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
+                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)))
 
 
 @router.get("/settings")
@@ -97,11 +99,47 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     return _page(request, conn, state, form, errors=result.messages)
 
 
-@router.post("/settings/files/{name}")
-def save_file(name: str, request: Request, text: str = Form(""), conn: sqlite3.Connection = Db, state=State):
-    if name not in actions.EDITABLE:
-        raise HTTPException(404, "not an editable file")
-    actions.read_editable(state.home, name)  # seed it first if this is its first touch; never overwrites
-    errors = actions.save_editable(state.home, name, text)
-    return render_partial(request, conn, "_settings_files.html", fname=name, text=text if errors else actions.read_editable(state.home, name),
-                          errors=errors, saved=not errors)
+@router.post("/settings/late-rules")
+async def save_late_rules(request: Request, conn: sqlite3.Connection = Db, state=State):
+    """The whole file is one form; row order in each array is the row order on the page, which
+    is also the file's first-match-wins rule order -- so reordering rows before Save is enough,
+    with no separate move/reorder endpoint needed."""
+    actions.late_rules_settings(state.home)  # seed it first if this is its first touch; never overwrites
+    form = await request.form()
+    default_late_days = form.get("default_late_days", "")
+    default_credit = form.get("default_credit", "")
+    quarter_dates = [d for d in form.getlist("quarter_date") if d]
+    rule_kid, rule_course = form.getlist("rule_kid"), form.getlist("rule_course")
+    rule_mode, rule_late_days = form.getlist("rule_mode"), form.getlist("rule_late_days")
+    rule_credit, rule_source = form.getlist("rule_credit"), form.getlist("rule_source")
+    errors = actions.save_late_rules(
+        state.home, default_late_days=default_late_days, default_credit=default_credit,
+        quarter_dates=quarter_dates, rule_kid=rule_kid, rule_course=rule_course, rule_mode=rule_mode,
+        rule_late_days=rule_late_days, rule_credit=rule_credit, rule_source=rule_source)
+    if errors:
+        rows = {"default_late_days": default_late_days, "default_credit": default_credit, "quarters": quarter_dates,
+                "rules": [{"kid": k, "course": c, "mode": m, "late_days": d, "credit": cr, "source": s}
+                          for k, c, m, d, cr, s in zip(rule_kid, rule_course, rule_mode, rule_late_days, rule_credit, rule_source)]}
+    else:
+        rows = actions.late_rules_view(actions.late_rules_settings(state.home))
+    return render_partial(request, conn, "_late_rules_editor.html", late_rules=rows, errors=errors, saved=not errors)
+
+
+@router.post("/settings/no-print-days")
+async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, state=State):
+    actions.no_print_days_settings(state.home)  # seed it first if this is its first touch; never overwrites
+    form = await request.form()
+    starts, ends, notes = form.getlist("start"), form.getlist("end"), form.getlist("note")
+    entries: list[runner.SkipEntry] = []
+    errors: list[str] = []
+    for i, (s, e, note) in enumerate(zip(starts, ends, notes), start=1):
+        if not s:
+            continue
+        try:
+            entries.append(runner.SkipEntry(date.fromisoformat(s), date.fromisoformat(e) if e else None, note))
+        except ValueError:
+            errors.append(f"Row {i}: not a date (yyyy-mm-dd).")
+    errors = errors or actions.save_no_print_days(state.home, entries)
+    rows = actions.no_print_days_view(actions.no_print_days_settings(state.home)) if not errors else \
+        [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes) if s]
+    return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)

@@ -38,10 +38,8 @@
      {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}</p>
 </form>
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
-{% for fname, text in files.items() %}
-<h3>{{ fname }}</h3>
-{% with errors=[], saved=false %}{% include "_settings_files.html" %}{% endwith %}
-{% endfor %}
+{% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
+{% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}
 <h3>About</h3>
 <pre class="muted">{{ about }}</pre>
 {% endblock %}

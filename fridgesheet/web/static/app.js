@@ -164,3 +164,25 @@ document.addEventListener("submit", function (event) {
   var form = event.target.closest("form[data-confirm]");
   if (form && !window.confirm(form.getAttribute("data-confirm"))) event.preventDefault();
 });
+
+// Graphical config editors (Settings: late-rules, no-print-days): rows are added, removed and
+// reordered entirely client-side -- the file is one form with one Save, so nothing here needs
+// a round trip until that button is pressed.
+document.addEventListener("click", function (event) {
+  var add = event.target.closest("[data-add-row]");
+  if (add) {
+    var tmpl = document.getElementById(add.getAttribute("data-add-row"));
+    document.getElementById(add.getAttribute("data-add-target")).appendChild(tmpl.content.cloneNode(true));
+    return;
+  }
+  if (event.target.closest("[data-remove-row]")) { event.target.closest(".row").remove(); return; }
+  var move = event.target.closest("[data-move-row]");
+  if (move) {
+    var row = move.closest(".row");
+    if (move.getAttribute("data-move-row") === "up" && row.previousElementSibling) {
+      row.parentNode.insertBefore(row, row.previousElementSibling);
+    } else if (move.getAttribute("data-move-row") === "down" && row.nextElementSibling) {
+      row.parentNode.insertBefore(row.nextElementSibling, row);
+    }
+  }
+});

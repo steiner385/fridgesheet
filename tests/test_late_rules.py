@@ -3,7 +3,7 @@ credit. The sheet drops anything past that point, because a row nobody can act o
 is noise, and prints the deadline on the rest."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -77,3 +77,47 @@ def test_bad_toml_raises_a_readable_error(tmp_path):
     p.write_text("this is = not [ toml\n")
     with pytest.raises(late_rules.LateRulesError):
         late_rules.load(p)
+
+
+def test_to_toml_round_trips_default_quarters_and_rules(tmp_path):
+    rules = late_rules.LateRules(
+        default=late_rules.Rule(late_days=14, credit="?"),
+        rules=[late_rules.Rule(course="Honors English 9", late_days=7, credit="50%", source="syllabus")],
+        quarters=[date(2026, 10, 15), date(2026, 12, 18)],
+    )
+    p = tmp_path / "r.toml"
+    p.write_text(late_rules.to_toml(rules))
+    loaded = late_rules.load(p)
+    assert loaded.default.late_days == 14 and loaded.default.credit == "?"
+    assert loaded.quarters == [date(2026, 10, 15), date(2026, 12, 18)]
+    assert len(loaded.rules) == 1
+    r = loaded.rules[0]
+    assert (r.course, r.late_days, r.credit, r.source) == ("Honors English 9", 7, "50%", "syllabus")
+
+
+def test_to_toml_writes_until_quarter_end_for_a_rule(tmp_path):
+    rules = late_rules.LateRules(
+        default=late_rules.Rule(),
+        rules=[late_rules.Rule(course="Band", until="quarter_end", late_days=None)],
+        quarters=[date(2026, 10, 15)],
+    )
+    p = tmp_path / "r.toml"
+    p.write_text(late_rules.to_toml(rules))
+    loaded = late_rules.load(p)
+    assert loaded.rules[0].until == "quarter_end"
+    assert loaded.rules[0].late_days is None
+
+
+def test_to_toml_with_no_rules_or_quarters_parses_back_to_bare_default(tmp_path):
+    rules = late_rules.LateRules(default=late_rules.Rule(late_days=10, credit="?"), rules=[], quarters=[])
+    p = tmp_path / "r.toml"
+    p.write_text(late_rules.to_toml(rules))
+    loaded = late_rules.load(p)
+    assert loaded.default.late_days == 10 and loaded.rules == [] and loaded.quarters == []
+
+
+def test_to_toml_preserves_a_zero_day_deadline():
+    """0 late_days is a real value ("no late work"), not an absent one -- must not be dropped
+    the way an empty string field is."""
+    rules = late_rules.LateRules(default=late_rules.Rule(late_days=0), rules=[], quarters=[])
+    assert "late_days = 0" in late_rules.to_toml(rules)
