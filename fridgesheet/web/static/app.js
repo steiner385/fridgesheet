@@ -154,9 +154,9 @@ function attachCharts(root, tries) {
 document.addEventListener("DOMContentLoaded", function () { attachCharts(document); });
 document.addEventListener("htmx:afterSwap", function (e) { attachCharts(e.detail.target); });
 
-// Printing is explicit: opening a saved plan never starts a print job.
+// Printing is explicit: opening a saved plan or report view never starts a print job on its own.
 document.addEventListener("click", function (event) {
-  if (event.target.closest("[data-print-plan]")) window.print();
+  if (event.target.closest("[data-print-plan], [data-print]")) window.print();
 });
 
 // The one form that deletes asks first; nothing else on these pages needs a dialog.
