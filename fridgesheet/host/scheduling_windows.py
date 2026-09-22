@@ -7,7 +7,7 @@ import tempfile
 from importlib import resources
 from xml.sax.saxutils import escape
 
-from . import CREATE_NO_WINDOW, DAY_NAMES, ScheduleInfo, SchedulingError, check_schedule, task_name
+from . import CREATE_NO_WINDOW, DAY_NAMES, ScheduleInfo, SchedulingError, check_schedule_times, task_name
 from .service_windows import NAME as _WEB_TASK
 
 #: Task Scheduler XML's day-element names, in `DAY_NAMES` order -- built *from* `DAY_NAMES`
@@ -67,15 +67,32 @@ def _check_ownership(key: str) -> None:
         raise SchedulingError(f"{name} is not a task this app schedules reports with; refusing to touch it")
 
 
-def render_task_xml(name: str, time: str, days: list[str], exe: str, args: str, workdir: str,
+_TRIGGER = """    <CalendarTrigger>
+      <StartBoundary>2026-01-01T{time}:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+{days}
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
+    </CalendarTrigger>"""
+
+
+def render_task_xml(name: str, times: list[str], days: list[str], exe: str, args: str, workdir: str,
                     description: str | None = None) -> str:
-    check_schedule(time, days)
+    """The task XML, with one `<CalendarTrigger>` per time.
+
+    A one-element `times` renders byte-for-byte what the single-trigger template rendered
+    before, so every task already installed keeps the XML it has.
+    """
+    check_schedule_times(times, days)
     template = resources.files("fridgesheet.host").joinpath("task.xml").read_text(encoding="utf-8")
     day_xml = "\n".join(f"          <{_DAY_TAGS[d]} />" for d in days)
+    triggers = "\n".join(_TRIGGER.format(time=t, days=day_xml) for t in times)
     desc = description or f"Fridge Sheet: {name.split(' - ', 1)[-1]}"
     return (template.replace("{description}", escape(desc))
-                    .replace("{start}", f"2026-01-01T{time}:00")
-                    .replace("{days}", day_xml)
+                    .replace("{triggers}", triggers)
                     .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
 
 
@@ -83,16 +100,17 @@ def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
     return run(["schtasks", *cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW, timeout=60)
 
 
-def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
+def install(key: str, times: list[str], days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
             *, title: str | None = None, home: str = "", timezone: str = "") -> None:
     """`home` and `timezone` are accepted and unused: a task runs in the logged-in session's
     own environment, and `StartBoundary` is local time by definition. They are in the
     signature so `scheduling.install` is one call on both platforms.
 
-    The ownership check runs first, ahead of even `check_schedule`, as the Linux one does: a
-    key that renders to a task this app did not write must never reach a `schtasks` call."""
+    The ownership check runs first, ahead of even `check_schedule_times`, as the Linux one
+    does: a key that renders to a task this app did not write must never reach a `schtasks`
+    call."""
     _check_ownership(key)
-    xml = render_task_xml(task_name(key), time, days, exe, args, workdir,
+    xml = render_task_xml(task_name(key), times, days, exe, args, workdir,
                           description=f"Fridge Sheet: {title}" if title else None)
     fd, path = tempfile.mkstemp(prefix="fridgesheet-task-", suffix=".xml")
     try:

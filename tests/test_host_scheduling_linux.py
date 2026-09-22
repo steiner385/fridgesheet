@@ -33,7 +33,7 @@ def test_the_service_is_a_oneshot_that_is_given_time_to_finish():
 
 
 def test_the_timer_lists_its_days_and_catches_up():
-    text = sl.timer_text("open-work", "Open Work Sheet", "14:00", ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    text = sl.timer_text("open-work", "Open Work Sheet", ["14:00"], ["Mon", "Tue", "Wed", "Thu", "Fri"],
                          "America/New_York")
     assert text.startswith(sl.MARKER)
     assert "OnCalendar=Mon,Tue,Wed,Thu,Fri 14:00 America/New_York" in text
@@ -45,15 +45,15 @@ def test_the_timer_lists_its_days_and_catches_up():
 
 
 def test_a_timer_with_no_time_zone_configured_still_writes_a_valid_line():
-    text = sl.timer_text("view:7", "Weekly summary", "16:00", ["Fri"], "")
+    text = sl.timer_text("view:7", "Weekly summary", ["16:00"], ["Fri"], "")
     assert "OnCalendar=Fri 16:00\n" in text
 
 
 def test_bad_days_or_times_never_become_a_unit():
     with pytest.raises(SchedulingError, match="no days"):
-        sl.timer_text("open-work", "t", "14:00", [], "America/New_York")
+        sl.timer_text("open-work", "t", ["14:00"], [], "America/New_York")
     with pytest.raises(SchedulingError, match="HH:MM"):
-        sl.timer_text("open-work", "t", "2pm", ["Mon"], "America/New_York")
+        sl.timer_text("open-work", "t", ["2pm"], ["Mon"], "America/New_York")
 
 
 def test_the_hand_written_timer_is_named_but_never_generated():
@@ -82,7 +82,7 @@ def _recorder(results=None):
 
 def test_install_writes_both_units_and_enables_only_the_timer(tmp_path):
     calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n"), ("is-enabled", "lakota-print-sheet.timer"): (1, "disabled\n")})
-    sl.install("open-work", "14:00", ["Mon", "Fri"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+    sl.install("open-work", ["14:00"], ["Mon", "Fri"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
                run=run, title="Open Work Sheet", home="/home/tony/.fridgesheet",
                timezone="America/New_York", unit_dir=tmp_path)
 
@@ -104,14 +104,14 @@ def test_install_refuses_while_the_hand_written_timer_is_enabled(tmp_path):
     the one command that clears the way."""
     calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (0, "enabled\n")})
     with pytest.raises(SchedulingError, match="systemctl --user disable --now fridgesheet-print-sheet.timer"):
-        sl.install("open-work", "14:00", ["Mon"], "x", "run open-work", ".", run=run, unit_dir=tmp_path)
+        sl.install("open-work", ["14:00"], ["Mon"], "x", "run open-work", ".", run=run, unit_dir=tmp_path)
     assert not list(tmp_path.iterdir())          # nothing written before the refusal
     assert calls == [["systemctl", "--user", "is-enabled", "fridgesheet-print-sheet.timer"]]
 
 
 def test_a_report_with_no_legacy_unit_is_not_asked_about(tmp_path):
     calls, run = _recorder()
-    sl.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=run, title="Weekly summary",
+    sl.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=run, title="Weekly summary",
                home="/h", timezone="", unit_dir=tmp_path)
     assert (tmp_path / "fridgesheet-view-7.timer").is_file() and (tmp_path / "fridgesheet-view-7.service").is_file()
     assert calls[0] == ["systemctl", "--user", "daemon-reload"]
@@ -121,7 +121,7 @@ def test_install_with_bad_days_writes_nothing_and_runs_nothing(tmp_path):
     def run(argv, **kw):
         raise AssertionError("systemctl must not run")
     with pytest.raises(SchedulingError):
-        sl.install("view:7", "16:00", ["Funday"], "x", "run view:7", ".", run=run, unit_dir=tmp_path)
+        sl.install("view:7", ["16:00"], ["Funday"], "x", "run view:7", ".", run=run, unit_dir=tmp_path)
     assert not list(tmp_path.iterdir())
 
 
@@ -130,7 +130,7 @@ def test_install_reports_what_systemctl_refused(tmp_path):
         rc = 1 if argv[2] == "enable" else 0
         return subprocess.CompletedProcess(argv, rc, stdout="", stderr="Failed to connect to bus\n")
     with pytest.raises(SchedulingError, match="Failed to connect to bus"):
-        sl.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=failing, unit_dir=tmp_path)
+        sl.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=failing, unit_dir=tmp_path)
 
 
 def test_remove_disables_deletes_both_units_and_reloads(tmp_path):
@@ -196,7 +196,7 @@ def test_install_and_remove_refuse_a_key_that_renders_to_a_hand_written_unit_nam
     run = _forbidden_run
 
     with pytest.raises(SchedulingError):
-        sl.install("print-sheet", "14:00", ["Mon"], "x", "run print-sheet", ".", run=run, unit_dir=tmp_path)
+        sl.install("print-sheet", ["14:00"], ["Mon"], "x", "run print-sheet", ".", run=run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError):
         sl.remove("print-sheet", run=run, unit_dir=tmp_path)
 
@@ -209,7 +209,7 @@ def test_install_and_remove_refuse_the_grades_refresh_pair(tmp_path):
     sheet timer, even though no report key normally produces this name."""
     run = _forbidden_run
     with pytest.raises(SchedulingError):
-        sl.install("refresh", "14:00", ["Mon"], "x", "run refresh", ".", run=run, unit_dir=tmp_path)
+        sl.install("refresh", ["14:00"], ["Mon"], "x", "run refresh", ".", run=run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError):
         sl.remove("refresh", run=run, unit_dir=tmp_path)
     assert not list(tmp_path.iterdir())
@@ -230,7 +230,7 @@ def test_the_pre_rename_hand_written_timer_is_still_found_and_still_refused(tmp_
     calls, run = _recorder({("is-enabled", "lakota-print-sheet.timer"): (0, "enabled\n"),
                             ("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n")})
     with pytest.raises(SchedulingError, match="disable --now lakota-print-sheet.timer"):
-        sl.install("open-work", "14:00", ["Mon"], "x", "run open-work", ".", run=run, unit_dir=tmp_path)
+        sl.install("open-work", ["14:00"], ["Mon"], "x", "run open-work", ".", run=run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError, match="disable --now lakota-print-sheet.timer"):
         sl.remove("open-work", run=run, unit_dir=tmp_path)
     assert not list(tmp_path.iterdir())
@@ -248,7 +248,7 @@ def test_install_and_remove_refuse_the_web_servers_own_unit_by_name(tmp_path):
     run = _forbidden_run
 
     with pytest.raises(SchedulingError, match="refusing"):
-        sl.install("web", "14:00", ["Mon"], "x", "run web", ".", run=run, unit_dir=tmp_path)
+        sl.install("web", ["14:00"], ["Mon"], "x", "run web", ".", run=run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError, match="refusing"):
         sl.remove("web", run=run, unit_dir=tmp_path)
 
@@ -264,7 +264,7 @@ def test_install_and_remove_refuse_a_foreign_unit_not_on_any_list(tmp_path):
     run = _forbidden_run
 
     with pytest.raises(SchedulingError):
-        sl.install("weekly", "14:00", ["Mon"], "x", "run weekly", ".", run=run, unit_dir=tmp_path)
+        sl.install("weekly", ["14:00"], ["Mon"], "x", "run weekly", ".", run=run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError):
         sl.remove("weekly", run=run, unit_dir=tmp_path)
 
@@ -275,7 +275,7 @@ def test_a_unit_the_app_wrote_round_trips(tmp_path):
     """The marker that makes `remove` refuse a hand-written unit does not get in its own way:
     installing and then removing the app's own unit leaves nothing behind."""
     calls, run = _recorder()
-    sl.install("weekly", "14:00", ["Mon"], "x", "run weekly", ".", run=run, unit_dir=tmp_path)
+    sl.install("weekly", ["14:00"], ["Mon"], "x", "run weekly", ".", run=run, unit_dir=tmp_path)
     assert (tmp_path / "fridgesheet-weekly.timer").is_file() and (tmp_path / "fridgesheet-weekly.service").is_file()
 
     sl.remove("weekly", run=run, unit_dir=tmp_path)
@@ -291,7 +291,7 @@ def test_ownership_check_refuses_a_hand_written_unit_that_is_not_utf8(tmp_path):
     on the Schedules page instead of the normal refusal message."""
     (tmp_path / "fridgesheet-weekly.timer").write_bytes(b"\xff\xfe not valid utf-8")
     with pytest.raises(SchedulingError):
-        sl.install("weekly", "14:00", ["Mon"], "x", "run weekly", ".", run=_forbidden_run, unit_dir=tmp_path)
+        sl.install("weekly", ["14:00"], ["Mon"], "x", "run weekly", ".", run=_forbidden_run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError):
         sl.remove("weekly", run=_forbidden_run, unit_dir=tmp_path)
 
@@ -358,7 +358,7 @@ def test_install_and_remove_name_a_systemctl_that_is_missing_or_hangs(tmp_path):
         raise FileNotFoundError(2, "No such file or directory", "systemctl")
 
     with pytest.raises(SchedulingError, match="systemctl"):
-        sl.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=missing, unit_dir=tmp_path)
+        sl.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=missing, unit_dir=tmp_path)
     with pytest.raises(SchedulingError, match="systemctl"):
         sl.remove("view:7", run=missing, unit_dir=tmp_path)
 
@@ -366,7 +366,7 @@ def test_install_and_remove_name_a_systemctl_that_is_missing_or_hangs(tmp_path):
         raise subprocess.TimeoutExpired(argv, 60)
 
     with pytest.raises(SchedulingError, match="timed out"):
-        sl.install("view:7", "16:00", ["Fri"], "x", "run view:7", ".", run=hangs, unit_dir=tmp_path)
+        sl.install("view:7", ["16:00"], ["Fri"], "x", "run view:7", ".", run=hangs, unit_dir=tmp_path)
     with pytest.raises(SchedulingError, match="timed out"):
         sl.remove("view:7", run=hangs, unit_dir=tmp_path)
 
@@ -418,6 +418,31 @@ def test_describe_and_ownership_agree_on_a_mismatched_pair(tmp_path):
     assert info.managed_by == "systemd (hand-written)"
 
     with pytest.raises(SchedulingError):
-        sl.install("weekly", "14:00", ["Mon"], "x", "run weekly", ".", run=_forbidden_run, unit_dir=tmp_path)
+        sl.install("weekly", ["14:00"], ["Mon"], "x", "run weekly", ".", run=_forbidden_run, unit_dir=tmp_path)
     with pytest.raises(SchedulingError):
         sl.remove("weekly", run=_forbidden_run, unit_dir=tmp_path)
+
+
+def test_one_time_writes_the_timer_it_always_wrote():
+    text = sl.timer_text("open-work", "Open Work Sheet", ["14:00"],
+                         ["Mon", "Fri"], "America/New_York")
+    assert text.count("OnCalendar=") == 1
+    assert "OnCalendar=Mon,Fri 14:00 America/New_York" in text
+    assert "Description=Fridge Sheet: Open Work Sheet (Mon, Fri at 14:00)" in text
+    assert "Persistent=true" in text
+
+
+def test_several_times_write_one_oncalendar_line_each():
+    """systemd unions the elapse points of repeated OnCalendar= lines."""
+    text = sl.timer_text("data-refresh", "Data refresh", ["06:00", "09:00", "12:00"],
+                         ["Mon", "Tue"], "America/New_York")
+    assert text.count("OnCalendar=") == 3
+    for t in ("06:00", "09:00", "12:00"):
+        assert f"OnCalendar=Mon,Tue {t} America/New_York" in text
+    assert "(Mon, Tue at 06:00, 09:00, 12:00)" in text
+
+
+def test_a_bad_time_among_good_ones_writes_nothing():
+    with pytest.raises(SchedulingError):
+        sl.timer_text("data-refresh", "Data refresh", ["06:00", "24:00"],
+                      ["Mon"], "America/New_York")

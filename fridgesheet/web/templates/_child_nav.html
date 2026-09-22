@@ -1,0 +1,5 @@
+<nav class="child-nav" aria-label="Child workspace">
+  <a href="/kids/{{ student.key | urlencode }}/check-in" {{ 'aria-current="page"' | safe if workspace == 'checkin' }}>Check-in</a>
+  <a href="/kids/{{ student.key | urlencode }}/plan" {{ 'aria-current="page"' | safe if workspace == 'plan' }}>Plan</a>
+  <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>All work</a>
+</nav>

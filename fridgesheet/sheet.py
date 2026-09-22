@@ -17,7 +17,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .dates import long_date, md, time12, wd_md, wd_md_time
+from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
 from .open_items import MARKED_FLAGS, Diff, Item, OpenWork
 
 RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
@@ -53,11 +53,17 @@ def _esc(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def fmt_due(d: datetime) -> str:
+def fmt_due(d: datetime, *, from_canvas: bool = True) -> str:
+    """The due date as the sheet prints it, with the time when there is one to print.
+
+    This used to suppress 23:59 outright, which was right for HAC (whose 23:59 the app
+    invents, since HAC gives no time) and wrong for Canvas (whose 23:59 a teacher really
+    set). `dates.due_time` draws that line once, for the sheet and the pages both -- them
+    disagreeing is what kept a 7:20am deadline looking the same as an 11:59pm one.
+    """
     s = wd_md(d)
-    if not (d.hour == 23 and d.minute == 59):
-        s += " " + time12(d).replace(" ", "").lower().replace(":00", "")
-    return s
+    t = due_time(d, from_canvas=from_canvas)
+    return f"{s} {t}" if t else s
 
 
 def fmt_pts(p: float | None) -> str:
@@ -111,7 +117,9 @@ def _section(ks: KidSheet, color, date_line: str, days_ahead: int, overdue_days:
     data = [["", "", "Due / assigned", "Course", "Assignment", "Pts", "Via", "Status"]]
     for it in work.items:
         asg = wd_md(it.assigned) if it.assigned else "—"
-        due_cell = Paragraph(f'{_esc(fmt_due(it.due))}<br/><font size="7">asg {asg}</font>', CELL)
+        # `source` is "canvas", "hac" or "both"; only the ones Canvas knows carry a real time.
+        due_cell = Paragraph(f'{_esc(fmt_due(it.due, from_canvas=it.source != "hac"))}'
+                             f'<br/><font size="7">asg {asg}</font>', CELL)
         via = it.source.capitalize() + (f" · {it.kind}" if it.kind else " · —")
         data.append([_checkbox(), _delta_cell(it, diff), due_cell, Paragraph(_esc(it.course), CELL), Paragraph(_esc(it.name), CELL),
                      fmt_pts(it.points), Paragraph(_esc(via), TINY), _status_cell(it)])

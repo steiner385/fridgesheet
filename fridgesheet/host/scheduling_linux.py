@@ -17,7 +17,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from . import ScheduleInfo, SchedulingError, check_schedule, safe_key
+from . import ScheduleInfo, SchedulingError, check_schedule_times, safe_key
 from .service_linux import UNIT_FILE as _WEB_UNIT
 
 #: Units this app did not write. Reported read-only; never installed over, never removed.
@@ -173,21 +173,26 @@ def service_text(key: str, title: str, exe: str, args: str, workdir: str, home: 
     )
 
 
-def timer_text(key: str, title: str, time: str, days: list[str], timezone: str) -> str:
+def timer_text(key: str, title: str, times: list[str], days: list[str], timezone: str) -> str:
     """The timer that fires it.
 
     `OnCalendar` lists the days rather than writing a range: a list is right for any set a
     parent can tick, and a range would need contiguity logic that is one more thing to get
-    wrong. The time zone is the app's configured one, so a laptop that travels still prints
-    at the hour the household expects. `Persistent=true` fires a run missed while the
-    machine was asleep -- the runner's own window guard then decides whether to print.
+    wrong. Several times a day are several `OnCalendar=` lines -- systemd unions their
+    elapse points -- rather than `OnUnitActiveSec`, which counts from the last activation and
+    so drifts by however long the refresh took. The time zone is the app's configured one, so
+    a laptop that travels still runs at the hour the household expects. `Persistent=true`
+    fires a run missed while the machine was asleep -- the runner's own window guard then
+    decides whether to print.
     """
-    check_schedule(time, days)
-    when = f"{','.join(days)} {time}" + (f" {timezone}" if timezone else "")
+    check_schedule_times(times, days)
+    day_list = ",".join(days)
+    suffix = f" {timezone}" if timezone else ""
+    lines = "".join(f"OnCalendar={day_list} {t}{suffix}\n" for t in times)
     return (
         MARKER +
-        f"[Unit]\nDescription=Fridge Sheet: {title} ({', '.join(days)} at {time})\n\n"
-        f"[Timer]\nUnit={service_unit(key)}\nOnCalendar={when}\nPersistent=true\n\n"
+        f"[Unit]\nDescription=Fridge Sheet: {title} ({', '.join(days)} at {', '.join(times)})\n\n"
+        f"[Timer]\nUnit={service_unit(key)}\n{lines}Persistent=true\n\n"
         "[Install]\nWantedBy=timers.target\n"
     )
 
@@ -229,18 +234,18 @@ def _is_enabled(unit: str, run) -> bool:
         return False
 
 
-def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
+def install(key: str, times: list[str], days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
             *, title: str | None = None, home: str = "", timezone: str = "", unit_dir: Path | None = None) -> None:
     """Write the pair and enable the timer.
 
-    The ownership check runs first, ahead of even `check_schedule`: a key that renders to a
-    name this app did not write must never reach a write or a `run` call. Validation happens
-    next, so a bad day name leaves no half-installed schedule. A hand-written timer *enabled*
-    for this report's own key stops the install too: two timers for one report means the
-    sheet prints twice.
+    The ownership check runs first, ahead of even `check_schedule_times`: a key that renders
+    to a name this app did not write must never reach a write or a `run` call. Validation
+    happens next, so a bad day name or bad time leaves no half-installed schedule. A
+    hand-written timer *enabled* for this report's own key stops the install too: two timers
+    for one report means the sheet prints twice.
     """
     _check_ownership(key, unit_dir)
-    check_schedule(time, days)
+    check_schedule_times(times, days)
     legacy = _enabled_legacy(key, run)
     if legacy:
         raise SchedulingError(
@@ -249,7 +254,7 @@ def install(key: str, time: str, days: list[str], exe: str, args: str, workdir: 
     d = _unit_dir(unit_dir)
     d.mkdir(parents=True, exist_ok=True)
     (d / service_unit(key)).write_text(service_text(key, title or key, exe, args, workdir, home), encoding="utf-8")
-    (d / timer_unit(key)).write_text(timer_text(key, title or key, time, days, timezone), encoding="utf-8")
+    (d / timer_unit(key)).write_text(timer_text(key, title or key, times, days, timezone), encoding="utf-8")
     for cmd in (["daemon-reload"], ["enable", "--now", timer_unit(key)]):
         p = _systemctl_checked(cmd, run)
         if p.returncode != 0:

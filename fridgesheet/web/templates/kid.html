@@ -2,7 +2,8 @@
 {% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>{{ student.key | nickname }}</h2>
-<form class="filters" hx-get="/kids/{{ student.key }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
+{% set workspace = "all" %}{% include "_child_nav.html" %}
+<form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
   <label>Show
     <select name="show">{% for v in SHOW %}<option value="{{ v }}" {{ 'selected' if f.show == v }}>{{ v }}</option>{% endfor %}</select></label>
   <label>Source
@@ -15,7 +16,10 @@
     <select name="flagged"><option value="">all</option>{% for v in FLAGGED %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ 'any flag' if v == 'any' else v }}</option>{% endfor %}</select></label>
   <label>Outcome
     <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+  {# The filter form re-asks for the whole table; without these the sort and its direction
+     would reset to "due, ascending" every time a parent narrowed to one course. #}
   <input type="hidden" name="sort" value="{{ f.sort }}">
+  <input type="hidden" name="dir" value="{{ f.direction }}">
 </form>
 <div id="items">
 {% block partial %}

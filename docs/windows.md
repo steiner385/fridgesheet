@@ -30,6 +30,8 @@ Fridge Sheet is a small web app that runs on your own PC. The shortcut starts it
 
 At the time you chose, on school days, Windows Task Scheduler runs Fridge Sheet in the background while you are **logged in** (a locked screen is fine; a signed-out or powered-off PC skips that day, and the next day's run does not print the old sheet). It refreshes Canvas and Home Access Center, builds the sheet, prints it two-sided, and shows a small notification saying it printed, or why it did not. If the refresh fails, it prints from the last good data if that is under a day old and says so on the sheet. If your printer cannot print two-sided, the sheet comes out on separate pages.
 
+If the data goes older than 24 hours, every page carries a banner saying how old it is and when the last good refresh was. That is the same ceiling at which a scheduled print refuses to run, so the banner and the missing sheet always agree about why.
+
 ## Your files
 
 Everything lives in `%LOCALAPPDATA%\fridgesheet` (paste that into File Explorer's address bar):

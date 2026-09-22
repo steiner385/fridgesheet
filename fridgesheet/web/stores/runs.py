@@ -8,6 +8,17 @@ from dataclasses import dataclass, field
 from datetime import date
 
 
+#: What started a run, in words (#11 item 20). `runs.trigger` is `RunOptions.trigger` --
+#: "web", "cli", "schedule" -- which named the code path that called the runner rather than
+#: anything a parent did. A trigger with no label here is shown as it was written, because a
+#: row from a newer version is still a row somebody has to be able to read.
+TRIGGER_LABELS = {"web": "In the app", "cli": "At a terminal", "schedule": "On a schedule"}
+
+
+def trigger_label(trigger: str) -> str:
+    return TRIGGER_LABELS.get(trigger, trigger)
+
+
 def latest(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM runs ORDER BY started_at DESC, id DESC LIMIT 1").fetchone()
 

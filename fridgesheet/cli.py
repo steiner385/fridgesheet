@@ -116,6 +116,27 @@ def cmd_check(args) -> int:
 
 def cmd_refresh(args) -> int:
     s = load_settings()
+    if args.record:
+        # `--record` is what a schedule runs (the data-refresh task), and a scheduled refresh
+        # has no use for a partial pull -- it exists to keep the snapshot every report and the
+        # kiosk trust warm, and a household that meant to run one of these by hand still has
+        # bare `refresh --no-hac`/`--no-canvas`/`--kids` for that. Rejected outright rather than
+        # silently accepted: `web.actions.refresh` takes no such filters (it always calls
+        # `collector.collect` with its own defaults), so passing them through here would mean
+        # plumbing new parameters all the way into the one path a schedule and the Refresh now
+        # button share -- for a combination nothing schedules.
+        if args.no_hac or args.no_canvas or args.kids is not None:
+            print("refresh --record always does a full refresh; --no-hac, --no-canvas and --kids "
+                  "are not supported with it (a scheduled refresh has no use for a partial pull). "
+                  "Drop --record to use those flags.", file=sys.stderr)
+            return 2
+        # The full path the Refresh now button takes: collect, ingest into the database the
+        # web app renders from, and record the run. Bare `refresh` below writes only the
+        # snapshot, which every MCP tool reads -- the database came later, with the web app.
+        from .web import actions
+        result = actions.refresh(home=s.home, log=lambda m: print(m), trigger="schedule")
+        print(result.message)
+        return 0 if result.ok else 1
     snap = collector.collect(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
     print(json.dumps(collector.summary(s, snap), indent=2))
     return 0 if all(v == "ok" for v in snap["sources"].values() if v) else 1
@@ -222,7 +243,12 @@ def _removal_settings() -> tuple[Settings, str]:
 
 
 def _schedule_removal_keys(s) -> tuple[set[str], bool]:
-    """Every report key `schedule remove --all` must try, and whether that list is complete.
+    """Every key `schedule remove --all` must try, and whether that list is complete.
+
+    Almost every key here is a report key, and most of this docstring is about finding those --
+    but the set returned is not "every report key", it is every key this app might have
+    installed a schedule under, and one of those (`host.DATA_REFRESH_KEY`) is not a report at
+    all. See the note below the report-key filter for that one.
 
     Two sources, unioned, neither one alone enough:
 
@@ -258,8 +284,22 @@ def _schedule_removal_keys(s) -> tuple[set[str], bool]:
     spelling instead, which is the same set of keys `resolve` accepts. A skipped key is
     announced on stderr rather than dropped silently, but it does not make the run incomplete:
     it was never this app's schedule to remove.
+
+    One key is added after that filter, not before it: `host.DATA_REFRESH_KEY`. It is not a
+    report -- it lives under `[refresh]`, not `[reports.<key>]` -- so `reports.is_schedulable_key`
+    correctly says no to it, and it can never appear in `keys` above no matter how thoroughly
+    `config.toml` and the database are read. Yet it is exactly the kind of task this function
+    exists to find: a household that ever turned the refresh schedule on has a real Task
+    Scheduler task or systemd timer firing `refresh --record` on a timer, whether or not
+    `[refresh]` is still in config.toml (deleted by hand, or never written because the schedule
+    was installed from an older build) and whether or not `[refresh].enabled` is currently
+    true. Added unconditionally -- not "if `[refresh]` is present" or "if enabled" -- because
+    `scheduling.remove` is documented idempotent for a task or unit that is not there, so the
+    cost of trying it when nothing was ever installed is nothing, while the cost of *not*
+    trying it when something was is a data-refresh task surviving the uninstall with no config
+    left to explain what it is.
     """
-    from . import reports
+    from . import host, reports
     from .web import db as web_db
 
     keys = {r.key for r in reports.REPORTS.values()} | set(s.reports)
@@ -280,6 +320,7 @@ def _schedule_removal_keys(s) -> tuple[set[str], bool]:
     for k in sorted(keys - ours):
         print(f"{k}: not a report key this app schedules under; leaving anything of that name alone",
               file=sys.stderr)
+    ours.add(host.DATA_REFRESH_KEY)
     return ours, complete
 
 
@@ -348,11 +389,20 @@ def cmd_schedule(args) -> int:
             r = reports.resolve(key, s.home)       # a saved view report is schedulable too (#35)
             rc = s.report_config(key, r.default_time)
             exe, a, wd = scheduling.command_for(key)
-            scheduling.install(key, rc.time, rc.days, exe, a, wd, title=r.title,
+            scheduling.install(key, [rc.time], rc.days, exe, a, wd, title=r.title,
                                home=str(s.home), timezone=s.timezone)
             print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {rc.time}")
         elif args.action == "remove":
-            reports.resolve(key, s.home)          # the same gate `install` has: `remove web` is
+            # `data-refresh` is the one escape hatch through the report-key gate below: it is
+            # not a report (`reports.resolve` would raise `ReportError` for it, same as any
+            # other non-report string), but it is a fixed, reserved key (`host.RESERVED_KEYS`)
+            # a report can never be saved under -- so admitting it here by name does not loosen
+            # what the gate protects against (`remove web` still resolves and still refuses).
+            # Without it, a parent whose refresh schedule outlived its `[refresh]` config had
+            # no single-key way to remove just that task; `schedule remove --all` was the only
+            # door, and it removes every report's schedule too.
+            if key != scheduling.DATA_REFRESH_KEY:
+                reports.resolve(key, s.home)      # the same gate `install` has: `remove web` is
             scheduling.remove(key)                # not a report, and on Windows it names the
                                                   # web server's own logon task
             print(f"Removed {scheduling.display_name(key)}")
@@ -412,6 +462,8 @@ def main(argv=None) -> None:
     r.add_argument("--no-hac", action="store_true")
     r.add_argument("--no-canvas", action="store_true")
     r.add_argument("--kids", nargs="*", help="first names to include (default all)")
+    r.add_argument("--record", action="store_true",
+                   help="also ingest into the app's database and record the run (what a schedule runs)")
     r.set_defaults(fn=cmd_refresh)
     sub.add_parser("status", help="show cache age and last source status").set_defaults(fn=cmd_status)
     sub.add_parser("printers", help="list printers; * marks the system default").set_defaults(fn=cmd_printers)

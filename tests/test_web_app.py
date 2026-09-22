@@ -102,7 +102,10 @@ def test_header_shows_refresh_time_source_health_and_last_run(settings, home):
     assert "Tue 9/15 6:05 AM" in r.text            # dates.wd_md_time of the refresh (2026-09-15 is a Tuesday)
     assert "Canvas OK" in r.text and "HAC login_required" in r.text
     assert "FAIL" in r.text and "printer offline" in r.text
-    assert 'href="/kids/Alex"' in r.text        # the rail lists every student
+    # The rail lists every student and opens the child's check-in workspace; the original
+    # All-work table at /kids/<key> is still reachable from the dashboard card and child nav.
+    assert 'href="/kids/Alex/check-in"' in r.text
+    assert 'href="/kids/Alex?show=actionable"' in r.text
 
 
 def test_static_files_are_served(client):

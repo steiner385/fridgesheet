@@ -7,6 +7,8 @@ and the detail card; these are the columns.
 """
 from __future__ import annotations
 
+import re
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -97,8 +99,10 @@ def test_the_kid_table_has_the_three_columns_and_the_old_composite_words_are_gon
     seed(tmp_path).close()
     c = app_for(tmp_path)
     html = c.get("/kids/Alex", headers={"host": "127.0.0.1"}).text
-    for header in (">Due<", ">Handed in<", ">Grade<"):
-        assert header in html
+    # A sortable heading now carries an arrow inside its link when it is the column doing the
+    # sorting (#11 item 9), so the label is no longer the whole of the element's text.
+    for header in ("Due", "Handed in", "Grade"):
+        assert re.search(rf">{header}(?:<| <span class=\"arrow\">)", html), header
     assert ">Status<" not in html
     # The composite phrases answered two questions at once; each half now has its own cell.
     for composite in ("Submitted, ungraded", "Late, ungraded", "HAC, no grade", "Paper, check", "Due today", "Due tomorrow"):
