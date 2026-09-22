@@ -9,6 +9,13 @@ import pytest
 from fridgesheet.web import updates
 from web_fixtures import NOW, app_for, seed
 
+DIGEST = "sha256:b99a964520507b9582819a75fcc4f34d4e9da6d23d40f939f4d2e73d080b7def"
+
+
+def _release(assets):
+    return lambda url: json.dumps({"tag_name": "v0.5.0", "html_url": "https://example/rel",
+                                   "assets": assets}).encode()
+
 
 @pytest.fixture(autouse=True)
 def _installed_version(monkeypatch):
@@ -34,8 +41,10 @@ def test_versions_compare_as_numbers_and_dev_is_never_newer():
 
 
 def test_latest_release_prefers_the_installer_asset_and_falls_back_to_the_page():
-    assert updates.latest_release(release()) == ("0.9.0", "https://github.com/x/releases/download/v0.9.0/FridgeSheet-Setup-0.9.0.exe")
-    assert updates.latest_release(release(asset=False)) == ("0.9.0", "https://github.com/x/releases/tag/v0.9.0")
+    v, u, d, s = updates.latest_release(release())
+    assert (v, u, d, s) == ("0.9.0", "https://github.com/x/releases/download/v0.9.0/FridgeSheet-Setup-0.9.0.exe", "", 0)
+    v, u, d, s = updates.latest_release(release(asset=False))
+    assert (v, u, d, s) == ("0.9.0", "https://github.com/x/releases/tag/v0.9.0", "", 0)
     with pytest.raises(ValueError):
         updates.latest_release(lambda url: b'{"tag_name": "nightly"}')
 
@@ -109,3 +118,17 @@ def test_saving_settings_round_trips_the_checkbox(tmp_path):
     assert config.load_config_doc(tmp_path / "config.toml")["web"]["check_updates"] is False
     r = c.post("/settings", data={**form, "check_updates": "on"}, headers={"host": "127.0.0.1", "Origin": "http://127.0.0.1"})
     assert config.load_config_doc(tmp_path / "config.toml")["web"]["check_updates"] is True
+
+
+def test_the_installers_digest_and_size_come_back_with_its_url():
+    fetch = _release([{"name": "FridgeSheet-Setup-0.5.0.exe", "size": 286033630,
+                       "browser_download_url": "https://example/s.exe", "digest": DIGEST}])
+    version, url, digest, size = updates.latest_release(fetch)
+    assert (version, url, digest, size) == ("0.5.0", "https://example/s.exe", DIGEST, 286033630)
+
+
+def test_a_release_with_no_installer_has_no_digest_and_no_size():
+    """The URL falls back to the release page. Downloading that yields HTML, so the caller
+    must be able to tell this case apart before it spends 286 MB finding out."""
+    version, url, digest, size = updates.latest_release(_release([]))
+    assert version == "0.5.0" and url == "https://example/rel" and digest == "" and size == 0

@@ -39,6 +39,13 @@ class Update:
     url: str = ""                # where to get it: the installer asset, else the release page
     checked_at: datetime | None = None
     error: str = ""              # why `latest` is unknown, in one line
+    #: "sha256:<hex>" for the installer asset, "" when the release has no installer. What
+    #: `host.selfupdate` verifies the download against; an empty digest means there is
+    #: nothing to install, not "skip the check".
+    digest: str = ""
+    #: The asset's size in bytes, 0 when there is no installer. Carried so the download can
+    #: refuse for want of disk space before it starts rather than after 286 MB.
+    size: int = 0
 
     @property
     def available(self) -> bool:
@@ -77,16 +84,23 @@ def _default_fetch(url: str) -> bytes:
 DEFAULT_FETCH: Callable[[str], bytes] = _default_fetch
 
 
-def latest_release(fetch: Callable[[str], bytes] | None = None) -> tuple[str, str]:
-    """(version, url) for the newest published release. The URL is the Windows installer
-    asset when the release has one, else the release page."""
+def latest_release(fetch: Callable[[str], bytes] | None = None) -> tuple[str, str, str, int]:
+    """(version, url, digest, size) for the newest published release. The URL is the Windows
+    installer asset when the release has one -- with GitHub's sha256 and byte count for it --
+    else the release page, no digest and no size."""
     data = json.loads((fetch or DEFAULT_FETCH)(LATEST_URL))
     tag = str(data.get("tag_name") or "")
     if not parse_version(tag):
         raise ValueError(f"release tag {tag!r} is not a version")
-    url = next((a.get("browser_download_url") for a in data.get("assets") or []
-                if str(a.get("name", "")).lower().endswith(".exe")), None) or data.get("html_url") or RELEASES_PAGE
-    return tag.lstrip("v"), str(url)
+    asset = next((a for a in data.get("assets") or []
+                  if str(a.get("name", "")).lower().endswith(".exe")), None)
+    if asset is not None:
+        try:
+            size = int(asset.get("size") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        return tag.lstrip("v"), str(asset.get("browser_download_url") or ""), str(asset.get("digest") or ""), size
+    return tag.lstrip("v"), str(data.get("html_url") or RELEASES_PAGE), "", 0
 
 
 def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None) -> Update | None:
@@ -100,8 +114,8 @@ def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None) 
             return cached
     current = current_version()
     try:
-        latest, url = latest_release(fetch or state.extra.get("update_fetch"))
-        result = Update(current, latest, url, now)
+        latest, url, digest, size = latest_release(fetch or state.extra.get("update_fetch"))
+        result = Update(current, latest, url, now, digest=digest, size=size)
     except Exception as e:  # noqa: BLE001  no network, a 404 before the first release, odd JSON: one line on the page, never a 500
         result = Update(current, "", "", now, error=f"{type(e).__name__}: {str(e)[:100]}")
     state.extra[CACHE_KEY] = result
