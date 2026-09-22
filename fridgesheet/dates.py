@@ -39,6 +39,20 @@ def due_time(d: datetime | None, *, from_canvas: bool) -> str:
     return time12(d).replace(" ", "").lower().replace(":00", "")
 
 
+def day_part(d: datetime | None, *, from_canvas: bool) -> str:
+    """"morning", "afternoon", "evening" -- or "" when nobody told us an hour.
+
+    The same timestamp `due_time` formats, said in a word a reader who does not yet read a
+    clock at a glance can act on. It adds nothing: 7:20am *is* the morning. A HAC-only item
+    has no hour to name, for the same reason it has no time to show.
+    """
+    if d is None or not from_canvas:
+        return ""
+    if d.hour < 12:
+        return "morning"
+    return "afternoon" if d.hour < 17 else "evening"
+
+
 def wd_md_time(d: datetime) -> str:
     return f"{wd_md(d)} {time12(d)}"
 
