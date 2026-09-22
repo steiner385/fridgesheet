@@ -46,9 +46,24 @@ def test_a_tier_keys_on_the_attribute_alone_not_on_root(tier):
     assert f'[data-tier="{tier}"]' in CSS
 
 
-def test_the_root_font_size_comes_from_the_token():
-    """Otherwise a tier can set --type-root and nothing reads it."""
-    assert re.search(r"(html|body)\s*\{[^}]*font-size:\s*var\(--type-root\)", CSS)
+def test_each_tier_sets_its_own_font_size():
+    """The tier selector (on <body> or <section>) sets its type scale directly.
+
+    A custom property cannot reach its ancestor, so html {font-size: var(--type-root)}
+    would not work: data-tier lives on <body> or <section>, never on <html>.
+    Instead, each tier selector applies the token to itself. This selector has higher
+    specificity than body { font: 15px/1.45 ... }, so tier size wins.
+    """
+    # Tier selectors must set font-size via the token
+    tier_selector_rule = re.search(
+        r"\[data-tier=[\"'](?:early|middle|older)[\"']\][^{]*\{[^}]*font-size:\s*var\(--type-root\)",
+        CSS
+    )
+    assert tier_selector_rule, "tier selectors must set font-size: var(--type-root)"
+
+    # There must NOT be an html rule setting this (that would not work)
+    assert not re.search(r"^\s*html\s*\{[^}]*font-size:\s*var\(--type-root\)", CSS, re.M),\
+        "html selector cannot set font-size for attributes on body/section"
 
 
 def test_the_younger_tiers_set_larger_type():

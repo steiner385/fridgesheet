@@ -12,11 +12,17 @@
 [data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; }
 [data-tier="older"]  { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
 
-/* A tier sets its type scale here; everything sized in rem follows it. */
-html { font-size: var(--type-root); }
+/* A tier sets its type scale by applying the token to the element that carries the attribute.
+   A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
+   on <body> (single-child views) or on a kid <section> (the Open work page), so we set the size here.
+   This beats body { font: 15px/1.45 ... } on specificity (0,1,0 vs 0,0,1); table.items rows
+   inherit it. Chrome with hardcoded size (.rail h1, .big, .badge, header.status, td .rel/at, th .arrow)
+   stays fixed. */
+[data-tier="early"], [data-tier="middle"], [data-tier="older"] { font-size: var(--type-root); }
 
 /* Roomier rows for the younger readers -- the same rows, with space to land a finger and
-   to tell one from the next. */
+   to tell one from the next. A tier's padding outranks @media (pointer: coarse), so any future
+   tier value must stay at or above the coarse-pointer minimum (10px 8px). */
 [data-tier="early"] table.items th, [data-tier="early"] table.items td { padding: 12px 10px; }
 [data-tier="middle"] table.items th, [data-tier="middle"] table.items td { padding: 9px 9px; }
 * { box-sizing: border-box; }
