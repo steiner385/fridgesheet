@@ -58,7 +58,7 @@ Two consequences worth knowing:
 | **"open"** (Kid page filter, Reconcile, *Open the longest*) | *not done* or *unknown*, plus *late* until it is graded. Defined from the outcome, so paper work the gradebook has marked is settled — it used to count as open forever because Canvas never sees a paper hand-in. |
 | **The printed sheet** | Only what is still open: MISSING, ZERO, LATE, PAPER — CHECK, HAC — NO GRADE, and DUE TODAY / DUE TOMORROW / DUE *day*. These are the same facts, shouted, and limited to what a kid can still do something about. Paper or in-class work with a grade in HAC is *done on paper* and does not print; a teacher's own MISSING flag or 0 still does. |
 | **"actionable"** (Dashboard, Kid page) | Also not an outcome: *not done* or *unknown* work that is still inside its late-work credit window (`late-rules.toml`) and that you have not flagged as handled. It is the short list for tonight; the record line is the long one for the quarter. |
-| **How it is worded** | Every child sees every row and every action. A `[kids].grades` entry changes type, density, colour and vocabulary only (`web/tiers.py`, `web/phrasing.py`) — never which rows appear, which `tests/test_web_tier_parity.py` holds. No child phrase states a time, date or number its adult equivalent does not. |
+| **How it is worded** | Every child sees every row and every action. A `[kids].grades` entry changes type, density, colour and vocabulary only (`fridgesheet/web/tiers.py`, `fridgesheet/web/phrasing.py`) — never which rows appear, which `tests/test_web_tier_parity.py` holds. No child phrase states a time, date or number its adult equivalent does not. |
 
 ## Which source is the source of truth
 

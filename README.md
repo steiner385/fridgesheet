@@ -159,10 +159,11 @@ archive = ""                          # optional folder for a second copy of eve
 
 [kids]
 nicknames = { Alex = "Al" }      # snapshot first name -> name printed on the sheet
-# Each child's school grade (0 = kindergarten). The pages a child reads -- their own page,
-# Open work, the check-in and the plan -- use it to pick type size, density, colour and
-# wording. A child not listed here sees exactly the interface that shipped before this
-# existed, so leaving it out changes nothing.
+# Each child's school grade (0 = kindergarten). Type size, density and colour follow it on
+# every page a child reads: their own page, Open work, the check-in and the plan. The
+# wording follows it too, but only where the school's own vocabulary appears -- their own
+# page and Open work. A child not listed here sees exactly the interface that shipped
+# before this existed, so leaving it out changes nothing.
 grades = { Alex = 9 }            # omit a child to leave their pages exactly as they are
 
 [reports.open-work]
