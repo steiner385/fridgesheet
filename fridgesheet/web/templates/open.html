@@ -13,7 +13,7 @@
 <h2>Open work</h2>
 <p class="muted">Past due and still inside the late-work window, then due in the next {{ days_ahead }} days. The printed sheet also drops anything more than its own <em>overdue days</em> past due, so a very old row can appear here and not on paper.</p>
 {% for s, w in groups %}
-<section class="kid" id="{{ s.key }}">
+<section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
   <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
   {% if not w.fixable and not w.upcoming %}
   <p>Nothing open. Nice work.</p>
