@@ -38,9 +38,10 @@
 <table class="items"><tr><th>Report</th><th>Updated</th><th></th></tr>
 {% for r in saved %}
 <tr>
-  <td><a href="/reports/{{ r.id }}" title="view:{{ r.id }}">{{ r.name }}</a></td>
+  <td><a href="/reports/{{ r.id }}/view" title="view:{{ r.id }}">{{ r.name }}</a></td>
   <td class="muted">{{ r.updated_at | wd_md_time }}</td>
   <td>
+    <a class="badge" href="/reports/{{ r.id }}">Edit</a>
     <a class="badge" href="/reports/{{ r.id }}/export.csv">CSV</a>
     <a class="badge" href="/reports/{{ r.id }}/export.json">JSON</a>
     {% if jobs %}

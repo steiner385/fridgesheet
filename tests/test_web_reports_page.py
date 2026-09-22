@@ -47,6 +47,36 @@ def test_list_shows_code_and_view_reports_with_links(tmp_path):
     assert "open-work" in body and f"view:{rid}" in body
 
 
+def test_the_report_name_links_to_a_rendered_view_not_the_builder(tmp_path):
+    """A parent clicking a report's name wants to read it, not edit its definition; the builder
+    stays reachable from an explicit Edit link instead."""
+    seed(tmp_path).close()
+    rid = _save(tmp_path)
+    body = app_for(tmp_path).get("/reports").text
+    assert f'href="/reports/{rid}/view"' in body
+    assert f'href="/reports/{rid}">Edit' in body
+
+
+def test_report_view_renders_the_report_as_a_standalone_printable_page(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, title="Mine", columns=["kid", "name"])
+    r = app_for(tmp_path).get(f"/reports/{rid}/view")
+    assert r.status_code == 200
+    assert "Mine" in r.text and "Quiz 1" in r.text                # the report's own rows
+    assert "data-print" in r.text and 'href="/reports"' in r.text  # a print button, and a way back
+
+
+def test_report_view_of_a_broken_definition_is_a_400(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, columns=[])
+    assert app_for(tmp_path).get(f"/reports/{rid}/view").status_code == 400
+
+
+def test_report_view_404s_for_an_unknown_report(tmp_path):
+    seed(tmp_path).close()
+    assert app_for(tmp_path).get("/reports/999/view").status_code == 404
+
+
 def test_builder_renders_every_control(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/reports/new").text

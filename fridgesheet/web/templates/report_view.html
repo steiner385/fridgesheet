@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ report.name }} · Fridge Sheet</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+{# A page of its own, not the app shell: this is what a parent clicking a report's name from
+   the list wants to read, and what their browser's print dialog should print -- not the
+   builder that produced it, and not the reports list around it. #}
+<body class="print-page">
+<main>
+<div class="print-controls"><a href="/reports">← Back to reports</a> <a class="badge" href="/reports/{{ report.id }}">Edit</a> <button type="button" data-print>Print / save PDF</button><p class="muted">Print this report using your browser.</p></div>
+<article>
+<p>Printed {{ now | wd_md_time }}</p>
+{% with problems=[] %}{% include "_report_preview.html" %}{% endwith %}
+</article>
+</main>
+</body>
+</html>
