@@ -30,7 +30,9 @@ from .. import dates, late_rules
 from ..config import Settings
 from ..dates import parse_iso as _parse
 from . import db, staleness, updates
+from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
+from .stores.items import DAYS_AHEAD
 
 HERE = Path(__file__).parent
 APP_NAME = "fridgesheet"
@@ -87,6 +89,18 @@ class AppState:
     def now(self) -> datetime:
         return self.clock()
 
+    def days_ahead(self) -> int:
+        """How far ahead "coming due" looks: the printed sheet's Days ahead setting (the
+        open-work report's `days_ahead` option in config.toml), so the browser and the sheet
+        draw the same line. The web pages used to hard-code 14 and silently disagree with a
+        sheet the parent had set to 7."""
+        raw = self.settings.report_config(REPORT_KEY).options.get("days_ahead")
+        try:
+            n = int(str(raw).strip())
+        except (TypeError, ValueError):
+            return DAYS_AHEAD
+        return n if n > 0 else DAYS_AHEAD
+
 
 def _filters(state: AppState) -> dict:
     def wd_md_time(v):
@@ -106,6 +120,13 @@ def _filters(state: AppState) -> dict:
     def time12(v):
         d = _parse(v) if isinstance(v, str) else v
         return dates.time12(d.astimezone(state.tz)) if d else ""
+
+    def wd_md(v):
+        # "Sat 9/26": the sheet's spelling of a late-work deadline, for the Open work page.
+        d = _parse(v) if isinstance(v, str) else v
+        if isinstance(d, datetime):
+            d = d.astimezone(state.tz)
+        return dates.wd_md(d) if d else ""
 
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
@@ -419,8 +440,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
-    for r in (dashboard.router, checkin.router, kid.router, note_routes.router, flag_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
+    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
         app.include_router(r)
     return app
 

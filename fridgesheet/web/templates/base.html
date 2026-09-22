@@ -19,6 +19,7 @@
       <div class="group">Kids</div>
       {% for s in students %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }}</a>{% endfor %}
       <div class="group">Work</div>
+      <a href="/open" class="{{ 'current' if current == 'open' }}">Open work</a>
       <a href="/reconcile" class="{{ 'current' if current == 'reconcile' }}">Reconcile</a>
       <a href="/reports" class="{{ 'current' if current == 'reports' }}">Reports</a>
       <a href="/schedules" class="{{ 'current' if current == 'schedules' }}">Schedules</a>

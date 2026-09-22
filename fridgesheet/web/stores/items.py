@@ -61,6 +61,11 @@ class ItemView:
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
     grade_zero: bool = False        # a real zero, styled as the warning it is
     outcome: str = ""               # `outcomes.classify`: the one word every count and filter agrees on
+    # The late-work register's answer for an open row (`late_rules`): the last moment the item
+    # can still earn credit, and the credit text the parent wrote next to that rule. What the
+    # printed sheet shows as "50% thru Sat 9/26"; None / "" for a row that is not open.
+    late_until: datetime | None = None
+    credit: str = ""
 
     @property
     def overdue(self) -> bool:
@@ -177,7 +182,7 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str, boo
     return "", False
 
 
-def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules) -> list[ItemView]:
+def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
     kinds: dict[int, list[str]] = {}
     for case in reconcile.cases(conn, student["id"], rules=rules, now=now):
@@ -191,16 +196,21 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         due = reconcile.due_of(r)
         handed, handed_at = handed_in_text(r, obs)
         grade, zero = grade_text(r, obs)
+        open_in = reconcile.open_sources(r, obs, now)
+        late_until, credit = None, ""
+        if open_in and due is not None:
+            late_until = rules.deadline(r["kid"], r["course_name"], due)
+            credit = rules.resolve(r["kid"], r["course_name"]).credit
         out.append(ItemView(
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
             due_time=due_time(due, from_canvas="canvas" in obs),
-            outcome=outcomes.classify(r, obs, now),
+            outcome=outcomes.classify(r, obs, now), late_until=late_until, credit=credit,
             id=r["id"], key=r["key"], name=r["name"], course_id=r["course_id"], course_short=r["course_short"],
             course_name=r["course_name"], kind=r["kind"], points=r["points"], due=reconcile.due_of(r),
             sources=tuple(s for s in ("canvas", "hac") if s in obs),
-            open_in=reconcile.open_sources(r, obs, now),
+            open_in=open_in,
             actionable=reconcile.is_actionable(r, obs, r["flag"], rules, r["kid"], now),
-            upcoming=reconcile.upcoming(r, obs, now, DAYS_AHEAD),
+            upcoming=reconcile.upcoming(r, obs, now, days_ahead),
             flag=r["flag"], flag_text=flag_text.get(r["id"], ""), status=status_text(r, obs, now),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
@@ -267,7 +277,7 @@ def sorted_views(views: list[ItemView], sort: str = "due", direction: str = "asc
 def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, show: str = "open",
                source: str | None = None, course_id: int | None = None, kind: str | None = None,
                flagged: str | None = None, sort: str = "due", outcome: str | None = None,
-               direction: str = "asc") -> list[ItemView]:
+               days_ahead: int = DAYS_AHEAD, direction: str = "asc") -> list[ItemView]:
     """`outcome` is a filter on `outcomes.classify`; when one is given, `show` is forced to
     "all", because "not done" work that is past its credit window is exactly what a parent
     filtering on "not done" wants to see and exactly what "open" hides."""
@@ -284,12 +294,14 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         peer = conn.execute("SELECT peer_course_id FROM courses WHERE id = ?", (course_id,)).fetchone()
         if peer and peer["peer_course_id"]:
             course_ids.add(peer["peer_course_id"])
-    views = [v for v in _views(conn, student, now=now, rules=rules) if _keep(v, show, source, course_ids, kind, flagged, outcome)]
+    views = [v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
+             if _keep(v, show, source, course_ids, kind, flagged, outcome)]
     return sorted_views(views, sort, direction)
 
 
-def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: datetime, rules) -> ItemView | None:
-    return next((v for v in _views(conn, student, now=now, rules=rules) if v.id == item_id), None)
+def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: datetime, rules,
+        days_ahead: int = DAYS_AHEAD) -> ItemView | None:
+    return next((v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead) if v.id == item_id), None)
 
 
 def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
@@ -313,6 +325,37 @@ def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
 
 
 @dataclass(frozen=True)
+class OpenWork:
+    """One kid's open work, the way the printed sheet divides it: what is past due and can
+    still be fixed, what is coming due, and -- as the sheet's trailer counts them -- what is
+    open but past its late-work window, and what the parent has flagged handled."""
+    fixable: list[ItemView]         # actionable: open, inside the credit window, not handled; soonest-closing first
+    upcoming: list[ItemView]        # unsubmitted Canvas work due within `days_ahead`, not handled; by due date
+    past_window: list[ItemView]     # open, not handled, but the register says it no longer earns credit
+    handled: list[ItemView]         # open or upcoming, but flagged done / excused / ignore
+
+    @property
+    def past_window_points(self) -> float:
+        return sum((v.points or 0) for v in self.past_window)
+
+
+def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD) -> OpenWork:
+    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
+    open_or_upcoming = [v for v in views if v.overdue or v.upcoming]
+    handled = [v for v in open_or_upcoming if v.handled]
+    live = [v for v in open_or_upcoming if not v.handled]
+    fixable = [v for v in live if v.actionable]
+    due_key = _sort_key("due")
+    fixable.sort(key=lambda v: (v.late_until.replace(tzinfo=None) if v.late_until else _FAR, due_key(v)))
+    return OpenWork(
+        fixable=fixable,
+        upcoming=sorted((v for v in live if v.upcoming and not v.overdue), key=due_key),
+        past_window=sorted((v for v in live if v.overdue and not v.actionable), key=due_key),
+        handled=sorted(handled, key=due_key),
+    )
+
+
+@dataclass(frozen=True)
 class Counts:
     actionable: int
     due_today: int
@@ -325,8 +368,9 @@ def record_for(views: list[ItemView]) -> outcomes.Tally:
     return outcomes.tally(v.outcome for v in views)
 
 
-def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules) -> Counts:
-    views = _views(conn, student, now=now, rules=rules)
+def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
+                     days_ahead: int = DAYS_AHEAD) -> Counts:
+    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
     today = now.date()
     due_today = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today)
     due_tomorrow = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today + timedelta(days=1))

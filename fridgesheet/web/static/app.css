@@ -39,6 +39,8 @@ tr.overdue td.due { color: var(--warn); }
    after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
    grade cells a parent must not skim past; a "No" in Handed in is the third. */
 td .rel { color: var(--muted); font-size: 12px; white-space: nowrap; }
+/* The Open work page's "thru Sat 9/26": one line, like the sheet prints it. */
+td.thru { white-space: nowrap; }
 /* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
    taller than its neighbours all the way down the page (#11 item 9). */
 td.sources { white-space: nowrap; }
