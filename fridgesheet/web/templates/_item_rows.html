@@ -7,6 +7,7 @@
    it; and, on the column already sorting, a link that asks for the other direction. The
    parent's flag is a badge beside its item rather than a column of its own -- it is set on a
    handful of rows, and a column spends its width on every row whether or not it has one. #}
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% macro sortable(id, label) %}
   {%- set active = sort == id -%}
   {%- set flip = active and direction != 'desc' -%}
@@ -28,14 +29,14 @@
   {% for v in rows %}
   <tr class="{{ 'overdue' if v.overdue }}" id="row-{{ v.id }}">
     <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}
-        {% if v.actionable %}<span class="badge">actionable</span>{% endif %}</td>
+        {% if v.actionable %}<span class="badge">{{ 'actionable' | phrase(tier) }}</span>{% endif %}</td>
     <td><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
     <td><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
         {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}</span>{% endif %}
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-        {% for k in v.case_kinds %}<span class="badge warn">{{ k.replace('_', ' ') }}</span>{% endfor %}</td>
+        {% for k in v.case_kinds %}<span class="badge warn">{{ k | phrase(tier) }}</span>{% endfor %}</td>
     <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}{% if v.handed_in_at %} <span class="rel">{{ v.handed_in_at | md }}</span>{% endif %}</td>
-    <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade }}</td>
+    <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
     <td class="muted sources">{{ v.sources | join(' + ') }}</td>
   </tr>
   <tr class="detail"><td colspan="6" id="detail-{{ v.id }}"></td></tr>

@@ -24,6 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import jinja2
+from markupsafe import Markup
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import dates, late_rules
@@ -134,8 +135,12 @@ def _filters(state: AppState) -> dict:
     def tier_of(key: str) -> str:
         return tiers.for_student(state.settings, key)
 
-    def phrase(word, tier: str = "") -> str:
-        return phrasing.phrase(str(word or ""), tier)
+    def phrase(word, tier: str = "") -> Markup:
+        # `phrasing.phrase` draws only from `PHRASES`' hand-written literals, or echoes
+        # `word` back unchanged -- both always internal vocabulary, never external text
+        # (assignment names, teacher text) -- so its punctuation ("hasn't") is safe to carry
+        # through autoescaping as itself rather than as `&#39;`.
+        return Markup(phrasing.phrase(str(word or ""), tier))
 
     def wd_md(v):
         """"Thu 9/17". A plain date ("2026-09-17" or a `date`) has no time of day, so nothing

@@ -1,3 +1,4 @@
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
 <div class="card" data-focus>
   <h2>{{ item.name }} <span class="muted">· {{ item.course_short }} · {{ item.kind or 'online' }}{% if item.points %} · {{ item.points | round(1) }} pts{% endif %}</span></h2>
   {% if message %}<p><strong>{{ message }}</strong>{% if item.flag_text %} <span class="muted">{{ item.flag_text }}</span>{% endif %}</p>{% endif %}
@@ -6,7 +7,7 @@
     {% if item.canvas %}<tr><td>Canvas</td><td>{{ item.status }}</td><td>{{ item.canvas.score if item.canvas.score is not none else item.canvas.grade or '' }}</td><td>{{ item.canvas.submitted_at | wd_md_time }}</td></tr>{% endif %}
     {% if item.hac %}<tr><td>HAC</td><td>{{ 'graded' if item.hac.score is not none else 'no grade' }}</td><td>{% if item.hac.score is not none %}{{ item.hac.score | round(1) | string | replace('.0', '') }}{% if item.points %}/{{ item.points | round(1) | string | replace('.0', '') }}{% endif %}{% endif %}</td><td></td></tr>{% endif %}
   </table>
-  {% if cases %}<ul>{% for c in cases %}<li class="case {{ c.kind }}"><strong>{{ c.kind.replace('_', ' ') }}</strong>: {{ c.reason }}</li>{% endfor %}</ul>{% endif %}
+  {% if cases %}<ul>{% for c in cases %}<li class="case {{ c.kind }}"><strong>{{ c.kind | phrase(tier) }}</strong>: {{ c.reason }}</li>{% endfor %}</ul>{% endif %}
   <p><a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}">Choose a next step</a></p>
   {% include "_flag_menu.html" %}
   {% set target_type = "item" %}{% set target_id = item.id %}
