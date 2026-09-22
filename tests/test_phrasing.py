@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from fridgesheet.web import phrasing, tiers
+from fridgesheet.web import phrasing, reconcile, tiers
 
 
 def test_the_adult_word_is_the_word_that_ships_today():
@@ -60,6 +60,11 @@ def test_every_concept_has_a_phrase_for_every_tier(tier):
 
 def test_the_table_covers_the_words_a_child_actually_meets():
     """The status words and reconcile kinds that render on a child's pages."""
-    for word in ("Missing", "Zero", "Paper, check", "Late, ungraded", "Submitted, ungraded",
-                 "disagree", "past_credit", "one_source", "paper_no_grade", "actionable"):
+    # Status words
+    for word in ("Missing", "Zero", "Paper, check", "Late, ungraded", "Submitted, ungraded", "Unpublished"):
         assert word in phrasing.PHRASES, word
+    # Reconcile kinds - every kind must have a phrase
+    for kind in reconcile.KINDS:
+        assert kind in phrasing.PHRASES, f"Missing phrase for reconcile kind {kind!r}"
+    # Action badge
+    assert "actionable" in phrasing.PHRASES
