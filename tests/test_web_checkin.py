@@ -569,7 +569,6 @@ def test_today_shows_each_childs_next_check_in_and_todays_load(tmp_path):
     alex, sam = body.split('<h2><a href="/kids/Sam/check-in">')
     assert "Next check-in Thu 9/17" in alex and "2 steps planned today · 25 min" in alex
     assert "Check-in due (planned for Mon 9/14)" in sam and "No steps planned today" in sam
-    assert "No check-in yet" in c.get("/").text.split('<h2><a href="/kids/Sam/check-in">')[1] or True   # (Sam has one)
 
 
 def test_a_child_with_no_check_in_yet_is_invited_on_today(tmp_path):
@@ -638,3 +637,35 @@ def test_a_step_added_by_mistake_can_be_removed_but_only_by_its_own_child(tmp_pa
     assert [s["title"] for s in _step_rows(tmp_path)] == ["Cell diagram"]
     assert "Made by mistake" not in c.get("/kids/Alex/plan").text
     assert c.post(f"/kids/Alex/check-in/step/{alex_step}/delete", follow_redirects=False).status_code == 404   # already gone
+
+
+def test_the_same_token_with_different_words_is_refused_rather_than_silently_dropped(tmp_path):
+    """A replayed POST must not be able to claim a save it did not make.
+
+    `ON CONFLICT(request_key) DO NOTHING` is right for a double-click, where the words are
+    identical. It is wrong for Back, edit, Save: the token is the same, the plan is not, the
+    insert is dropped, and the page would answer "Saved." while the first version stood. On a
+    kitchen kiosk that is a family reading a commitment nobody agreed to.
+    """
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    token = str(uuid4())
+    first = _post_step(c, "Alex", _form(request_key=token, next_step="Ask Mr. Hoch to clear the flag"))
+    assert first.status_code == 303
+
+    changed = _post_step(c, "Alex", _form(request_key=token, next_step="Email Mr. Hoch instead"))
+    assert changed.status_code == 409, "a changed replay must not report success"
+    assert "already saved" in changed.text
+
+    rows = _step_rows(tmp_path)
+    assert len(rows) == 1 and rows[0]["next_step"] == "Ask Mr. Hoch to clear the flag"
+
+
+def test_an_identical_replay_is_still_one_step(tmp_path):
+    """The behaviour the token exists for: a double-click or a retry saves once and says so."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    form = _form(request_key=str(uuid4()))
+    assert _post_step(c, "Alex", form).status_code == 303
+    assert _post_step(c, "Alex", dict(form)).status_code == 303
+    assert len(_step_rows(tmp_path)) == 1

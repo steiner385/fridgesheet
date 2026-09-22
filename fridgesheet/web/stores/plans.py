@@ -45,9 +45,16 @@ def save(conn, student_id, values, *, now, request_key, item_id=None, step_id=No
         f"INSERT INTO plan_steps(student_id, item_id, {', '.join(FIELDS)}, created_by, request_key, created_at, updated_at) "
         f"VALUES ({', '.join('?' for _ in range(len(FIELDS) + 6))}) ON CONFLICT(request_key) DO NOTHING",
         (student_id, item_id, *data, values["recorded_by"], request_key, now, now))
-    row = conn.execute("SELECT id, student_id FROM plan_steps WHERE request_key = ?", (request_key,)).fetchone()
+    row = conn.execute("SELECT * FROM plan_steps WHERE request_key = ?", (request_key,)).fetchone()
     if row["student_id"] != student_id:
         raise ValueError("This form belongs to another child. Reload the page.")
+    # `DO NOTHING` is right for a double-click or a POST retry, where the words are identical.
+    # It is wrong for Back, edit, Save: the token is the same, the plan is not, and the insert
+    # is silently dropped while the page answers "Saved." The family would read a commitment
+    # that is not the one stored. Same token with different words is a conflict to show, not a
+    # duplicate to swallow.
+    if any(row[k] != values[k] for k in FIELDS):
+        raise Conflict("This step was already saved from this form. Open it again to change it.")
     return row["id"]
 
 

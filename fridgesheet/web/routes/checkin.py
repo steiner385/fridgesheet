@@ -200,8 +200,12 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
     except plans.Conflict as exc:
         # Show what the other person saved, and carry their revision so that one more Save --
         # after reading it -- applies these words on top.
-        latest = plans.one(conn, student["id"], step_id)
-        values["revision"] = latest["revision"]
+        # `step_id` is None when the conflict came from a create, and `one` returns None when
+        # the step was deleted between the form load and this save -- neither has a revision
+        # to carry, and neither should be a 500.
+        latest = plans.one(conn, student["id"], step_id) if step_id is not None else None
+        if latest is not None:
+            values["revision"] = latest["revision"]
         ctx.update(values=values, error=str(exc), latest=latest)
         return render(request, conn, "plan_step.html", status_code=409, **ctx)
     except ValueError as exc:
