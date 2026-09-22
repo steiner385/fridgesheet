@@ -45,6 +45,9 @@ td.sources { white-space: nowrap; }
 /* The parent's own verdict on a row, where the Flag column used to be a column. */
 .badge.flag { background: var(--wash); border: 1px solid var(--rule); color: var(--ink); }
 th .arrow { color: var(--muted); font-size: 11px; }
+/* The hour an assignment is actually due. Darker than `.rel`, because "7:20am" is the fact
+   that decides whether tonight is the deadline; never wrapped away from its date. */
+td .at { font-size: 12px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }

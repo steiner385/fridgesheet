@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from ...dates import due_time
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile
 from . import num
@@ -51,6 +52,10 @@ class ItemView:
     # kept apart, for a table with a column each; `status` stays for the sort, the detail
     # card's "Says" and everything that already reads it.
     due_relative: str = ""          # "today", "tomorrow", "Sun", "3 days ago"
+    #: "7:20am", "11:59pm", or "" for a HAC-only row, whose 23:59 this app invented rather
+    #: than read (`dates.due_time`). Precomputed here, as `due_relative` is, so the templates
+    #: never have to know which source a time came from.
+    due_time: str = ""
     handed_in: str = ""             # "Yes", "Late", "No", "Excused", "—" (nothing to hand in online)
     handed_in_at: datetime | None = None
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
@@ -188,6 +193,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         grade, zero = grade_text(r, obs)
         out.append(ItemView(
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
+            due_time=due_time(due, from_canvas="canvas" in obs),
             outcome=outcomes.classify(r, obs, now),
             id=r["id"], key=r["key"], name=r["name"], course_id=r["course_id"], course_short=r["course_short"],
             course_name=r["course_name"], kind=r["kind"], points=r["points"], due=reconcile.due_of(r),
