@@ -11,7 +11,7 @@
 {%- endmacro %}
 {% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
 <h2>Open work</h2>
-<p class="muted">Past due and still inside the late-work window, then due in the next {{ days_ahead }} days. The same rows the printed sheet prints.</p>
+<p class="muted">Past due and still inside the late-work window, then due in the next {{ days_ahead }} days. The printed sheet also drops anything more than its own <em>overdue days</em> past due, so a very old row can appear here and not on paper.</p>
 {% for s, w in groups %}
 <section class="kid" id="{{ s.key }}">
   <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
@@ -25,7 +25,7 @@
     <tbody>
     {% for v in w.fixable %}
     <tr class="overdue" id="row-{{ v.id }}">
-      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
+      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
       <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
       <td>{{ item_cell(s, v) }}</td>
       <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}</td>
@@ -45,7 +45,7 @@
     <tbody>
     {% for v in w.upcoming %}
     <tr id="row-{{ v.id }}">
-      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
+      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
       <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
       <td>{{ item_cell(s, v) }}</td>
       <td>{{ pts(v.points) }}</td>

@@ -100,3 +100,21 @@ def test_dashboard_due_counts_link_to_the_kids_section_of_the_open_page(tmp_path
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/").text
     assert 'href="/open#Alex"' in body and "1 due today" in body
+
+
+def test_the_credit_text_reaches_the_page_and_the_column(tmp_path):
+    """`credit` is the parent's own words next to a late-work rule -- "50% after Friday" --
+    and the Credit thru column exists to show them.
+
+    The default `Rule()` carries no credit text, so every other test here asserts `credit ==
+    ""` and would pass just as well if `credit` were never threaded into `ItemView` at all.
+    This one uses a rule that has some, so deleting that wiring fails a test instead of
+    quietly emptying a column nobody notices until a parent looks for their own note.
+    """
+    conn = seed(tmp_path)
+    alex = students.by_key(conn, "Alex")
+    rules = late_rules.LateRules(late_rules.Rule(credit="50% after the window"), [], [])
+    w = items.open_work(conn, alex, now=NOW, rules=rules, days_ahead=14)
+    conn.close()
+    assert w.fixable, "the fixture must have fixable work for this to mean anything"
+    assert all(v.credit == "50% after the window" for v in w.fixable)
