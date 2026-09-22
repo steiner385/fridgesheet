@@ -1,5 +1,24 @@
 /* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
-:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; }
+:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+
+/* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
+   :root on purpose: a page about one child carries it on <body>, and the Open work page --
+   which shows every child at once -- carries it on each kid section instead.
+
+   A tier redefines every token rather than some, so no page ever inherits a colour nobody
+   designed. Nothing conveyed by colour alone: what is red here is red *and* a word, which
+   is the accessibility requirement and the age requirement at the same time. */
+[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+
+/* A tier sets its type scale here; everything sized in rem follows it. */
+html { font-size: var(--type-root); }
+
+/* Roomier rows for the younger readers -- the same rows, with space to land a finger and
+   to tell one from the next. */
+[data-tier="early"] table.items th, [data-tier="early"] table.items td { padding: 12px 10px; }
+[data-tier="middle"] table.items th, [data-tier="middle"] table.items td { padding: 9px 9px; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
 a { color: var(--accent); }
