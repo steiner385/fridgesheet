@@ -59,4 +59,5 @@ def describe(run=subprocess.run) -> ServiceInfo:
         if m:
             fields.setdefault(m.group(1).strip(), m.group(2))
     status = fields.get("Status", "")
-    return ServiceInfo("task-scheduler", True, status.lower() == "running", f"logon task {status or 'installed'}")
+    return ServiceInfo("task-scheduler", True, status.lower() == "running",
+                       f"logon task {status or 'installed'}", owner=fields.get("Run As User", ""))

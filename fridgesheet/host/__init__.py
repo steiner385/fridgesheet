@@ -138,3 +138,7 @@ class ServiceInfo:
     installed: bool
     active: bool
     detail: str
+    #: The account the unit or task runs as, "" when unknown. A per-user logon task only
+    #: fires for its owner, and a per-user install lives in that owner's profile, so an
+    #: update run by anyone else builds a second copy and leaves the running one alone.
+    owner: str = ""
