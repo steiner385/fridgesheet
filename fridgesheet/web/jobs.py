@@ -163,12 +163,14 @@ class Worker:
                 outcome, message = ("OK" if r.ok else "FAIL"), r.message
             elif job.kind == "preview":
                 pdf = self.actions.preview(home=home, log=log, settings=settings,
-                                           report_key=job.params.get("report", "open-work"))
+                                           report_key=job.params.get("report", "open-work"),
+                                           refresh=job.params.get("refresh_first", False))
                 job.pdf = pdf
                 outcome, message = ("OK", f"built {pdf}") if pdf else ("FAIL", "no sheet was built")
             elif job.kind == "print":
                 rc = self.actions.print_now(home=home, log=log, settings=settings, date=job.params.get("date"),
-                                            report_key=job.params.get("report", "open-work"))
+                                            report_key=job.params.get("report", "open-work"),
+                                            refresh=job.params.get("refresh_first", False))
                 outcome, message = ("OK" if rc == 0 else "FAIL"), (job.lines[-1] if job.lines else "")
             elif job.kind == "doctor":
                 ok = self.actions.run_doctor(home=home, log=log, settings=settings)

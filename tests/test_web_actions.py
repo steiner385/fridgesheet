@@ -232,7 +232,7 @@ def test_preview_runs_a_forced_dry_run_and_opens_the_pdf(tmp_path):
     log = lines.append          # one bound method, so the identity check below is meaningful
     pdf = actions.preview(home=tmp_path, log=log, settings=Settings(home=tmp_path), run=fake_run, opener=opened.append, today=NOW.date())
     assert pdf == tmp_path / "sheets" / "2026-09-14" / "sheet.pdf" and opened == [pdf]
-    assert seen["key"] == "open-work" and seen["opts"] == runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web")
+    assert seen["key"] == "open-work" and seen["opts"] == runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web", no_refresh=True)
     assert seen["opts"].trigger == "web"
     assert seen["echo"] is log and any("dry-run built" in l for l in lines)
     assert actions.preview(home=tmp_path, log=log, settings=Settings(home=tmp_path), run=lambda *a, **k: 1, opener=opened.append, today=NOW.date()) is None
@@ -287,14 +287,31 @@ def test_print_now_forces_a_reprint(tmp_path):
         return 0
 
     assert actions.print_now(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run) == 0
-    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, trigger="web")
+    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, trigger="web", no_refresh=True)
     assert seen["opts"].trigger == "web"
     # `force_print` is what makes the button print a report whose schedule is PDF-only; the
     # schedule's own run has no such flag and still only builds.
     assert seen["opts"].force_print is True
     assert actions.print_now(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run,
                              date="2026-09-14") == 0
-    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, date="2026-09-14", trigger="web")
+    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, date="2026-09-14", trigger="web", no_refresh=True)
+
+
+def test_preview_and_print_now_can_force_a_refresh_first(tmp_path):
+    """The "Refresh data first" checkbox: when checked, `refresh=True` reaches the runner as
+    `no_refresh=False` -- the old, always-pull behaviour -- instead of the new fast default."""
+    seen = {}
+
+    def fake_run(key, opts, settings, **kw):
+        seen["opts"] = opts
+        return 0
+
+    actions.preview(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run,
+                    opener=lambda p: None, today=NOW.date(), refresh=True)
+    assert seen["opts"] == runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web", no_refresh=False)
+
+    actions.print_now(home=tmp_path, log=lambda l: None, settings=Settings(home=tmp_path), run=fake_run, refresh=True)
+    assert seen["opts"] == runner.RunOptions(force=True, reprint=True, force_print=True, trigger="web", no_refresh=False)
 
 
 def test_status_line_reports_last_run_and_next_run(tmp_path):

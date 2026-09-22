@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from fridgesheet import config
+from fridgesheet import config, host
 
 MARKER = "FRIDGESHEET_TEST_MARKER"
 
@@ -278,3 +278,58 @@ def test_a_reports_key_that_is_not_a_table_is_ignored_like_any_other_section(tmp
     s = config.Settings(home=tmp_path)
     config.settings_from_doc({"reports": "oops", "account": {"username": "p@example.org"}}, s)
     assert s.reports == {} and s.username == "p@example.org"
+
+
+# --- [refresh]: the app's own data-refresh schedule ------------------------------------
+
+def _doc_refresh(**kw) -> dict:
+    return {"refresh": {**kw}}
+
+
+def test_refresh_defaults_when_the_table_is_absent():
+    s = config.Settings()
+    config.settings_from_doc({}, s)
+    assert s.refresh.enabled is False
+    assert s.refresh.every_hours == 3
+    assert (s.refresh.start, s.refresh.end) == ("06:00", "21:00")
+    assert s.refresh.days == list(host.DAY_NAMES)          # all seven; grades post at weekends
+
+
+def test_refresh_reads_every_field():
+    s = config.Settings()
+    config.settings_from_doc(_doc_refresh(enabled=True, every_hours=4, start="07:00",
+                                          end="19:00", days=["Mon", "Wed"]), s)
+    assert s.refresh.enabled is True and s.refresh.every_hours == 4
+    assert (s.refresh.start, s.refresh.end) == ("07:00", "19:00")
+    assert s.refresh.days == ["Mon", "Wed"]
+
+
+@pytest.mark.parametrize("bad", ["three", 2.5, None, [], True])
+def test_a_misshapen_every_hours_keeps_the_default(bad):
+    """The `[reports]` rule: a wrong *shape* falls back rather than raising, because a
+    TypeError here tracebacks out of `schedule remove --all` during uninstall."""
+    s = config.Settings()
+    config.settings_from_doc(_doc_refresh(every_hours=bad), s)
+    assert s.refresh.every_hours == 3
+
+
+@pytest.mark.parametrize("bad", [5, "Mon", None, {}])
+def test_misshapen_days_keep_the_default(bad):
+    s = config.Settings()
+    config.settings_from_doc(_doc_refresh(days=bad), s)
+    assert s.refresh.days == list(host.DAY_NAMES)
+
+
+def test_a_refresh_table_that_is_not_a_table_keeps_the_defaults():
+    s = config.Settings()
+    config.settings_from_doc({"refresh": "yes please"}, s)
+    assert s.refresh.enabled is False and s.refresh.every_hours == 3
+
+
+@pytest.mark.parametrize("field,bad", [("start", "6am"), ("end", "25:00"), ("start", 600)])
+def test_a_time_that_is_not_a_time_is_a_config_error(field, bad):
+    """The one exception to falling back: a refresh silently running at the wrong hour is
+    worse than one that refuses to install."""
+    s = config.Settings()
+    with pytest.raises(config.ConfigError, match="refresh"):
+        config.settings_from_doc(_doc_refresh(**{field: bad}), s)

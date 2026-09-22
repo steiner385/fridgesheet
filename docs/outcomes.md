@@ -80,6 +80,24 @@ two teachers typed differently — the same due date, the same points, exactly o
 and every number in the two titles agreeing — because an assignment that fails to pair
 shows up **twice**: once as *done on paper* from HAC and once as *unknown* from Canvas.
 
+### Two assignments with the same title
+
+Pairing joins one Canvas item to one HAC item. It never joins two Canvas items to each
+other, and that is deliberate. A teacher may enter the same title twice in one course —
+seen live as `Cool-down: Find the Volume of a Figure`, Canvas assignments **2571430** and
+**2571431**, same course, same 4 points, same due date, both unsubmitted — and those are two
+pieces of work, not one listed twice. `items.key` is `canvas:<id>`, the source's own
+identity, so the app has no way to confuse them and no licence to merge them: collapsing the
+pair would under-count the work and let a kid finish one of the two and appear done.
+
+The fallback matcher inherits the same caution from the other side. It pairs a HAC row to a
+Canvas item only when **exactly one** candidate fits the date and the points, so when a
+course holds two identical Canvas assignments, a HAC grade that matches both is attached to
+neither and stays a HAC-only row. An ambiguous match is left visible rather than guessed.
+
+Pinned by `test_two_canvas_assignments_with_the_same_title_stay_two_items` and
+`test_a_hac_row_will_not_guess_between_two_identical_canvas_assignments`.
+
 ## What the sources actually provide
 
 | signal | Canvas | HAC |

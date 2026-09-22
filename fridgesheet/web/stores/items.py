@@ -11,12 +11,14 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from ...dates import due_time
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile
 from . import num
 
 SHOW = ("open", "actionable", "all")
 SORTS = ("due", "course", "name", "status")
+DIRECTIONS = ("asc", "desc")
 FLAGGED = ("any", "marked", "handled", "none")
 DAYS_AHEAD = 14
 
@@ -50,6 +52,10 @@ class ItemView:
     # kept apart, for a table with a column each; `status` stays for the sort, the detail
     # card's "Says" and everything that already reads it.
     due_relative: str = ""          # "today", "tomorrow", "Sun", "3 days ago"
+    #: "7:20am", "11:59pm", or "" for a HAC-only row, whose 23:59 this app invented rather
+    #: than read (`dates.due_time`). Precomputed here, as `due_relative` is, so the templates
+    #: never have to know which source a time came from.
+    due_time: str = ""
     handed_in: str = ""             # "Yes", "Late", "No", "Excused", "—" (nothing to hand in online)
     handed_in_at: datetime | None = None
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
@@ -187,6 +193,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         grade, zero = grade_text(r, obs)
         out.append(ItemView(
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
+            due_time=due_time(due, from_canvas="canvas" in obs),
             outcome=outcomes.classify(r, obs, now),
             id=r["id"], key=r["key"], name=r["name"], course_id=r["course_id"], course_short=r["course_short"],
             course_name=r["course_name"], kind=r["kind"], points=r["points"], due=reconcile.due_of(r),
@@ -242,15 +249,25 @@ def _sort_key(sort: str):
     return due_key
 
 
-def sorted_views(views: list[ItemView], sort: str = "due") -> list[ItemView]:
+def sorted_views(views: list[ItemView], sort: str = "due", direction: str = "asc") -> list[ItemView]:
     """Order rows the way `list_items` does. The course page merges two lists (a course and
-    its twin in the other source) into one table and sorts the whole of it with this."""
-    return sorted(views, key=_sort_key(sort if sort in SORTS else "due"))
+    its twin in the other source) into one table and sorts the whole of it with this.
+
+    `direction` reverses the whole comparison, tie-breakers included -- so "due, newest
+    first" also runs its same-day items backwards. That is the reading a parent gets from a
+    turned-around arrow: the table they were looking at, upside down. Reversing only the
+    named column and leaving the tie-breakers ascending is the other defensible answer; it
+    keeps same-day work alphabetical either way, at the cost of a table that is not quite
+    the mirror of itself. Anything but "desc" sorts ascending, because a hand-typed or
+    pasted `dir=` is a query string, not a promise."""
+    return sorted(views, key=_sort_key(sort if sort in SORTS else "due"),
+                  reverse=direction == "desc")
 
 
 def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, show: str = "open",
                source: str | None = None, course_id: int | None = None, kind: str | None = None,
-               flagged: str | None = None, sort: str = "due", outcome: str | None = None) -> list[ItemView]:
+               flagged: str | None = None, sort: str = "due", outcome: str | None = None,
+               direction: str = "asc") -> list[ItemView]:
     """`outcome` is a filter on `outcomes.classify`; when one is given, `show` is forced to
     "all", because "not done" work that is past its credit window is exactly what a parent
     filtering on "not done" wants to see and exactly what "open" hides."""
@@ -268,7 +285,7 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         if peer and peer["peer_course_id"]:
             course_ids.add(peer["peer_course_id"])
     views = [v for v in _views(conn, student, now=now, rules=rules) if _keep(v, show, source, course_ids, kind, flagged, outcome)]
-    return sorted_views(views, sort)
+    return sorted_views(views, sort, direction)
 
 
 def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: datetime, rules) -> ItemView | None:

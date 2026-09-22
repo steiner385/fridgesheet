@@ -240,15 +240,22 @@ def test_login(*, home: Path, log: Callable[[str], None], settings: config.Setti
 
 
 def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
-            run=None, opener=None, today: date | None = None, report_key: str = REPORT_KEY) -> Path | None:
+            run=None, opener=None, today: date | None = None, report_key: str = REPORT_KEY,
+            refresh: bool = False) -> Path | None:
+    """Build today's sheet from the current snapshot -- fast, no live pull -- unless `refresh`
+    asks to pull Canvas + HAC first (the "Refresh data first" checkbox next to the button)."""
     from . import db
     from .stores import runs as runstore
     settings = settings or config.load_settings()
     run = run or runner.run
     opener = opener or (lambda p: None)   # the browser links the PDF; nothing opens a viewer on the server
-    log(f"Refreshing Canvas + HAC and building today's sheet ({RUN_ESTIMATE})...")
+    if refresh:
+        log(f"Refreshing Canvas + HAC and building today's sheet ({RUN_ESTIMATE})...")
+    else:
+        log("Building today's sheet from the last refresh...")
     with forward_logs(log):
-        rc = run(report_key, runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web"), settings, echo=log)
+        rc = run(report_key, runner.RunOptions(dry_run=True, force=True, notify=False, trigger="web",
+                                               no_refresh=not refresh), settings, echo=log)
     # The run itself recorded the exact PDF it built in the `runs` row (runner._record_run,
     # on the dry-run branch too) -- read that back instead of guessing a filename or globbing
     # the day's directory, which sorts by filename and can silently pick up a stale PDF left
@@ -275,8 +282,11 @@ def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings
 
 
 def print_now(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None, run=None,
-              date: str | None = None, report_key: str = REPORT_KEY) -> int:
+              date: str | None = None, report_key: str = REPORT_KEY, refresh: bool = False) -> int:
     """The Reports page's "Print now": paper, now, whatever the schedule says.
+
+    Prints from the current snapshot -- fast, no live pull -- unless `refresh` asks to pull
+    Canvas + HAC first (the "Refresh data first" checkbox next to the button).
 
     `force_print` is why this beats a report whose *schedule* is PDF-only. Without it the run
     built the PDF, printed nothing and recorded the job OK -- a button that says it printed
@@ -284,10 +294,13 @@ def print_now(*, home: Path, log: Callable[[str], None], settings: config.Settin
     """
     settings = settings or config.load_settings()
     run = run or runner.run
-    log(f"Refreshing Canvas + HAC, building and printing today's sheet ({RUN_ESTIMATE})...")
+    if refresh:
+        log(f"Refreshing Canvas + HAC, building and printing today's sheet ({RUN_ESTIMATE})...")
+    else:
+        log("Building and printing today's sheet from the last refresh...")
     with forward_logs(log):
         return run(report_key, runner.RunOptions(force=True, reprint=True, force_print=True, date=date,
-                                                 trigger="web"), settings, echo=log)
+                                                 trigger="web", no_refresh=not refresh), settings, echo=log)
 
 
 def status_line(home: Path, describe=None) -> str:
@@ -472,10 +485,15 @@ class RefreshResult:
 
 
 def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
-            collect=None, now: datetime | None = None) -> RefreshResult:
+            collect=None, now: datetime | None = None, trigger: str = "web") -> RefreshResult:
     """Refresh now: pull Canvas and HAC, ingest the snapshot, record the run. Holds the runner's
     lock so a scheduled print in progress is never pulled out from under. Every failure is a
-    result, never an exception -- the page shows it."""
+    result, never an exception -- the page shows it.
+
+    `trigger` is what the run is recorded as: "web" for the Refresh now button, "schedule"
+    for the app's own data-refresh task. It is the only thing that differs between them --
+    a scheduled refresh is this same collect / ingest / record, under the same lock.
+    """
     from .. import collector
     from . import db, ingest
     from .stores import runs as runstore
@@ -491,7 +509,7 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         try:
             conn = db.open_db(home)
             try:
-                runstore.record(conn, "refresh", started.isoformat(), now2, "web", "FAIL", message)
+                runstore.record(conn, "refresh", started.isoformat(), now2, trigger, "FAIL", message)
             finally:
                 conn.close()
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
@@ -522,7 +540,7 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         try:
             conn2 = db.open_db(home)
             try:
-                runstore.record(conn2, "refresh", started.isoformat(), datetime.now(tz).isoformat(), "web", outcome, message)
+                runstore.record(conn2, "refresh", started.isoformat(), datetime.now(tz).isoformat(), trigger, outcome, message)
             finally:
                 conn2.close()
         except Exception as e:  # noqa: BLE001  the database is a passenger here too

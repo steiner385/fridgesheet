@@ -273,3 +273,61 @@ def test_forget_refuses_a_schedule_this_app_did_not_write(tmp_path):
     out = schedules.forget("view:1", home=home, log=lambda s: None, scheduling=sched)
     assert not out.ok and sched.removed == []
     assert any("did not write" in e for e in out.errors)
+
+
+# --- the app's own data refresh --------------------------------------------------------
+
+def test_saving_the_refresh_installs_one_task_with_every_time(tmp_path):
+    from fridgesheet.web import schedules
+    (tmp_path / schedules.LOGIN_STAMP).write_text("ok")
+    fake = FakeScheduling()
+    out = schedules.save_refresh(enabled=True, every_hours=3, start="06:00", end="12:00",
+                                 days=["Mon", "Tue"], home=tmp_path, log=lambda _m: None,
+                                 scheduling=fake)
+    assert out.ok, out.errors
+    assert len(fake.installed) == 1
+    assert fake.installed[0]["key"] == "data-refresh"
+    assert fake.installed[0]["times"] == ["06:00", "09:00", "12:00"]
+
+
+def test_disabling_the_refresh_removes_the_task_and_keeps_the_settings(tmp_path):
+    from fridgesheet import config
+    from fridgesheet.web import schedules
+    fake = FakeScheduling()
+    schedules.save_refresh(enabled=False, every_hours=4, start="07:00", end="19:00",
+                           days=["Mon"], home=tmp_path, log=lambda _m: None, scheduling=fake)
+    assert fake.removed == ["data-refresh"]
+    doc = config.load_config_doc(tmp_path / schedules.CONFIG_NAME)
+    assert doc["refresh"]["every_hours"] == 4 and doc["refresh"]["enabled"] is False
+
+
+def test_a_refusal_from_the_expansion_is_an_error_not_a_traceback(tmp_path):
+    from fridgesheet.web import schedules
+    fake = FakeScheduling()
+    out = schedules.save_refresh(enabled=True, every_hours=1, start="00:00", end="23:00",
+                                 days=["Mon"], home=tmp_path, log=lambda _m: None, scheduling=fake)
+    assert not out.ok and any("12" in e for e in out.errors)
+    assert fake.installed == []
+
+
+def test_saving_the_refresh_leaves_a_report_schedule_alone(tmp_path):
+    from fridgesheet.web import schedules
+    (tmp_path / schedules.LOGIN_STAMP).write_text("ok")
+    fake = FakeScheduling()
+    schedules.save_refresh(enabled=True, every_hours=6, start="06:00", end="18:00",
+                           days=["Mon"], home=tmp_path, log=lambda _m: None, scheduling=fake)
+    assert [i["key"] for i in fake.installed] == ["data-refresh"]
+    assert fake.removed == []
+
+
+def test_a_report_may_not_claim_the_reserved_refresh_key(tmp_path):
+    """config.toml is hand-editable and `schedule remove --all` feeds keys straight off
+    disk, so a `[reports.data-refresh]` must be refused rather than installed over the
+    app's own task."""
+    from fridgesheet.web import schedules
+    fake = FakeScheduling()
+    out = schedules.save(key="Data-Refresh", enabled=True, time="14:00", days=["Mon"],
+                         printer="", prints=True, home=tmp_path, log=lambda _m: None,
+                         scheduling=fake)
+    assert not out.ok and any("reserved" in e.lower() for e in out.errors)
+    assert fake.installed == []
