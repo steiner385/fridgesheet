@@ -76,6 +76,13 @@ th .arrow { color: var(--muted); font-size: 11px; }
    that decides whether tonight is the deadline; never wrapped away from its date. */
 td .at { font-size: 12px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
+/* "On paper" and "Unknown": the two Handed in cells that are not an answer about the child.
+   Quiet, so the eye still lands on the "No" three rows down, but words rather than the "—"
+   they used to share -- one glyph for two different non-answers reads as a third thing. */
+td.handed.quiet { color: var(--muted); }
+/* The line under a table that says what those two words mean. A tooltip would not survive
+   the phone or the kiosk, which is where this app is actually read. */
+p.legend { font-size: 12px; margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }

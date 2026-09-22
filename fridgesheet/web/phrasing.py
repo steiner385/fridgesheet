@@ -26,6 +26,11 @@ PHRASES: dict[str, dict[str, str]] = {
     "Late, ungraded":      {"early": "Handed in late, no grade yet", "middle": "Late, not graded", "older": "Late, ungraded"},
     "Submitted, ungraded": {"early": "Handed in - waiting", "middle": "Submitted, not graded", "older": "Submitted, ungraded"},
     "Unpublished":         {"early": "Not open yet", "middle": "Not published", "older": "Unpublished"},
+    # --- the two "Handed in" cells that are neither yes nor no -------------------------
+    # Neither may imply the work was done. "On paper" says only that the assignment is not
+    # an online one; "Done on paper" would assert a fact no source gave us.
+    "On paper":            {"early": "This one is on paper", "middle": "On paper, not online", "older": "On paper"},
+    "Unknown":             {"early": "We can't tell", "middle": "Not recorded", "older": "Unknown"},
     # --- what the two sources disagree about ------------------------------------------
     "disagree":            {"early": "Ask your teacher", "middle": "Sources disagree", "older": "disagree"},
     "past_credit":         {"early": "Too late to fix", "middle": "Past the credit window", "older": "past credit"},

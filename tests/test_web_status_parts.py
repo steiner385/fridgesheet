@@ -59,13 +59,26 @@ def test_handed_in_reads_the_submission_not_the_grade():
 
 def test_paper_and_in_class_work_is_not_a_no():
     """Canvas lists paper work as unsubmitted forever. That is not the kid skipping it."""
-    assert items.handed_in_text(PAPER, {"canvas": _canvas()}) == ("—", None)
-    assert items.handed_in_text({"kind": "in class", "points": 5}, {"canvas": _canvas()}) == ("—", None)
+    assert items.handed_in_text(PAPER, {"canvas": _canvas()}) == ("On paper", None)
+    assert items.handed_in_text({"kind": "in class", "points": 5}, {"canvas": _canvas()}) == ("On paper", None)
 
 
 def test_hac_alone_cannot_say_whether_it_was_handed_in():
-    assert items.handed_in_text(ONLINE, {"hac": _hac(28.0)}) == ("—", None)
-    assert items.handed_in_text(ONLINE, {}) == ("", None)
+    assert items.handed_in_text(ONLINE, {"hac": _hac(28.0)}) == ("Unknown", None)
+
+
+def test_an_item_no_source_describes_is_unknown_not_blank():
+    """A blank cell reads as an answer. It is not one."""
+    assert items.handed_in_text(ONLINE, {}) == ("Unknown", None)
+
+
+def test_nothing_to_hand_in_and_nobody_can_say_are_different_cells():
+    """The bug this split fixes: one dash stood for both, so the column could not be read.
+    "On paper" is not applicable; "Unknown" is not answered. Neither is "No"."""
+    nothing_to_submit, _ = items.handed_in_text(PAPER, {"canvas": _canvas()})
+    cannot_say, _ = items.handed_in_text(ONLINE, {"hac": _hac(28.0)})
+    assert nothing_to_submit != cannot_say
+    assert "No" not in (nothing_to_submit, cannot_say)
 
 
 # --- grade ------------------------------------------------------------------------------------

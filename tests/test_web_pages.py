@@ -1,6 +1,8 @@
 """Dashboard and Kid pages: what a parent sees, and the notes and flags round trip."""
 from __future__ import annotations
 
+import re
+
 from fridgesheet.web import db
 from fridgesheet.web.stores import flags, notes
 from tests.web_fixtures import NOW, app_for, seed
@@ -47,8 +49,13 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     assert "Essay draft" not in body                                 # submitted: not open
     # Status is three columns now (tests/test_web_status_parts.py): the teacher's "Missing"
     # is a Grade, "today" hangs off the Due date, and a HAC-only ungraded item says
-    # "Not yet" for its grade and "—" for handed-in, since HAC does not record submissions.
+    # "Not yet" for its grade and "Unknown" for handed-in, since HAC does not record
+    # submissions. "Unknown" is a word rather than the dash it used to share with paper work.
     assert ">Missing<" in body and 'class="rel">today</span>' in body and ">Not yet<" in body
+    handed = re.findall(r'<td class="handed[^"]*">(.*?)</td>', body, re.S)
+    assert "Unknown" in handed                                        # the HAC-only row says so in words
+    assert not [c for c in handed if c.strip() in ("—", "")]          # no cell is a bare dash or blank
+    assert "nothing to hand in online" in body                        # the column's legend
     assert 'name="show"' in body and 'value="actionable"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
