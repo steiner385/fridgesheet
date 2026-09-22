@@ -12,8 +12,8 @@ HostName:                             GRAPHY
 TaskName:                             \\Fridge Sheet - web
 Status:                               Running
 Logon Mode:                           Interactive/Background
-Task To Run:                          C:\\Users\\lakotarunner\\AppData\\Local\\Programs\\Fridge Sheet\\FridgeSheet.exe web --no-browser
-Run As User:                          lakotarunner
+Task To Run:                          C:\\Users\\houserunner\\AppData\\Local\\Programs\\Fridge Sheet\\FridgeSheet.exe web --no-browser
+Run As User:                          houserunner
 """
 
 
@@ -24,11 +24,12 @@ def _run_returning(stdout: str, code: int = 0):
 
 
 def test_describe_reports_the_account_the_task_runs_as():
-    """Seen on graphy 2026-09-22: the task runs as `lakotarunner` while SSH arrives as
-    `tony`. A self-update by the wrong user builds a second install and changes nothing
-    anyone can see, so the owner has to be readable."""
+    """Seen on the household's Windows box, 2026-09-22: the logon task runs as one
+    account while an SSH session arrives as another. A self-update by the wrong user
+    builds a second install under a different profile and reports success -- the worst
+    failure, because nothing visible changes."""
     info = service_windows.describe(run=_run_returning(QUERY_V))
-    assert info.owner == "lakotarunner"
+    assert info.owner == "houserunner"
     assert info.installed and info.active
 
 
