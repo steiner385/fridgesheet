@@ -110,6 +110,26 @@ def app_for(home: Path, now: datetime = NOW, worker: bool = False) -> TestClient
     return TestClient(application, headers=LOCAL_HOST_HEADERS)
 
 
+def client_with_grades(home: Path, **grades) -> TestClient:
+    """A client whose config.toml carries these grades.
+
+    `app_for` builds `config.Settings(home=home)` and never reads config.toml --
+    only `AppState.reload()` does that (app.py:62-72). So the file is written first and the
+    state reloaded once, which is also what the Settings page does after a save.
+    """
+    if grades:
+        p = home / "config.toml"
+        text = p.read_text(encoding="utf-8") if p.exists() else ""
+        rows = ", ".join(f"{k} = {v}" for k, v in grades.items())
+        p.write_text(text + f"""
+[kids]
+grades = {{ {rows} }}
+""", encoding="utf-8")
+    c = app_for(home)
+    c.app.state.fridgesheet.reload()
+    return c
+
+
 REFRESH_TIMES = ("2026-09-13T06:00:00-04:00", "2026-09-14T06:00:00-04:00", "2026-09-15T13:50:00-04:00")
 
 
