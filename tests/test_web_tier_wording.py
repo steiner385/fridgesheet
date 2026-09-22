@@ -81,6 +81,51 @@ def test_an_apostrophe_phrase_stays_escaped(tmp_path):
     assert "hasn't" not in body
 
 
+def _row(body: str, item_id: int) -> str:
+    """One row's markup, so an assertion can't pass on some other row's text."""
+    import re
+    m = re.search(rf'id="row-{item_id}">(.*?)</tr>', body, re.S)
+    assert m, f"no row for item {item_id}"
+    return m.group(1)
+
+
+def test_a_young_reader_sees_the_due_hour_as_a_part_of_day(tmp_path):
+    """Quiz 1 is a Canvas row due 9/12 at 23:59 -- "evening", the same timestamp `due_time`
+    would print as "11:59pm", said as the part of the day it already is."""
+    conn = seed(tmp_path)
+    iid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    conn.close()
+    body = html.unescape(_client(tmp_path, Alex=5).get("/kids/Alex?show=all").text)
+    row = _row(body, iid)
+    assert "evening" in row
+    assert "11:59pm" not in row
+
+
+def test_an_older_reader_still_sees_the_clock(tmp_path):
+    """Proves the branch actually branches: without this, a template that always took the
+    `early` path would still pass the test above."""
+    conn = seed(tmp_path)
+    iid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    conn.close()
+    body = html.unescape(_client(tmp_path, Alex=9).get("/kids/Alex?show=all").text)
+    row = _row(body, iid)
+    assert "11:59pm" in row
+    assert "evening" not in row
+
+
+def test_a_hac_only_row_shows_neither_even_at_the_youngest_tier(tmp_path):
+    """Participation is HAC-only: no clock time to show, and so no part of day to name
+    either, even for the one tier that would otherwise show one -- the `from_canvas` guard,
+    proven end to end rather than only at the unit level."""
+    conn = seed(tmp_path)
+    iid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
+    conn.close()
+    body = html.unescape(_client(tmp_path, Alex=5).get("/kids/Alex?show=all").text)
+    row = _row(body, iid)
+    assert "morning" not in row and "afternoon" not in row and "evening" not in row
+    assert "am" not in row.lower() and "pm" not in row.lower()
+
+
 def test_open_work_shows_the_plain_words_too(tmp_path):
     """/open lists every kid on one page, and only Alex has a grade set here -- so the check
     is scoped to Alex's own <section>, not the whole body: Sam's rows are correctly still the
