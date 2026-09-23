@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 
 
 def visible(conn: sqlite3.Connection) -> list[sqlite3.Row]:
@@ -74,3 +75,23 @@ def grade_history(conn: sqlite3.Connection, course_id: int) -> list[sqlite3.Row]
     return conn.execute(
         """SELECT g.*, r.started_at FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
            WHERE g.course_id = ? ORDER BY g.refresh_id""", (course_id,)).fetchall()
+
+
+@dataclass(frozen=True)
+class GradeLine:
+    source: str          # canvas | hac
+    value: float
+    label: str           # "Canvas current" | "HAC average"
+    extra: str           # the letter, or when HAC last updated it
+
+
+def grade_lines(canvas_row, hac_row, pick: str) -> list[GradeLine]:
+    """A class's averages, the family's official source first (sources.py). The other source's
+    number stays, second: a parent choosing HAC still wants to see what Canvas says."""
+    out: list[GradeLine] = []
+    if canvas_row is not None and canvas_row["current"] is not None:
+        out.append(GradeLine("canvas", canvas_row["current"], "Canvas current", canvas_row["letter"] or ""))
+    if hac_row is not None and hac_row["average"] is not None:
+        updated = f"updated {hac_row['last_updated']}" if hac_row["last_updated"] else ""
+        out.append(GradeLine("hac", hac_row["average"], "HAC average", updated))
+    return sorted(out, key=lambda g: g.source != pick)

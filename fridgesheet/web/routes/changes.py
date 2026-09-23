@@ -29,7 +29,8 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     events = changes.since(conn, since=changes.window_start(window, now),
                            student_id=student["id"] if student else None,
                            kinds=(kind,) if kind else None,
-                           limit=changes.DEFAULT_LIMIT, offset=(page_no - 1) * changes.DEFAULT_LIMIT)
+                           limit=changes.DEFAULT_LIMIT, offset=(page_no - 1) * changes.DEFAULT_LIMIT,
+                           prefs=state.sources())
     # The page links keep every filter; the partial cannot see the template's own `base`.
     base = "/changes?" + "".join(f"{k}={v}&" for k, v in (("window", window), ("kid", kid), ("kind", kind)) if v)
     return render(request, conn, "changes.html", current="changes", events=events, window=window, page_no=page_no,

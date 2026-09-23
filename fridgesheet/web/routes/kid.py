@@ -6,6 +6,7 @@ from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, HTTPException, Request
 
+from ... import sources
 from .. import outcomes
 from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import items, notes, students
@@ -76,6 +77,9 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     direction = _direction(request.query_params.get("dir"))
     peer = students.course(conn, c["peer_course_id"]) if c["peer_course_id"] else None
     grades = students.latest_grades(conn, s["id"])
+    own, other = grades.get(course_id), (grades.get(peer["id"]) if peer else None)
+    canvas_g, hac_g = (own, other) if c["source"] == "canvas" else (other, own)
+    grade_lines = students.grade_lines(canvas_g, hac_g, prefs.resolve(s["key"], c["name"]).grades)
     # This course and its twin in the other source are one list to a parent, so the peer's
     # rows join it -- and the headers sort the merged list, not each half.
     rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
@@ -83,7 +87,7 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
         rows += items.list_items(conn, s, now=now, rules=rules, show="all", course_id=peer["id"], sort=sort, direction=direction, prefs=prefs)
         rows = items.sorted_views(rows, sort, direction)
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
-                  grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None,
+                  grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
                   history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,
                   sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
                   notes=notes.for_target(conn, "course", course_id))

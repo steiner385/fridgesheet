@@ -5,10 +5,9 @@
 <h2>{{ course.short_name }} <span class="muted">{{ course.name }}</span></h2>
 <div class="cards">
   <div class="card"><h2>Grade</h2>
-    {% if grade and grade.current is not none %}<p><span class="big">{{ grade.current }}</span> Canvas current{% if grade.letter %} · {{ grade.letter }}{% endif %}</p>{% endif %}
-    {% set h = peer_grade if course.source == 'canvas' else grade %}
-    {% if h and h.average is not none %}<p><span class="big">{{ h.average }}</span> HAC average{% if h.last_updated %} <span class="muted">updated {{ h.last_updated }}</span>{% endif %}</p>{% endif %}
-    {% if not grade and not peer_grade %}<p class="muted">No grade observed yet.</p>{% endif %}
+    {% for g in grade_lines %}
+    <p>{% if loop.first %}<span class="big">{{ g.value }}</span>{% else %}{{ g.value }}{% endif %} {{ g.label }}{% if g.extra %} <span class="muted">{{ g.extra }}</span>{% endif %}{% if loop.first and grade_lines | length > 1 %} <span class="muted">· official</span>{% endif %}</p>
+    {% else %}<p class="muted">No grade observed yet.</p>{% endfor %}
   </div>
   <div class="card"><h2>Teacher</h2>
     {% if course.teacher %}<p>{{ course.teacher }}</p>{% else %}<p class="muted">Not listed.</p>{% endif %}

@@ -75,7 +75,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     # a fetch that comes from this page never omits `weeks`, so grades.json will always treat
     # it as explicit. Match that here with the same clamped `weeks`, so the caption's course
     # list is never broader than the window the chart it captions will actually show.
-    series = trends.grade_series(conn, student_id=sid, since=_since(weeks, now))
+    series = trends.grade_series(conn, student_id=sid, since=_since(weeks, now), prefs=state.sources())
     return render(request, conn, "trends.html", current="trends",
                   kid=student["key"] if student else None, weeks=weeks,
                   series=series, course_names=sorted({s.course_short for s in series}),
@@ -89,14 +89,14 @@ def grades_json(request: Request, conn: sqlite3.Connection = Db, state=State):
     student = _student(conn, request)
     weeks = _explicit_weeks(request)
     since = _since(weeks, state.now()) if weeks is not None else None
-    series = trends.grade_series(conn, student_id=student["id"] if student else None, since=since)
+    series = trends.grade_series(conn, student_id=student["id"] if student else None, since=since, prefs=state.sources())
     course = request.query_params.get("course")
     if course:
         # A course that is not a number matches no course, so it answers with no series --
         # `?course=abc` must not quietly widen to "every class in the house".
         series = [s for s in series if s.course_id == int(course)] if course.isdigit() else []
     return JSONResponse({"series": [
-        {"label": s.label, "points": [[t.timestamp(), v] for t, v in s.points]} for s in series]})
+        {"label": s.label, "official": s.official, "points": [[t.timestamp(), v] for t, v in s.points]} for s in series]})
 
 
 @router.get("/trends/weekly.json")

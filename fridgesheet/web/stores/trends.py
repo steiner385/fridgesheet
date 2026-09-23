@@ -26,6 +26,7 @@ class GradeSeries:
     source: str                       # canvas | hac
     label: str
     points: list[tuple[datetime, float]] = field(default_factory=list)
+    official: bool = False            # the family's grades source for this kid and class (sources.py)
 
 
 @dataclass(frozen=True)
@@ -55,13 +56,13 @@ def _dt(s: str | None) -> datetime | None:
 
 
 def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
-                 since: datetime | None = None) -> list[GradeSeries]:
+                 since: datetime | None = None, prefs=None) -> list[GradeSeries]:
     """One line per course per source: HAC's marking-period average and Canvas' current score.
 
     `grade_observations` only holds rows where something changed, so each point is a real
     move; a flat stretch is simply the absence of points between two of them.
     """
-    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short
+    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, s.key AS student_key
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
              WHERE s.hidden = 0 AND c.hidden = 0"""
@@ -86,10 +87,11 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
             key = (r["course_id"], source)
             s = out.get(key)
             if s is None:
+                pick = (prefs or sources.DEFAULT).resolve(r["student_key"], r["course_name"]).grades
                 s = out[key] = GradeSeries(r["course_id"], r["course_short"], source,
-                                           f"{r['course_short']} ({word})")
+                                           f"{r['course_short']} ({word})", official=source == pick)
             s.points.append((at, float(value)))
-    return [s for s in out.values() if s.points]
+    return sorted((s for s in out.values() if s.points), key=lambda s: not s.official)
 
 
 def _monday(d: date) -> date:

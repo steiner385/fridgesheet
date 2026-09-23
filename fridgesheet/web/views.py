@@ -48,7 +48,7 @@ COLUMNS: dict[str, dict[str, Column]] = {
     ),
     "grades": _cols(
         ("kid", "Kid", "text"), ("course", "Class", "text"), ("source", "Source", "text"),
-        ("label", "Series", "text"), ("value", "Value", "number"), ("at", "Seen", "date"),
+        ("official", "Official", "text"), ("label", "Series", "text"), ("value", "Value", "number"), ("at", "Seen", "date"),
     ),
     "changes": _cols(
         ("at", "When", "date"), ("kid", "Kid", "text"), ("what", "What", "text"),
@@ -58,7 +58,7 @@ COLUMNS: dict[str, dict[str, Column]] = {
 }
 
 DEFAULT_COLUMNS = {"items": ["kid", "course", "name", "status", "due"],
-                   "grades": ["kid", "course", "source", "value", "at"],
+                   "grades": ["kid", "course", "source", "official", "value", "at"],
                    "changes": ["at", "kid", "what", "item", "detail"]}
 
 
@@ -267,26 +267,26 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None) -> list[tuple[dict
     return out
 
 
-def _grade_rows(conn, d, *, now, nicknames) -> list[tuple[dict, dict]]:
+def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict]]:
     out = []
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
-        for series in trends_store.grade_series(conn, student_id=s["id"]):
+        for series in trends_store.grade_series(conn, student_id=s["id"], prefs=prefs):
             for at, value in series.points:
                 row = {"kid": nicknames.get(s["key"], s["key"]), "course": series.course_short,
-                       "source": series.source, "label": series.label,
+                       "source": series.source, "official": "yes" if series.official else "", "label": series.label,
                        "value": _num(value), "at": _date(at)}
                 out.append((row, _keys("grades", row, {"at": at, "value": value})))
     return out
 
 
-def _change_rows(conn, d, *, now, nicknames) -> tuple[list[tuple[dict, dict]], int]:
+def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dict, dict]], int]:
     """Rows, plus how many events the store's own cap left out of the feed entirely -- a count
     `build` folds into `Rendered.truncated` so a household past the cap is told, not just shown
     fewer rows than it has."""
     keys = {s["key"] for s in students_store.visible(conn)}
-    feed = changes_store.since(conn, since=now - timedelta(days=365), limit=MAX_ROWS)
+    feed = changes_store.since(conn, since=now - timedelta(days=365), limit=MAX_ROWS, prefs=prefs)
     out = []
     for e in feed:
         if e.student_key not in keys or (d.scope and e.student_key not in d.scope):
@@ -323,9 +323,9 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
     if d.source == "items":
         pairs = _item_rows(conn, d, now=now, rules=rules, nicknames=nicknames, prefs=prefs)
     elif d.source == "grades":
-        pairs = _grade_rows(conn, d, now=now, nicknames=nicknames)
+        pairs = _grade_rows(conn, d, now=now, nicknames=nicknames, prefs=prefs)
     else:
-        pairs, dropped = _change_rows(conn, d, now=now, nicknames=nicknames)
+        pairs, dropped = _change_rows(conn, d, now=now, nicknames=nicknames, prefs=prefs)
     for f in d.filters:
         pairs = [p for p in pairs if _keep(p[0], f)]
     # Sort on the comparable value beside each row, never on the display string: "9/8" is after
