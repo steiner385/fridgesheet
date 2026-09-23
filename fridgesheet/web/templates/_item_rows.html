@@ -30,22 +30,7 @@
   </tr></thead>
   <tbody>
   {% for v in rows %}
-  <tr id="row-{{ v.id }}">
-    {# The one place a template reads `tier` as a value rather than through the `phrase`
-       filter: this picks between two facts the row already holds (`due_part` vs.
-       `due_time`), it does not translate a word, so the no-branching-on-tier rule for
-       vocabulary does not apply here. #}
-    <td class="due">{{ v.due | md if v.due else '' }}{% if tier == 'early' %}{% if v.due_part %} <span class="at">{{ v.due_part }}</span>{% endif %}{% elif v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
-    <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML" aria-expanded="false" aria-controls="detail-{{ v.id }}">{{ v.name }}</a>
-        {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
-        {% if v.asks %}<a class="qmark" href="{{ q_base | default('') }}#q-{{ v.id }}">question</a>{% endif %}
-        {% if v.step %}<span class="badge plan">in plan</span>{% endif %}
-        {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-        <small><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a>{% if v.kind in ('paper', 'in class') %} · {{ v.kind }}{% endif %}</small></td>
-    {# Red only when the school recorded not-done and the app did not settle it otherwise. #}
-    {% set school_no = (v.grade == 'Missing' or v.grade_zero) and v.verdict.state != 'decided' %}
-    <td class="where{{ ' red' if school_no }}">{{ v | standing(tier) }}</td>
-  </tr>
+  {% include "_item_row.html" %}
   <tr class="detail" hidden><td colspan="3" id="detail-{{ v.id }}"></td></tr>
   {% else %}
   <tr><td colspan="3" class="muted">Nothing matches these filters.</td></tr>

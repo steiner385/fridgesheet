@@ -111,7 +111,8 @@ def live_items(conn: sqlite3.Connection, student_id: int, now: datetime) -> list
     rows = conn.execute(
         """SELECT i.*, c.name AS course_name, c.short_name AS course_short, c.source AS course_source, c.peer_course_id, c.external_id AS course_external_id,
                   pc.name AS peer_course_name, s.key AS kid,
-                  COALESCE(c.teacher_email, pc.teacher_email) AS teacher_email, f.flag AS flag, f.set_at AS flag_set_at
+                  COALESCE(c.teacher_email, pc.teacher_email) AS teacher_email,
+                  COALESCE(c.teacher, pc.teacher) AS teacher, f.flag AS flag, f.set_at AS flag_set_at
            FROM items i JOIN courses c ON c.id = i.course_id JOIN students s ON s.id = i.student_id
            LEFT JOIN courses pc ON pc.id = c.peer_course_id
            LEFT JOIN flags f ON f.item_id = i.id AND f.cleared_at IS NULL

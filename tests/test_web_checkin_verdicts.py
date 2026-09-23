@@ -46,7 +46,7 @@ def test_the_evidence_never_asks_what_the_verdict_has_not(tmp_path):
 def test_the_rail_count_is_the_check_ins_questions(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
-    rail = re.search(r'href="/kids/Alex/check-in"[^>]*>Alex <span class="count">(\d+)</span>', body)
+    rail = re.search(r'href="/kids/Alex/check-in"[^>]*>Alex <span id="qcount-Alex" class="count">(\d+)</span>', body)
     assert rail and int(rail.group(1)) == len(re.findall(r'<article class="card review-card', _groups(body)["Questions"]))
 
 

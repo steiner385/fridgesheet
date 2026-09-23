@@ -64,7 +64,7 @@ def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str 
     else:
         _apply(conn, item_id, prev or "clear", now)
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id))
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), undone=True)
 
 
 @router.get("/questions")
@@ -79,6 +79,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
         groups.append({
             "student": s,
             "questions": [v for v in views if v.asks],
+            "asked": [v for v in views if v.verdict.kind == "asked"],
             "past_credit": [v for v in views if v.verdict.kind == "past_credit"],
             "twins": items.near_twins(conn, views),
         })

@@ -182,7 +182,7 @@ def test_open_work_inside_its_window_is_a_not_done_status():
 
 def _sample_facts(kind):
     return {"hac": "28 of 30", "canvas": "20 of 25", "when": "9/14", "why": "late", "flag": "done",
-            "change": "Canvas now says missing", "kind": "paper", "due": "Thu 9/10"}
+            "change": "Canvas now says missing", "kind": "paper", "due": "Thu 9/10", "school": "Canvas marks it missing"}
 
 
 def test_every_question_kind_has_facts_ask_and_answer_words():
@@ -238,7 +238,7 @@ def test_follow_up_is_its_own_status_not_asked_the_teacher():
     """Finding 12: "follow up" is the family's own reminder; nobody asked the teacher."""
     v = run(item(), {"canvas": canvas(missing=1)}, flag="follow_up", flag_set_at="2026-09-15T08:00:00-04:00")
     assert (v.state, v.kind) == (V.STATUS, "following_up")
-    assert "teacher" not in V.say("where.following_up", "").lower()
+    assert "teacher" not in V.say("where.following_up", "", v.facts).lower()
 
 
 def test_a_graded_follow_up_does_not_say_you_asked_the_teacher():
@@ -256,3 +256,64 @@ def test_under_the_hac_preference_a_later_missing_is_decided_not_asked():
     v = V.verdict(item(), obs, flag=None, flag_set_at="", now=NOW, rules=RULES, refresh_times=TIMES, prefer="hac")
     assert (v.state, v.kind) == (V.DECIDED, "graded_in_hac")
     assert run(item(), obs).kind == "missing_after_grade"          # the default preference still asks
+
+
+# --- second persona pass: answers, the asked trail, missing work (#71, #73, #74) ----------------
+
+from types import SimpleNamespace as _NS
+
+
+def _view(verdict, flag=None, grade="", status=""):
+    return _NS(verdict=verdict, flag=flag, grade=grade, status=status, grade_source="")
+
+
+def test_an_answered_item_says_what_was_recorded_and_when():
+    """#71: "Answered" told a grandparent nothing."""
+    v = run(item(), {"canvas": canvas(missing=1)}, flag="ignore", flag_set_at="2026-09-15T08:00:00-04:00")
+    assert v.facts == {"when": "9/15"}
+    assert V.standing(_view(v, flag="ignore"), "") == "Let go on 9/15"
+    v = run(item(), {"canvas": canvas(missing=1)}, flag="done", flag_set_at="2026-09-15T08:00:00-04:00")
+    assert V.standing(_view(v, flag="done"), "") == "Marked done on 9/15"
+
+
+def test_asked_says_when_in_where_it_stands():
+    v = run(item(), {"canvas": canvas(missing=1)}, flag="ask_teacher", flag_set_at="2026-09-15T08:00:00-04:00")
+    assert V.standing(_view(v, flag="ask_teacher"), "") == "Asked the teacher on 9/15"
+
+
+def _run_prev(obs, prev, flag, set_at):
+    return V.verdict(item(), obs, flag=flag, flag_set_at=set_at, now=NOW, rules=RULES, refresh_times=TIMES, prev_obs=prev)
+
+
+def test_canvas_clearing_missing_after_an_ask_closes_the_loop():
+    """#73: the teacher cleared Canvas's missing flag without entering a Canvas score."""
+    v = _run_prev({"canvas": canvas(rid=3, missing=0)}, {"canvas": canvas(rid=1, missing=1)},
+                  "ask_teacher", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
+    assert v.facts["change"] == "Canvas no longer marks it missing"
+
+
+def test_an_unchanged_score_after_an_ask_is_not_news():
+    v = _run_prev({"canvas": canvas(rid=1, missing=1), "hac": hac(rid=3, score=28.0)},
+                  {"hac": hac(rid=1, score=28.0)}, "ask_teacher", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.STATUS, "asked")
+
+
+def test_a_changed_score_after_an_ask_says_before_and_after():
+    v = _run_prev({"canvas": canvas(rid=1, missing=1), "hac": hac(rid=3, score=28.0)},
+                  {"hac": hac(rid=1, score=20.0)}, "ask_teacher", "2026-09-10T08:00:00-04:00")
+    assert v.kind == "asked_then_graded" and v.facts["change"] == "HAC changed the grade: 20 → 28 of 30"
+
+
+def test_missing_work_offers_handed_in_and_plan_without_asking():
+    """#74: a red row with no question still needs a one-tap "it's handed in"."""
+    v = run(item(), {"canvas": canvas(missing=1)})
+    assert (v.state, v.kind) == (V.STATUS, "not_done")
+    assert [a.flag for a in v.answers] == ["done", None]
+    assert V.say("facts.not_done", "", v.facts) == "Canvas marks it missing."
+
+
+def test_past_credit_work_offers_let_it_go():
+    v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
+    assert (v.state, v.kind) == (V.STATUS, "past_credit")
+    assert [a.flag for a in v.answers] == ["ignore", "done"]

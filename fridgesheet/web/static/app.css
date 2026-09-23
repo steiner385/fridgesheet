@@ -317,3 +317,4 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 }
 .sources-hint { font-size: 13px; margin: -8px 0 16px; }
 .record .sources-hint { margin: 0 0 6px; }
+.count:empty { display: none; }

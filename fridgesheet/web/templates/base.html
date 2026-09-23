@@ -21,10 +21,10 @@
     <nav>
       <a href="/" class="{{ 'current' if current == 'dashboard' }}">Today</a>
       <div class="group">Kids</div>
-      {% for s in students %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }}{% if question_counts.get(s.key) %} <span class="count">{{ question_counts[s.key] }}</span>{% endif %}</a>{% endfor %}
+      {% for s in students %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }} <span id="qcount-{{ s.key }}" class="count">{{ question_counts.get(s.key) or '' }}</span></a>{% endfor %}
       <div class="group">Work</div>
       <a href="/open" class="{{ 'current' if current == 'open' }}">Open work</a>
-      {% set asked = question_counts.values() | sum %}<a href="/questions" class="{{ 'current' if current == 'questions' }}">Questions{% if asked %} <span class="count">{{ asked }}</span>{% endif %}</a>
+      {% set asked = question_counts.values() | sum %}<a href="/questions" class="{{ 'current' if current == 'questions' }}">Questions <span id="qcount-all" class="count">{{ asked or '' }}</span></a>
       <a href="/reports" class="{{ 'current' if current == 'reports' }}">Reports</a>
       <a href="/schedules" class="{{ 'current' if current == 'schedules' }}">Schedules</a>
       <div class="group">Time</div>

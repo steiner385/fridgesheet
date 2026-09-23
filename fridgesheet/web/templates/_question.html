@@ -4,12 +4,13 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set vd = item.verdict %}
 {% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
-<div class="q card" id="{{ qid }}" data-focus>
+<div class="q card" id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% endif %}>
   <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}<span>due {{ item.due | wd_md }}{% if item.due_time %} {{ item.due_time }}{% endif %}</span>{% endif %}</div>
-  {% if vd.state == 'status' %}<p class="facts">{{ item | standing(tier) }}</p>
-  {% else %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>{% endif %}
+  {% if ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>
+  {% else %}<p class="facts">{{ item | standing(tier) }}</p>{% endif %}
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   {% include "_answers.html" %}
   <details class="more"><summary>See the record</summary>{% include "_record.html" %}</details>
   {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a></p>{% endif %}
 </div>
+{% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}

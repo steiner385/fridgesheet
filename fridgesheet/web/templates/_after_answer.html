@@ -1,0 +1,9 @@
+{# After an answer or an undo: the counts, the question heading and the item's row, swapped out
+   of band so nothing on the page still shows the old state (#72). Targets that are not on the
+   current page (the heading on /questions, the row on the check-in) are simply skipped. #}
+{% set n = question_counts.get(student.key, 0) %}
+<span id="qcount-{{ student.key }}" class="count" hx-swap-oob="true">{{ n or '' }}</span>
+<span id="qcount-all" class="count" hx-swap-oob="true">{{ (question_counts.values() | sum) or '' }}</span>
+<h3 id="q-head" hx-swap-oob="true">{% if n %}{{ n }} question{{ 's' if n != 1 }} about {{ student.key | nickname }}'s work{% else %}No more questions about {{ student.key | nickname }}'s work{% endif %}</h3>
+{% set tier = student.key | tier_of %}{% set v = item %}{% set oob = true %}
+<template>{% include "_item_row.html" %}</template>
