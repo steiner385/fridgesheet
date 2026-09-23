@@ -7,6 +7,8 @@ means the records settle it and the app says why. `waiting` means time will sett
 `question` means the family can do something. `status` is a plain fact. The rules below
 run in order; the first that matches wins (docs/superpowers/specs/
 2026-09-23-questions-not-cases-design.md, section 4.1).
+The two grace periods (HAC catching up; paper work with no grade) are not a fixed week: they are
+what this class's history says it usually takes (web/pace.py), and the card says so.
 """
 from __future__ import annotations
 

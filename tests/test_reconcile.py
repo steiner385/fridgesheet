@@ -163,7 +163,7 @@ def test_stale_flags(conn):
     flagstore.set_flag(conn, 3, "done", now=NOW.isoformat())                # flag newer than any observation: not stale
     v = _verdicts(conn)
     assert v["canvas:1"] == ("question", "stale_answer")                # done, then a zero
-    assert v["canvas:2"] == ("question", "followed_up_then_graded")     # follow up, then graded
+    assert v["canvas:2"] == ("decided", "followed_up_then_graded")      # follow up, then graded: good news settles it (learned-pace spec 5)
     assert v["canvas:3"] == ("status", "answered")
 
 
