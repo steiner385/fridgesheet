@@ -3,8 +3,10 @@ generic `POST /jobs/{kind}` route (no PIN) can never start it -- only `POST /set
 """
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fridgesheet.web import jobs, updatepin
-from tests.web_fixtures import app_for, seed
+from tests.web_fixtures import NOW, app_for, seed
 
 
 def test_the_generic_job_route_will_not_start_an_update(tmp_path):
@@ -64,6 +66,32 @@ def test_an_update_job_will_not_be_displaced_by_another_job(tmp_path):
     c.post("/settings/update", data={"pin": "2468"})
     r = c.post("/jobs/refresh")
     assert r.status_code == 409
+
+
+def test_an_update_past_its_own_deadline_is_still_not_displaced(tmp_path):
+    """Fix round 1, Important A. `test_an_update_job_will_not_be_displaced_by_another_job`
+    above holds the clock at `NOW`, where the ordinary busy-slot check in `Worker.submit`
+    (`now < self.current.deadline`) already returns `None` before the update-specific guard
+    is ever reached -- it proves "the slot is busy", not "an update refuses displacement".
+    This advances the clock past `jobs.JOB_TIMEOUT_SECONDS` first (the same pattern
+    `tests/test_web_jobs.py::test_a_job_past_its_deadline_is_displaced_by_the_next_submit`
+    uses), so the far more general "abandon a stuck job and take the slot" path is genuinely
+    live, and only the update-specific guard stands between it and displacing the job.
+    """
+    seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
+    c = _with_idle_worker(tmp_path)
+    state = c.app.state.fridgesheet
+    state.clock = lambda: NOW
+    r = c.post("/settings/update", data={"pin": "2468"})
+    assert r.status_code == 200
+    w = state.jobs
+    update_job = w.current
+    assert update_job is not None and update_job.kind == "update" and not update_job.done
+
+    state.clock = lambda: NOW + timedelta(seconds=jobs.JOB_TIMEOUT_SECONDS + 1)
+    second = w.submit("refresh")
+    assert second is None                              # still refused, past the deadline too
+    assert w.current is update_job and not update_job.done   # never abandoned, never displaced
 
 
 def test_a_second_update_cannot_start_while_one_is_running(tmp_path):
