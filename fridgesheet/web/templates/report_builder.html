@@ -6,10 +6,12 @@
 {% for p in problems %}<p class="warn">{{ p }}</p>{% endfor %}
 {% set action = ("/reports/" ~ report.id) if report else "/reports/new" %}
 <form method="post" action="{{ action }}" class="card" id="builder">
+  {% if report %}<input type="hidden" name="report_id" value="{{ report.id }}">{% endif %}
   <p><label>Name <input name="name" value="{{ report.name if report else d.title }}"></label>
      <label>Title on the page <input name="title" value="{{ d.title }}"></label></p>
   <p><label>Rows come from
-     <select name="source">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label></p>
+     <select name="source" hx-post="/reports/builder" hx-trigger="change" hx-include="#builder"
+             hx-target="#builder" hx-select="#builder" hx-swap="outerHTML">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label></p>
   <p>Kids: {% for k in kids %}<label><input type="checkbox" name="scope" value="{{ k.key }}" {{ 'checked' if k.key in d.scope }}> {{ k.key | nickname }}</label> {% endfor %}
      <span class="muted">none ticked means every kid</span></p>
   <p>Columns:<br>

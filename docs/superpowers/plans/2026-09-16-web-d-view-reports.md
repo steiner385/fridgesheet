@@ -19,7 +19,7 @@
 - A view report goes through `runner.run` unchanged, so it archives, records a `runs` row, toasts and respects `run.lock` exactly as the sheet does. `RunOptions.trigger` and the existing guards are not special-cased.
 - Export is a download, not a page: CSV via `csv.writer` into a `StringIO`, JSON via `json.dumps`, both served with a `Content-Disposition` filename built from the report's title and the date.
 - The builder posts ordinary form fields; there is no JSON editor in the browser and no client-side validation. Jinja autoescape stays on, nothing is `|safe`, routes contain no SQL, templates do not compute.
-- The four seed templates (Open work, Weekly summary, Grade trend, Quarter recap) are inserted only when the `reports` table is empty, and only by an explicit action — never as a side effect of opening a page.
+- The seed templates (planned here as Open work, Weekly summary, Grade trend, Quarter recap; as shipped: Open work, Recent changes, Grade trend) are inserted only when the `reports` table is empty, and only by an explicit action — never as a side effect of opening a page.
 - No credential is read by any of this. Nothing leaves the machine.
 - The full suite (`env -u PYTHONPATH ~/fridgesheet/.venv/bin/python -m pytest -q`, **389 passed** at the start of this plan) stays green and pristine on Linux and in CI on both runners.
 - Commit after every task with the trailer `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` and the issue line each task's commit block gives verbatim.
