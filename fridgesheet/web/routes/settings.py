@@ -52,10 +52,30 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
     tailnet_url = _tailnet_url(form.port) if form.allow_lan else None
+    # The two refusals that keep the update button from starting something it can already
+    # predict will go wrong -- see `_update_button.html`. `info.installed` is only asked for
+    # once the first two guards pass: on most machines and most page loads (checks off, or no
+    # PIN set yet) that avoids a real `systemctl --user`/`schtasks` shell-out for a question
+    # the page was not going to act on anyway.
+    reason = ""
+    if not state.settings.web_check_updates:
+        reason = "Update checks are turned off."
+    elif not state.settings.web_update_pin_hash:
+        reason = "Set an update PIN below to update from this page."
+    else:
+        describe_service = state.extra.get("describe_service")
+        if describe_service is None:
+            from ...host.service import describe_service
+        if not describe_service().installed:
+            reason = ("Fridge Sheet is not set up to start on its own on this computer, so an "
+                      "update could leave it closed. Install it again from the desktop shortcut "
+                      "first (issue #39).")
+    update_ready = bool(update and update.available and not reason)
     return render(request, conn, "settings.html", current="settings", form=form, messages=list(messages), errors=list(errors),
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
+                  update_ready=update_ready, update_blocked_reason=reason,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
                   entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)))
 

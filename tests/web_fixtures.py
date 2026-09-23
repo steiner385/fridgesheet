@@ -118,18 +118,26 @@ def seed(home: Path, snap: dict | None = None, now: datetime = NOW, *,
 LOCAL_HOST_HEADERS = {"host": "127.0.0.1"}
 
 
-def app_for(home: Path, now: datetime = NOW, worker: bool = False) -> TestClient:
+def app_for(home: Path, now: datetime = NOW, worker: bool = False, *, service_installed: bool = True) -> TestClient:
     """A client whose app clock is frozen at `now` (pages compare due dates against it).
 
     Reads `home/config.toml` if `seed(..., update_pin_hash=..., check_updates=...)` (or a
     test writing it directly) left one -- the same load `AppState.reload()` does for a
     non-default home, so a test that seeds a PIN before building its client sees it without
     a separate reload() call.
+
+    `service_installed` stubs `describe_service()` through `state.extra["describe_service"]`
+    -- the same seam `extra["scheduling"]` is for `host.scheduling.describe` -- so a page
+    test never shells out to the real `systemctl --user`/`schtasks` on whatever machine runs
+    the suite. Defaults to True (a healthy install); pass False for the issue #39 case, where
+    the logon task never got registered.
     """
     s = config.Settings(home=home)
     config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
     application = webapp.create_app(s, worker=worker)
     application.state.fridgesheet.clock = lambda: now
+    application.state.fridgesheet.extra["describe_service"] = lambda: host.ServiceInfo(
+        "task-scheduler", installed=service_installed, active=service_installed, detail="stub")
     return TestClient(application, headers=LOCAL_HOST_HEADERS)
 
 

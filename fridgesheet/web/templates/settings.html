@@ -43,6 +43,9 @@
   <p><button class="primary">Save</button>
      {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}</p>
 </form>
+{# Outside the Settings form -- it POSTs to /settings/update, not /settings, and a <form>
+   inside another <form> is invalid HTML that browsers do not render predictably. #}
+{% include "_update_button.html" %}
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
 {% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}

@@ -529,3 +529,20 @@ def test_a_blank_pin_field_keeps_the_stored_one(tmp_path):
     c.app.state.fridgesheet.extra["credstore"] = FakeCred()
     c.post("/settings", data=_form(update_pin=""))
     assert stored in (tmp_path / "config.toml").read_text(encoding="utf-8")
+
+
+def test_no_button_without_a_pin(tmp_path):
+    seed(tmp_path)
+    body = app_for(tmp_path).get("/settings").text
+    assert 'action="/settings/update"' not in body
+    assert "Set an update PIN" in body
+
+
+def test_no_button_when_the_logon_task_is_missing(tmp_path):
+    """Issue #39: schtasks /Create fails for standard users and Inno ignores [Run] exit
+    codes. A silent update on such a machine leaves a dead app with no wizard and no
+    shortcut, so we decline rather than strand them."""
+    seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
+    body = app_for(tmp_path, service_installed=False).get("/settings").text
+    assert 'action="/settings/update"' not in body
+    assert "is not set up to start on its own" in body
