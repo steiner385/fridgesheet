@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from .. import late_rules, open_items, sheet
+from .. import config, late_rules, open_items, sheet
 from .base import Built, BuildContext, ReportError
 
 
@@ -25,8 +25,8 @@ class OpenWorkReport:
         return f"{day.isoformat()} Open Work.pdf"
 
     def build(self, snap: dict, ctx: BuildContext) -> Built:
-        days_ahead = int(ctx.options.get("days_ahead") or 14)
-        overdue_days = int(ctx.options.get("overdue_days") or 14)
+        days_ahead = config.day_option(ctx.options, "days_ahead")
+        overdue_days = config.day_option(ctx.options, "overdue_days")
         rules = late_rules.load(ctx.home / "late-rules.toml")
         sheets: list[sheet.KidSheet] = []
         rows: dict[str, list[dict]] = {}

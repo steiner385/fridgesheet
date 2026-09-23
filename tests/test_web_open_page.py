@@ -69,7 +69,7 @@ def test_open_page_shows_each_kid_in_two_sections(tmp_path):
     assert "Essay draft" not in body                                  # submitted: nothing to do
     # The trailer counts what the tables leave out, the way the sheet does, and links to it.
     assert "Not shown:" in body
-    assert 'href="/kids/Alex?show=all&amp;outcome=not_done">1 past the late-work window (10 pts)</a>' in body
+    assert 'href="/kids/Alex?show=all&amp;outcome=not_done">1 past the late-work window or more than 14 days overdue (10 pts)</a>' in body
     # Sam has nothing coming due, and says so rather than showing an empty table.
     assert body.index("Cell diagram") > sam and body.index("Safety quiz") > sam
     assert "Nothing coming due" in body

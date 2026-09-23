@@ -95,9 +95,9 @@ def test_note_counts_and_one(tmp_path):
 def test_dashboard_counts(tmp_path):
     conn = seed(tmp_path)
     c = items.dashboard_counts(conn, _doug(conn), now=NOW, rules=RULES)
-    assert (c.actionable, c.due_today, c.due_tomorrow, c.new_since_yesterday) == (2, 1, 1, 8)       # Quiz 1 is done on paper (HAC 28/30)
+    assert (c.fixable, c.due_today, c.due_tomorrow, c.new_since_yesterday) == (2, 1, 1, 8)       # Quiz 1 is done on paper (HAC 28/30)
     k = items.dashboard_counts(conn, students.by_key(conn, "Sam"), now=NOW, rules=RULES)
-    assert (k.actionable, k.due_today, k.due_tomorrow, k.new_since_yesterday) == (2, 0, 0, 2)
+    assert (k.fixable, k.due_today, k.due_tomorrow, k.new_since_yesterday) == (2, 0, 0, 2)
     later = items.dashboard_counts(conn, _doug(conn), now=NOW + timedelta(days=3), rules=RULES)
     assert later.new_since_yesterday == 0
 

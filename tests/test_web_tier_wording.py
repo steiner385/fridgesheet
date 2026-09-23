@@ -126,6 +126,7 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
     start = body.index('id="Alex"')
     end = body.index("<section", start + 1)
     alex_section = body[start:end]
-    # Lab notebook's "On paper" hand-in cell; Quiz 1's "Missing" left the list when HAC's grade settled it.
-    assert "This one is on paper" in alex_section
-    assert ">On paper<" not in alex_section
+    # Open work shows the verdict in the kid's words, as Assignments does (#85): Participation
+    # has had no grade for a week, which the early tier hears as "No grade yet".
+    assert "No grade yet" in alex_section
+    assert "No grade after a week" not in alex_section

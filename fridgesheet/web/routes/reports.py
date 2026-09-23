@@ -99,7 +99,7 @@ async def preview(request: Request, conn: sqlite3.Connection = Db, state=State):
     rendered = None
     if not problems:
         try:
-            rendered = views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources())
+            rendered = views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources(), window=state.window())
         except views.ViewError as e:
             problems = [str(e)]
     return render_partial(request, conn, "_report_preview.html", rendered=rendered, problems=problems)
@@ -166,7 +166,7 @@ def _rendered_or_400(conn, state, report_id: int):
         raise HTTPException(404, "no such report")
     try:
         d = views.from_json(row["definition"])
-        return row, d, views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources())
+        return row, d, views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources(), window=state.window())
     except views.ViewError as e:
         raise HTTPException(400, str(e)) from None
 

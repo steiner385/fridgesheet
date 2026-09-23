@@ -29,7 +29,7 @@ def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: s
         flags.clear(conn, item_id, now=now)
     else:
         flags.set_flag(conn, item_id, flag, now=now, text=text.strip())
-    v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources())
+    v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources(), **state.window())
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=LABELS[flag],
                           notes=notes.for_target(conn, "item", item_id))

@@ -61,8 +61,8 @@ class FormValues:
     username: str = ""
     password: str = ""          # blank = keep the stored one
     printer: str = ""           # blank = system default
-    days_ahead: int = 14
-    overdue_days: int = 14
+    days_ahead: int = config.DEFAULT_DAYS
+    overdue_days: int = config.DEFAULT_DAYS
     nicknames: str = ""         # one "First=Nick" per line
     archive: str = ""
     port: int = 8433
@@ -92,8 +92,8 @@ def load_form(home: Path) -> FormValues:
     return FormValues(
         username=s.username,
         printer=s.printer,
-        days_ahead=_whole_number(rc.options.get("days_ahead")) or 14,
-        overdue_days=_whole_number(rc.options.get("overdue_days")) or 14,
+        days_ahead=config.day_option(rc.options, "days_ahead"),
+        overdue_days=config.day_option(rc.options, "overdue_days"),
         nicknames=format_nicknames(s.nicknames),
         archive=s.sheets_archive,
         port=s.web_port,

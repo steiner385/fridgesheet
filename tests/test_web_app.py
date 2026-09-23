@@ -105,7 +105,7 @@ def test_header_shows_refresh_time_source_health_and_last_run(settings, home):
     # The rail lists every student and opens the child's check-in workspace; the original
     # All-work table at /kids/<key> is still reachable from the dashboard card and child nav.
     assert 'href="/kids/Alex/check-in"' in r.text
-    assert 'href="/kids/Alex?show=actionable"' in r.text
+    assert 'href="/kids/Alex">Assignments</a>' in r.text
 
 
 def test_static_files_are_served(client):

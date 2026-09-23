@@ -163,6 +163,23 @@ def _op_read(ref: str) -> str:
     return out.stdout
 
 
+#: The open-work sheet's window, both ways: `days_ahead` (coming due) and `overdue_days`
+#: (how far past due a row still prints).
+DEFAULT_DAYS = 14
+
+
+def day_option(options: dict, name: str) -> int:
+    """A report's day-count option (`days_ahead`, `overdue_days`) as the sheet and every web
+    page read it: a positive whole number, else the default. The Settings form validates, but
+    a hand edit to config.toml does not, and `-3` used to mean 14 on the web and a negative
+    horizon on paper (#20). One reader keeps them from disagreeing."""
+    try:
+        n = int(str(options.get(name)).strip())
+    except (TypeError, ValueError):
+        return DEFAULT_DAYS
+    return n if n > 0 else DEFAULT_DAYS
+
+
 @dataclass
 class ReportConfig:
     enabled: bool = False

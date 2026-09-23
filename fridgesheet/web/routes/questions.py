@@ -23,7 +23,7 @@ def _slot(raw: str, item_id: int) -> str:
 
 def _view(conn, state, item_id):
     s = students.owner_of_item(conn, item_id)
-    v = items.one(conn, s, item_id, now=state.now(), rules=state.rules(), prefs=state.sources()) if s is not None else None
+    v = items.one(conn, s, item_id, now=state.now(), rules=state.rules(), prefs=state.sources(), **state.window()) if s is not None else None
     if v is None:
         raise HTTPException(404, "no such item")
     return s, v

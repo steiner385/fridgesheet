@@ -2,67 +2,44 @@
 {% block title %}Open work · Fridge Sheet{% endblock %}
 {% block content %}
 {# The printed sheet, on a screen: per kid, what is past due and still fixable, then what is
-   coming due. Rows expand to the same detail card as the Kid page, so a flag or a note set
-   here is the same flag or note. #}
-{% macro item_cell(s, v) -%}
-{%- set tier = s.key | tier_of -%}
-<a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
-{%- if v.notes %} <span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-{%- if v.asks %} <a class="qmark" href="/questions?kid={{ s.key }}#q-{{ v.id }}">question</a>{% endif %}
-{%- endmacro %}
+   coming due. The rows are the work list's rows (`_item_row.html`) -- the same verdict, the
+   same question tag, the same detail card -- so a flag or a note set here is the same flag or
+   note, and an item cannot be a question on Assignments and a bare row here (#85). #}
 {% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
+{% macro rows(list, student, tier, q_base, thru) %}
+  <div class="table-wrap">
+  <table class="items work open-list">
+    <thead><tr><th>Due</th><th>Assignment</th><th>Where it stands</th></tr></thead>
+    <tbody>
+    {% for v in list %}
+    {% include "_item_row.html" %}
+    <tr class="detail" hidden><td colspan="3" id="detail-{{ v.id }}"></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% endmacro %}
 <h2>Open work</h2>
-<p class="muted">Past due and still inside the late-work window, then due in the next {{ days_ahead }} days. The printed sheet also drops anything more than its own <em>overdue days</em> past due, so a very old row can appear here and not on paper.</p>
+<p class="muted">Past due and still inside the late-work window (up to {{ overdue_days }} days back), then due in the next {{ days_ahead }} days: the same rows the printed sheet shows.</p>
 {% for s, w in groups %}
 <section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
   <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
-  {% set tier = s.key | tier_of %}
+  {% set student, tier, q_base = s, s.key | tier_of, "/questions?kid=" ~ (s.key | urlencode) %}
   {% if not w.fixable and not w.upcoming %}
   <p>Nothing open. Nice work.</p>
   {% else %}
   <h3>Still fixable <span class="muted">· {{ w.fixable | length }}</span></h3>
   {% if w.fixable %}
-  <table class="items">
-    <thead><tr><th>Due</th><th>Course</th><th>Item</th><th>Handed in</th><th>Grade</th><th>Credit thru</th><th>Flag</th></tr></thead>
-    <tbody>
-    {% for v in w.fixable %}
-    <tr class="overdue" id="row-{{ v.id }}">
-      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
-      <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
-      <td>{{ item_cell(s, v) }}</td>
-      <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}</td>
-      <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}{% if v.grade_source %} <span class="src">{{ 'HAC' if v.grade_source == 'hac' else 'Canvas' }}</span>{% endif %}</td>
-      <td class="thru">{% if v.late_until %}thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} <span class="rel">{{ v.credit }}</span>{% endif %}{% endif %}</td>
-      <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
-    </tr>
-    <tr class="detail" hidden><td colspan="7" id="detail-{{ v.id }}"></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% include "_handed_legend.html" %}
+  {{ rows(w.fixable, student, tier, q_base, true) }}
   {% else %}<p class="muted">Nothing past due that can still be fixed.</p>{% endif %}
   <h3>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h3>
   {% if w.upcoming %}
-  <table class="items">
-    <thead><tr><th>Due</th><th>Course</th><th>Item</th><th>Pts</th><th>Flag</th></tr></thead>
-    <tbody>
-    {% for v in w.upcoming %}
-    <tr id="row-{{ v.id }}">
-      <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
-      <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
-      <td>{{ item_cell(s, v) }}</td>
-      <td>{{ pts(v.points) }}</td>
-      <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
-    </tr>
-    <tr class="detail" hidden><td colspan="5" id="detail-{{ v.id }}"></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  {{ rows(w.upcoming, student, tier, q_base, false) }}
   {% else %}<p class="muted">Nothing coming due in the next {{ days_ahead }} days.</p>{% endif %}
   {% endif %}
   {% if w.past_window or w.handled %}
   <p class="muted">Not shown:
-    {% if w.past_window %}<a href="/kids/{{ s.key }}?show=all&amp;outcome=not_done">{{ w.past_window | length }} past the late-work window ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
+    {% if w.past_window %}<a href="/kids/{{ s.key }}?show=all&amp;outcome=not_done">{{ w.past_window | length }} past the late-work window or more than {{ overdue_days }} days overdue ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
     {%- if w.past_window and w.handled %} · {% endif %}
     {% if w.handled %}<a href="/kids/{{ s.key }}?show=all&amp;flagged=handled">{{ w.handled | length }} handled</a>{% endif %}
   </p>

@@ -251,12 +251,12 @@ def _keys(source: str, row: dict, raw: dict) -> dict:
     return out
 
 
-def _item_rows(conn, d, *, now, rules, nicknames, prefs=None) -> list[tuple[dict, dict]]:
+def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict]]:
     out = []
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
-        for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs):
+        for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs, **(window or {})):
             row = {
                 "kid": nicknames.get(s["key"], s["key"]), "course": v.course_short, "name": v.name,
                 "status": v.status, "due": _date(v.due), "points": _num(v.points), "kind": v.kind,
@@ -315,14 +315,15 @@ def _keep(row: dict, f: dict) -> bool:
     return b in a
 
 
-def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nicknames: dict, prefs=None) -> Rendered:
+def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nicknames: dict, prefs=None,
+          window: dict | None = None) -> Rendered:
     """Definition to rows. Raises `ViewError` when the definition does not validate."""
     problems = validate(d)
     if problems:
         raise ViewError(" ".join(problems))
     dropped = 0
     if d.source == "items":
-        pairs = _item_rows(conn, d, now=now, rules=rules, nicknames=nicknames, prefs=prefs)
+        pairs = _item_rows(conn, d, now=now, rules=rules, nicknames=nicknames, prefs=prefs, window=window)
     elif d.source == "grades":
         pairs = _grade_rows(conn, d, now=now, nicknames=nicknames, prefs=prefs)
     else:

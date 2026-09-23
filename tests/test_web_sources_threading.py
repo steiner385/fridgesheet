@@ -46,8 +46,8 @@ def test_a_rule_for_another_class_leaves_this_one_alone(tmp_path):
 def test_dashboard_counts_follow_prefs(tmp_path):
     conn = seed(tmp_path)
     alex = students.by_key(conn, "Alex")
-    before = items.dashboard_counts(conn, alex, now=NOW, rules=RULES).actionable
-    after = items.dashboard_counts(conn, alex, now=NOW, rules=RULES, prefs=HAC).actionable
+    before = items.dashboard_counts(conn, alex, now=NOW, rules=RULES).fixable
+    after = items.dashboard_counts(conn, alex, now=NOW, rules=RULES, prefs=HAC).fixable
     assert after == before          # Quiz 1, the one item the preference used to move, is settled either way
 
 
