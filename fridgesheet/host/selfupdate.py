@@ -116,8 +116,18 @@ def read_pending(home: Path) -> Pending | None:
     the app starting, which is the one thing that would turn a failed update into a dead one."""
     try:
         data = json.loads((home / PENDING_NAME).read_text(encoding="utf-8"))
-        return Pending(**{f: str(data[f]) for f in ("from_version", "to_version", "started_at",
-                                                    "installer", "log")})
+        fields = {}
+        for f in ("from_version", "to_version", "started_at", "installer", "log"):
+            value = data[f]                      # KeyError -> caught below, treated as absent
+            # Require each field to actually be a string. str() succeeds on anything, so a null
+            # or nested object would otherwise coerce to "None" or "{'a': 1}", producing a
+            # Pending that can never resolve and leaving a permanent "update did not finish"
+            # banner on the Diagnostics page that the parent cannot clear. Treat such a corrupt
+            # breadcrumb as absent instead.
+            if not isinstance(value, str):
+                return None
+            fields[f] = value
+        return Pending(**fields)
     except (OSError, ValueError, KeyError, TypeError):
         return None
 

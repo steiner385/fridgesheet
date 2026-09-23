@@ -1,5 +1,7 @@
 import hashlib
 import io
+import json
+
 import pytest
 
 from fridgesheet.host import selfupdate
@@ -123,3 +125,29 @@ def test_a_malformed_breadcrumb_is_treated_as_absent_and_never_fatal(tmp_path):
     (tmp_path / selfupdate.PENDING_NAME).write_text("{not json", encoding="utf-8")
     assert selfupdate.read_pending(tmp_path) is None
     assert selfupdate.resolve_pending(tmp_path, "0.4.1") is None
+
+
+def test_a_wrong_typed_field_is_treated_as_absent(tmp_path):
+    """`str()` succeeds on anything, so a null or a nested object would otherwise become
+    the literal text "None" -- a to_version that can never match the running version, and
+    so a "last update did not finish" banner no parent can clear."""
+    for bad in (None, {"a": 1}, [1, 2], 5):
+        (tmp_path / selfupdate.PENDING_NAME).write_text(json.dumps({
+            "from_version": bad, "to_version": "0.5.0",
+            "started_at": "2026-09-22T15:00:00-04:00",
+            "installer": "C:/u/Setup.exe", "log": "C:/u/install.log"}), encoding="utf-8")
+        assert selfupdate.read_pending(tmp_path) is None, bad
+        assert selfupdate.resolve_pending(tmp_path, "0.4.1") is None, bad
+
+
+def test_a_second_update_overwrites_the_previous_archive(tmp_path):
+    """Path.replace, not Path.rename: on Windows rename raises if the target exists, so
+    the second update a household ever runs would fail to archive."""
+    first = selfupdate.Pending("0.3.0", "0.4.1", "2026-09-01T10:00:00-04:00", "a.exe", "a.log")
+    selfupdate.write_pending(tmp_path, first)
+    assert selfupdate.resolve_pending(tmp_path, "0.4.1")[0] == "ok"
+    second = _pending()
+    selfupdate.write_pending(tmp_path, second)
+    verdict, got = selfupdate.resolve_pending(tmp_path, "0.5.0")
+    assert verdict == "ok" and got == second
+    assert (tmp_path / selfupdate.LAST_NAME).exists()
