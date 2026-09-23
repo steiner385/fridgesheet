@@ -46,7 +46,7 @@ def _queues(body: str) -> dict[str, str]:
     out = {}
     for g in groups:
         label = re.search(r"<summary>(.*?) <span", g)
-        if label and label.group(1) in ("Work to consider", "Needs clarification", "Submitted · waiting for a grade"):
+        if label and label.group(1) in ("To do", "Questions", "Waiting on the school"):
             out[label.group(1)] = g
     return out
 
@@ -63,14 +63,14 @@ def test_check_in_sorts_the_school_record_into_three_review_groups(tmp_path):
     r = app_for(tmp_path).get("/kids/Alex/check-in")
     assert r.status_code == 200
     q = _queues(r.text)
-    assert set(q) == {"Work to consider", "Needs clarification", "Submitted · waiting for a grade"}
+    assert set(q) == {"To do", "Questions", "Waiting on the school"}
     for name in ("Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):     # open or upcoming, nothing to explain
-        assert name in q["Work to consider"], name
-    for name in ("Lab notebook", "Participation"):                              # paper unknown, HAC blank
-        assert name in q["Needs clarification"], name
+        assert name in q["To do"], name
+    assert "Participation" in q["Questions"]                                     # HAC-only, a week with no grade
+    assert "Lab notebook" in q["Waiting on the school"]                          # paper, under a week: waiting, as on Assignments
     assert "Quiz 1" not in r.text.split('id="plan"')[0]                          # HAC's 28/30 settles it (docs/outcomes.md)
-    assert "Essay draft" in q["Submitted · waiting for a grade"]
-    assert "Essay draft" not in q["Work to consider"]                            # submitted work is never "redo it"
+    assert "Essay draft" in q["Waiting on the school"]
+    assert "Essay draft" not in q["To do"]                            # submitted work is never "redo it"
 
 
 def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp_path):
@@ -90,7 +90,7 @@ def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path)
     it above tonight's Vocabulary. The queue keeps it visible but after the work that can still
     earn credit."""
     seed(tmp_path).close()
-    consider = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["Work to consider"]
+    consider = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["To do"]
     assert consider.index("Vocabulary") < consider.index("Worksheet 3") < consider.index("Reading log") < consider.index("Homework 4")
 
 
@@ -99,8 +99,8 @@ def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
     seed(tmp_path, snap).close()
     q = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)
-    assert "Reading project" in q["Work to consider"]
-    assert "no due date listed" in q["Work to consider"]
+    assert "Reading project" in q["To do"]
+    assert "no due date listed" in q["To do"]
 
 
 def test_a_child_with_no_work_still_gets_a_working_check_in(tmp_path):
@@ -129,7 +129,7 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     page = c.get("/kids/Alex/check-in?saved=1").text
     assert "Saved. Your family plan is separate from the school record." in page
     assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
-    assert "Quiz 1" not in _queues(page)["Needs clarification"]      # covered by an active step
+    assert "Quiz 1" not in _queues(page)["Questions"]      # covered by an active step
     rows = _step_rows(tmp_path)
     assert len(rows) == 1 and rows[0]["item_id"] == qid and rows[0]["state"] == "planned" and rows[0]["revision"] == 1
 
@@ -241,7 +241,7 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     r = _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15", state="done"), step_id=sid)
     assert r.status_code == 303
     page = c.get("/kids/Sam/check-in").text
-    assert "Cell diagram" in _queues(page)["Work to consider"]                  # back in review: still not handed in
+    assert "Cell diagram" in _queues(page)["To do"]                  # back in review: still not handed in
     assert "0 min estimated for today" in page
     assert "The school decides what counts as submitted." in page
     assert f'href="/kids/Sam/check-in/step?item_id={cid}"' in page             # a second step for the same work
@@ -372,7 +372,7 @@ def test_each_childs_pages_show_only_their_own_steps_even_with_shared_canvas_ids
     zoe = c.get("/kids/Zo%C3%AB%20Q/check-in").text
     assert "Alex asks Mr. Hoch" in alex and "Zoë asks Mr. Hoch" not in alex
     assert "Zoë asks Mr. Hoch" in zoe and "Alex asks Mr. Hoch" not in zoe
-    assert "Quiz 1" not in _queues(zoe)["Needs clarification"]
+    assert "Quiz 1" not in _queues(zoe)["Questions"]
     assert 'href="/kids/Zo%C3%ABQ' not in zoe and 'href="/kids/Zo%C3%AB%20Q/plan"' in zoe   # the key survives every link
     assert 'href="/kids/Zo%C3%AB%20Q/check-in"' in c.get("/").text
 
@@ -504,8 +504,8 @@ def test_review_groups_with_something_in_them_start_open(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 3
-    sam = c.get("/kids/Sam/check-in").text                        # nothing submitted-and-waiting
-    assert sam.count('<details class="queue-group" open>') == 2
+    sam = c.get("/kids/Sam/check-in").text                        # no questions, nothing waiting: only To do
+    assert sam.count('<details class="queue-group" open>') == 1
 
 
 def test_steps_say_who_recorded_them_and_when(tmp_path):
@@ -586,8 +586,8 @@ def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps
     page = c.get("/kids/Alex/check-in").text
     completed = page.split("Completed steps")[1]
     assert "Mr. Hoch emailed: he has it." in completed
-    card = _queues(page)["Needs clarification"]
-    lab = card.split('<article class="card review-card">')
+    card = _queues(page)["Waiting on the school"]
+    lab = card.split('<article class="card review-card"')
     lab = next(x for x in lab if "Lab notebook" in x)
     assert "1 completed step" in lab and "Mr. Hoch emailed: he has it." in lab
 

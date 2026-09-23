@@ -1,0 +1,8 @@
+{# A verdict's answer buttons, swapping the element `qid` names (set by the includer). Shared by the
+   question card and the check-in's review cards, so both offer the same answers. #}
+  <div class="answers">
+    {% for a in vd.answers %}
+      {% if a.flag is none %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">{{ a.key | say(tier) }}</a>
+      {% else %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><button name="answer" value="{{ a.flag }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endif %}
+    {% endfor %}
+  </div>

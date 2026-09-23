@@ -9,12 +9,7 @@
   {% if vd.state == 'status' %}<p class="facts">{{ item | standing(tier) }}</p>
   {% else %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>{% endif %}
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
-  <div class="answers">
-    {% for a in vd.answers %}
-      {% if a.flag is none %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">{{ a.key | say(tier) }}</a>
-      {% else %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><button name="answer" value="{{ a.flag }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endif %}
-    {% endfor %}
-  </div>
+  {% include "_answers.html" %}
   <details class="more"><summary>See the record</summary>{% include "_record.html" %}</details>
   {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a></p>{% endif %}
 </div>
