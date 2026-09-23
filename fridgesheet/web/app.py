@@ -17,6 +17,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
 from urllib.parse import unquote, urlsplit
+from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -200,6 +201,7 @@ def _filters(state: AppState) -> dict:
 #: recompiles every template on every page).
 ENV = jinja2.Environment(loader=jinja2.FileSystemLoader(str(HERE / "templates")), autoescape=True)
 ENV.globals["FLAG_CHOICES"] = flagstore.CHOICES          # the detail card's flag menu (#3)
+ENV.globals["request_key"] = lambda: str(uuid4())      # one token per rendered card (spec 6.3)
 
 
 def _env(request: Request) -> jinja2.Environment:

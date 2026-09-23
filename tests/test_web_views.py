@@ -243,6 +243,6 @@ def test_the_verdict_column_is_named_for_parents_and_says_where_it_stands(tmp_pa
     d = views.from_json(json.dumps({"title": "Questions", "source": "items", "columns": ["name", "cases"],
                                     "filters": [], "sort": [{"column": "name", "dir": "asc"}]}))
     rows = {row["name"]: row["cases"] for row in _build(conn, d).groups[0].rows}
-    assert rows["Participation"] == "No grade after a week"
+    assert rows["Participation"] == "No grade, longer than usual"
     assert rows["Quiz 1"] == "Done · 28 of 30 in HAC"
     assert "_" not in "".join(rows.values())

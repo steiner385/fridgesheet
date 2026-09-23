@@ -68,7 +68,7 @@ def test_the_question_card_offers_the_record_and_plan_links(tmp_path):
     c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""})
     body = c.post(f"/items/{pid}/undo", data={"prev": ""}).text
     assert "See the record" in body and "Add a note" in body
-    assert f"check-in/step?item_id={pid}" in body          # the "Not yet, plan it" answer
+    assert f"check-in/step?item_id={pid}" in body          # the "Plan a step" link
 
 
 # --- final-review fixes ------------------------------------------------------------------
@@ -122,3 +122,12 @@ def test_answering_from_the_tables_expanded_row_swaps_that_card(tmp_path):
     slot = re.search(r'name="slot" value="([^"]+)"', detail).group(1)
     r = c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": slot})
     assert f'id="{slot}"' in r.text
+
+
+def test_every_answer_form_carries_a_request_key(tmp_path):
+    import re
+    c, pid = _setup(tmp_path)
+    forms = re.findall(r'<form hx-post="/items/%d/answer".*?</form>' % pid, c.get(f"/items/{pid}").text, re.S)
+    assert forms
+    keys = {re.search(r'name="request_key" value="([^"]+)"', f).group(1) for f in forms}
+    assert len(keys) == 1 and len(next(iter(keys))) == 36       # one uuid per card, shared by its buttons

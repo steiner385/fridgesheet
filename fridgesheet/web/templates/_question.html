@@ -12,6 +12,6 @@
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   {% include "_answers.html" %}
   <details class="more"><summary>See the record</summary>{% include "_record.html" %}</details>
-  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a></p>{% endif %}
+  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a> · <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">Plan a step</a></p>{% endif %}
 </div>
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}

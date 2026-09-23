@@ -24,7 +24,11 @@ TOLERANCE = 0.5
 @dataclass(frozen=True)
 class Answer:
     key: str                # phrase key for the button label
-    action: str | None      # a flag, "confirm", "clear", or None: open the plan-step form (until Task 6)
+    action: str             # a flag, "confirm", "clear", or a plan action ("plan:today", "plan:tomorrow")
+
+
+PLAN_ACTIONS = ("plan:today", "plan:tomorrow")
+ACTIONS = HANDLED_FLAGS + MARKED_FLAGS + ("confirm", "clear") + PLAN_ACTIONS
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,7 @@ class Verdict:
 
 
 ASK = Answer("a.ask_teacher", "ask_teacher")
+TODAY, TOMORROW = Answer("a.today", "plan:today"), Answer("a.tomorrow", "plan:tomorrow")
 
 #: A family answer said back in family words, never the stored flag name ("ignore").
 FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
@@ -54,7 +59,7 @@ ANSWERS = {
     "hac_still_blank": (ASK, Answer("a.its_fine", "ignore")),
     "hac_lag": (ASK,),
     "teacher_grading": (ASK,),
-    "still_ungraded": (Answer("a.handed_in", "done"), Answer("a.plan_it", None), ASK),
+    "still_ungraded": (Answer("a.handed_in", "done"), TODAY, TOMORROW, ASK),
     "awaiting_grade": (ASK,),
     "stale_answer": (Answer("a.still_done", "confirm"), Answer("a.reopen", "clear"), ASK),
     # The family asked the teacher (or chose to follow up) and a grade has since appeared:
@@ -63,8 +68,10 @@ ANSWERS = {
     "followed_up_then_graded": (Answer("a.keep_following", "confirm"), Answer("a.its_done", "done")),
     # Statuses that still offer a one-tap answer (#74): these are not questions and are not
     # counted, but a red row must not leave "it's handed in" behind the raw flag menu.
-    "not_done": (Answer("a.handed_in_behind", "done"), Answer("a.plan_it", None)),
-    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done")),
+    "not_done": (Answer("a.handed_in_behind", "done"), TODAY, TOMORROW),
+    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done"), TODAY),
+    # Upcoming or undated work with nothing handed in: the plan is the answer (spec 6.2).
+    "not_due_yet": (TODAY, TOMORROW, Answer("a.handed_in_behind", "done")),
 }
 
 
@@ -270,9 +277,12 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs, pa
         if late > deadline:
             return Verdict(STATUS, "past_credit", {"school": _school_says(c, h, points)}, ANSWERS["past_credit"])
 
-    # 15: a plain outcome. Work the school recorded as not done still offers a one-tap answer.
+    # 15: a plain outcome. Work the school recorded as not done still offers a one-tap answer,
+    # and so does work not yet due: `classify` only says NOT_DUE when nothing is handed in.
     if outcome == outcomes.NOT_DONE:
         return Verdict(STATUS, outcome, {"school": _school_says(c, h, points)}, ANSWERS["not_done"])
+    if outcome == outcomes.NOT_DUE:
+        return Verdict(STATUS, outcome, {}, ANSWERS["not_due_yet"])
     return Verdict(STATUS, outcome)
 
 

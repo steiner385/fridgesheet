@@ -328,14 +328,44 @@ def test_missing_work_offers_handed_in_and_plan_without_asking():
     """#74: a red row with no question still needs a one-tap "it's handed in"."""
     v = run(item(), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "not_done")
-    assert [a.action for a in v.answers] == ["done", None]
+    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow"]
     assert V.say("facts.not_done", "", v.facts) == "Canvas marks it missing."
 
 
 def test_past_credit_work_offers_let_it_go():
     v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "past_credit")
-    assert [a.action for a in v.answers] == ["ignore", "done"]
+    assert [a.action for a in v.answers] == ["ignore", "done", "plan:today"]
+
+
+# --- one-tap answers on every card (spec 6.2) ------------------------------------------------------
+
+def test_upcoming_work_offers_today_tomorrow_and_handed_in():
+    v = run(item(due="2026-09-20T23:59:00-04:00"), {"canvas": canvas()})
+    assert (v.state, v.kind) == (V.STATUS, "not_due_yet")
+    assert [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+
+
+def test_undated_work_offers_the_same():
+    v = run(item(due=None, kind="paper"), {"canvas": canvas()})
+    assert v.kind == "not_due_yet" and [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+
+
+def test_still_ungraded_offers_handed_in_today_tomorrow_and_ask():
+    v = run(item(kind="paper", due="2026-09-01T23:59:00-04:00"), {"canvas": canvas()})
+    assert v.kind == "still_ungraded"
+    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow", "ask_teacher"]
+
+
+def test_waiting_cards_offer_ask_the_teacher():
+    sub = "2026-09-14T20:00:00-04:00"
+    assert [a.action for a in run(item(), {"canvas": canvas(state="submitted", submitted_at=sub)}).answers] == ["ask_teacher"]
+
+
+def test_no_answer_opens_a_form_any_more():
+    for answers in V.ANSWERS.values():
+        for a in answers:
+            assert a.action is not None and a.action in V.ACTIONS, a
 
 
 # --- the learned pace (spec 4.5, 4.6) ------------------------------------------------------------
