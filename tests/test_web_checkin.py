@@ -246,7 +246,7 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     assert "The school decides what counts as submitted." in page
     assert f'href="/kids/Sam/check-in/step?item_id={cid}"' in page             # a second step for the same work
     all_work = c.get("/kids/Sam?show=all").text
-    assert ">Missing<" in all_work                                               # the school record is untouched
+    assert ">Missing · Canvas<" in all_work                                               # the school record is untouched
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Sam'").fetchone()[0])[cid]
     assert obs["canvas"]["submitted_at"] is None and obs["canvas"]["missing"] == 1

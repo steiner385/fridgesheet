@@ -288,3 +288,10 @@ def since(conn: sqlite3.Connection, *, since: datetime, until: datetime | None =
     offset = max(0, offset)
     page = kept[offset:] if limit is None else kept[offset:offset + limit]
     return Feed(page, total=len(kept), offset=offset)
+
+
+def for_item(conn: sqlite3.Connection, student_id: int, item_id: int, *, now: datetime, prefs=None) -> list[Event]:
+    """What happened to one assignment, newest first: the same events the Changes page shows,
+    over the whole school year, for the item's History on its detail card (#44)."""
+    start = now - timedelta(days=400)
+    return [e for e in since(conn, since=start, student_id=student_id, limit=None, prefs=prefs) if e.item_id == item_id]

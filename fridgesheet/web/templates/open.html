@@ -31,7 +31,7 @@
       <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
       <td>{{ item_cell(s, v) }}</td>
       <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}</td>
-      <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
+      <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}{% if v.grade_source %} <span class="src">{{ 'HAC' if v.grade_source == 'hac' else 'Canvas' }}</span>{% endif %}</td>
       <td class="thru">{% if v.late_until %}thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} <span class="rel">{{ v.credit }}</span>{% endif %}{% endif %}</td>
       <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
     </tr>

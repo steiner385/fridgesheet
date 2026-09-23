@@ -81,6 +81,9 @@ class ItemView:
     #: The family's active plan step on this assignment (a `plan_steps` row), or None. A step
     #: already agreed means the question is being handled: it is not asked again.
     step: dict | None = None
+    grade_source: str = ""          # "canvas" | "hac" | "": which gradebook `grade` came from (#51)
+    canvas_path: str = ""           # "/courses/<id>/assignments/<id>", appended to settings.canvas_base (#44)
+    latest_note: dict | None = None # {"body", "at"} of the newest note on this item, for the check-in (#47)
 
     @property
     def overdue(self) -> bool:
@@ -227,11 +230,31 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
     return "", False
 
 
+def grade_source(obs: dict[str, sqlite3.Row], prefer: str = "canvas") -> str:
+    """Which gradebook `grade_text` took the Grade cell from: the same branches, naming the
+    source instead of the words. "" when the cell is not a grade (excused, unpublished, waiting)."""
+    c, h = obs.get("canvas"), obs.get("hac")
+    if prefer == "hac" and h is not None and h["score"] is not None:
+        return "" if c is not None and (c["excused"] or c["published"] == 0) else "hac"
+    if c is not None:
+        if c["published"] == 0 or c["excused"]:
+            return ""
+        if c["score"] is not None or c["missing"]:
+            return "canvas"
+        if c["submitted_at"]:
+            return ""
+        return "hac" if h is not None and h["score"] is not None else ""
+    return "hac" if h is not None and h["score"] is not None else ""
+
+
 def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
            prefs=None) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
+    latest_notes: dict[int, dict] = {}
+    for r in conn.execute("SELECT target_id, body, created_at FROM notes WHERE target_type = 'item' ORDER BY created_at DESC, id DESC"):
+        latest_notes.setdefault(r["target_id"], {"body": r["body"], "at": r["created_at"]})
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
     flag_text = {i: r["text"] for i, r in active_flags.items()}
     refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
@@ -274,6 +297,10 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
             teacher_email=r["teacher_email"] or "",
             step=steps.get(r["id"]),
+            grade_source=grade_source(obs, prefer),
+            canvas_path=(f"/courses/{r['course_external_id']}/assignments/{r['key'][len('canvas:'):]}"
+                         if r["key"].startswith("canvas:") and r["course_source"] == "canvas" and r["course_external_id"] else ""),
+            latest_note=latest_notes.get(r["id"]),
         ))
     return out
 

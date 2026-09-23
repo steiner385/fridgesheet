@@ -228,4 +228,7 @@ def standing(item, tier: str) -> str:
     key = "where." + item.verdict.kind
     if key in phrasing.PHRASES:
         return say(key, tier, item.verdict.facts)
-    return phrasing.phrase(item.grade or item.status, tier)
+    if item.grade:
+        where = {"canvas": "Canvas", "hac": "HAC"}.get(getattr(item, "grade_source", ""), "")
+        return phrasing.phrase(item.grade, tier) + (f" · {where}" if where else "")
+    return phrasing.phrase(item.status, tier)

@@ -6,6 +6,9 @@
   {% if item.verdict.state in ('question', 'decided', 'waiting') %}{% set slot = 'qd-' ~ item.id %}{% include "_question.html" %}{% else %}{% include "_record.html" %}{% endif %}
   {% if item.step %}<p class="family-account"><strong>Our step:</strong> {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
   <p><a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">{{ 'Plan another step' if item.step else 'Plan a step' }}</a></p>
+  {% if item_history %}<details class="history"><summary>History ({{ item_history | length }})</summary>
+    <ul>{% for e in item_history %}<li><span class="muted">{{ e.at | wd_md_time }}</span> · {{ e.label }}{% if e.source %} <span class="muted">({{ 'HAC' if e.source == 'hac' else 'Canvas' }})</span>{% endif %}{% if e.detail %}: {{ e.detail }}{% endif %}</li>{% endfor %}</ul>
+  </details>{% endif %}
   <details><summary>More</summary>{% include "_flag_menu.html" %}</details>
   {% set target_type = "item" %}{% set target_id = item.id %}
   {% include "_notes.html" %}
