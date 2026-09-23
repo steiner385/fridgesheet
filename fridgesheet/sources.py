@@ -41,8 +41,14 @@ class SourceRule:
     assignments: str | None = None
     grades: str | None = None
 
-    def matches(self, kid: str, course: str) -> bool:
-        return kid_matches(self.kid, kid) and course_matches(self.course, course, whole_words=True)
+    def matches(self, kid: str, course: str, peer: str | None = None) -> bool:
+        """`peer` is the same class's name in the other source. The two can share no words at
+        all (ENGLISH LANGUAGE ARTS <-> ELA Plus 5th Gr), and a rule is about the class, so a
+        rule that fits either name applies to both halves of it."""
+        if not kid_matches(self.kid, kid):
+            return False
+        return course_matches(self.course, course, whole_words=True) or (
+            bool(peer) and course_matches(self.course, peer, whole_words=True))
 
     def targets(self, kid: str, course: str) -> bool:
         """Exactly this kid and this class, as the course-page control writes it."""
@@ -54,16 +60,16 @@ class SourcePrefs:
     default: Choice = Choice()
     rules: tuple[SourceRule, ...] = ()
 
-    def deciding_rule(self, kid: str, course: str, field: str) -> SourceRule | None:
+    def deciding_rule(self, kid: str, course: str, field: str, peer: str | None = None) -> SourceRule | None:
         for r in self.rules:
-            if getattr(r, field) is not None and r.matches(kid, course):
+            if getattr(r, field) is not None and r.matches(kid, course, peer):
                 return r
         return None
 
-    def resolve(self, kid: str, course: str) -> Choice:
+    def resolve(self, kid: str, course: str, peer: str | None = None) -> Choice:
         out = {}
         for f in FIELDS:
-            r = self.deciding_rule(kid, course, f)
+            r = self.deciding_rule(kid, course, f, peer)
             out[f] = getattr(r, f) if r is not None else getattr(self.default, f)
         return Choice(**out)
 
@@ -74,16 +80,16 @@ class SourcePrefs:
         return replace(self, rules=tuple(r for r in self.rules if not r.targets(kid, course)))
 
     def with_rule(self, kid: str, course: str, assignments: str | None, grades: str | None) -> "SourcePrefs":
-        """Add or replace the exact kid+class rule; both fields None removes it."""
+        """Add or replace the exact kid+class rule; both fields None removes it.
+
+        The rule goes first: it is the most specific thing a parent can say, and rules are
+        first-match, so appending it behind a hand-written class-wide or kid-wide rule would
+        leave the control showing a choice that never takes effect."""
+        rest = self.without_rule(kid, course)
         if assignments is None and grades is None:
-            return self.without_rule(kid, course)
+            return rest
         new = SourceRule(kid=kid, course=course, assignments=assignments, grades=grades)
-        rules = list(self.rules)
-        for i, r in enumerate(rules):
-            if r.targets(kid, course):
-                rules[i] = new
-                return replace(self, rules=tuple(rules))
-        return replace(self, rules=(*rules, new))
+        return replace(rest, rules=(new, *rest.rules))
 
     def with_default(self, assignments: str, grades: str) -> "SourcePrefs":
         return replace(self, default=Choice(assignments, grades))
@@ -137,8 +143,8 @@ def from_doc(doc: dict) -> SourcePrefs:
     return SourcePrefs(default, tuple(rules))
 
 
-def assignments_for(prefs: SourcePrefs | None, kid: str, course: str) -> str:
-    return (prefs or DEFAULT).resolve(kid, course).assignments
+def assignments_for(prefs: SourcePrefs | None, kid: str, course: str, peer: str | None = None) -> str:
+    return (prefs or DEFAULT).resolve(kid, course, peer).assignments
 
 
 def pick_value(pick: str, canvas_value, hac_value):

@@ -144,7 +144,7 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
     for c in ((entry.get("canvas") or {}).get("courses") or []):
         peer = match_course(c["name"], hac_classes) if hac_classes else None
         peer_rows = {a["name"]: a for a in (peer or {}).get("assignments", [])}
-        pick = _sources.assignments_for(prefs, first, c["name"])
+        pick = _sources.assignments_for(prefs, first, c["name"], (peer or {}).get("name"))
         for a in c["assignments"]:
             if not a.get("due_at"):
                 continue

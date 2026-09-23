@@ -120,3 +120,23 @@ def test_shared_matchers_keep_late_rules_semantics():
     assert course_matches("Algebra I", "Algebra II")                          # late rules: plain substring, unchanged
     assert not course_matches("Algebra I", "Algebra II", whole_words=True)
     assert course_matches("English 9", "Honors English 9 S1-2027-Hoch", whole_words=True)
+
+
+def test_a_course_page_rule_beats_a_broader_rule_earlier_in_the_file():
+    """Review finding: with_rule appended, so a hand-written class-wide rule above it still won."""
+    p = prefs('[[sources.rule]]\ncourse = "Honors English 9"\ngrades = "hac"\n')
+    p = p.with_rule("Alex", "Honors English 9", None, "canvas")
+    assert p.resolve("Alex", "Honors English 9 S1-2027-Hoch").grades == "canvas"
+    assert p.resolve("Sam", "Honors English 9 S1-2027-Hoch").grades == "hac"        # the broad rule still holds for others
+    p = p.with_rule("Alex", "Honors English 9", None, "hac").with_rule("Alex", "Honors English 9", None, "canvas")
+    assert p.resolve("Alex", "Honors English 9").grades == "canvas" and len(p.rules) == 2
+
+
+def test_a_rule_reaches_the_twin_whose_name_it_does_not_contain():
+    """Review finding: pairs like ENGLISH LANGUAGE ARTS <-> ELA Plus 5th Gr share no words, so a rule
+    written from one twin's page missed the other. Rules match either name of the class."""
+    p = sources.DEFAULT.with_rule("Alex", "ENGLISH LANGUAGE ARTS", "hac", "canvas")
+    assert p.resolve("Alex", "ELA Plus 5th Gr").assignments == "canvas"                           # no peer given: no match
+    assert p.resolve("Alex", "ELA Plus 5th Gr", peer="ENGLISH LANGUAGE ARTS S1-2027-X") == sources.Choice("hac", "canvas")
+    assert p.deciding_rule("Alex", "ELA Plus 5th Gr", "grades", peer="ENGLISH LANGUAGE ARTS").course == "ENGLISH LANGUAGE ARTS"
+    assert sources.assignments_for(p, "Alex", "ELA Plus 5th Gr", peer="ENGLISH LANGUAGE ARTS") == "hac"

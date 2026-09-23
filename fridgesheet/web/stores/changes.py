@@ -201,9 +201,10 @@ def _new_item_events(conn: sqlite3.Connection, student_id: int | None) -> list[E
 def _course_grade_events(conn: sqlite3.Connection, student_id: int | None, prefs=None) -> list[Event]:
     """A class average moving. One event per course per refresh that changed something."""
     sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, c.source AS course_source,
-                    c.student_id AS student_id, s.key AS student_key
+                    c.student_id AS student_id, s.key AS student_key, pc.name AS peer_course_name
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
+             LEFT JOIN courses pc ON pc.id = c.peer_course_id
              WHERE s.hidden = 0"""
     args: list = []
     if student_id is not None:
@@ -217,7 +218,7 @@ def _course_grade_events(conn: sqlite3.Connection, student_id: int | None, prefs
         prev[row["course_id"]] = row
         if before is None:
             continue
-        pick = (prefs or sources.DEFAULT).resolve(row["student_key"], row["course_name"]).grades
+        pick = (prefs or sources.DEFAULT).resolve(row["student_key"], row["course_name"], row["peer_course_name"]).grades
         for field, word, src in (("average", "HAC average", "hac"), ("current", "Canvas current", "canvas")):
             a, b = before[field], row[field]
             if a is not None and b is not None and a != b:

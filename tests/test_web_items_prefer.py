@@ -64,3 +64,11 @@ def test_open_sources_settles_when_hac_is_preferred_and_graded():
     obs = {"canvas": canvas(missing=1), "hac": hac(48.0)}
     assert reconcile.open_sources(item(), obs, NOW) == {"canvas"}
     assert reconcile.open_sources(item(), obs, NOW, prefer="hac") == set()
+
+
+def test_late_hand_in_graded_in_hac_is_settled_under_hac_preference():
+    """Review finding: open_sources judged "late, still ungraded" by Canvas's score alone, so the
+    app kept the item open while its own Grade cell and the printed sheet said it was graded."""
+    obs = {"canvas": canvas(submitted_at=PAST, late=1), "hac": hac(9.0)}
+    assert reconcile.open_sources(item(points=10), obs, NOW) == {"canvas"}          # default: Canvas has no grade yet
+    assert reconcile.open_sources(item(points=10), obs, NOW, prefer="hac") == set()

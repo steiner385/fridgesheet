@@ -62,9 +62,11 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
     `grade_observations` only holds rows where something changed, so each point is a real
     move; a flat stretch is simply the absence of points between two of them.
     """
-    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, s.key AS student_key
+    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, pc.name AS peer_course_name,
+                    s.key AS student_key
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
+             LEFT JOIN courses pc ON pc.id = c.peer_course_id
              WHERE s.hidden = 0 AND c.hidden = 0"""
     args: list = []
     if student_id is not None:
@@ -87,7 +89,7 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
             key = (r["course_id"], source)
             s = out.get(key)
             if s is None:
-                pick = (prefs or sources.DEFAULT).resolve(r["student_key"], r["course_name"]).grades
+                pick = (prefs or sources.DEFAULT).resolve(r["student_key"], r["course_name"], r["peer_course_name"]).grades
                 s = out[key] = GradeSeries(r["course_id"], r["course_short"], source,
                                            f"{r['course_short']} ({word})", official=source == pick)
             s.points.append((at, float(value)))
@@ -174,7 +176,7 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
             if week not in buckets:
                 continue
             outcome = outcomes.classify(item, latest.get(item["id"], {}), now,
-                                        prefer=sources.assignments_for(prefs, item["kid"], item["course_name"]))
+                                        prefer=sources.assignments_for(prefs, item["kid"], item["course_name"], item["peer_course_name"]))
             if outcome in buckets[week]:
                 buckets[week][outcome] += 1
     return [WeekOutcomes(w, **buckets[w]) for w in starts]
@@ -222,7 +224,7 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
             if item["flag"] in HANDLED_FLAGS:
                 continue
             if not reconcile.open_sources(item, latest.get(item["id"], {}), now,
-                                          prefer=sources.assignments_for(prefs, item["kid"], item["course_name"])):
+                                          prefer=sources.assignments_for(prefs, item["kid"], item["course_name"], item["peer_course_name"])):
                 continue
             since = reconcile.due_of(item) or _dt(started_at.get(item["first_seen"]))
             if since is None:

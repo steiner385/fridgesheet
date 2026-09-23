@@ -83,7 +83,10 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, 
     from . import outcomes                      # outcomes imports this module's helpers
     outcome = outcomes.classify(item, obs, now, prefer=prefer)
     c, h = obs.get("canvas"), obs.get("hac")
-    late_ungraded = outcome == outcomes.LATE and c is not None and c["score"] is None
+    # "Still ungraded" asks the family's assignments source first: under a HAC preference a
+    # HAC grade settles a late hand-in, as it does in the Grade cell and on the printed sheet.
+    graded = (h is not None and h["score"] is not None) if prefer == "hac" else False
+    late_ungraded = outcome == outcomes.LATE and c is not None and c["score"] is None and not graded
     if outcome not in (outcomes.NOT_DONE, outcomes.UNKNOWN) and not late_ungraded:
         return set()
     out: set[str] = set()
@@ -128,8 +131,9 @@ def live_items(conn: sqlite3.Connection, student_id: int, now: datetime) -> list
     """
     rows = conn.execute(
         """SELECT i.*, c.name AS course_name, c.short_name AS course_short, c.source AS course_source, c.peer_course_id,
-                  s.key AS kid, f.flag AS flag, f.set_at AS flag_set_at
+                  pc.name AS peer_course_name, s.key AS kid, f.flag AS flag, f.set_at AS flag_set_at
            FROM items i JOIN courses c ON c.id = i.course_id JOIN students s ON s.id = i.student_id
+           LEFT JOIN courses pc ON pc.id = c.peer_course_id
            LEFT JOIN flags f ON f.item_id = i.id AND f.cleared_at IS NULL
            WHERE i.student_id = ?
              AND i.last_seen = (SELECT MAX(last_seen) FROM items WHERE student_id = ?)""",
@@ -149,7 +153,7 @@ def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: d
     latest = db.latest_observations(conn, student_id)
     out = [r for r in live_items(conn, student_id, now)
            if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now,
-                            prefer=sources.assignments_for(prefs, r["kid"], r["course_name"]))]
+                            prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))]
     return sorted(out, key=lambda r: (r["due"] or "", r["course_short"], r["name"]))
 
 
@@ -169,7 +173,7 @@ def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, pr
         c, h = obs.get("canvas"), obs.get("hac")
         due = _due(r)
         past = due is not None and due < now
-        opened = open_sources(r, obs, now, prefer=sources.assignments_for(prefs, r["kid"], r["course_name"]))
+        opened = open_sources(r, obs, now, prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))
         flag = r["flag"]
 
         def add(kind: str, reason: str) -> None:

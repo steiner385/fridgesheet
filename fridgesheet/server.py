@@ -78,7 +78,7 @@ def grades(student: str) -> dict:
         w = _match(c["name"], hac_week) or {}
         seen.add(h.get("name"))
         hac_official = h.get("marking_period_avg", w.get("current_average"))
-        pick = _settings.sources.resolve(first, c["name"]).grades
+        pick = _settings.sources.resolve(first, c["name"], h.get("name")).grades
         official, official_source = pick_value(pick, c["grade"]["current_score"], hac_official)
         out["classes"].append({
             "course": c["name"],

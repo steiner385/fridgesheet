@@ -208,7 +208,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
-        prefer = sources.assignments_for(prefs, r["kid"], r["course_name"])
+        prefer = sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"])
         due = reconcile.due_of(r)
         handed, handed_at = handed_in_text(r, obs)
         grade, zero = grade_text(r, obs, prefer)

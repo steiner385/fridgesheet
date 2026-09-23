@@ -80,12 +80,13 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     grades = students.latest_grades(conn, s["id"])
     own, other = grades.get(course_id), (grades.get(peer["id"]) if peer else None)
     canvas_g, hac_g = (own, other) if c["source"] == "canvas" else (other, own)
-    grade_lines = students.grade_lines(canvas_g, hac_g, prefs.resolve(s["key"], c["name"]).grades)
+    peer_name = peer["name"] if peer else None
+    grade_lines = students.grade_lines(canvas_g, hac_g, prefs.resolve(s["key"], c["name"], peer_name).grades)
     source_ctx = {
         "own_rule": prefs.rule_for(s["key"], c["short_name"]),
         "household": prefs.default,
-        "choice": prefs.resolve(s["key"], c["name"]),
-        "deciding": {f: prefs.deciding_rule(s["key"], c["name"], f) for f in ("assignments", "grades")},
+        "choice": prefs.resolve(s["key"], c["name"], peer_name),
+        "deciding": {f: prefs.deciding_rule(s["key"], c["name"], f, peer_name) for f in ("assignments", "grades")},
         "SOURCE_LABELS": sources.LABELS,
     }
     # This course and its twin in the other source are one list to a parent, so the peer's

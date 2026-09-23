@@ -77,3 +77,13 @@ def test_report_builder_grades_rows_carry_official(tmp_path):
     rows = [r for r, _ in views._grade_rows(conn, views.Definition(source="grades"), now=NOW, nicknames={})]
     assert {r["source"]: r["official"] for r in rows if r["course"] == "Honors English 9"} == {"hac": "yes", "canvas": ""}
     assert "official" in views.DEFAULT_COLUMNS["grades"]
+
+
+def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
+    """Review finding: grade_series resolved each twin by its own name, so a rule matching only the
+    Canvas name made both the Canvas and the HAC series official."""
+    history(tmp_path).close()
+    series = client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends/grades.json").json()["series"]
+    official = {s["label"]: s["official"] for s in series}
+    assert official["Honors English 9 (Canvas current)"] is True
+    assert official["Honors English 9 (HAC average)"] is False
