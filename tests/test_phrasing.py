@@ -87,3 +87,13 @@ def test_the_table_covers_the_words_a_child_actually_meets():
         assert kind in phrasing.PHRASES, f"Missing phrase for reconcile kind {kind!r}"
     # Action badge
     assert "actionable" in phrasing.PHRASES
+    # The two "Handed in" cells that are not yes or no. A child meets these on every paper
+    # assignment, so they are copy like any other status word.
+    for word in ("On paper", "Unknown"):
+        assert word in phrasing.PHRASES, word
+
+
+def test_the_two_non_answers_stay_distinguishable_at_every_tier():
+    """Splitting one dash into two words is pointless if a tier collapses them again."""
+    for tier in tiers.TIERS:
+        assert phrasing.phrase("On paper", tier) != phrasing.phrase("Unknown", tier)

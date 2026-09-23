@@ -30,7 +30,7 @@
       <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
       <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
       <td>{{ item_cell(s, v) }}</td>
-      <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}</td>
+      <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}</td>
       <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
       <td class="thru">{% if v.late_until %}thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} <span class="rel">{{ v.credit }}</span>{% endif %}{% endif %}</td>
       <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
@@ -39,6 +39,7 @@
     {% endfor %}
     </tbody>
   </table>
+  {% include "_handed_legend.html" %}
   {% else %}<p class="muted">Nothing past due that can still be fixed.</p>{% endif %}
   <h3>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h3>
   {% if w.upcoming %}
