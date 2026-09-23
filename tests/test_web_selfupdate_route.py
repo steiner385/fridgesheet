@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from fridgesheet import host
 from fridgesheet.web import jobs, updatepin
 from tests.web_fixtures import NOW, app_for, seed
 
@@ -19,14 +20,16 @@ def test_the_generic_job_route_will_not_start_an_update(tmp_path):
     assert r.status_code == 404
 
 
-def test_no_pin_configured_means_the_route_refuses(tmp_path):
+def test_no_pin_configured_means_the_route_refuses(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     seed(tmp_path)
     r = app_for(tmp_path).post("/settings/update", data={"pin": "2468"})
     assert r.status_code == 403
     assert "PIN" in r.text
 
 
-def test_a_wrong_pin_is_refused_and_counted(tmp_path):
+def test_a_wrong_pin_is_refused_and_counted(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
     c = app_for(tmp_path)
     for _ in range(5):
@@ -37,10 +40,22 @@ def test_a_wrong_pin_is_refused_and_counted(tmp_path):
 
 def test_the_route_refuses_when_the_parent_turned_update_checks_off(tmp_path):
     """Review Focus 5. `check_updates = false` is the parent switching off this app's one
-    outbound call; a button must not quietly put it back."""
+    outbound call; a button must not quietly put it back. No platform patch needed: this
+    guard fires before the platform check, on any host."""
     seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"), check_updates=False)
     r = app_for(tmp_path).post("/settings/update", data={"pin": "2468"})
     assert r.status_code == 409
+
+
+def test_the_route_refuses_on_a_non_windows_host(tmp_path, monkeypatch):
+    """Fix round: today nothing checked the platform until `selfupdate.spawn_installer`'s
+    dispatcher raised -- the LAST step, after a 286 MB download and a written breadcrumb.
+    The PIN-gated route must refuse before any of that, alongside its other 409."""
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
+    seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
+    r = app_for(tmp_path).post("/settings/update", data={"pin": "2468"})
+    assert r.status_code == 409
+    assert "Windows" in r.text
 
 
 def _with_idle_worker(tmp_path):
@@ -57,10 +72,11 @@ def _with_idle_worker(tmp_path):
     return c
 
 
-def test_an_update_job_will_not_be_displaced_by_another_job(tmp_path):
+def test_an_update_job_will_not_be_displaced_by_another_job(tmp_path, monkeypatch):
     """Review Focus 1: `Worker.submit` abandons the running job to take the slot, but the
     abandoned thread keeps going -- so a Refresh started mid-update would still get an
     installer fired at it. An update in flight holds the slot."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
     c = _with_idle_worker(tmp_path)
     c.post("/settings/update", data={"pin": "2468"})
@@ -68,7 +84,7 @@ def test_an_update_job_will_not_be_displaced_by_another_job(tmp_path):
     assert r.status_code == 409
 
 
-def test_an_update_past_its_own_deadline_is_still_not_displaced(tmp_path):
+def test_an_update_past_its_own_deadline_is_still_not_displaced(tmp_path, monkeypatch):
     """Fix round 1, Important A. `test_an_update_job_will_not_be_displaced_by_another_job`
     above holds the clock at `NOW`, where the ordinary busy-slot check in `Worker.submit`
     (`now < self.current.deadline`) already returns `None` before the update-specific guard
@@ -78,6 +94,7 @@ def test_an_update_past_its_own_deadline_is_still_not_displaced(tmp_path):
     uses), so the far more general "abandon a stuck job and take the slot" path is genuinely
     live, and only the update-specific guard stands between it and displacing the job.
     """
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
     c = _with_idle_worker(tmp_path)
     state = c.app.state.fridgesheet
@@ -94,8 +111,9 @@ def test_an_update_past_its_own_deadline_is_still_not_displaced(tmp_path):
     assert w.current is update_job and not update_job.done   # never abandoned, never displaced
 
 
-def test_a_second_update_cannot_start_while_one_is_running(tmp_path):
+def test_a_second_update_cannot_start_while_one_is_running(tmp_path, monkeypatch):
     """Review Focus 2: two 286 MB downloads and two installers racing each other."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
     c = _with_idle_worker(tmp_path)
     assert c.post("/settings/update", data={"pin": "2468"}).status_code == 200

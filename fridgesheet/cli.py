@@ -484,7 +484,15 @@ def cmd_self_update(args) -> int:
     reporting success. Seen on the household's Windows box, 2026-09-22: the logon task runs as
     one account while an SSH session arrives as another.
     """
+    from . import host
+    from .host import selfupdate_linux
     from .web import updates as updatemod
+    if not host.IS_WINDOWS:
+        # Refused before anything else -- including `--check`, which the README already
+        # advertises as part of this Windows-only command -- rather than leaving the
+        # platform check to be discovered last, wherever the flow happens to fail first.
+        print(selfupdate_linux.NOT_WINDOWS, file=sys.stderr)
+        return 1
     s = load_settings()
     if args.check:
         current = updatemod.current_version()

@@ -13,7 +13,7 @@ import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from fridgesheet import late_rules, runner
+from fridgesheet import host, late_rules, runner
 from fridgesheet.config import Settings
 from fridgesheet.host import ScheduleInfo, selfupdate
 from fridgesheet.web import db
@@ -556,6 +556,7 @@ def _release_body(tag: str, *, digest: str = "", size: int = 0, asset: bool = Tr
 
 def test_self_update_does_nothing_when_already_current(tmp_path, monkeypatch):
     """Path 1: not newer. `download_verified` must never even be asked."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
     calls = []
     monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: calls.append(("download", a, kw)))
@@ -573,6 +574,7 @@ def test_self_update_downloads_verifies_and_spawns_the_installer(tmp_path, monke
     size -- without size, `download_verified`'s free-space check has nothing to compare
     the free space against and is dead code. A Pending breadcrumb is written and the
     installer is spawned."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
     dl_calls = []
 
@@ -603,6 +605,7 @@ def test_self_update_downloads_verifies_and_spawns_the_installer(tmp_path, monke
 def test_self_update_refuses_and_never_spawns_when_the_digest_is_wrong(tmp_path, monkeypatch):
     """Path 3: the one that matters most. A failed verification must not be able to execute
     anything -- `spawn_installer` is asserted never called."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
 
     def fake_download(*a, **kw):
@@ -626,6 +629,7 @@ def test_self_update_refuses_when_the_release_has_no_installer(tmp_path, monkeyp
     """Path 4: a release with no .exe asset -- an empty digest. The real `download_verified`
     refuses this before any network call (its very first check), so it is left unmocked here;
     only `spawn_installer` is watched, to prove it is never reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
     spawn_calls = []
     monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: spawn_calls.append((a, kw)))
@@ -636,3 +640,54 @@ def test_self_update_refuses_when_the_release_has_no_installer(tmp_path, monkeyp
     assert ok is False
     assert spawn_calls == []
     assert any("no installer" in ln for ln in lines)
+
+
+def test_self_update_refuses_early_on_a_non_windows_host(tmp_path, monkeypatch):
+    """Fix round: a Linux install must never download the 286 MB asset, write the
+    breadcrumb, or announce that the installer is starting -- and today nothing checked the
+    platform until `selfupdate.spawn_installer`'s dispatcher raised, which is the LAST step.
+    This is the guard at the TOP of the function: neither the release fetch nor
+    `download_verified` may even be reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
+    fetch_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: fetch_calls.append("download"))
+    lines = []
+    state = _FakeState(fetch=lambda url: fetch_calls.append("fetch") or _release_body(
+        "v99.0.0", digest=UPDATE_DIGEST, size=286_000_000))
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert fetch_calls == []                                   # neither the release check nor the download ran
+    assert selfupdate.read_pending(tmp_path) is None            # no breadcrumb left for `resolve_pending` to pin
+    assert any("Windows" in ln for ln in lines)
+
+
+def test_self_update_gives_a_friendly_line_when_github_is_unreachable(tmp_path, monkeypatch):
+    """No internet is the single most likely failure for the households this feature is for.
+    `updatemod.latest_release` can raise `URLError` straight through -- it is not wrapped in
+    `UpdateError` -- and left uncaught that reaches the job worker's generic handler as a raw
+    `URLError: <urlopen error ...>` string, the opposite of the "one sentence a parent can
+    act on" contract."""
+    from urllib.error import URLError
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+
+    def fetch(url):
+        raise URLError("[Errno -2] Name or service not known")
+    lines = []
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)
+    assert not any("Errno" in ln for ln in lines)                # no raw traceback text reaches the parent
+
+
+def test_self_update_gives_a_friendly_line_on_malformed_release_json(tmp_path, monkeypatch):
+    """A `json.JSONDecodeError` from `latest_release` is just as uncaught as a `URLError` --
+    same contract, same fix."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    lines = []
+    state = _FakeState(fetch=lambda url: b"not json")
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)

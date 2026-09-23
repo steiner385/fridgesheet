@@ -4,12 +4,15 @@ ever *told* to the parent -- nothing here downloads or installs anything.
 The installer already knows how to upgrade over a running copy (`packaging/windows/
 installer.iss`, `PrepareToInstall`). What was missing was the noticing: a parent who
 installed once had no way to learn a fix existed short of being told by hand. This is the
-minimum that closes that gap honestly. A one-click upgrade -- the app fetching and running
-an installer on itself -- is a different level of trust and is deliberately not here yet.
+minimum that closes that gap honestly.
 
 This is the one place the app talks to anything other than OneLogin, Canvas and HAC. It
 sends nothing but the request; it is off in one checkbox on Settings (`[web]
 check_updates = false`); and the About text says so.
+
+This module still only *notices* -- the *doing* lives in `fridgesheet/host/selfupdate.py`,
+behind an update PIN, and the split is deliberate: noticing is a read of a public API and is
+safe to do on a timer, but doing is code execution on a family PC and is not.
 """
 from __future__ import annotations
 

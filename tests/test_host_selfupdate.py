@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from fridgesheet import host
 from fridgesheet.host import selfupdate
 
 BODY = b"pretend installer" * 1000
@@ -26,6 +27,16 @@ def test_a_verified_download_lands_at_dest(tmp_path):
     out = selfupdate.download_verified("https://x/s.exe", GOOD, dest,
                                        opener=_opener(BODY), log=_log, free_bytes=10**9)
     assert out == dest and dest.read_bytes() == BODY
+
+
+def test_a_non_https_url_is_refused(tmp_path):
+    """`url` is `browser_download_url` from the release API response, not a literal fixed
+    string -- `urlopen` honours `file://` and `ftp://` too. No `opener=` is injected here, so
+    this exercises the real `_default_opener`, not a fake that could hide a regression."""
+    with pytest.raises(selfupdate.UpdateError, match="https"):
+        selfupdate.download_verified("file:///etc/passwd", GOOD, tmp_path / "s.exe",
+                                     log=_log, free_bytes=10**9)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_wrong_digest_refuses_and_leaves_nothing_behind(tmp_path):
@@ -180,9 +191,14 @@ def test_archiving_failure_does_not_stop_the_update_from_counting_as_ok(tmp_path
 
 def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
     """The dispatcher is what production calls -- `actions.self_update` never reaches the
-    platform module directly -- so its branch is the one that must not rot."""
+    platform module directly -- so its branch is the one that must not rot.
+
+    Patches `host.IS_WINDOWS` (the attribute `selfupdate.py` looks up at call time via
+    `import fridgesheet.host as host`), the same target `host/opener.py`'s own tests patch --
+    not a module-local `selfupdate.IS_WINDOWS` name, which a `from . import IS_WINDOWS`
+    binding would leave stale and which this monkeypatch would then miss entirely."""
     seen = {}
-    monkeypatch.setattr(selfupdate, "IS_WINDOWS", True)
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     selfupdate.spawn_installer(Path("C:/u/Setup.exe"), Path("C:/u/i.log"),
                                popen=lambda cmd, **kw: seen.update(cmd=cmd, kw=kw))
     assert seen["cmd"][0] == "C:/u/Setup.exe"
@@ -190,7 +206,7 @@ def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
 
 
 def test_the_dispatcher_refuses_on_linux(monkeypatch):
-    monkeypatch.setattr(selfupdate, "IS_WINDOWS", False)
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
     with pytest.raises(selfupdate.UpdateError, match="git pull"):
         selfupdate.spawn_installer(Path("/tmp/x"), Path("/tmp/x.log"))
 
@@ -199,7 +215,7 @@ def test_the_dispatcher_forwards_an_injected_popen_and_omits_it_otherwise(monkey
     """`kwargs = {"popen": popen} if popen is not None else {}` -- if that forwarding
     broke, every test above would still pass while production silently used the wrong
     spawn. Pin it."""
-    monkeypatch.setattr(selfupdate, "IS_WINDOWS", True)
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
     calls = []
     selfupdate.spawn_installer(Path("C:/u/S.exe"), Path("C:/u/i.log"),
                                popen=lambda cmd, **kw: calls.append("injected"))

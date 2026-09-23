@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import contextlib
 import ipaddress
+import json
 import logging
+import socket
 from dataclasses import dataclass
 from datetime import date, datetime
 from importlib import metadata
 from pathlib import Path
 from typing import Callable
+from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
 from .. import config, late_rules, runner
@@ -633,8 +636,17 @@ def self_update(*, home: Path, log: Callable[[str], None], settings, state) -> b
     by a job the PIN-gated `POST /settings/update` route started (see `jobs.GATED`) -- there is
     no other way into this function from the web.
     """
-    from ..host import selfupdate
+    import fridgesheet.host as host
+    from ..host import selfupdate, selfupdate_linux
     from . import updates as updatemod
+    # Refused before any network call or breadcrumb write -- not left for
+    # `selfupdate.spawn_installer`'s dispatcher to discover last, after a 286 MB download
+    # has already happened and a `update-pending.json` has already been left behind for
+    # `resolve_pending` to find on the next (Linux) start, where no running version will
+    # ever match `to_version` and the "did not finish" card can never clear.
+    if not host.IS_WINDOWS:
+        log(selfupdate_linux.NOT_WINDOWS)
+        return False
     try:
         current = updatemod.current_version()
         latest, url, digest, size = updatemod.latest_release(state.extra.get("update_fetch"))
@@ -656,4 +668,15 @@ def self_update(*, home: Path, log: Callable[[str], None], settings, state) -> b
         return True
     except selfupdate.UpdateError as e:
         log(str(e))
+        return False
+    except (URLError, socket.timeout, json.JSONDecodeError) as e:
+        # `updatemod.latest_release` only wraps its own `download_verified`-equivalent
+        # failures in `UpdateError`; a network problem reaching GitHub in the first place
+        # (no internet -- the single most likely failure in a household this feature is
+        # for) or a malformed release JSON escapes as the raw exception instead. Left
+        # uncaught, that reaches `jobs.py`'s generic handler as e.g. `URLError: <urlopen
+        # error [Errno -2] Name or service not known>` -- exactly the raw traceback string
+        # the "one sentence a parent can act on" contract above exists to prevent.
+        log(f"Could not reach GitHub to check for an update ({type(e).__name__}). "
+            "Check the internet connection and try again later.")
         return False

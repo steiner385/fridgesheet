@@ -14,7 +14,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
 
-from . import IS_WINDOWS
+import fridgesheet.host as host   # attribute lookup at call time, so tests can flip IS_WINDOWS
+                                   # -- see host/opener.py's docstring for why a `from . import
+                                   # IS_WINDOWS` binding here would not be patchable the same way.
 
 CHUNK = 1 << 20              # 1 MiB; the asset is ~286 MB and never held in memory
 #: Free space wanted before starting: the installer on disk plus the install it performs.
@@ -27,7 +29,15 @@ class UpdateError(RuntimeError):
 
 
 def _default_opener(url: str):
-    return urllib.request.urlopen(url, timeout=TIMEOUT)     # noqa: S310  a fixed https URL
+    # `url` is `browser_download_url` from the release API response, not a literal fixed
+    # string -- `urlopen` honours `file://` and `ftp://` too, so this is the one place that
+    # must reject anything but https before handing the URL to it. Defence in depth: the
+    # digest this download is verified against comes from that same API response, so a
+    # scheme check is not the main protection here -- but the comment must not claim a
+    # guarantee ("a fixed https URL") the code does not actually make.
+    if not url.startswith("https://"):
+        raise UpdateError(f"Refusing to fetch a non-https update URL: {url!r}")
+    return urllib.request.urlopen(url, timeout=TIMEOUT)     # noqa: S310  scheme checked above
 
 
 def download_verified(url: str, digest: str, dest: Path, *, opener: Callable | None = None,
@@ -161,7 +171,7 @@ def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | N
 
 def spawn_installer(installer: Path, log_path: Path, *, popen=None) -> None:
     """Start the installer outside this process's tree, then expect to be killed by it."""
-    if IS_WINDOWS:
+    if host.IS_WINDOWS:
         from . import selfupdate_windows as impl
     else:
         from . import selfupdate_linux as impl

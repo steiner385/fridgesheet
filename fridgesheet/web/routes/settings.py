@@ -10,7 +10,8 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from ..app import Db, State, loopback, render, render_partial
 from .. import actions, updatepin, updates
 from .jobs import _worker
-from ... import qr, runner
+from ... import host, qr, runner
+from ...host import selfupdate_linux
 
 router = APIRouter()
 log = logging.getLogger("fridgesheet.web.settings")
@@ -178,6 +179,11 @@ def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection
         # The parent turned off this app's one outbound call (Settings' check_updates box).
         # A button here must not quietly put it back regardless of what it is gating.
         raise HTTPException(409, "Update checks are turned off in Settings.")
+    if not host.IS_WINDOWS:
+        # Refused here, before the PIN is even checked or a job is submitted -- not left for
+        # `actions.self_update` (which also refuses, belt-and-braces) to discover after a
+        # download. A Linux install is a git checkout; no button here can improve on that.
+        raise HTTPException(409, selfupdate_linux.NOT_WINDOWS)
     stored = state.settings.web_update_pin_hash
     if not stored:
         raise HTTPException(403, "Set an update PIN in Settings before updating from here.")
