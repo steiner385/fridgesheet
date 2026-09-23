@@ -6,11 +6,12 @@ import sqlite3
 from datetime import date
 
 from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from ..app import Db, State, loopback, render, render_partial
 from .. import actions, updatepin, updates
 from .jobs import _worker
-from ... import host, qr, runner
+from ... import host, qr, runner, sources
 from ...host import selfupdate_linux
 
 router = APIRouter()
@@ -78,7 +79,8 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
                   update_ready=update_ready, update_blocked_reason=reason,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
-                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)))
+                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
+                  source_rules=actions.load_sources(state.home).rules, SOURCE_LABELS=sources.LABELS)
 
 
 @router.get("/settings")
@@ -90,7 +92,8 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 def save(request: Request, username: str = Form(""), password: str = Form(""), printer: str = Form(""),
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
-         update_pin: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+         update_pin: str = Form(""), sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
+         conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
     # LAN -- but it is unsatisfiable on a headless host, where the account running the server
@@ -112,7 +115,8 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     form = actions.FormValues(username=username, password=password, printer=printer, days_ahead=days_ahead,
                               overdue_days=overdue_days, nicknames=nicknames, archive=archive,
                               port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
-                              update_pin=update_pin)
+                              update_pin=update_pin,
+                              sources_assignments=sources_assignments, sources_grades=sources_grades)
     lines: list[str] = []
     result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
     if result.ok:
@@ -202,3 +206,10 @@ def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection
         r.status_code = 409
         return r
     return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=None)
+
+
+@router.post("/settings/sources/remove")
+def remove_source(kid: str = Form(""), course: str = Form(""), state=State):
+    actions.remove_source_rule(state.home, kid, course)
+    state.reload()
+    return RedirectResponse("/settings", status_code=303)

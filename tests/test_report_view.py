@@ -176,3 +176,20 @@ def test_the_runner_runs_a_view_report(tmp_path):
     conn.close()
     assert row["report_key"] == f"view:{rid}" and row["outcome"] == "OK"
     assert (tmp_path / f"reports/view-{rid}" / NOW.date().isoformat() / "report.pdf").is_file()
+
+
+def test_a_scheduled_view_report_follows_the_assignments_source(tmp_path):
+    """Review finding: the browser preview followed [sources]; the scheduled PDF of the same report did not."""
+    from fridgesheet import sources
+    from fridgesheet.reports.base import BuildContext
+    seed(tmp_path).close()
+    rid = _save(tmp_path)
+    s = config.Settings(home=tmp_path)
+    s.sources = sources.DEFAULT.with_default("hac", "hac")
+    out = tmp_path / "out"
+    out.mkdir()
+    ctx = BuildContext(settings=s, home=tmp_path, day=NOW.date(), now=NOW, out_dir=out, kid=None, nicknames={},
+                       prev_rows=None, prev_label=None, stale_note=None, options={}, data_as_of=NOW)
+    built = reports.resolve(f"view:{rid}", tmp_path).build({}, ctx)
+    quiz = next(r for r in built.rows["rows"] if r["name"] == "Quiz 1")
+    assert quiz["status"] == "28/30"

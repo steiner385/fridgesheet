@@ -68,7 +68,7 @@ def _since(step, last_check) -> str:
 def _context(conn, student, state):
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
-    views = items.list_items(conn, student, now=now, rules=rules, show="all")
+    views = items.list_items(conn, student, now=now, rules=rules, show="all", prefs=state.sources())
     by_id = {v.id: v for v in views}
     steps = plans.for_student(conn, student["id"])
     history = plans.history(conn, student["id"])
@@ -132,7 +132,7 @@ def _form_context(conn, student, state, item_id=None, step_id=None, default_stat
     if item_id is not None and not conn.execute(
             "SELECT 1 FROM items WHERE id = ? AND student_id = ?", (item_id, student["id"])).fetchone():
         raise HTTPException(404, "No such assignment")
-    view = items.one(conn, student, item_id, now=state.now(), rules=state.rules()) if item_id else None
+    view = items.one(conn, student, item_id, now=state.now(), rules=state.rules(), prefs=state.sources()) if item_id else None
     if values is None:
         values = dict(title=view.name if view else "", family_account="", next_step="", owner=state.settings.nicknames.get(student["key"], student["key"]),
                       planned_for=state.now().date().isoformat(), minutes="",

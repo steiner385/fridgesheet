@@ -35,7 +35,7 @@ class OpenWorkReport:
             if not _wanted(key, ctx.kid, ctx.nicknames):
                 continue
             label = ctx.nicknames.get(key, key)
-            work = open_items.open_items(entry, label, ctx.now, days_ahead=days_ahead, overdue_days=overdue_days, rules=rules, flags=ctx.flags.get(key, {}))
+            work = open_items.open_items(entry, label, ctx.now, days_ahead=days_ahead, overdue_days=overdue_days, rules=rules, flags=ctx.flags.get(key, {}), prefs=ctx.settings.sources)
             diff = open_items.compare(ctx.prev_rows.get(key, []), work.items, work.handled) if ctx.prev_rows is not None else None
             sheets.append(sheet.KidSheet(label, work, diff, ctx.prev_label))
             rows[key] = [i.to_dict() for i in work.items]

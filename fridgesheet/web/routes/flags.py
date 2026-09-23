@@ -29,7 +29,7 @@ def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: s
         flags.clear(conn, item_id, now=now)
     else:
         flags.set_flag(conn, item_id, flag, now=now, text=text.strip())
-    v = items.one(conn, s, item_id, now=when, rules=rules)
-    cases = [c for c in reconcile.cases(conn, s["id"], rules=rules, now=when) if c.item_id == item_id]
+    v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources())
+    cases = [c for c in reconcile.cases(conn, s["id"], rules=rules, now=when, prefs=state.sources()) if c.item_id == item_id]
     return render_partial(request, conn, "_item_detail.html", student=s, item=v, message=LABELS[flag],
                           notes=notes.for_target(conn, "item", item_id), cases=cases)

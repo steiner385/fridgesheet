@@ -89,7 +89,7 @@ def test_grade_posted_and_changed_carry_readable_detail(tmp_path):
     assert posted.source == "hac" and posted.detail == "28/30" and posted.course_short == "Honors English 9"
     assert posted.student_key == "Alex" and posted.at == _at(1)
     (avg,) = [e for e in _find(events, "course_grade") if e.course_short == "Honors English 9" and e.at == _at(1)]
-    assert avg.detail == "HAC average 85 → 88" and avg.item_id is None
+    assert avg.detail == "HAC average 85 → 88 · official" and avg.item_id is None   # HAC is the default grades source
     conn.close()
 
 

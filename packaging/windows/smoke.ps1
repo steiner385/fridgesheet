@@ -19,7 +19,14 @@ $exe = Join-Path $root "dist\FridgeSheet\FridgeSheet.exe"
 if (-not (Test-Path $exe)) { throw "no built exe at $exe" }
 $smokeHome = Join-Path $env:TEMP ("fridgesheet-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force (Join-Path $smokeHome "cache") | Out-Null
-Copy-Item (Join-Path $root "packaging\windows\fixture-snapshot.json") (Join-Path $smokeHome "cache\snapshot.json")
+# Not a plain Copy-Item: the fixture's committed `fetched_at`/`fetched_at_epoch` drifts stale
+# (runner.py's MAX_DATA_AGE_HOURS ceiling on --no-refresh) within a day of being committed,
+# and refreshing that committed value would just push the same 24-hour bomb further out. The
+# fixture's age is not what this step exercises -- restamp_snapshot.py re-stamps it to "now"
+# on the way into the throwaway home instead, every run, so this step never goes stale again.
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "python is not on PATH; smoke.ps1 needs it to restamp the fixture snapshot (see packaging/windows/restamp_snapshot.py)" }
+python (Join-Path $root "packaging\windows\restamp_snapshot.py") (Join-Path $root "packaging\windows\fixture-snapshot.json") (Join-Path $smokeHome "cache\snapshot.json")
+if ($LASTEXITCODE -ne 0) { throw "restamp_snapshot.py failed (exit $LASTEXITCODE)" }
 $env:FRIDGESHEET_HOME = $smokeHome
 Write-Host "smoke home: $smokeHome"
 

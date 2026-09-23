@@ -19,5 +19,5 @@ router = APIRouter()
 @router.get("/open")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     now, rules, days_ahead = state.now(), state.rules(), state.days_ahead()
-    groups = [(s, items.open_work(conn, s, now=now, rules=rules, days_ahead=days_ahead)) for s in students.visible(conn)]
+    groups = [(s, items.open_work(conn, s, now=now, rules=rules, days_ahead=days_ahead, prefs=state.sources())) for s in students.visible(conn)]
     return render(request, conn, "open.html", current="open", groups=groups, days_ahead=days_ahead)

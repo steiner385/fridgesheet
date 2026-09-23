@@ -75,14 +75,17 @@ def _is_past(item: sqlite3.Row, now: datetime) -> bool:
     return a < b
 
 
-def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) -> str:
+def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, prefer: str = "canvas") -> str:
     """One outcome for one item, from the latest observation of each source.
 
-    Canvas is read first because it carries the teacher's marks and the submission; HAC
-    carries only a grade. A grade in either source is a grade. The order of the checks is
-    the order of certainty: a mark or a zero settles it; a submission settles it; a grade
-    with no submission means done by hand; then it is either not due, not done, or -- for
-    work that could never be submitted online -- not known."""
+    Canvas carries the teacher's marks and the submission; HAC carries only a grade. `prefer`
+    is the family's assignments source (sources.py). Under "canvas" a Canvas score wins and HAC
+    fills the gap. Under "hac" a HAC score, when there is one, decides done-or-not -- it
+    overrides Canvas's `missing` flag and Canvas's own score -- while excused, unpublished and
+    the submission's timing still come from Canvas, which is the only source that knows them.
+    The order of the checks is the order of certainty: a mark or a zero settles it; a
+    submission settles it; a grade with no submission means done by hand; then it is either
+    not due, not done, or -- for work that could never be submitted online -- not known."""
     c, h = obs.get("canvas"), obs.get("hac")
     if c is None and h is None:
         return NO_DATA
@@ -91,11 +94,14 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) -> s
             return EXCUSED
         if c["published"] == 0:
             return UNPUBLISHED
-    score = c["score"] if c is not None and c["score"] is not None else (h["score"] if h is not None else None)
+    c_score = c["score"] if c is not None else None
+    h_score = h["score"] if h is not None else None
+    hac_decides = prefer == "hac" and h_score is not None
+    score = h_score if hac_decides else (c_score if c_score is not None else h_score)
     points = item["points"] or 0
     zero = score == 0 and points > 0
     if c is not None:
-        if c["missing"] or zero:
+        if (c["missing"] and not hac_decides) or zero:
             return NOT_DONE
         if c["submitted_at"]:
             return LATE if c["late"] else ON_TIME
