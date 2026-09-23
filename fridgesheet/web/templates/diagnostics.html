@@ -2,6 +2,16 @@
 {% block title %}Diagnostics · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Diagnostics</h2>
+{% if verdict and verdict[0] == 'failed' %}
+<div class="card">
+  <h3>The last update did not finish</h3>
+  <p>An update from {{ verdict[1].from_version }} to {{ verdict[1].to_version }} was started
+     on {{ verdict[1].started_at }}, and this is still {{ verdict[1].from_version }}.</p>
+  <p class="muted">The installer is still on disk at <code>{{ verdict[1].installer }}</code> --
+     you can run it yourself. What it logged while it ran is in
+     <code>{{ verdict[1].log }}</code>.</p>
+</div>
+{% endif %}
 {% if jobs %}<p><button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button></p>{% endif %}
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
 <h3>Last report</h3>
