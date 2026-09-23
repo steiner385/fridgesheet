@@ -98,6 +98,25 @@ PHRASES: dict[str, dict[str, str]] = {
     "where.hac_still_blank": {"early": "Canvas {canvas}, not in HAC yet", "middle": "Canvas {canvas}, not in HAC yet", "older": "Canvas {canvas} · not in HAC"},
     "where.still_ungraded":  {"early": "No grade yet", "middle": "No grade after a week", "older": "No grade after a week"},
     "where.stale_answer":    {"early": "This changed after you answered", "middle": "Changed since you answered", "older": "Changed since your answer"},
+    # --- the learned pace: Fridge Sheet's own count, never the school's word (spec 4.6) ----
+    "pace.expect":      {"early": "Fridge Sheet counted {n} earlier {what}: a grade usually shows up within about {days} days, so look for it by {by}.",
+                         "middle": "Fridge Sheet's count from {n} earlier {what}: a grade usually shows up within about {days} days, so look for it by {by}.",
+                         "older": "Fridge Sheet's count from {n} earlier {what}: a grade usually shows up within about {days} days, so look for it by {by}."},
+    "pace.passed":      {"early": "Fridge Sheet counted {n} earlier {what}: a grade usually shows up within about {days} days. It has been {elapsed}.",
+                         "middle": "Fridge Sheet's count from {n} earlier {what}: a grade usually shows up within about {days} days. It has been {elapsed}.",
+                         "older": "Fridge Sheet's count from {n} earlier {what}: a grade usually shows up within about {days} days. It has been {elapsed}."},
+    "pace.default":     {"early": "Fridge Sheet has no earlier grades from this class to go on, so it allows {days} days.",
+                         "middle": "Fridge Sheet has no earlier grades from this class to go on, so it allows {days} days.",
+                         "older": "Fridge Sheet has no earlier grades from this class to go on, so it allows {days} days."},
+    "pace.hac_expect":  {"early": "Fridge Sheet counted {n} earlier {what}: HAC usually catches up within about {days} days, so look for it by {by}.",
+                         "middle": "Fridge Sheet's count from {n} earlier {what}: HAC usually catches up within about {days} days, so look for it by {by}.",
+                         "older": "Fridge Sheet's count from {n} earlier {what}: HAC usually catches up within about {days} days, so look for it by {by}."},
+    "pace.hac_passed":  {"early": "Fridge Sheet counted {n} earlier {what}: HAC usually catches up within about {days} days. It has been {elapsed}.",
+                         "middle": "Fridge Sheet's count from {n} earlier {what}: HAC usually catches up within about {days} days. It has been {elapsed}.",
+                         "older": "Fridge Sheet's count from {n} earlier {what}: HAC usually catches up within about {days} days. It has been {elapsed}."},
+    "pace.hac_default": {"early": "Fridge Sheet has no earlier HAC grades from this class to go on, so it allows {days} days.",
+                         "middle": "Fridge Sheet has no earlier HAC grades from this class to go on, so it allows {days} days.",
+                         "older": "Fridge Sheet has no earlier HAC grades from this class to go on, so it allows {days} days."},
 }
 
 
