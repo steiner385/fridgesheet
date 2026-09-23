@@ -72,3 +72,21 @@ def test_late_hand_in_graded_in_hac_is_settled_under_hac_preference():
     obs = {"canvas": canvas(submitted_at=PAST, late=1), "hac": hac(9.0)}
     assert reconcile.open_sources(item(points=10), obs, NOW) == {"canvas"}          # default: Canvas has no grade yet
     assert reconcile.open_sources(item(points=10), obs, NOW, prefer="hac") == set()
+
+
+def test_status_never_says_missing_for_in_class_work_hac_graded():
+    """Issue #32: "Missing" for in-class work was the app's guess, printed as Canvas's word.
+    HAC holds the grade for work with nothing to submit online, so its score is the status."""
+    obs = {"canvas": canvas(), "hac": hac(18.0)}
+    assert items.status_text(item(points=25, kind="in class"), obs, NOW) == "18/25"
+    assert items.status_text(item(points=25, kind="paper"), obs, NOW) == "18/25"
+
+
+def test_status_for_ungraded_in_class_work_asks_rather_than_accuses():
+    obs = {"canvas": canvas(), "hac": hac(None)}
+    assert items.status_text(item(kind="in class"), obs, NOW) == "In class, check"
+    assert items.status_text(item(kind="paper"), obs, NOW) == "Paper, check"
+
+
+def test_status_still_says_missing_for_past_due_online_work():
+    assert items.status_text(item(kind="online"), {"canvas": canvas(), "hac": hac(None)}, NOW) == "Missing"
