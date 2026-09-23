@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS
-from . import outcomes, reconcile
+from . import outcomes, phrasing, reconcile
 
 QUESTION, DECIDED, WAITING, STATUS = "question", "decided", "waiting", "status"
 GRACE_DAYS = 7
@@ -197,3 +197,9 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
 
     # 15: a plain outcome.
     return Verdict(STATUS, outcome)
+
+
+def say(key: str, tier: str, values: dict | None = None) -> str:
+    """The words for `key` at `tier`, with the verdict's facts filled in. The template's
+    autoescaping applies to the result, so a value is never markup."""
+    return phrasing.phrase(key, tier).format(**(values or {}))

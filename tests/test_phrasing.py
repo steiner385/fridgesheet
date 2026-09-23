@@ -97,3 +97,16 @@ def test_the_two_non_answers_stay_distinguishable_at_every_tier():
     """Splitting one dash into two words is pointless if a tier collapses them again."""
     for tier in tiers.TIERS:
         assert phrasing.phrase("On paper", tier) != phrasing.phrase("Unknown", tier)
+
+
+import string  # noqa: E402
+
+
+def _placeholders(s):
+    return {f for _, f, _, _ in string.Formatter().parse(s) if f}
+
+
+def test_every_tier_of_a_sentence_uses_the_same_placeholders():
+    for key, by_tier in phrasing.PHRASES.items():
+        sets = {tier: _placeholders(words) for tier, words in by_tier.items()}
+        assert len({frozenset(s) for s in sets.values()}) == 1, (key, sets)

@@ -31,7 +31,7 @@ from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
 from ..host import selfupdate
-from . import db, phrasing, staleness, tiers, updates
+from . import db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
 from .stores.items import DAYS_AHEAD
@@ -152,7 +152,8 @@ def _filters(state: AppState) -> dict:
         return dates.wd_md(v) if v else ""
 
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
-            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase}
+            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
+            "say": lambda key, tier, values=None: verdicts.say(key, tier, values)}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

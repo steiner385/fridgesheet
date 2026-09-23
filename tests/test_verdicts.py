@@ -178,3 +178,22 @@ def test_open_work_past_its_credit_window_is_a_status():
 def test_open_work_inside_its_window_is_a_not_done_status():
     v = run(item(due="2026-09-12T23:59:00-04:00"), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "not_done")
+
+
+def _sample_facts(kind):
+    return {"hac": "28 of 30", "canvas": "20 of 25", "when": "9/14", "why": "late", "flag": "done",
+            "change": "Canvas now says missing", "kind": "paper", "due": "Thu 9/10"}
+
+
+def test_every_question_kind_has_facts_ask_and_answer_words():
+    for kind, answers in V.ANSWERS.items():
+        assert V.say("facts." + kind, "", _sample_facts(kind)) != "facts." + kind, kind
+        for a in answers:
+            assert V.say(a.key, "") != a.key, a.key
+    for kind in ("missing_after_grade", "hac_lower", "submitted_hac_zero", "excused_hac_zero",
+                 "hac_still_blank", "still_ungraded", "stale_answer"):
+        assert V.say("ask." + kind, "") != "ask." + kind, kind
+
+
+def test_facts_are_filled_in_and_escaped_by_the_template_not_here():
+    assert V.say("facts.graded_in_hac", "", {"hac": "28 of 30"}) == "HAC has 28 of 30. Canvas still shows its automatic \"missing\"."
