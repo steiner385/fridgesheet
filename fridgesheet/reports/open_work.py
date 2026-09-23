@@ -41,7 +41,8 @@ class OpenWorkReport:
             rows[key] = [i.to_dict() for i in work.items]
             counts.append(f"{label}={len(work.items)}")
         if not sheets:
-            raise ReportError(f"no student matches --kid {ctx.kid!r}; known: {', '.join(snap['students'])}")
+            raise ReportError(f"no student matches --kid {ctx.kid!r}; known: {', '.join(snap['students'])}" if ctx.kid
+                              else "the snapshot has no students yet; run a refresh first")
         pdf = ctx.out_dir / "sheet.pdf"
         pages = sheet.build_pdf(sheets, pdf, data_as_of=ctx.data_as_of, days_ahead=days_ahead, overdue_days=overdue_days,
                                 stale_note=ctx.stale_note, printed_at=ctx.now)

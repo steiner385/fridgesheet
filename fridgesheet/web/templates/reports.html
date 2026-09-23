@@ -61,5 +61,5 @@
 {% endfor %}
 </table>
 {% else %}<p class="muted">No saved reports yet.</p>{% endif %}
-<div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% endblock %}

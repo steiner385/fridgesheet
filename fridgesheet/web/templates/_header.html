@@ -1,7 +1,7 @@
 <header class="status">
   {% if refresh %}
     <span>Refreshed {{ refresh.started_at | wd_md_time }}</span>
-    {% for name, state in sources %}<span class="{{ 'ok' if state == 'ok' else 'bad' }}">{{ name }} {{ 'OK' if state == 'ok' else state }}</span>{% endfor %}
+    {% for name, state in sources %}<span class="{{ 'ok' if state == 'ok' else 'bad' }}">{{ name }} {{ 'OK' if state == 'ok' else state | truncate(80) }}</span>{% endfor %}
   {% else %}
     <span>No refresh yet</span>
   {% endif %}

@@ -139,6 +139,8 @@ class Worker:
             self._start_thread()
 
     def _start_thread(self) -> None:
+        # A thread that has ended holds nothing; only a stuck one is worth remembering (#4).
+        self._threads = [t for t in self._threads if t.is_alive()]
         t = threading.Thread(target=self._loop, name=f"fridgesheet-jobs-{len(self._threads) + 1}", daemon=True)
         self._threads.append(t)
         t.start()
@@ -176,6 +178,8 @@ class Worker:
                 pdf = self.actions.preview(home=home, log=log, settings=settings,
                                            report_key=job.params.get("report", "open-work"),
                                            refresh=job.params.get("refresh_first", False))
+                # Set outside the `done` guard below on purpose (#4): a preview displaced for
+                # running long still built a real PDF, and its card may as well link to it.
                 job.pdf = pdf
                 outcome, message = ("OK", f"built {pdf}") if pdf else ("FAIL", "no sheet was built")
             elif job.kind == "print":

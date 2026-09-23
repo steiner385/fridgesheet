@@ -70,7 +70,7 @@ try {
     if (-not $up) { Get-Content (Join-Path $smokeHome "app.log") -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }; Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue; throw "the server never answered /health" }
     foreach ($path in "/", "/diagnostics", "/settings") {
         $r = Invoke-WebRequest -UseBasicParsing ("http://127.0.0.1:8765" + $path)
-        if ($r.StatusCode -ne 200 -or $r.Content -notmatch "Fridge Sheet") { Stop-Process -Id $srv.Id -Force; throw "GET $path failed" }
+        if ($r.StatusCode -ne 200 -or $r.Content -notmatch "Fridge Sheet") { Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue; throw "GET $path failed" }
     }
     Write-Host "  server answered /, /diagnostics, /settings"
 

@@ -249,6 +249,7 @@ def test_entry_file_runs_as_a_script(tmp_path):
 def test_app_command_and_package_are_gone():
     with pytest.raises(SystemExit):
         cli.main(["app"])
-    assert not (pathlib.Path(cli.__file__).parent / "app").exists()
+    # No source left in it; a stale __pycache__ an upgrade left behind is not the package (#4).
+    assert not list((pathlib.Path(cli.__file__).parent / "app").glob("*.py"))
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("fridgesheet.app")

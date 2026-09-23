@@ -81,7 +81,14 @@ function attachSse(root) {
     var es = new EventSource(pre.dataset.sse);
     es.onmessage = function (e) { pre.textContent += (pre.textContent ? "\n" : "") + e.data; pre.scrollTop = pre.scrollHeight; };
     es.addEventListener("done", function () { es.close(); htmx.ajax("GET", pre.dataset.reload, { target: "#job", swap: "outerHTML" }); });
-    es.onerror = function () { es.close(); };
+    // A dropped connection (the server restarted, the laptop slept) used to leave the log
+    // frozen with no sign (#4): say so, then ask for the job card again, which reattaches
+    // if the job is still running and shows its result if it is not.
+    es.onerror = function () {
+      es.close();
+      pre.textContent += (pre.textContent ? "\n" : "") + "(connection lost; checking the job again…)";
+      setTimeout(function () { htmx.ajax("GET", pre.dataset.reload, { target: "#job", swap: "outerHTML" }); }, 2000);
+    };
   });
 }
 document.addEventListener("DOMContentLoaded", function () { attachSse(document); });

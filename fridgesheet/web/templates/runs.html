@@ -2,7 +2,7 @@
 {% block title %}Runs · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Runs</h2>
-<div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 <table class="items">
   <tr><th>Started</th><th>Report</th><th>Started by</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
   {% for r in rows %}

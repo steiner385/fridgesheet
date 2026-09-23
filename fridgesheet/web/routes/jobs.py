@@ -41,9 +41,16 @@ def start(kind: str, request: Request, date: str | None = Form(None), report: st
         params["refresh_first"] = refresh_first
     job = w.submit(kind, **params)
     if job is None:
-        r = render_partial(request, conn, "_job.html", job=w.current, busy=True, pdf=_pdf(state, w.current))
-        r.status_code = 409
-        return r
+        # The job that refused this one can finish between `submit` and here (#4); then the
+        # slot is free, so try once more rather than render a card for no job.
+        blocker = w.current
+        if blocker is None:
+            job = w.submit(kind, **params)
+        if job is None:
+            blocker = blocker or w.current or w.last
+            r = render_partial(request, conn, "_job.html", job=blocker, busy=True, pdf=_pdf(state, blocker))
+            r.status_code = 409
+            return r
     return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=_pdf(state, job))
 
 

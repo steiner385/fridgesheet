@@ -11,7 +11,7 @@ by `describe` and left alone by `install` and `remove`.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from . import IS_WINDOWS
 from . import ScheduleInfo, SchedulingError, DATA_REFRESH_KEY, task_name  # noqa: F401  re-exported
@@ -33,11 +33,11 @@ def command_for(key: str) -> tuple[str, str, str]:
     """
     if key == DATA_REFRESH_KEY:
         if getattr(sys, "frozen", False):
-            return sys.executable, "refresh --record", str(Path(sys.executable).parent)
+            return sys.executable, "refresh --record", str(PureWindowsPath(sys.executable).parent)
         return sys.executable, "-m fridgesheet.cli refresh --record", str(Path.cwd())
     # `--trigger schedule` so Runs says who started it (#8); refresh already records its own.
     if getattr(sys, "frozen", False):
-        return sys.executable, f"run {key} --no-refresh --trigger schedule", str(Path(sys.executable).parent)
+        return sys.executable, f"run {key} --no-refresh --trigger schedule", str(PureWindowsPath(sys.executable).parent)
     return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh --trigger schedule", str(Path.cwd())
 
 

@@ -96,7 +96,7 @@
 {% endfor %}</table>
 </section>
 {% endif %}
-<div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
 {% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}
 <section class="card">

@@ -12,6 +12,7 @@ import ipaddress
 import json
 import logging
 import socket
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime
 from importlib import metadata
@@ -551,32 +552,48 @@ def run_doctor(*, home: Path, log: Callable[[str], None], settings: config.Setti
 
 
 class _Forward(logging.Handler):
+    """Forwards the records logged on the thread that created it -- the job's -- and no other:
+    a stalled job still running beside the next one must not write into its transcript (#4)."""
     def __init__(self, log: Callable[[str], None]):
         super().__init__(level=logging.INFO)
         self._log = log
+        self._thread = threading.get_ident()
 
     def emit(self, record: logging.LogRecord) -> None:
+        if record.thread != self._thread:
+            return
         try:
             self._log(record.getMessage())
         except Exception:
             pass
 
 
+_FORWARD_LOCK = threading.Lock()
+_forwarding = {"depth": 0, "level": logging.NOTSET}
+
+
 @contextlib.contextmanager
 def forward_logs(log: Callable[[str], None]):
-    """While active, every INFO+ record from the `fridgesheet` loggers also reaches `log`.
-    The logger is lowered to INFO for the duration if it was quieter, and restored after."""
+    """While active, every INFO+ record this thread logs to the `fridgesheet` loggers also
+    reaches `log`. The logger is lowered to INFO while any job forwards, and restored when the
+    last one ends -- not when the first does, which silenced a job still running (#4)."""
     handler = _Forward(log)
     root = logging.getLogger("fridgesheet")
-    previous = root.level
-    if root.getEffectiveLevel() > logging.INFO:
-        root.setLevel(logging.INFO)
+    with _FORWARD_LOCK:
+        if _forwarding["depth"] == 0:
+            _forwarding["level"] = root.level
+            if root.getEffectiveLevel() > logging.INFO:
+                root.setLevel(logging.INFO)
+        _forwarding["depth"] += 1
     root.addHandler(handler)
     try:
         yield
     finally:
         root.removeHandler(handler)
-        root.setLevel(previous)
+        with _FORWARD_LOCK:
+            _forwarding["depth"] -= 1
+            if _forwarding["depth"] == 0:
+                root.setLevel(_forwarding["level"])
         handler.close()
 
 
