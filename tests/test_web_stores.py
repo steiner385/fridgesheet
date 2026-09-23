@@ -58,9 +58,11 @@ def test_flags_one_active_replace_clear_and_history(conn):
 def test_active_by_student_for_the_runner(conn):
     flags.set_flag(conn, 1, "done", now="t")
     flags.set_flag(conn, 2, "ask_teacher", now="t")
-    assert flags.active_by_student(conn) == {"Alex": {"canvas:1": "done", "canvas:2": "ask_teacher"}}
+    # Keyed by (course, item key): a key is only unique within one class (#97).
+    assert flags.active_by_student(conn) == {"Alex": {("Honors Biology S1", "canvas:1"): "done",
+                                                      ("Honors Biology S1", "canvas:2"): "ask_teacher"}}
     flags.clear(conn, 1, now="t2")
-    assert flags.active_by_student(conn) == {"Alex": {"canvas:2": "ask_teacher"}}
+    assert flags.active_by_student(conn) == {"Alex": {("Honors Biology S1", "canvas:2"): "ask_teacher"}}
     assert flags.HANDLED == ("done", "excused", "ignore")
 
 
@@ -94,7 +96,7 @@ def test_a_flag_on_a_hac_only_item_reaches_the_sheet_and_only_that_kids(tmp_path
     flags.set_flag(conn, rows[0]["id"], "done", now=NOW.isoformat())
 
     by_student = flags.active_by_student(conn)
-    assert by_student == {"Alex": {KEY: "done"}}
+    assert by_student == {"Alex": {("Honors Biology - 3", KEY): "done"}}
     al = open_items.open_items(snap["students"]["Alex"], "Al", NOW, flags=by_student.get("Alex", {}))
     assert [i.key for i in al.items] == [] and [i.key for i in al.handled] == [KEY]
     sam = open_items.open_items(snap["students"]["Sam"], "Sam", NOW, flags=by_student.get("Sam", {}))

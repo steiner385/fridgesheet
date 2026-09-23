@@ -73,18 +73,22 @@ def history(conn: sqlite3.Connection, item_id: int) -> list[sqlite3.Row]:
     return conn.execute("SELECT * FROM flags WHERE item_id = ? ORDER BY set_at DESC, id DESC", (item_id,)).fetchall()
 
 
-def active_by_student(conn: sqlite3.Connection) -> dict[str, dict[str, str]]:
-    """student key -> {item key -> active flag}; what the runner hands to open_items, one
-    dict per kid.
+def active_by_student(conn: sqlite3.Connection) -> dict[str, dict[tuple[str, str], str]]:
+    """student key -> {(course name, item key) -> active flag}; what the runner hands to
+    open_items, one dict per kid.
 
-    Item keys are only unique within a student: two kids in like-named classes share
-    `hac:<short course>:<norm name>`, and siblings in one section share `canvas:<id>`. One
-    flat map would let one kid's `done` strike the other kid's work off the sheet.
+    Item keys are only unique within a student *and course*: two kids in like-named classes
+    share `hac:<short course>:<norm name>`, siblings in one section share `canvas:<id>`, and
+    one kid in two sections of a class ("Algebra I - 2" and "- 3") shares a HAC key between
+    them. Keyed by less, one `done` struck the other kid's, or the other section's, work off
+    the sheet (#97). The course is its full name as the gradebook gives it, which is what
+    `open_items` has in hand.
     """
-    out: dict[str, dict[str, str]] = {}
+    out: dict[str, dict[tuple[str, str], str]] = {}
     for r in conn.execute(
-            """SELECT s.key AS student, i.key AS item, f.flag AS flag
+            """SELECT s.key AS student, c.name AS course, i.key AS item, f.flag AS flag
                FROM flags f JOIN items i ON i.id = f.item_id JOIN students s ON s.id = i.student_id
+               JOIN courses c ON c.id = i.course_id
                WHERE f.cleared_at IS NULL"""):
-        out.setdefault(r["student"], {})[r["item"]] = r["flag"]
+        out.setdefault(r["student"], {})[(r["course"], r["item"])] = r["flag"]
     return out

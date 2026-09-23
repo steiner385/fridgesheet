@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..matching import hac_item_key, match_course, norm_name, same_item, short_course
-from ..open_items import ASSESSMENT_WORDS, kind_of, parse_hac_date
+from ..open_items import ASSESSMENT_WORDS, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
 
 
 @dataclass(frozen=True)
@@ -41,20 +41,6 @@ class IngestResult:
 
 def item_key_canvas(assignment_id) -> str:
     return f"canvas:{assignment_id}"
-
-
-def _item_key_hac_dated(base_key: str, due: datetime) -> str:
-    """Disambiguate two HAC-only rows that share a base key by appending the row's due date."""
-    return f"{base_key}:{due.date().isoformat()}"
-
-
-def _item_key_hac_undated(base_key: str, ordinal: int) -> str:
-    """Disambiguate colliding HAC-only rows with no parseable due date.
-
-    A missing date can't prove two same-named rows are one row scraped twice, so unlike the
-    dated case they are never merged: each gets its own ordinal suffix.
-    """
-    return f"{base_key}:unknown" if ordinal == 1 else f"{base_key}:unknown-{ordinal}"
 
 
 def _upsert_student(conn, key: str, name: str) -> int:
@@ -108,7 +94,8 @@ def _twin_by_date_and_points(row: dict, name: str, twins: list, attached: set[in
 
 
 def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kind: str, points, due: str | None,
-                 assigned: str | None, is_assessment: bool, refresh_id: int) -> tuple[int, bool]:
+                 assigned: str | None, is_assessment: bool, refresh_id: int,
+                 present: frozenset[str] = frozenset()) -> tuple[int, bool]:
     """Find or create one item; returns its id and whether this call created it.
 
     An item is identified by student, course and key together, never by key alone: two kids
@@ -120,6 +107,12 @@ def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kin
     claimed yet -- moves to the new course rather than starting a second history. An item
     already seen in this refresh belongs to another row (the two-sections case above) and is
     never moved, so the outcome does not depend on the order rows arrive in.
+
+    Nor is an item moved out of a class this refresh still lists (`present`, the student's
+    course names in this snapshot): that is not a rename but a new section beside the old one,
+    and taking the old section's item handed its flags, notes and history to the new section
+    while the old one started again from nothing (#97). A renamed class is gone under its old
+    name, so its items still move.
     """
     # Canvas assignment titles arrive with a teacher's stray trailing space ("Chapter 1.3
     # Reading Guide ") and that space was stored and rendered everywhere the name shows (#40
@@ -128,8 +121,10 @@ def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kin
     row = conn.execute("SELECT id FROM items WHERE student_id = ? AND course_id = ? AND key = ?",
                        (student_id, course_id, key)).fetchone()
     if row is None:
-        row = conn.execute("SELECT id FROM items WHERE student_id = ? AND key = ? AND last_seen < ? ORDER BY last_seen DESC, id DESC LIMIT 1",
-                           (student_id, key, refresh_id)).fetchone()
+        row = next((r for r in conn.execute(
+            """SELECT i.id, c.name AS course FROM items i JOIN courses c ON c.id = i.course_id
+               WHERE i.student_id = ? AND i.key = ? AND i.last_seen < ? ORDER BY i.last_seen DESC, i.id DESC""",
+            (student_id, key, refresh_id)) if r["course"] not in present), None)
     if row:
         conn.execute("UPDATE items SET course_id = ?, name = ?, kind = ?, points = ?, due = ?, assigned = COALESCE(?, assigned), is_assessment = ?, last_seen = ? WHERE id = ?",
                      (course_id, name, kind, points, due, assigned, int(is_assessment), refresh_id, row[0]))
@@ -185,53 +180,6 @@ def _hac_values(row: dict) -> dict:
             "submitted_at": None, "late": None, "missing": None, "excused": None, "published": None}
 
 
-def _assigned_key(raw, tz) -> str:
-    d = parse_hac_date(raw, tz)
-    return d.isoformat() if d else ""
-
-
-def _hac_only_rows(rows: list[dict], course_name: str, tz) -> list[tuple[dict, str]]:
-    """HAC rows with no Canvas twin, paired with the item key each should be stored under.
-
-    Rows sharing a base key (same course, same normalised name) collide: per the Task 1 spike,
-    that can mean two genuinely different assignments, so every colliding row -- not only the
-    second, so the key never depends on row order -- gets its own due date appended. Two
-    colliding rows that also share a due date are the same row scraped twice; only the first is
-    kept, and the rest are skipped entirely (no item, no observation, not counted). The same-due
-    dedup only applies when both dates actually parsed -- a missing due date proves nothing, so
-    undated colliding rows each keep a distinct (ordinal-suffixed) key instead of merging.
-    """
-    groups: dict[str, list[dict]] = defaultdict(list)
-    for row in rows:
-        groups[hac_item_key(course_name, row.get("name") or "")].append(row)
-
-    keyed: list[tuple[dict, str]] = []
-    for base_key, group_rows in groups.items():
-        if len(group_rows) == 1:
-            keyed.append((group_rows[0], base_key))
-            continue
-        seen_dated_keys: set[str] = set()
-        undated_ordinal = 0
-        # Undated rows are numbered in an order read from the rows themselves, not the scrape's
-        # (#2): a gradebook listing them the other way round swapped their keys, and a flag or
-        # note moved to the other assignment. Only fields that do not change as it is graded.
-        group_rows = sorted(group_rows, key=lambda r: (parse_hac_date(r.get("due"), tz) is not None,
-                                                        _assigned_key(r.get("assigned"), tz),
-                                                        str(r.get("category") or ""), float(r.get("points") or 0)))
-        for row in group_rows:
-            due = parse_hac_date(row.get("due"), tz)
-            if due is None:
-                undated_ordinal += 1
-                keyed.append((row, _item_key_hac_undated(base_key, undated_ordinal)))
-                continue
-            dated_key = _item_key_hac_dated(base_key, due)
-            if dated_key in seen_dated_keys:
-                continue  # same row scraped twice: keep the first, skip the rest, count nowhere
-            seen_dated_keys.add(dated_key)
-            keyed.append((row, dated_key))
-    return keyed
-
-
 def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None = None) -> IngestResult:
     now = now or datetime.now(tz)
     sources = snapshot.get("sources") or {}
@@ -250,6 +198,9 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
             n_students += 1
             canvas_courses = (entry.get("canvas") or {}).get("courses") or []
             hac_classes = (entry.get("hac") or {}).get("classes") or []
+            # Every class this refresh lists for the student, both sources: an item is only
+            # carried over from a class that is gone (a rename), never one still here (#97).
+            present = frozenset([c["name"] for c in canvas_courses] + [h["name"] for h in hac_classes])
 
             # Canvas courses, grades and assignments
             canvas_course_ids: dict[str, int] = {}
@@ -272,7 +223,8 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     assigned = a.get("unlock_at") or a.get("created_at")
                     item_id, created = _upsert_item(conn, student_id, cid, item_key_canvas(a["id"]), a.get("name") or "", kind_of(a.get("submission_types")),
                                                     a.get("points_possible"), a.get("due_at"), assigned,
-                                                    bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)), refresh_id)
+                                                    bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)), refresh_id,
+                                                    present)
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "canvas", _canvas_values(a))
                     canvas_items_by_course.setdefault(cid, []).append(
@@ -315,7 +267,8 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     item_id, created = _upsert_item(conn, student_id, hid, item_key, name, "", row.get("points"),
                                                     due.replace(hour=23, minute=59).isoformat() if due else None,
                                                     assigned.isoformat() if assigned else None,
-                                                    any(w in (row.get("category") or "").lower() for w in ("quiz", "assess")), refresh_id)
+                                                    any(w in (row.get("category") or "").lower() for w in ("quiz", "assess")), refresh_id,
+                                                    present)
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "hac", _hac_values(row))
     return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades)

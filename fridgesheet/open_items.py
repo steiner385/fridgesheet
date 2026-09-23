@@ -15,6 +15,7 @@ are course-copy artifacts from last year and are ignored altogether.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -123,9 +124,77 @@ def parse_hac_date(s: str | None, tz) -> datetime | None:
         return None
 
 
+def _item_key_hac_dated(base_key: str, due: datetime) -> str:
+    """Disambiguate two HAC-only rows that share a base key by appending the row's due date."""
+    return f"{base_key}:{due.date().isoformat()}"
+
+
+def _item_key_hac_undated(base_key: str, ordinal: int) -> str:
+    """Disambiguate colliding HAC-only rows with no parseable due date.
+
+    A missing date can't prove two same-named rows are one row scraped twice, so unlike the
+    dated case they are never merged: each gets its own ordinal suffix.
+    """
+    return f"{base_key}:unknown" if ordinal == 1 else f"{base_key}:unknown-{ordinal}"
+
+
+def _assigned_key(raw, tz) -> str:
+    d = parse_hac_date(raw, tz)
+    return d.isoformat() if d else ""
+
+
+def hac_only_keys(rows: list[dict], course_name: str, tz) -> list[tuple[dict, str]]:
+    """HAC rows with no Canvas twin, paired with the item key each should be stored under.
+
+    Rows sharing a base key (same course, same normalised name) collide: per the Task 1 spike,
+    that can mean two genuinely different assignments, so every colliding row -- not only the
+    second, so the key never depends on row order -- gets its own due date appended. Two
+    colliding rows that also share a due date are the same row scraped twice; only the first is
+    kept, and the rest are skipped entirely (no item, no observation, not counted). The same-due
+    dedup only applies when both dates actually parsed -- a missing due date proves nothing, so
+    undated colliding rows each keep a distinct (ordinal-suffixed) key instead of merging.
+    """
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        groups[hac_item_key(course_name, row.get("name") or "")].append(row)
+
+    keyed: list[tuple[dict, str]] = []
+    for base_key, group_rows in groups.items():
+        if len(group_rows) == 1:
+            keyed.append((group_rows[0], base_key))
+            continue
+        seen_dated_keys: set[str] = set()
+        undated_ordinal = 0
+        # Undated rows are numbered in an order read from the rows themselves, not the scrape's
+        # (#2): a gradebook listing them the other way round swapped their keys, and a flag or
+        # note moved to the other assignment. Only fields that do not change as it is graded.
+        group_rows = sorted(group_rows, key=lambda r: (parse_hac_date(r.get("due"), tz) is not None,
+                                                        _assigned_key(r.get("assigned"), tz),
+                                                        str(r.get("category") or ""), float(r.get("points") or 0)))
+        for row in group_rows:
+            due = parse_hac_date(row.get("due"), tz)
+            if due is None:
+                undated_ordinal += 1
+                keyed.append((row, _item_key_hac_undated(base_key, undated_ordinal)))
+                continue
+            dated_key = _item_key_hac_dated(base_key, due)
+            if dated_key in seen_dated_keys:
+                continue  # same row scraped twice: keep the first, skip the rest, count nowhere
+            seen_dated_keys.add(dated_key)
+            keyed.append((row, dated_key))
+    return keyed
+
+
+def _flag_for(flags: dict, course: str, key: str) -> str:
+    """The flag for one row: by (course, key), what `flags.active_by_student` gives, so a
+    same-named assignment in another section of the class is not caught by it (#97); or by
+    key alone, for a caller that hands over a flat map (the MCP server, tests)."""
+    return flags.get((course, key)) or flags.get(key, "")
+
+
 def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overdue_days: int = 14,
                rules: _late_rules.LateRules | None = None, include_hac: bool = True,
-               flags: dict[str, str] | None = None, prefs=None) -> OpenWork:
+               flags: dict | None = None, prefs=None) -> OpenWork:
     rules = rules or _late_rules.LateRules(_late_rules.Rule(), [], [])
     flags = flags or {}
     tz = now.tzinfo
@@ -187,7 +256,7 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 submission_types=list(a.get("submission_types") or []),
             )
             canvas_names_by_course.setdefault(c["name"], []).append(a["name"])
-            it.flag = flags.get(it.key, "")
+            it.flag = _flag_for(flags, c["name"], it.key)
             if it.flag in HANDLED_FLAGS:
                 handled.append(it)
                 continue
@@ -203,9 +272,11 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
     for hname, h in hac_classes.items():
         peer_names = match_course(hname, canvas_names_by_course)
         already = peer_names if peer_names is not None else all_canvas_names
-        for a in h.get("assignments", []):
-            if any(same_item(a["name"], seen) for seen in already):
-                continue
+        # Keyed exactly as the database stores them (`hac_only_keys`, shared with web.ingest):
+        # two same-named rows in one class carry their due date in the key there, and a flag
+        # set on either never reached the sheet while this side used the bare key (#97).
+        own = [a for a in h.get("assignments", []) if not any(same_item(a["name"], seen) for seen in already)]
+        for a, key in hac_only_keys(own, hname, tz):
             due = parse_hac_date(a.get("due"), tz)
             if due is None:
                 continue
@@ -214,12 +285,12 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 continue
             course = short_course(hname)
             it = Item(
-                key=hac_item_key(hname, a["name"]), kid=kid, course=course, name=a["name"], due=due,
+                key=key, kid=kid, course=course, name=a["name"], due=due,
                 status="HAC — NO GRADE", overdue=True, source="hac", kind="", points=a.get("points"),
                 assigned=parse_hac_date(a.get("assigned"), tz),
                 is_assessment=any(w in (a.get("category") or "").lower() for w in ("quiz", "assess")),
             )
-            it.flag = flags.get(it.key, "")
+            it.flag = _flag_for(flags, hname, it.key)
             if it.flag in HANDLED_FLAGS:
                 handled.append(it)
                 continue

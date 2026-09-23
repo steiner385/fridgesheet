@@ -94,6 +94,7 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
     (`config.DEFAULT_HOME` is computed at import, so setting FRIDGESHEET_HOME here is too
     late to take effect).
     """
+    import fridgesheet.host.scheduling  # noqa: F401  the patches below name it by path; run alone, nothing had imported it
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")
     conn.close()
