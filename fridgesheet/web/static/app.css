@@ -230,3 +230,21 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .stale { background: #fdecea; border: 1px solid var(--warn); color: var(--warn);
          padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
 .stale a { color: var(--warn); }
+
+/* Questions (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md) */
+.q { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px 12px; margin-bottom: 10px; }
+.q .what { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+.q .what b { color: var(--ink); font-size: 15px; }
+.q .facts { margin: 6px 0 2px; }
+.q .ask { font-weight: 600; margin: 8px 0 10px; }
+.q .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.q .answers form { display: inline; margin: 0; }
+.q .more { margin-top: 10px; font-size: 13px; }
+.record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: 13px; }
+.record div { display: grid; grid-template-columns: 170px 1fr; gap: 8px; }
+.record .src { color: var(--muted); }
+.record .src small { color: var(--muted); }
+.done-line { display: flex; align-items: center; gap: 10px; background: #edf6ee; border-radius: 10px; padding: 10px 16px; margin-bottom: 10px; }
+.done-line .tick { color: var(--ok); font-weight: 700; }
+.done-line form { margin-left: auto; }
+button.link { border: none; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; }
