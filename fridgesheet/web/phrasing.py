@@ -42,11 +42,13 @@ def phrase(word: str, tier: str, *, table: dict[str, dict[str, str]] | None = No
     """`word` said for `tier`.
 
     Two fallbacks, both to the word that ships today rather than to a blank: a concept in the
-    table with nothing for this tier yields its `older` entry, and a concept absent from the
-    table yields `word` unchanged. A word nobody has translated is shown as it is; it is
-    never dropped.
+    table with nothing for this tier -- including the empty tier, which is not a key any entry
+    defines -- yields its `older` entry, and a concept absent from the table yields `word`
+    unchanged. A word nobody has translated is shown as it is; it is never dropped. This is
+    also why a household with no grade set (`tier == ""`) sees the same words as one on the
+    `older` tier: `by_tier.get("")` is `None` for every entry, so it falls through to `older`.
     """
     by_tier = (table if table is not None else PHRASES).get(word)
-    if not by_tier or not tier:
+    if not by_tier:
         return word
     return by_tier.get(tier) or by_tier.get("older") or word

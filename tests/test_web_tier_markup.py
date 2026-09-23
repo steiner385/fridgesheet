@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import re
 
-import tomllib
-
-from tests.web_fixtures import app_for, client_with_grades, seed
+from tests.web_fixtures import client_with_grades, seed
 
 
 def test_a_kid_page_carries_that_kids_tier(tmp_path):

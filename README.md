@@ -162,8 +162,8 @@ nicknames = { Alex = "Al" }      # snapshot first name -> name printed on the sh
 # Each child's school grade (0 = kindergarten). Type size, density and colour follow it on
 # every page a child reads: their own page, Open work, the check-in and the plan. The
 # wording follows it too, but only where the school's own vocabulary appears -- their own
-# page and Open work. A child not listed here sees exactly the interface that shipped
-# before this existed, so leaving it out changes nothing.
+# page and Open work. A child not listed here sees the same pages, in the same words, as
+# before this existed, so leaving it out changes nothing a reader would notice.
 grades = { Alex = 9 }            # omit a child to leave their pages exactly as they are
 
 [reports.open-work]

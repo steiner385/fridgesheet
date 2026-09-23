@@ -25,9 +25,10 @@ def test_a_younger_reader_gets_the_same_fact_in_plainer_words():
 
 
 def test_no_tier_is_the_word_that_ships_today():
-    """A household that set no grade sees no change."""
-    for word in phrasing.PHRASES:
-        assert phrasing.phrase(word, "") == word
+    """A household that set no grade sees no change -- and what shipped today is the `older`
+    entry, not the raw table key. `one_source` is not a word; `one source` is."""
+    for word, by_tier in phrasing.PHRASES.items():
+        assert phrasing.phrase(word, "") == by_tier["older"]
 
 
 def test_a_word_nobody_translated_is_shown_as_it_is():
@@ -41,15 +42,33 @@ def test_a_concept_missing_one_tier_falls_back_to_the_adult_word():
     assert phrasing.phrase("tester", "early", table=table) == "widget"
 
 
+#: Date/time vocabulary a child phrase may not invent -- "No child phrase states a time, date
+#: or number its adult equivalent does not" (docs/outcomes.md). Case-insensitive; matched as
+#: whole words so "noon" does not also flag "afternoon" twice or "am" flag "camera".
+_TIME_WORDS = (
+    "tonight", "tomorrow", "yesterday", "today", "bedtime", "midnight", "noon",
+    "morning", "afternoon", "evening", "o'clock", "am", "pm",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+)
+_TIME_WORD_RE = re.compile(r"\b(" + "|".join(re.escape(w) for w in _TIME_WORDS) + r")\b", re.IGNORECASE)
+
+
 @pytest.mark.parametrize("tier", tiers.TIERS)
 def test_no_phrase_invents_a_number_a_date_or_a_time(tier):
     """The guard that keeps "simpler" from becoming "made up". A phrase table is copy, and
-    copy is where invented precision comes back."""
+    copy is where invented precision comes back. Numbers and date/time vocabulary are held to
+    the same rule: a token may appear in a child phrase only if the concept's `older` phrase
+    already has it."""
     for word, by_tier in phrasing.PHRASES.items():
         adult = by_tier.get("older", word)
-        allowed = set(re.findall(r"\d+", adult))
-        for found in re.findall(r"\d+", by_tier.get(tier, adult)):
-            assert found in allowed, f"{word!r} at {tier!r} invents the number {found!r}"
+        allowed_numbers = set(re.findall(r"\d+", adult))
+        allowed_time_words = {w.lower() for w in _TIME_WORD_RE.findall(adult)}
+        child = by_tier.get(tier, adult)
+        for found in re.findall(r"\d+", child):
+            assert found in allowed_numbers, f"{word!r} at {tier!r} invents the number {found!r}"
+        for found in _TIME_WORD_RE.findall(child):
+            assert found.lower() in allowed_time_words, \
+                f"{word!r} at {tier!r} invents the date/time word {found!r}"
 
 
 @pytest.mark.parametrize("tier", tiers.TIERS)

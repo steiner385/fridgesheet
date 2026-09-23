@@ -121,13 +121,6 @@ def _filters(state: AppState) -> dict:
         d = _parse(v) if isinstance(v, str) else v
         return dates.time12(d.astimezone(state.tz)) if d else ""
 
-    def wd_md(v):
-        # "Sat 9/26": the sheet's spelling of a late-work deadline, for the Open work page.
-        d = _parse(v) if isinstance(v, str) else v
-        if isinstance(d, datetime):
-            d = d.astimezone(state.tz)
-        return dates.wd_md(d) if d else ""
-
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import html
 
-from tests.web_fixtures import app_for, client_with_grades, seed
+from tests.web_fixtures import client_with_grades, seed
 
 
 #: `phrase` returns a plain `str`, autoescaped like everything else on the page -- it has to
@@ -41,6 +41,16 @@ def test_no_grade_set_renders_the_shipped_words(tmp_path):
     seed(tmp_path).close()
     body = html.unescape(client_with_grades(tmp_path).get("/kids/Alex?show=all").text)
     assert "Missing" in body and "Teacher hasn't got it" not in body
+
+
+def test_no_grade_set_renders_words_not_table_keys(tmp_path):
+    """The regression this branch shipped: `phrase(word, "")` returning the raw snake_case
+    table key instead of the `older` phrase. Participation is HAC-only, so it carries the
+    `one_source` case kind (see web_fixtures) -- exactly the word that broke."""
+    seed(tmp_path).close()
+    body = client_with_grades(tmp_path).get("/kids/Alex?show=all").text
+    assert "one source" in body
+    assert "one_source" not in body
 
 
 def test_the_reconcile_kinds_follow_the_reader_too(tmp_path):

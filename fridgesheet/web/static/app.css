@@ -21,10 +21,11 @@
 [data-tier="early"], [data-tier="middle"], [data-tier="older"] { font-size: var(--type-root); }
 
 /* Roomier rows for the younger readers -- the same rows, with space to land a finger and
-   to tell one from the next. A tier's padding outranks @media (pointer: coarse), so any future
-   tier value must stay at or above the coarse-pointer minimum (10px 8px). */
+   to tell one from the next. A tier's padding outranks @media (pointer: coarse) on
+   specificity, so every tier value must stay at or above the coarse-pointer floor: 10px
+   vertical, 8px horizontal. */
 [data-tier="early"] table.items th, [data-tier="early"] table.items td { padding: 12px 10px; }
-[data-tier="middle"] table.items th, [data-tier="middle"] table.items td { padding: 9px 9px; }
+[data-tier="middle"] table.items th, [data-tier="middle"] table.items td { padding: 10px 9px; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
 a { color: var(--accent); }
