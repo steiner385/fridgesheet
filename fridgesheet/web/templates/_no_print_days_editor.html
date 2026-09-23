@@ -2,27 +2,32 @@
   <h3>Days the sheet does not print</h3>
   {% if saved %}<p class="ok">Saved no-print-days.txt.</p>{% endif %}
   {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-  <p class="muted">One row per day or date range: holidays, breaks, teacher PD. Weekends never print anyway.</p>
-  <div id="skip-rows">
-    {% for e in entries %}
-    <p class="row">
-      <input type="date" name="start" value="{{ e.start }}">
-      <span class="muted">through</span>
-      <input type="date" name="end" value="{{ e.end }}">
-      <input name="note" placeholder="Note (optional)" value="{{ e.note }}">
-      <button type="button" class="danger" data-remove-row>Remove</button>
-    </p>
-    {% endfor %}
-  </div>
-  <button type="button" data-add-row="skip-row-tmpl" data-add-target="skip-rows">Add date</button>
-  <template id="skip-row-tmpl">
-    <p class="row">
-      <input type="date" name="start">
-      <span class="muted">through</span>
-      <input type="date" name="end">
-      <input name="note" placeholder="Note (optional)">
-      <button type="button" class="danger" data-remove-row>Remove</button>
-    </p>
-  </template>
+  <p class="field-help">One row per day or date range: holidays, breaks, teacher PD. Weekends never print anyway.</p>
+  {# Closed on a fresh page load -- the list runs to a dozen rows or more -- and open again after
+     a save or a validation error, which is only ever the parent mid-edit. #}
+  <details class="skip-days" {{ 'open' if saved or errors }}>
+    <summary>{{ entries | length }} date{{ '' if entries | length == 1 else 's' }} set — show and edit</summary>
+    <div id="skip-rows">
+      {% for e in entries %}
+      <p class="row">
+        <input type="date" name="start" value="{{ e.start }}">
+        <span class="muted">through</span>
+        <input type="date" name="end" value="{{ e.end }}">
+        <input name="note" placeholder="Note (optional)" value="{{ e.note }}">
+        <button type="button" class="danger" data-remove-row>Remove</button>
+      </p>
+      {% endfor %}
+    </div>
+    <button type="button" data-add-row="skip-row-tmpl" data-add-target="skip-rows">Add date</button>
+    <template id="skip-row-tmpl">
+      <p class="row">
+        <input type="date" name="start">
+        <span class="muted">through</span>
+        <input type="date" name="end">
+        <input name="note" placeholder="Note (optional)">
+        <button type="button" class="danger" data-remove-row>Remove</button>
+      </p>
+    </template>
+  </details>
   <p><button class="primary">Save no-print-days.txt</button></p>
 </form>
