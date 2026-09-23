@@ -1,13 +1,14 @@
 """Settings: the form round-trips config.toml, the password stays on this machine, the editors validate."""
 from __future__ import annotations
 
+import json
 import tomllib
 
 from fastapi.testclient import TestClient
 
 from fridgesheet import config
-from fridgesheet.web import app as webapp
-from tests.web_fixtures import LOCAL_HOST_HEADERS, seed
+from fridgesheet.web import app as webapp, updatepin
+from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 
 
 class FakeCred:
@@ -47,6 +48,42 @@ def _client(home, host="127.0.0.1"):
 
 FORM = {"username": "parent@example.org", "password": "", "printer": "Canon", "days_ahead": "10",
         "overdue_days": "21", "nicknames": "Alex=Al", "archive": "", "port": "8433"}
+
+
+def _form(**over):
+    """FORM's shape with a password filled in -- `app_for`'s home has no `[account] username`
+    yet, so `actions.validate` treats the very first save like any other new account and
+    requires one (the same rule `test_web_updates.py::test_saving_settings_round_trips_the_checkbox`
+    exercises). Callers only need to override what the test is actually about."""
+    return {**FORM, "password": "hunter2", **over}
+
+
+def _release_fetch(tag="v9.9.9"):
+    """The same shape `tests/test_web_updates.py::release` builds -- a fake `update_fetch`
+    that answers with a real release body, so `updates.check` reports one genuinely
+    available instead of the "no network in tests" `conftest._no_github` gives every other
+    test by default."""
+    body = {"tag_name": tag, "html_url": f"https://github.com/x/releases/tag/{tag}",
+            "assets": [{"name": f"FridgeSheet-Setup-{tag[1:]}.exe",
+                        "browser_download_url": f"https://github.com/x/releases/download/{tag}/FridgeSheet-Setup-{tag[1:]}.exe"}]}
+    return lambda url: json.dumps(body).encode()
+
+
+def _app_with_update(tmp_path, *, pin=None, check_updates=None, service_installed=True, tag="v9.9.9"):
+    """A client whose update check reports `tag` as available -- through the button's own
+    guards, not around them. Every button test needs a genuine update on offer: otherwise
+    "no button" is just as true of `update.available` being False by default
+    (`conftest._no_github`) as it is of whatever guard the test claims to be exercising, and
+    the assertion cannot tell the two apart."""
+    kwargs = {}
+    if pin is not None:
+        kwargs["update_pin_hash"] = pin
+    if check_updates is not None:
+        kwargs["check_updates"] = check_updates
+    seed(tmp_path, **kwargs)
+    c = app_for(tmp_path, service_installed=service_installed)
+    c.app.state.fridgesheet.extra["update_fetch"] = _release_fetch(tag)
+    return c
 
 
 def test_a_host_header_this_app_does_not_answer_to_is_refused(tmp_path):
@@ -494,6 +531,71 @@ def test_no_print_days_editor_validates_and_saves(tmp_path):
     r = c.post("/settings/no-print-days", data={"start": ["2026-12-25"], "end": ["2026-12-20"], "note": [""]})
     assert r.status_code == 200 and "before the start" in r.text
     assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()        # unchanged
+
+
+def test_setting_an_update_pin_stores_a_hash_and_never_the_pin(tmp_path):
+    seed(tmp_path)
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["credstore"] = FakeCred()
+    c.post("/settings", data=_form(update_pin="2468"))
+    text = (tmp_path / "config.toml").read_text(encoding="utf-8")
+    assert "2468" not in text
+    assert "pbkdf2_sha256$" in text
+
+
+def test_the_pin_never_reads_back_into_the_form(tmp_path):
+    """Same rule as the OneLogin password: settable from a phone, never readable."""
+    seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
+    body = app_for(tmp_path).get("/settings").text
+    assert "pbkdf2_sha256$" not in body
+    assert 'name="update_pin"' in body and "2468" not in body
+
+
+def test_a_blank_pin_field_keeps_the_stored_one(tmp_path):
+    stored = updatepin.hash_pin("2468")
+    seed(tmp_path, update_pin_hash=stored)
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["credstore"] = FakeCred()
+    c.post("/settings", data=_form(update_pin=""))
+    assert stored in (tmp_path / "config.toml").read_text(encoding="utf-8")
+
+
+def test_no_button_without_a_pin(tmp_path):
+    """An update genuinely is available (see `_app_with_update`), so the missing PIN is the
+    only thing that can be suppressing the button here."""
+    c = _app_with_update(tmp_path)
+    body = c.get("/settings").text
+    assert 'action="/settings/update"' not in body
+    assert "Set an update PIN" in body
+
+
+def test_no_button_when_the_logon_task_is_missing(tmp_path):
+    """Issue #39: schtasks /Create fails for standard users and Inno ignores [Run] exit
+    codes. A silent update on such a machine leaves a dead app with no wizard and no
+    shortcut, so we decline rather than strand them."""
+    c = _app_with_update(tmp_path, pin=updatepin.hash_pin("2468"), service_installed=False)
+    body = c.get("/settings").text
+    assert 'action="/settings/update"' not in body
+    assert "is not set up to start on its own" in body
+
+
+def test_no_button_when_update_checks_are_off(tmp_path):
+    """`[web] check_updates = false` is the parent's one switch for this app's one outbound
+    call; the button must not quietly put it back regardless of what else is configured."""
+    c = _app_with_update(tmp_path, pin=updatepin.hash_pin("2468"), check_updates=False)
+    body = c.get("/settings").text
+    assert 'action="/settings/update"' not in body
+    assert "Update checks are turned off." in body
+
+
+def test_the_button_renders_when_nothing_blocks_it(tmp_path):
+    """The positive case: a PIN is set, the logon task is installed, checks are on, and an
+    update is genuinely available -- so the button is exactly what should show, with the
+    version it would update to."""
+    c = _app_with_update(tmp_path, pin=updatepin.hash_pin("2468"))
+    body = c.get("/settings").text
+    assert 'action="/settings/update"' in body
+    assert "Update to 9.9.9" in body
 
 
 RULE = '\n[[sources.rule]]\nkid = "Alex"\ncourse = "Band"\nassignments = "hac"\n'

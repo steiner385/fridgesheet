@@ -17,9 +17,18 @@ from typing import Iterator
 
 from . import actions as _actions
 
-KINDS = ("refresh", "preview", "print", "doctor", "login")
+KINDS = ("refresh", "preview", "print", "doctor", "login", "update")
 LABELS = {"refresh": "Refreshing", "preview": "Building today's sheet", "print": "Printing",
-          "doctor": "Running diagnostics", "login": "Testing the login"}
+          "doctor": "Running diagnostics", "login": "Testing the login",
+          "update": "Updating Fridge Sheet"}
+#: Kinds `POST /jobs/{kind}` (the open, unauthenticated route) may start on its own authority.
+#: `update` downloads a release asset and executes it as an installer -- the one job kind that
+#: is code execution on the family PC, not a read of Canvas/HAC -- so it is started only by the
+#: PIN-gated `POST /settings/update` (routes/settings.py). `OPEN_KINDS` is derived from `KINDS`
+#: minus `GATED`, not listed on its own, so a kind added to `KINDS` later is never accidentally
+#: made public here by someone forgetting to add it to a separate allowlist.
+GATED = ("update",)
+OPEN_KINDS = tuple(k for k in KINDS if k not in GATED)
 MAX_LINE = 300
 KEEP = 20                                     # finished jobs kept for /jobs/{id}
 #: How long a job may hold the single slot before the next submit takes it away. Longer than
@@ -95,6 +104,8 @@ class Worker:
         stalled = False
         with self._cond:
             now = self.state.now()
+            if self.current is not None and not self.current.done and self.current.kind == "update":
+                return None                    # an installer is already on its way; nothing preempts it
             if self.current is not None:
                 if now < self.current.deadline:
                     return None
@@ -178,6 +189,9 @@ class Worker:
             elif job.kind == "login":
                 r = self.actions.test_login(home=home, log=log, settings=settings)
                 outcome, message = ("OK" if r.ok else "FAIL"), r.message
+            elif job.kind == "update":
+                ok = self.actions.self_update(home=home, log=log, settings=settings, state=self.state)
+                outcome, message = ("OK" if ok else "FAIL"), (job.lines[-1] if job.lines else "")
         except Exception as e:  # noqa: BLE001  a job never takes the worker down
             message = f"{type(e).__name__}: {str(e)[:200]}"
             log(message)

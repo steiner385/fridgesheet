@@ -13,10 +13,11 @@ import logging
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from fridgesheet import late_rules, runner
+from fridgesheet import host, late_rules, runner
 from fridgesheet.config import Settings
-from fridgesheet.host import ScheduleInfo
+from fridgesheet.host import ScheduleInfo, selfupdate
 from fridgesheet.web import db
+from fridgesheet.web import updates as web_updates
 from fridgesheet.web.stores import reports as reportstore
 from fridgesheet.web.stores import runs as runstore
 
@@ -522,3 +523,171 @@ def test_forward_logs_streams_app_records_only_while_active():
     finally:
         parent.setLevel(saved[0])
         child.setLevel(saved[1])
+
+
+# -- self_update: downloads and executes a binary, so every branch is exercised with fakes --
+# only `download_verified`/`spawn_installer` (host.selfupdate) and the release fetch are ever
+# replaced; nothing here reaches the network or starts a process.
+
+UPDATE_DIGEST = "sha256:" + "ab" * 32
+
+
+class _FakeState:
+    """The two things `self_update` needs from `AppState`: `.extra` (to inject the release
+    fetch through the same `update_fetch` seam `web.updates.check` uses) and `.now()` (the
+    Pending breadcrumb's timestamp). A real `AppState` via `app_for` would work too, but drags
+    in the whole app to supply two attributes this module already fakes everything else with."""
+    def __init__(self, fetch=None):
+        self.extra: dict = {}
+        if fetch is not None:
+            self.extra["update_fetch"] = fetch
+
+    def now(self):
+        return datetime(2026, 9, 22, 12, 0, tzinfo=TZ)
+
+
+def _release_body(tag: str, *, digest: str = "", size: int = 0, asset: bool = True) -> bytes:
+    assets = [{"name": f"FridgeSheet-Setup-{tag.lstrip('v')}.exe",
+               "browser_download_url": f"https://example.invalid/download/{tag}.exe",
+               "digest": digest, "size": size}] if asset else []
+    return json.dumps({"tag_name": tag, "html_url": f"https://example.invalid/releases/{tag}",
+                       "assets": assets}).encode()
+
+
+def test_self_update_does_nothing_when_already_current(tmp_path, monkeypatch):
+    """Path 1: not newer. `download_verified` must never even be asked."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: calls.append(("download", a, kw)))
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: calls.append(("spawn", a, kw)))
+    lines = []
+    state = _FakeState(fetch=lambda url: _release_body("v0.5.0", digest=UPDATE_DIGEST, size=1000))
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert calls == []
+    assert any("Already on 0.5.0" in ln for ln in lines)
+
+
+def test_self_update_downloads_verifies_and_spawns_the_installer(tmp_path, monkeypatch):
+    """Path 2: the happy path. `download_verified` gets the release's own url, digest AND
+    size -- without size, `download_verified`'s free-space check has nothing to compare
+    the free space against and is dead code. A Pending breadcrumb is written and the
+    installer is spawned."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    dl_calls = []
+
+    def fake_download(url, digest, dest, *, log, size=0, **kw):
+        dl_calls.append({"url": url, "digest": digest, "dest": dest, "size": size})
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"pretend installer")
+        return dest
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", fake_download)
+    monkeypatch.setattr(selfupdate, "spawn_installer",
+                        lambda installer, log_path, **kw: spawn_calls.append((installer, log_path)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest=UPDATE_DIGEST, size=286_000_000)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is True
+    assert len(dl_calls) == 1
+    call = dl_calls[0]
+    assert call["digest"] == UPDATE_DIGEST
+    assert call["size"] == 286_000_000                       # the point of this test
+    assert call["url"] == "https://example.invalid/download/v0.6.0.exe"
+    assert len(spawn_calls) == 1
+    pending = selfupdate.read_pending(tmp_path)
+    assert pending is not None and pending.from_version == "0.5.0" and pending.to_version == "0.6.0"
+
+
+def test_self_update_refuses_and_never_spawns_when_the_digest_is_wrong(tmp_path, monkeypatch):
+    """Path 3: the one that matters most. A failed verification must not be able to execute
+    anything -- `spawn_installer` is asserted never called."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+
+    def fake_download(*a, **kw):
+        raise selfupdate.UpdateError(
+            "The downloaded installer does not match the checksum GitHub published for it. "
+            "Nothing was installed.")
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", fake_download)
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: spawn_calls.append((a, kw)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest=UPDATE_DIGEST, size=1000)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert spawn_calls == []
+    assert any("does not match the checksum" in ln for ln in lines)
+    assert selfupdate.read_pending(tmp_path) is None          # nothing was ever handed off to
+
+
+def test_self_update_refuses_when_the_release_has_no_installer(tmp_path, monkeypatch):
+    """Path 4: a release with no .exe asset -- an empty digest. The real `download_verified`
+    refuses this before any network call (its very first check), so it is left unmocked here;
+    only `spawn_installer` is watched, to prove it is never reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: spawn_calls.append((a, kw)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest="", size=0, asset=False)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert spawn_calls == []
+    assert any("no installer" in ln for ln in lines)
+
+
+def test_self_update_refuses_early_on_a_non_windows_host(tmp_path, monkeypatch):
+    """Fix round: a Linux install must never download the 286 MB asset, write the
+    breadcrumb, or announce that the installer is starting -- and today nothing checked the
+    platform until `selfupdate.spawn_installer`'s dispatcher raised, which is the LAST step.
+    This is the guard at the TOP of the function: neither the release fetch nor
+    `download_verified` may even be reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
+    fetch_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: fetch_calls.append("download"))
+    lines = []
+    state = _FakeState(fetch=lambda url: fetch_calls.append("fetch") or _release_body(
+        "v99.0.0", digest=UPDATE_DIGEST, size=286_000_000))
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert fetch_calls == []                                   # neither the release check nor the download ran
+    assert selfupdate.read_pending(tmp_path) is None            # no breadcrumb left for `resolve_pending` to pin
+    assert any("Windows" in ln for ln in lines)
+
+
+def test_self_update_gives_a_friendly_line_when_github_is_unreachable(tmp_path, monkeypatch):
+    """No internet is the single most likely failure for the households this feature is for.
+    `updatemod.latest_release` can raise `URLError` straight through -- it is not wrapped in
+    `UpdateError` -- and left uncaught that reaches the job worker's generic handler as a raw
+    `URLError: <urlopen error ...>` string, the opposite of the "one sentence a parent can
+    act on" contract."""
+    from urllib.error import URLError
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+
+    def fetch(url):
+        raise URLError("[Errno -2] Name or service not known")
+    lines = []
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)
+    assert not any("Errno" in ln for ln in lines)                # no raw traceback text reaches the parent
+
+
+def test_self_update_gives_a_friendly_line_on_malformed_release_json(tmp_path, monkeypatch):
+    """A `json.JSONDecodeError` from `latest_release` is just as uncaught as a `URLError` --
+    same contract, same fix."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    lines = []
+    state = _FakeState(fetch=lambda url: b"not json")
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)

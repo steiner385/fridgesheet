@@ -439,6 +439,82 @@ def cmd_service(args) -> int:
         return 1
 
 
+def _current_user() -> str:
+    try:
+        return getpass.getuser()
+    except Exception:       # noqa: BLE001  no password database entry; not worth dying for
+        return ""
+
+
+def _service_info():
+    from .host import service
+    return service.describe_service()
+
+
+def _do_self_update(*, home, settings) -> int:
+    from .web import actions
+    lines: list[str] = []
+
+    def log(line: str) -> None:
+        lines.append(line)
+        print(line)
+
+    class _State:                       # actions.self_update wants `.extra` and `.now()`
+        extra: dict = {}
+
+        @staticmethod
+        def now():
+            from datetime import datetime
+            return datetime.now().astimezone()
+
+    return 0 if actions.self_update(home=home, log=log, settings=settings, state=_State()) else 1
+
+
+def cmd_self_update(args) -> int:
+    """Update this install to the newest release.
+
+    No PIN here, deliberately: a shell on this machine already owns this machine, so asking
+    for one would be theatre -- that check belongs to the web Settings page, which is reachable
+    by anyone on the house LAN, not to an operator who is already sitting at a prompt here. Do
+    not "fix" this by adding one back.
+
+    What this DOES check is ownership. A per-user logon task only fires for its owner, and a
+    per-user install lives in that owner's profile, so running this as anyone else builds a
+    second copy under a different profile and leaves the running server untouched -- silently,
+    reporting success. Seen on the household's Windows box, 2026-09-22: the logon task runs as
+    one account while an SSH session arrives as another.
+    """
+    from . import host
+    from .host import selfupdate_linux
+    from .web import updates as updatemod
+    if not host.IS_WINDOWS:
+        # Refused before anything else -- including `--check`, which the README already
+        # advertises as part of this Windows-only command -- rather than leaving the
+        # platform check to be discovered last, wherever the flow happens to fail first.
+        print(selfupdate_linux.NOT_WINDOWS, file=sys.stderr)
+        return 1
+    s = load_settings()
+    if args.check:
+        current = updatemod.current_version()
+        latest, _url, _digest, _size = updatemod.latest_release()
+        print(f"{current} installed; {latest} is the newest release."
+              if updatemod.newer(latest, current) else f"{current} is the newest release.")
+        return 0
+    info, me = _service_info(), _current_user()
+    # `not me` (not `me and ...`) is deliberate: getpass.getuser() can fail (no password-
+    # database entry, some container/service contexts), and when the owner IS known but we
+    # cannot confirm who we are, that is a reason to stop, not to proceed -- proceeding would
+    # be exactly the silent second-install this check exists to prevent.
+    if not args.force and info.owner and (not me or info.owner.casefold() != me.casefold()):
+        who = f"you are {me!r}" if me else "this shell's account could not be determined"
+        print(f"The logon task runs as {info.owner!r} and its install lives in that account's "
+              f"profile; {who}. Updating from here would build a second copy under the wrong "
+              f"profile and leave the running one alone. Run this as {info.owner!r}, or pass "
+              f"--force if you mean to install a separate copy.", file=sys.stderr)
+        return 1
+    return _do_self_update(home=s.home, settings=s)
+
+
 def cmd_doctor(args) -> int:
     from . import doctor
     s = load_settings()
@@ -496,6 +572,10 @@ def main(argv=None) -> None:
     sv = sub.add_parser("service", help="install, remove or show the always-on web server (systemd user unit / Windows logon task)")
     sv.add_argument("action", choices=["install", "remove", "show"])
     sv.set_defaults(fn=cmd_service)
+    su = sub.add_parser("self-update", help="install the newest release over this one (Windows)")
+    su.add_argument("--check", action="store_true", help="say what is available; install nothing")
+    su.add_argument("--force", action="store_true", help="proceed even if another account owns the install")
+    su.set_defaults(fn=cmd_self_update)
     sub.add_parser("doctor", help="check Python, Chromium, the PDF engine, the credential store, printers and the scheduler; writes <home>/doctor.txt").set_defaults(fn=cmd_doctor)
     ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it (CUPS)")
     ps.add_argument("--dry-run", action="store_true", help="build the PDF under ~/.fridgesheet/sheets/ but do not print or record")

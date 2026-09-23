@@ -5,12 +5,14 @@ import logging
 import sqlite3
 from datetime import date
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ..app import Db, State, loopback, render, render_partial
-from .. import actions, updates
-from ... import qr, runner, sources
+from .. import actions, updatepin, updates
+from .jobs import _worker
+from ... import host, qr, runner, sources
+from ...host import selfupdate_linux
 
 router = APIRouter()
 log = logging.getLogger("fridgesheet.web.settings")
@@ -52,10 +54,30 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
     tailnet_url = _tailnet_url(form.port) if form.allow_lan else None
+    # The two refusals that keep the update button from starting something it can already
+    # predict will go wrong -- see `_update_button.html`. `info.installed` is only asked for
+    # once the first two guards pass: on most machines and most page loads (checks off, or no
+    # PIN set yet) that avoids a real `systemctl --user`/`schtasks` shell-out for a question
+    # the page was not going to act on anyway.
+    reason = ""
+    if not state.settings.web_check_updates:
+        reason = "Update checks are turned off."
+    elif not state.settings.web_update_pin_hash:
+        reason = "Set an update PIN below to update from this page."
+    else:
+        describe_service = state.extra.get("describe_service")
+        if describe_service is None:
+            from ...host.service import describe_service
+        if not describe_service().installed:
+            reason = ("Fridge Sheet is not set up to start on its own on this computer, so an "
+                      "update could leave it closed. Install it again from the desktop shortcut "
+                      "first (issue #39).")
+    update_ready = bool(update and update.available and not reason)
     return render(request, conn, "settings.html", current="settings", form=form, messages=list(messages), errors=list(errors),
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
+                  update_ready=update_ready, update_blocked_reason=reason,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
                   entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
                   source_rules=actions.load_sources(state.home).rules, SOURCE_LABELS=sources.LABELS)
@@ -70,7 +92,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 def save(request: Request, username: str = Form(""), password: str = Form(""), printer: str = Form(""),
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
-         sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
+         update_pin: str = Form(""), sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
          conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
@@ -93,6 +115,7 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     form = actions.FormValues(username=username, password=password, printer=printer, days_ahead=days_ahead,
                               overdue_days=overdue_days, nicknames=nicknames, archive=archive,
                               port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
+                              update_pin=update_pin,
                               sources_assignments=sources_assignments, sources_grades=sources_grades)
     lines: list[str] = []
     result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
@@ -147,6 +170,42 @@ async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, st
     rows = actions.no_print_days_view(actions.no_print_days_settings(state.home)) if not errors else \
         [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes) if s]
     return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)
+
+
+@router.post("/settings/update")
+def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+    """The only way to start an "update" job -- see `jobs.GATED`. `POST /jobs/update` (the
+    generic, unauthenticated route) is refused a kind ahead of ever reaching a worker; this
+    route is the PIN-gated door for it, and every check below runs before `_worker` is even
+    asked for, so none of them can be skipped by a caller that races the worker into existing.
+    """
+    if not state.settings.web_check_updates:
+        # The parent turned off this app's one outbound call (Settings' check_updates box).
+        # A button here must not quietly put it back regardless of what it is gating.
+        raise HTTPException(409, "Update checks are turned off in Settings.")
+    if not host.IS_WINDOWS:
+        # Refused here, before the PIN is even checked or a job is submitted -- not left for
+        # `actions.self_update` (which also refuses, belt-and-braces) to discover after a
+        # download. A Linux install is a git checkout; no button here can improve on that.
+        raise HTTPException(409, selfupdate_linux.NOT_WINDOWS)
+    stored = state.settings.web_update_pin_hash
+    if not stored:
+        raise HTTPException(403, "Set an update PIN in Settings before updating from here.")
+    attempts = state.extra.setdefault("update_attempts", updatepin.Attempts())
+    until = attempts.locked_until(state.now())
+    if until is not None:
+        raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes.")
+    if not updatepin.verify(pin, stored):
+        attempts.record_failure(state.now())
+        raise HTTPException(403, "That PIN is not right.")
+    attempts.clear()
+    w = _worker(state)
+    job = w.submit("update")
+    if job is None:
+        r = render_partial(request, conn, "_job.html", job=w.current, busy=True, pdf=None)
+        r.status_code = 409
+        return r
+    return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=None)
 
 
 @router.post("/settings/sources/remove")

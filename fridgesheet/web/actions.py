@@ -9,15 +9,19 @@ from __future__ import annotations
 
 import contextlib
 import ipaddress
+import json
 import logging
+import socket
 from dataclasses import dataclass
 from datetime import date, datetime
 from importlib import metadata
 from pathlib import Path
 from typing import Callable
+from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
 from .. import config, late_rules, runner, sources
+from . import updatepin
 
 REPORT_KEY = "open-work"
 LOGIN_STAMP = "login-ok.txt"
@@ -64,6 +68,7 @@ class FormValues:
     port: int = 8433
     allow_lan: bool = False
     check_updates: bool = True
+    update_pin: str = ""        # write-only, like `password`: blank = keep the stored hash
     sources_assignments: str = "canvas"   # [sources] assignments: household default
     sources_grades: str = "hac"           # [sources] grades: household default
 
@@ -180,6 +185,11 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     web = _table(doc, "web")
     web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)
     web["check_updates"] = bool(form.check_updates)
+    # Write-only, like the password below: a typed PIN is hashed and only the hash is ever
+    # written to config.toml; a blank field leaves whatever hash is already stored alone, so
+    # saving any other setting can never silently erase the household's update PIN.
+    if form.update_pin.strip():
+        web["update_pin_hash"] = updatepin.hash_pin(form.update_pin.strip())
     restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]
 
     messages: list[str] = []
@@ -190,6 +200,9 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
         msg = "The server address changed; restart Fridge Sheet (or the service) for it to take effect."
         log(msg)
         messages.append(msg)
+    if form.update_pin.strip():
+        log("Update PIN stored.")
+        messages.append("Update PIN stored.")
 
     if form.password:
         try:
@@ -636,3 +649,59 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
             log(f"WARN could not record the run: {e}")
     return RefreshResult(outcome == "OK", message, refresh_id)
+
+
+def self_update(*, home: Path, log: Callable[[str], None], settings, state) -> bool:
+    """Download the newest release's installer, prove it against GitHub's own sha256, and hand
+    off to it. Returns False having already explained itself on `log`; raising would only reach
+    the job worker's generic handler (jobs.Worker._run), which logs the exception type and loses
+    the parent-facing sentence `UpdateError` was written to carry.
+
+    Only ever called from the "update" branch of `jobs.Worker._run`, which is only ever reached
+    by a job the PIN-gated `POST /settings/update` route started (see `jobs.GATED`) -- there is
+    no other way into this function from the web.
+    """
+    import fridgesheet.host as host
+    from ..host import selfupdate, selfupdate_linux
+    from . import updates as updatemod
+    # Refused before any network call or breadcrumb write -- not left for
+    # `selfupdate.spawn_installer`'s dispatcher to discover last, after a 286 MB download
+    # has already happened and a `update-pending.json` has already been left behind for
+    # `resolve_pending` to find on the next (Linux) start, where no running version will
+    # ever match `to_version` and the "did not finish" card can never clear.
+    if not host.IS_WINDOWS:
+        log(selfupdate_linux.NOT_WINDOWS)
+        return False
+    try:
+        current = updatemod.current_version()
+        latest, url, digest, size = updatemod.latest_release(state.extra.get("update_fetch"))
+        if not updatemod.newer(latest, current):
+            log(f"Already on {current}; nothing to do.")
+            return False
+        log(f"Downloading Fridge Sheet {latest} ({size // 10**6} MB)...")
+        folder = home / "updates"
+        # `size` is not decoration: without it `download_verified`'s free-space check is
+        # dead code, because it has nothing to compare the free space against.
+        installer = selfupdate.download_verified(url, digest, folder / f"FridgeSheet-Setup-{latest}.exe",
+                                                 log=log, size=size)
+        log_path = folder / f"install-{latest}.log"
+        selfupdate.write_pending(home, selfupdate.Pending(
+            from_version=current, to_version=latest, started_at=state.now().isoformat(),
+            installer=str(installer), log=str(log_path)))
+        log("Starting the installer. Fridge Sheet will close and come back on its own.")
+        selfupdate.spawn_installer(installer, log_path)
+        return True
+    except selfupdate.UpdateError as e:
+        log(str(e))
+        return False
+    except (URLError, socket.timeout, json.JSONDecodeError) as e:
+        # `updatemod.latest_release` only wraps its own `download_verified`-equivalent
+        # failures in `UpdateError`; a network problem reaching GitHub in the first place
+        # (no internet -- the single most likely failure in a household this feature is
+        # for) or a malformed release JSON escapes as the raw exception instead. Left
+        # uncaught, that reaches `jobs.py`'s generic handler as e.g. `URLError: <urlopen
+        # error [Errno -2] Name or service not known>` -- exactly the raw traceback string
+        # the "one sentence a parent can act on" contract above exists to prevent.
+        log(f"Could not reach GitHub to check for an update ({type(e).__name__}). "
+            "Check the internet connection and try again later.")
+        return False

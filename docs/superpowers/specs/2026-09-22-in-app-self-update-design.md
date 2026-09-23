@@ -131,8 +131,32 @@ Exec('taskkill.exe', '/IM FridgeSheet.exe /T /F', '', SW_HIDE, ewWaitUntilTermin
 file. This is the single fact that shapes the handoff, and it is not visible from the Python
 side at all.
 
-So the installer is spawned **detached** -- `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` --
-and the app then returns and waits to be killed.
+> **Corrected 2026-09-23.** This design originally assumed the installer could be spawned
+> **detached** -- `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` -- and that this would keep
+> it outside `FridgeSheet.exe`'s process tree. **That assumption was tested on real Windows
+> and disproved.** Measured on `windows-latest`, 2026-09-23 (GitHub Actions runs
+> 35844316753 and 35844539925, workflow `probe-detachment.yml`, branch
+> `probe/windows-detachment`): an installer spawned with those flags was killed by
+> `taskkill /T` exactly like an unflagged control process spawned alongside it -- both were
+> confirmed recorded descendants of the parent (`InheritedFromUniqueProcessId` walked back
+> to it), and both died. The flags concern the console and Ctrl+C routing; neither is
+> documented to change `InheritedFromUniqueProcessId`, which is the field `taskkill /T`
+> actually walks, and the only documented way to make a child *not* inherit that value is
+> `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS`, unreachable from `subprocess`. What DID survive,
+> in the same experiment, was `cmd /c start "" /b <installer> ...` -- not because it
+> reparents anything, but because cmd.exe exits immediately after launching the installer,
+> breaking the recorded parent/child chain before `taskkill /T` ever snapshots it. The
+> mechanism below reflects that correction; see
+> `fridgesheet/host/selfupdate_windows.py`'s module docstring for the full measurement.
+
+So the installer is spawned via **`cmd /c start "" /b <installer> ...`**, and the app then
+returns and waits to be killed. The empty `""` immediately after `start` is the window
+title argument and is load-bearing: `start` reads a lone quoted argument as a title, so
+without it, a path containing a space (e.g. `C:\Users\John Smith\...\Setup.exe`) opens a
+titled window and runs nothing instead of installing. `/b` means no new console window for
+the installer; the `Popen` call itself also carries `creationflags=CREATE_NO_WINDOW` so
+cmd.exe does not flash a console under the frozen, windowless app. `Popen`'s returned pid is
+cmd.exe's, not the installer's -- nothing relies on it.
 
 ```
 POST /update  {pin}
@@ -147,7 +171,7 @@ POST /update  {pin}
        3. stream download, hashing             -> %LOCALAPPDATA%\fridgesheet\updates\
        4. digest match?                        else delete, fail loudly
        5. write update-pending.json
-       6. spawn DETACHED:
+       6. spawn: cmd /c start "" /b
             FridgeSheet-Setup-X.Y.Z.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=<path>
        7. return; the page begins polling /health
   |
