@@ -61,6 +61,9 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
 
     `grade_observations` only holds rows where something changed, so each point is a real
     move; a flat stretch is simply the absence of points between two of them.
+
+    `since` is inclusive here (a point exactly at `since` is kept), where `changes.since` is
+    exclusive; a chart wants its first point, a feed must not repeat the event it started after.
     """
     sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, pc.name AS peer_course_name,
                     s.key AS student_key
@@ -167,8 +170,11 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
     if student_id is not None:
         ids = [i for i in ids if i == student_id]
     for sid in ids:
+        live = reconcile.live_items(conn, sid, now)
+        if not live:
+            continue                    # nothing live, so no observations to read (#5)
         latest = _db.latest_observations(conn, sid)
-        for item in reconcile.live_items(conn, sid, now):
+        for item in live:
             due = reconcile.due_of(item)
             if due is None:
                 continue
@@ -211,7 +217,8 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
     excused or ignore drops out exactly as it does on the Kid page.
 
     `live_items` takes one student and does not filter hidden students, so the loop walks the
-    visible ones: three or four queries in total, not one per item.
+    visible ones: two queries, plus two per kid with live work (`live_items`, then that kid's
+    observations), never one per item.
     """
     ids = [s["id"] for s in _students.visible(conn)]
     if student_id is not None:
@@ -219,8 +226,11 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
     started_at = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
     out: list[tuple[str, float]] = []
     for sid in ids:
+        live = reconcile.live_items(conn, sid, now)
+        if not live:
+            continue                    # nothing live, so no observations to read (#5)
         latest = _db.latest_observations(conn, sid)
-        for item in reconcile.live_items(conn, sid, now):
+        for item in live:
             if item["flag"] in HANDLED_FLAGS:
                 continue
             if not reconcile.open_sources(item, latest.get(item["id"], {}), now,
