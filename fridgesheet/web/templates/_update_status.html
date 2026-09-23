@@ -1,0 +1,12 @@
+{# The update line, and the "check now" button beside it. Swapped as one unit by
+   POST /settings/update/check so the line always shows what it just found. `type="button"`
+   matters: this sits inside the Settings <form>, and a bare <button> there would submit it. #}
+<p class="muted" id="update-status">
+  {% if update is none %}update checks are off
+  {% else %}
+    {% if update.error %}could not check for updates ({{ update.error }})
+    {% elif update.available %}<strong>Fridge Sheet {{ update.latest }} is available — <a href="{{ update.url }}">download the installer</a></strong>. Run it over this one; it stops and restarts the app itself.
+    {% else %}up to date (checked {{ update.checked_at | time12 }}){% endif %}
+    <button type="button" hx-post="/settings/update/check" hx-target="#update-status" hx-swap="outerHTML">Check for updates now</button>
+  {% endif %}
+</p>
