@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Iterable
 
 from . import late_rules as _late_rules
+from . import sources as _sources
 from .matching import hac_item_key, match_course, same_item, short_course
 
 OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "HAC — NO GRADE")
@@ -124,13 +125,15 @@ def parse_hac_date(s: str | None, tz) -> datetime | None:
 
 def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overdue_days: int = 14,
                rules: _late_rules.LateRules | None = None, include_hac: bool = True,
-               flags: dict[str, str] | None = None) -> OpenWork:
+               flags: dict[str, str] | None = None, prefs=None) -> OpenWork:
     rules = rules or _late_rules.LateRules(_late_rules.Rule(), [], [])
     flags = flags or {}
     tz = now.tzinfo
     horizon = now + timedelta(days=days_ahead)
     oldest = now - timedelta(days=overdue_days)
     year_start = school_year_start(now)
+    # Rules name kids by first name; `kid` here is the printed label, which may be a nickname.
+    first = ((entry.get("name") or kid).split() or [kid])[0]
     hac_classes = {h.get("name") or "": h for h in ((entry.get("hac") or {}).get("classes") or [])} if include_hac else {}
 
     items: list[Item] = []
@@ -141,23 +144,28 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
     for c in ((entry.get("canvas") or {}).get("courses") or []):
         peer = match_course(c["name"], hac_classes) if hac_classes else None
         peer_rows = {a["name"]: a for a in (peer or {}).get("assignments", [])}
+        pick = _sources.assignments_for(prefs, first, c["name"])
         for a in c["assignments"]:
             if not a.get("due_at"):
                 continue
             due = datetime.fromisoformat(a["due_at"])
             if due < year_start:
                 continue
-            status = _status(a, due, now)
+            hac_row = next((r for n, r in peer_rows.items() if same_item(a["name"], n)), None)
+            hac_score = (hac_row or {}).get("score")
+            if pick == "hac" and hac_score is not None and not a.get("excused") and a.get("published", True):
+                # The family reads this class's scores from HAC: its grade settles the item.
+                status = "ZERO" if hac_score == 0 and (a.get("points_possible") or 0) > 0 else None
+            else:
+                status = _status(a, due, now)
             if status is None:
                 continue
-            hac_row = next((r for n, r in peer_rows.items() if same_item(a["name"], n)), None)
             # Canvas shows paper and in-class work as unsubmitted forever; a grade in HAC is the
             # proof it was handed in. The web app's outcome definition calls that *done on
             # paper* (docs/outcomes.md), and the sheet must not print PAPER — CHECK -- or
             # MISSING, for online work the teacher graded from a physical copy -- for work the
             # gradebook has already marked. A Canvas `missing` flag or a 0 still wins: those
             # are the teacher's word, and a disagreement is the Reconcile page's to show.
-            hac_score = (hac_row or {}).get("score")
             if status in ("PAPER — CHECK", "MISSING") and not a.get("missing") and a.get("score") is None \
                     and hac_score not in (None, 0):
                 continue
@@ -174,7 +182,7 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             it = Item(
                 key=f"canvas:{a['id']}", kid=kid, course=course, name=a["name"], due=due, status=status,
                 overdue=overdue, source="both" if hac_row else "canvas", kind=kind_of(a.get("submission_types")),
-                points=a.get("points_possible"), score=a.get("score"), assigned=assigned,
+                points=a.get("points_possible"), score=hac_score if pick == "hac" and hac_score is not None else a.get("score"), assigned=assigned,
                 is_assessment=bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)),
                 submission_types=list(a.get("submission_types") or []),
             )

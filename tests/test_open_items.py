@@ -203,3 +203,42 @@ def test_paper_work_graded_in_hac_is_done_and_not_on_the_sheet(rules):
     e2 = entry([canvas_item(id=1, name="Concert Contract Due", submission_types=["on_paper"], missing=True)])
     e2["hac"] = e["hac"]
     assert [i.status for i in run(e2, rules).items] == ["MISSING"]
+
+
+from fridgesheet import sources  # noqa: E402
+
+HAC = sources.DEFAULT.with_default("hac", "hac")
+
+
+def hac_class(rows, name="Honors Biology - 3"):
+    return [{"name": name, "assignments": rows}]
+
+
+def hac_row(name, score, points=10.0):
+    return {"name": name, "due": "09/10/2026", "assigned": "09/01/2026", "category": "Homework", "points": points,
+            "score": score, "score_raw": "" if score is None else f"{score:.2f}"}
+
+
+def test_hac_preference_drops_canvas_missing_when_hac_graded_it(rules):
+    e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
+    assert [i.status for i in run(e, rules).items] == ["MISSING"]     # today: Canvas's flag wins
+    assert run(e, rules, prefs=HAC).items == []
+
+
+def test_hac_zero_prints_zero_under_hac_preference(rules):
+    """Review focus 5, on paper."""
+    e = entry([canvas_item(state="graded", score=8.0, grade="8")], hac_classes=hac_class([hac_row("WS 1", 0.0)]))
+    assert run(e, rules).items == []
+    (it,) = run(e, rules, prefs=HAC).items
+    assert it.status == "ZERO" and it.score == 0.0 and it.overdue
+
+
+def test_hac_preference_without_a_hac_score_changes_nothing(rules):
+    e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", None)]))
+    assert [i.status for i in run(e, rules, prefs=HAC).items] == ["MISSING"]
+
+
+def test_rules_resolve_by_first_name_not_the_printed_nickname(rules):
+    p = sources.DEFAULT.with_rule("Alex", "Honors Biology", "hac", None)
+    e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
+    assert open_items.open_items(e, "Dougie", NOW, rules=rules, prefs=p).items == []

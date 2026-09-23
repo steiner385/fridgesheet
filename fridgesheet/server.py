@@ -110,7 +110,7 @@ def _open_work(student: str, days_ahead: int, include_hac: bool = True):
     e = _kid(_snap(), student)
     now = datetime.now(ZoneInfo(_settings.timezone))
     rules = late_rules.load(_settings.home / "late-rules.toml")
-    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac)
+    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac, prefs=_settings.sources)
 
 
 @mcp.tool()
