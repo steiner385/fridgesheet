@@ -2,7 +2,6 @@
 and restarts it if it dies. Registered by the installer, removed by the uninstaller."""
 from __future__ import annotations
 
-import getpass
 import os
 import re
 import subprocess
@@ -11,22 +10,11 @@ from importlib import resources
 from xml.sax.saxutils import escape
 
 from . import CREATE_NO_WINDOW, ServiceError, ServiceInfo
+from . import current_user as _current_user
 
 NAME = "Fridge Sheet - web"
 _NOT_FOUND = "cannot find the file"
 _WHITESPACE = re.compile(r"\s+")
-
-
-def _current_user() -> str:
-    """Mirrors `cli._current_user`: a separate copy, not an import, because `cli.py`
-    imports `host` and a helper shared through here would have to go the other way. Same
-    reason to fail soft -- `getpass.getuser()` can raise (no password-database entry, some
-    container/service contexts) and an install that cannot even check its own account name
-    should not die on that alone."""
-    try:
-        return getpass.getuser()
-    except Exception:       # noqa: BLE001  no password database entry; not worth dying for
-        return ""
 
 
 def _normalize_command(command: str) -> str:
@@ -88,8 +76,13 @@ def _fallback_note_or_raise(exe: str, args: str, create_err: str, run) -> str:
                             f"runs {info.command!r}, not {exe} {args}, so it is not safe to just start)")
     me = _current_user()
     if not me or info.owner.strip().casefold() != me.casefold():
+        # `not me` (not `me and ...`) is deliberate, same as `cli.cmd_self_update`'s check:
+        # `getpass.getuser()` can fail (no password-database entry, some container/service
+        # contexts), and when we cannot confirm who we are, that is a reason to stop, not to
+        # assume a match -- so the message says that plainly rather than printing `''`.
+        who = f"we run as {me!r}" if me else "this shell's account could not be determined"
         raise ServiceError(f"schtasks /Create failed: {create_err} (existing '{NAME}' task "
-                            f"runs as {info.owner!r}, not {me!r}, so it is not safe to just start)")
+                            f"runs as {info.owner!r}; {who}, so it is not safe to just start)")
     return (f"schtasks /Create failed ({create_err}); the existing '{NAME}' task already "
             f"runs {exe} {args} as {me!r}, so it was started instead of being re-registered")
 
@@ -115,7 +108,19 @@ def install(exe: str, args: str, workdir: str, run=subprocess.run) -> str:
     if p.returncode != 0:
         create_err = (p.stderr or p.stdout or "").strip()[:300]
         note = _fallback_note_or_raise(exe, args, create_err, run)
-    _schtasks(["/Run", "/TN", NAME], run)                       # start it now; the trigger covers the next logon
+    r = _schtasks(["/Run", "/TN", NAME], run)                   # start it now; the trigger covers the next logon
+    if note and r.returncode != 0:
+        # Deliberately asymmetric, and only on the fallback path: after an ordinary
+        # successful /Create, an /Run failure here is tolerable -- the task itself is
+        # correct and its own LogonTrigger starts it at the next sign-in regardless, so
+        # today's happy path stays exactly as forgiving as before. On the fallback path
+        # /Run is not a courtesy start, it is the *entire* remedy for a /Create that could
+        # not touch the task at all (graphy, 2026-09-23). If /Run also fails there, nothing
+        # brings the server back, and returning the fallback note anyway would report
+        # success over the exact same shape of bug this fix exists for, just one step
+        # later. Do not "simplify" this into one rule for both paths.
+        raise ServiceError(f"existing '{NAME}' task matched, but schtasks /Run failed: "
+                            f"{(r.stderr or r.stdout or '').strip()[:300]}")
     return note
 
 
@@ -127,6 +132,14 @@ def remove(run=subprocess.run) -> None:
 
 
 def describe(run=subprocess.run) -> ServiceInfo:
+    # `schtasks /Query /V`'s field labels -- "Status", "Run As User", "Task To Run" -- are
+    # English, and schtasks localizes them on a non-English Windows. This is NOT locale-proof:
+    # on such a machine every field below comes back "", `owner`/`command` are "" too, and
+    # `_fallback_note_or_raise`'s command/account comparison then mismatches an empty string
+    # against a real one and raises rather than falling through. That is a fail-CLOSED
+    # failure -- a loud ServiceError, not a silent wrong start -- so it is not the graphy bug
+    # again, but it does mean the fallback simply never engages on a localized install; it is
+    # not a general fix for that case.
     p = _schtasks(["/Query", "/TN", NAME, "/FO", "LIST", "/V"], run)
     if p.returncode != 0:
         return ServiceInfo("task-scheduler", False, False, "not installed")

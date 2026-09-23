@@ -13,6 +13,7 @@ from . import collector
 from .config import (ConfigError, ReportConfig, Settings, config_file, load_config_doc, load_settings,
                      save_config_doc, settings_from_doc)
 from .host import credentials as credstore
+from .host import current_user as _current_user
 from .session import browser, ensure_canvas, ensure_hac
 
 
@@ -437,13 +438,6 @@ def cmd_service(args) -> int:
     except ServiceError as e:
         print(str(e), file=sys.stderr)
         return 1
-
-
-def _current_user() -> str:
-    try:
-        return getpass.getuser()
-    except Exception:       # noqa: BLE001  no password database entry; not worth dying for
-        return ""
 
 
 def _service_info():

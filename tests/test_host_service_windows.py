@@ -30,7 +30,9 @@ def _run_sequence(responses: dict):
     """A fake `run` keyed by the schtasks subcommand (argv[1]: "/Create", "/Query", "/Run"),
     each entry a (returncode, stdout, stderr) triple. Records every call so a test can assert
     exactly which schtasks calls happened, and in what order -- in particular, that a
-    mismatch never reaches `/Run` at all."""
+    mismatch never reaches `/Run` at all. Tests that must never legitimately reach `/Run`
+    still supply a response for it: a guard that breaks and calls it anyway should fail a
+    plain `assert "/Run" not in calls`, not blow up as a `KeyError` out of this fake."""
     calls = []
     def run(cmd, **kw):
         calls.append(cmd)
@@ -111,7 +113,7 @@ def test_create_denied_existing_task_points_at_a_different_exe_raises(monkeypatc
     query_out = ("Status:  Ready\n"
                 "Task To Run:  C:\\Old\\FridgeSheet.exe web --no-browser\n"
                 "Run As User:  svc_fridgesheet\n")
-    responses = {"/Create": (1, "", "ERROR: Access is denied."), "/Query": (0, query_out, "")}
+    responses = {"/Create": (1, "", "ERROR: Access is denied."), "/Query": (0, query_out, ""), "/Run": (0, "", "")}
     calls, run = _run_sequence(responses)
     monkeypatch.setattr(service_windows, "_current_user", lambda: "svc_fridgesheet")
     with pytest.raises(ServiceError) as e:
@@ -125,7 +127,7 @@ def test_create_denied_existing_task_runs_as_a_different_user_raises(monkeypatch
     query_out = ("Status:  Ready\n"
                 "Task To Run:  C:\\App\\FridgeSheet.exe web --no-browser\n"
                 "Run As User:  Administrator\n")
-    responses = {"/Create": (1, "", "ERROR: Access is denied."), "/Query": (0, query_out, "")}
+    responses = {"/Create": (1, "", "ERROR: Access is denied."), "/Query": (0, query_out, ""), "/Run": (0, "", "")}
     calls, run = _run_sequence(responses)
     monkeypatch.setattr(service_windows, "_current_user", lambda: "svc_fridgesheet")
     with pytest.raises(ServiceError) as e:
@@ -139,12 +141,16 @@ def test_create_denied_no_existing_task_raises_the_genuine_first_install_case(mo
     """The genuine first-install shape of #39: /Create failed and there is nothing
     registered to fall back to -- this must stay a hard error exactly as before."""
     responses = {"/Create": (1, "", "ERROR: Access is denied."),
-                "/Query": (1, "", "ERROR: The system cannot find the file specified.")}
+                "/Query": (1, "", "ERROR: The system cannot find the file specified."),
+                "/Run": (0, "", "")}
     calls, run = _run_sequence(responses)
     monkeypatch.setattr(service_windows, "_current_user", lambda: "svc_fridgesheet")
     with pytest.raises(ServiceError) as e:
         service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
-    assert "Access is denied" in str(e.value)
+    msg = str(e.value)
+    assert "Access is denied" in msg
+    assert "no existing" in msg and service_windows.NAME in msg  # pins the "nothing to fall back to" branch
+    # itself, not just the outcome the command-mismatch branch below would also produce
     assert "/Run" not in [c[1] for c in calls]
 
 
@@ -165,6 +171,40 @@ def test_create_fails_for_an_unrelated_reason_with_a_matching_task_still_falls_t
     note = service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
     assert [c[1] for c in calls] == ["/Create", "/Query", "/Run"]
     assert note
+
+
+def test_create_succeeds_but_run_fails_does_not_raise(monkeypatch):
+    """The asymmetry, pinned: on the ordinary /Create-succeeded path, a failing /Run is
+    tolerated -- the task itself is correct and its own LogonTrigger starts it at the next
+    sign-in, exactly as before this fix. Only the fallback path (below) turns a failing
+    /Run into a raise."""
+    responses = {"/Create": (0, "", ""), "/Run": (1, "", "ERROR: The service has not been started.")}
+    calls, run = _run_sequence(responses)
+    note = service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
+    assert [c[1] for c in calls] == ["/Create", "/Run"]
+    assert not note
+
+
+def test_fallback_matches_but_run_fails_raises_naming_the_run_failure(monkeypatch):
+    """Without this, install() reproduces the exact bug it fixes one step later: /Create is
+    denied, the existing task matches so install() decides to fall back, but /Run -- the
+    entire remedy on this path -- also fails (its own ACL denial, the task Disabled, Task
+    Scheduler unhappy), and nothing actually starts the server. This must raise, and the
+    message must name the /Run failure, not the /Create failure that preceded it -- a reader
+    tailing the install log needs to know which command actually left the server down."""
+    query_out = ("Status:  Ready\n"
+                "Task To Run:  C:\\App\\FridgeSheet.exe web --no-browser\n"
+                "Run As User:  svc_fridgesheet\n")
+    responses = {"/Create": (1, "", "ERROR: Access is denied."), "/Query": (0, query_out, ""),
+                "/Run": (1, "", "ERROR: The service has not been started.")}
+    calls, run = _run_sequence(responses)
+    monkeypatch.setattr(service_windows, "_current_user", lambda: "svc_fridgesheet")
+    with pytest.raises(ServiceError) as e:
+        service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
+    msg = str(e.value)
+    assert "/Run" in msg and "The service has not been started" in msg
+    assert "Access is denied" not in msg          # names the /Run failure, not the earlier /Create one
+    assert [c[1] for c in calls] == ["/Create", "/Query", "/Run"]
 
 
 def test_normalize_command_treats_quoting_casing_and_whitespace_as_equal():
