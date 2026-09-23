@@ -10,13 +10,14 @@ from fridgesheet import config
 from fridgesheet.web import actions
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from fridgesheet import runner
+from fridgesheet import host, late_rules, runner
 from fridgesheet.config import Settings
-from fridgesheet.host import ScheduleInfo
+from fridgesheet.host import ScheduleInfo, selfupdate
 from fridgesheet.web import db
+from fridgesheet.web import updates as web_updates
 from fridgesheet.web.stores import reports as reportstore
 from fridgesheet.web.stores import runs as runstore
 
@@ -351,17 +352,109 @@ def test_save_writes_web_section_and_flags_a_restart(tmp_path):
     assert r.ok and not r.restart_needed
 
 
-def test_editables_seed_validate_and_write(tmp_path):
-    text = actions.read_editable(tmp_path, "late-rules.toml")
-    assert "[default]" in text and (tmp_path / "late-rules.toml").is_file()
-    assert actions.read_editable(tmp_path, "no-print-days.txt").startswith("#")
-    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 'seven'\n")
-    assert errs and "[default]" in (tmp_path / "late-rules.toml").read_text()      # unchanged
-    errs = actions.save_editable(tmp_path, "late-rules.toml", "[default]\nlate_days = 7\ncredit = '50%'\n")
-    assert errs == [] and "late_days = 7" in (tmp_path / "late-rules.toml").read_text()
-    assert actions.save_editable(tmp_path, "no-print-days.txt", "2026-12-25 Christmas\n") == []
-    with pytest.raises(ValueError):
-        actions.save_editable(tmp_path, "config.toml", "x")
+def test_late_rules_settings_seeds_the_file_and_parses_it(tmp_path):
+    rules = actions.late_rules_settings(tmp_path)
+    assert (tmp_path / "late-rules.toml").is_file()
+    assert rules.default.late_days == 14 and rules.default.credit == "?"
+
+
+def test_save_late_rules_writes_default_quarters_and_rules(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="10", default_credit="?",
+        quarter_dates=["2026-10-15", "2026-12-18"],
+        rule_kid=["Alex"], rule_course=["Band"], rule_mode=["days"],
+        rule_late_days=["7"], rule_credit=["50%"], rule_source=["syllabus"],
+    )
+    assert errors == []
+    rules = late_rules.load(tmp_path / "late-rules.toml")
+    assert rules.default.late_days == 10
+    assert rules.quarters == [date(2026, 10, 15), date(2026, 12, 18)]
+    r = rules.rules[0]
+    assert (r.kid, r.course, r.late_days, r.credit, r.source) == ("Alex", "Band", 7, "50%", "syllabus")
+
+
+def test_save_late_rules_supports_quarter_end_mode(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=["2026-10-15"],
+        rule_kid=[""], rule_course=["Band"], rule_mode=["quarter_end"],
+        rule_late_days=[""], rule_credit=[""], rule_source=[""],
+    )
+    assert errors == []
+    r = late_rules.load(tmp_path / "late-rules.toml").rules[0]
+    assert r.until == "quarter_end" and r.late_days is None
+
+
+def test_save_late_rules_rejects_a_non_numeric_default_and_writes_nothing(tmp_path):
+    actions.late_rules_settings(tmp_path)      # seed
+    before = (tmp_path / "late-rules.toml").read_text()
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="seven", default_credit="",
+        quarter_dates=[], rule_kid=[], rule_course=[], rule_mode=[], rule_late_days=[], rule_credit=[], rule_source=[],
+    )
+    assert errors
+    assert (tmp_path / "late-rules.toml").read_text() == before
+
+
+def test_save_late_rules_reports_a_bad_rule_days_value(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=[], rule_kid=[""], rule_course=["Band"], rule_mode=["days"],
+        rule_late_days=["not-a-number"], rule_credit=[""], rule_source=[""],
+    )
+    assert errors and not (Path(tmp_path) / "late-rules.toml").exists()
+
+
+def test_save_late_rules_reports_a_bad_quarter_date(tmp_path):
+    errors = actions.save_late_rules(
+        tmp_path, default_late_days="14", default_credit="",
+        quarter_dates=["not-a-date"], rule_kid=[], rule_course=[], rule_mode=[], rule_late_days=[], rule_credit=[], rule_source=[],
+    )
+    assert errors
+
+
+def test_no_print_days_settings_seeds_the_file_and_parses_it(tmp_path):
+    entries = actions.no_print_days_settings(tmp_path)
+    assert (tmp_path / "no-print-days.txt").is_file()
+    assert any(e.note == "Labor Day" for e in entries)
+
+
+def test_save_no_print_days_writes_entries(tmp_path):
+    errors = actions.save_no_print_days(tmp_path, [runner.SkipEntry(date(2026, 12, 25), None, "Christmas")])
+    assert errors == []
+    assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()
+
+
+def test_late_rules_view_renders_a_register_as_editable_strings():
+    rules = late_rules.LateRules(
+        default=late_rules.Rule(late_days=14, credit="?"),
+        rules=[late_rules.Rule(course="Band", until="quarter_end", late_days=None),
+               late_rules.Rule(kid="Alex", late_days=7, credit="50%", source="syllabus")],
+        quarters=[date(2026, 10, 15)],
+    )
+    v = actions.late_rules_view(rules)
+    assert v["default_late_days"] == "14" and v["default_credit"] == "?"
+    assert v["quarters"] == ["2026-10-15"]
+    assert v["rules"][0] == {"kid": "", "course": "Band", "mode": "quarter_end", "late_days": "", "credit": "", "source": ""}
+    assert v["rules"][1] == {"kid": "Alex", "course": "", "mode": "days", "late_days": "7", "credit": "50%", "source": "syllabus"}
+
+
+def test_no_print_days_view_renders_entries_as_editable_strings():
+    entries = [runner.SkipEntry(date(2026, 9, 7), None, "Labor Day"),
+               runner.SkipEntry(date(2026, 12, 21), date(2027, 1, 1), "Holiday break")]
+    v = actions.no_print_days_view(entries)
+    assert v == [
+        {"start": "2026-09-07", "end": "", "note": "Labor Day"},
+        {"start": "2026-12-21", "end": "2027-01-01", "note": "Holiday break"},
+    ]
+
+
+def test_save_no_print_days_rejects_an_end_before_the_start(tmp_path):
+    actions.no_print_days_settings(tmp_path)   # seed
+    before = (tmp_path / "no-print-days.txt").read_text()
+    errors = actions.save_no_print_days(tmp_path, [runner.SkipEntry(date(2026, 12, 25), date(2026, 12, 20), "")])
+    assert errors
+    assert (tmp_path / "no-print-days.txt").read_text() == before
 
 
 def test_lan_url_uses_the_probe_and_tolerates_failure():
@@ -430,3 +523,171 @@ def test_forward_logs_streams_app_records_only_while_active():
     finally:
         parent.setLevel(saved[0])
         child.setLevel(saved[1])
+
+
+# -- self_update: downloads and executes a binary, so every branch is exercised with fakes --
+# only `download_verified`/`spawn_installer` (host.selfupdate) and the release fetch are ever
+# replaced; nothing here reaches the network or starts a process.
+
+UPDATE_DIGEST = "sha256:" + "ab" * 32
+
+
+class _FakeState:
+    """The two things `self_update` needs from `AppState`: `.extra` (to inject the release
+    fetch through the same `update_fetch` seam `web.updates.check` uses) and `.now()` (the
+    Pending breadcrumb's timestamp). A real `AppState` via `app_for` would work too, but drags
+    in the whole app to supply two attributes this module already fakes everything else with."""
+    def __init__(self, fetch=None):
+        self.extra: dict = {}
+        if fetch is not None:
+            self.extra["update_fetch"] = fetch
+
+    def now(self):
+        return datetime(2026, 9, 22, 12, 0, tzinfo=TZ)
+
+
+def _release_body(tag: str, *, digest: str = "", size: int = 0, asset: bool = True) -> bytes:
+    assets = [{"name": f"FridgeSheet-Setup-{tag.lstrip('v')}.exe",
+               "browser_download_url": f"https://example.invalid/download/{tag}.exe",
+               "digest": digest, "size": size}] if asset else []
+    return json.dumps({"tag_name": tag, "html_url": f"https://example.invalid/releases/{tag}",
+                       "assets": assets}).encode()
+
+
+def test_self_update_does_nothing_when_already_current(tmp_path, monkeypatch):
+    """Path 1: not newer. `download_verified` must never even be asked."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: calls.append(("download", a, kw)))
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: calls.append(("spawn", a, kw)))
+    lines = []
+    state = _FakeState(fetch=lambda url: _release_body("v0.5.0", digest=UPDATE_DIGEST, size=1000))
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert calls == []
+    assert any("Already on 0.5.0" in ln for ln in lines)
+
+
+def test_self_update_downloads_verifies_and_spawns_the_installer(tmp_path, monkeypatch):
+    """Path 2: the happy path. `download_verified` gets the release's own url, digest AND
+    size -- without size, `download_verified`'s free-space check has nothing to compare
+    the free space against and is dead code. A Pending breadcrumb is written and the
+    installer is spawned."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    dl_calls = []
+
+    def fake_download(url, digest, dest, *, log, size=0, **kw):
+        dl_calls.append({"url": url, "digest": digest, "dest": dest, "size": size})
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"pretend installer")
+        return dest
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", fake_download)
+    monkeypatch.setattr(selfupdate, "spawn_installer",
+                        lambda installer, log_path, **kw: spawn_calls.append((installer, log_path)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest=UPDATE_DIGEST, size=286_000_000)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is True
+    assert len(dl_calls) == 1
+    call = dl_calls[0]
+    assert call["digest"] == UPDATE_DIGEST
+    assert call["size"] == 286_000_000                       # the point of this test
+    assert call["url"] == "https://example.invalid/download/v0.6.0.exe"
+    assert len(spawn_calls) == 1
+    pending = selfupdate.read_pending(tmp_path)
+    assert pending is not None and pending.from_version == "0.5.0" and pending.to_version == "0.6.0"
+
+
+def test_self_update_refuses_and_never_spawns_when_the_digest_is_wrong(tmp_path, monkeypatch):
+    """Path 3: the one that matters most. A failed verification must not be able to execute
+    anything -- `spawn_installer` is asserted never called."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+
+    def fake_download(*a, **kw):
+        raise selfupdate.UpdateError(
+            "The downloaded installer does not match the checksum GitHub published for it. "
+            "Nothing was installed.")
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", fake_download)
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: spawn_calls.append((a, kw)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest=UPDATE_DIGEST, size=1000)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert spawn_calls == []
+    assert any("does not match the checksum" in ln for ln in lines)
+    assert selfupdate.read_pending(tmp_path) is None          # nothing was ever handed off to
+
+
+def test_self_update_refuses_when_the_release_has_no_installer(tmp_path, monkeypatch):
+    """Path 4: a release with no .exe asset -- an empty digest. The real `download_verified`
+    refuses this before any network call (its very first check), so it is left unmocked here;
+    only `spawn_installer` is watched, to prove it is never reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    spawn_calls = []
+    monkeypatch.setattr(selfupdate, "spawn_installer", lambda *a, **kw: spawn_calls.append((a, kw)))
+    lines = []
+    fetch = lambda url: _release_body("v0.6.0", digest="", size=0, asset=False)   # noqa: E731
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert spawn_calls == []
+    assert any("no installer" in ln for ln in lines)
+
+
+def test_self_update_refuses_early_on_a_non_windows_host(tmp_path, monkeypatch):
+    """Fix round: a Linux install must never download the 286 MB asset, write the
+    breadcrumb, or announce that the installer is starting -- and today nothing checked the
+    platform until `selfupdate.spawn_installer`'s dispatcher raised, which is the LAST step.
+    This is the guard at the TOP of the function: neither the release fetch nor
+    `download_verified` may even be reached."""
+    monkeypatch.setattr(host, "IS_WINDOWS", False)
+    fetch_calls = []
+    monkeypatch.setattr(selfupdate, "download_verified", lambda *a, **kw: fetch_calls.append("download"))
+    lines = []
+    state = _FakeState(fetch=lambda url: fetch_calls.append("fetch") or _release_body(
+        "v99.0.0", digest=UPDATE_DIGEST, size=286_000_000))
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert fetch_calls == []                                   # neither the release check nor the download ran
+    assert selfupdate.read_pending(tmp_path) is None            # no breadcrumb left for `resolve_pending` to pin
+    assert any("Windows" in ln for ln in lines)
+
+
+def test_self_update_gives_a_friendly_line_when_github_is_unreachable(tmp_path, monkeypatch):
+    """No internet is the single most likely failure for the households this feature is for.
+    `updatemod.latest_release` can raise `URLError` straight through -- it is not wrapped in
+    `UpdateError` -- and left uncaught that reaches the job worker's generic handler as a raw
+    `URLError: <urlopen error ...>` string, the opposite of the "one sentence a parent can
+    act on" contract."""
+    from urllib.error import URLError
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+
+    def fetch(url):
+        raise URLError("[Errno -2] Name or service not known")
+    lines = []
+    state = _FakeState(fetch=fetch)
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)
+    assert not any("Errno" in ln for ln in lines)                # no raw traceback text reaches the parent
+
+
+def test_self_update_gives_a_friendly_line_on_malformed_release_json(tmp_path, monkeypatch):
+    """A `json.JSONDecodeError` from `latest_release` is just as uncaught as a `URLError` --
+    same contract, same fix."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)
+    monkeypatch.setattr(web_updates, "current_version", lambda: "0.5.0")
+    lines = []
+    state = _FakeState(fetch=lambda url: b"not json")
+    ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
+    assert ok is False
+    assert any("reach GitHub" in ln for ln in lines)

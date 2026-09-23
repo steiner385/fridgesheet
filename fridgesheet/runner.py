@@ -41,9 +41,11 @@ LOCK_STALE_SECONDS = 45 * 60
 # Must exceed the scheduler's ExecutionTimeLimit (PT30M in host/task.xml) so a slow-but-alive
 # run is never declared abandoned.
 
-SKIP_SEED = """# Days the sheet is not printed. One date per line, optional note after it.
+SKIP_HEADER = """# Days the sheet is not printed. One date per line, optional note after it.
 # Ranges: 2026-12-21..2027-01-01 . Weekends never print anyway.
-# Source: Lakota Local Schools board-approved 2026-27 calendar (amended 5/4/26).
+"""
+
+SKIP_SEED = SKIP_HEADER + """# Source: Lakota Local Schools board-approved 2026-27 calendar (amended 5/4/26).
 2026-08-10..2026-08-12  Teacher PD
 2026-09-07  Labor Day
 2026-09-08  Safety/Security PD day
@@ -102,6 +104,45 @@ def parse_skip_days(text: str) -> dict[date, str]:
             out[d] = note
             d += timedelta(days=1)
     return out
+
+
+@dataclass(frozen=True)
+class SkipEntry:
+    """One row of the graphical editor: a single day, or a range (`end` set), with a note.
+    Unlike `parse_skip_days`'s dict-per-day, a range survives as one entry so editing it
+    doesn't explode it into hundreds of single-day rows."""
+    start: date
+    end: date | None = None
+    note: str = ""
+
+
+def parse_skip_entries(text: str) -> list[SkipEntry]:
+    out: list[SkipEntry] = []
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        m = _LINE.match(line)
+        if not m:
+            continue
+        try:
+            start = date.fromisoformat(m.group(1))
+            end = date.fromisoformat(m.group(2)) if m.group(2) else None
+        except ValueError:
+            continue
+        out.append(SkipEntry(start, end, m.group(3).lstrip("#").strip()))
+    return out
+
+
+def format_skip_entries(entries: list[SkipEntry]) -> str:
+    lines = [SKIP_HEADER.rstrip("\n")]
+    for e in entries:
+        line = e.start.isoformat()
+        if e.end and e.end != e.start:
+            line += f"..{e.end.isoformat()}"
+        if e.note:
+            line += f"  {e.note}"
+        lines.append(line)
+    return "\n".join(lines) + "\n"
 
 
 def school_year(d: date) -> str:

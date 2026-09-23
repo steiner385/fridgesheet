@@ -13,6 +13,7 @@ working.
 """
 from __future__ import annotations
 
+import getpass
 import os
 import re
 import subprocess
@@ -26,6 +27,26 @@ CREATE_NO_WINDOW: int = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 #: the OS credential store's service name, keyed by SERVICE/username/password.
 SERVICE: str = os.environ.get("FRIDGESHEET_KEYRING_SERVICE", "fridgesheet")
+
+
+def current_user() -> str:
+    """The account this process is running as, "" when it cannot be determined (no
+    password-database entry, some container/service contexts) -- callers must treat "" as
+    "unknown, so do not assume a match", never as a value that could equal anything.
+
+    Shared here, not duplicated, because two copies of this already drifted apart once:
+    `cli._current_user` (self-update's ownership check, cli.py) and an earlier attempt at
+    `service_windows._current_user` (the `/Create`-denied fallback's account check) were the
+    same three lines with an incorrect comment claiming a `cli -> host -> cli` import cycle
+    justified keeping them apart. There is no such cycle -- `cli.py` already imports from
+    `.host` at module level (`from .host import credentials as credstore`) -- so both import
+    this instead, each under its own aliased name so existing tests that monkeypatch the
+    call site (`cli._current_user`, `service_windows._current_user`) keep working.
+    """
+    try:
+        return getpass.getuser()
+    except Exception:       # noqa: BLE001  no password-database entry; not worth dying for
+        return ""
 
 
 class NotSupported(RuntimeError):
@@ -138,3 +159,13 @@ class ServiceInfo:
     installed: bool
     active: bool
     detail: str
+    #: The account the unit or task runs as, "" when unknown. A per-user logon task only
+    #: fires for its owner, and a per-user install lives in that owner's profile, so an
+    #: update run by anyone else builds a second copy and leaves the running one alone.
+    owner: str = ""
+    #: The exe+args the unit or task runs, "" when unknown. Added so `service_windows.install`
+    #: can tell an already-registered task that is genuinely the one it would have created
+    #: (safe to just start) from one pointing somewhere else (a real problem -- graphy,
+    #: 2026-09-23). Defaults to "" so `service_linux.py` and every existing construction site
+    #: keep working untouched.
+    command: str = ""

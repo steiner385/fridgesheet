@@ -28,7 +28,7 @@ def _worker(state) -> jobmod.Worker:
 @router.post("/jobs/{kind}")
 def start(kind: str, request: Request, date: str | None = Form(None), report: str = Form("open-work"),
           refresh_first: bool = Form(False), conn: sqlite3.Connection = Db, state=State):
-    if kind not in jobmod.KINDS:
+    if kind not in jobmod.OPEN_KINDS:
         raise HTTPException(404, f"no job kind {kind!r}")
     w = _worker(state)
     params = {"date": date} if date else {}

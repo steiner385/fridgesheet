@@ -45,7 +45,8 @@ class ViewReport:
         conn = db.open_db(ctx.home)
         try:
             d = views.from_json(self.definition)
-            rendered = views.build(conn, d, now=ctx.now, rules=_rules(ctx), nicknames=ctx.nicknames)
+            rendered = views.build(conn, d, now=ctx.now, rules=_rules(ctx), nicknames=ctx.nicknames,
+                                   prefs=ctx.settings.sources)
         except views.ViewError as e:
             raise ReportError(f"{self.name}: {e}") from None
         finally:

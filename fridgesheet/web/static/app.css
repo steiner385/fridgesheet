@@ -88,6 +88,11 @@ tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
 .filters label { font-size: 13px; color: var(--muted); }
+/* Rows of a graphical config editor (Settings: late-rules, no-print-days): one row per quarter,
+   rule or skip-date, added/removed/reordered client-side before the whole form's one Save. */
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; align-items: center; }
+fieldset { border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px; }
+legend { padding: 0 4px; font-weight: 600; }
 .flagmenu button, .actions button { margin: 2px 4px 2px 0; }
 .note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
 .note .meta { font-size: 12px; color: var(--muted); }

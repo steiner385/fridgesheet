@@ -364,3 +364,22 @@ def test_a_grades_value_that_is_not_a_table_keeps_the_default():
     s = config.Settings()
     config.settings_from_doc({"kids": {"grades": "ninth"}}, s)
     assert s.grades == {}
+
+
+def test_sources_table_reaches_settings():
+    from fridgesheet import sources
+    s = config.Settings()
+    config.settings_from_doc({"sources": {"grades": "canvas", "rule": [{"course": "Band", "assignments": "hac"}]}}, s)
+    assert s.sources.resolve("Alex", "Concert Band") == sources.Choice("hac", "canvas")
+
+
+def test_settings_default_sources_are_canvas_assignments_hac_grades():
+    from fridgesheet import sources
+    assert config.Settings().sources == sources.DEFAULT
+
+
+def test_a_bad_sources_table_does_not_fail_the_load():
+    s = config.Settings()
+    config.settings_from_doc({"sources": "hac"}, s)             # no exception
+    config.settings_from_doc({"sources": {"grades": 3}}, s)
+    assert s.sources.default.grades == "hac"

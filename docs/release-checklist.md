@@ -88,9 +88,12 @@ One defect came out of that pass and is fixed: a silent uninstall stopped on the
 - The **`taskkill /T` children**: §3 and §7 were both exercised against an idle server. A
   Refresh or a print in flight, so that Chromium under `ms-playwright\` and `SumatraPDF.exe`
   are live under `{app}`, is the case `/T` exists for and it still has not been run.
-- **Which account hosts it.** graphy's interactive console user is `GRAPHY\gdrunner`; the
-  test install went in under `tony`. A per-user logon task only fires for the user that owns
-  it, so if the family sits at graphy as `gdrunner`, the app has to be installed there.
+- **Which account hosts it.** As of 2026-09-22 the `Fridge Sheet - web` task on graphy runs
+  as `lakotarunner`, with its install under `C:\Users\lakotarunner\AppData\Local\Programs\
+  Fridge Sheet`. (It has been `tony` and `gdrunner` at different times; check rather than
+  assume — `schtasks /Query /TN "Fridge Sheet - web" /FO LIST /V` prints `Run As User`.) A
+  per-user logon task only fires for the user that owns it, and a per-user install lives in
+  that user's profile, so `fridgesheet self-update` refuses when run by anyone else.
 
 ## 1. The hazard, and what's supposed to fix it
 
@@ -188,6 +191,66 @@ launch the installer, to actually exercise that.
   seconds of polling before the launcher opens the browser and exits, per
   `fridgesheet/web/__main__.py`'s `launch()`. One process is the steady state once
   the page is actually up; more than one at that point is the real finding.)
+
+## 3b. Self-update, over a running app
+
+Section 3 proves the *installer* survives landing on a running app, run by a human. This
+proves the app can start that installer **on itself** — the in-app Update button and
+`fridgesheet self-update` both end up calling the same `PrepareToInstall` this checklist has
+already exercised, but by way of a Windows spawn (`cmd /c start "" /b <installer> ...` in
+`fridgesheet/host/selfupdate_windows.py`). It needs a release newer than the installed one,
+so do it on the release after the one that introduces self-update — the current install
+stays as-is until then.
+
+✅ **Proven false, then corrected, 2026-09-23.** This section used to carry a caveat that the
+detachment mechanism (`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`) was unproven on real
+Windows. It has since been measured (GitHub Actions runs 35844316753 and 35844539925,
+workflow `probe-detachment.yml`, branch `probe/windows-detachment`, `windows-latest`,
+2026-09-23) and the reviewer's suspicion was correct: an installer spawned with those flags
+was killed by `taskkill /T` exactly like an unflagged control spawned alongside it — both
+confirmed recorded descendants of the parent, both dead after the tree kill. The flags
+touch console/Ctrl+C behavior, not `InheritedFromUniqueProcessId`, which is what `taskkill
+/T` actually walks. `fridgesheet/host/selfupdate_windows.py`'s `spawn_installer` has been
+changed to `cmd /c start "" /b <installer> ...` instead, which the same experiment measured
+to survive (including with a space in the target's path) because cmd.exe exits immediately,
+breaking the recorded parent/child chain before `taskkill /T` snapshots it.
+`packaging/windows/smoke.ps1` step 4 now exercises this corrected mechanism (and a
+spaces-in-path case) on real Windows CI, gating rather than merely warning. The checklist
+items below still verify the end-to-end behavior on a real family-PC-shaped machine; treat
+them as confirmation, not as the first evidence anymore.
+
+- [ ] Settings → set an **Update PIN**, Save. **Expect:** `config.toml`'s `[web]` has an
+  `update_pin_hash` beginning `pbkdf2_sha256$...`, and the PIN itself appears nowhere in it —
+  same rule as the password, but a hash instead of a keyring entry, because a PIN this short
+  is only as strong as its hash's cost.
+- [ ] Reload Settings. **Expect:** the PIN box is empty, with its placeholder — a PIN is
+  settable and never readable, same as the password field above it.
+- [ ] From a **phone**, enter the wrong PIN five times. **Expect:** each one refused with
+  "That PIN is not right.", then the sixth attempt — right or wrong — answered with "Too many
+  wrong PINs. Try again in 15 minutes." for fifteen minutes from the fifth failure.
+- [ ] From the phone, after the lock expires, enter the right PIN and press **Update**.
+  **Expect:** progress in the page, then it waits (the server is about to be killed out from
+  under the response that told it to wait), then it reloads on its own showing the new
+  version — the page's own poll against `/health`, not you refreshing it.
+- [ ] Open **Settings** and read the version at the bottom of the form. **Expect:** the new
+  one. This is the same `[InstallDelete]` hazard section 3 already covers: if it still reads
+  the old version, that is a real finding, not something to shrug off because "the update
+  reported success."
+- [ ] Open **Task Scheduler**. **Expect:** `Fridge Sheet - web` still there, still Running (or
+  Ready) — the spawned installer's own `[Run]` step re-registered it, the same as section 3.
+- [ ] **Wait until the dashboard page has finished loading**, then open **Task Manager**.
+  **Expect:** exactly one `FridgeSheet.exe`, for the same reason and on the same timing as
+  section 3's equivalent box.
+- [ ] **Do it again with a Refresh in flight**, so Chromium is live under `{app}` when the
+  installer's `taskkill /T` runs. This is the case `/T` exists for, the one section 3 also
+  flagged as still-unexercised: if the spawned installer is *itself* a process Windows still
+  tracks as a descendant of `FridgeSheet.exe` — which is exactly what the corrected `cmd /c
+  start` mechanism above is measured to avoid, and what the old flags-based one did not —
+  this is where a Refresh's Chromium, or the installer itself, would die mid-update instead
+  of surviving it. **Expect:** the installer completes and the page reloads on the new
+  version, same as the idle-server run above. If the update instead stalls, the page never
+  reloads, or Task Manager shows no `FridgeSheet.exe` at all afterward, that is a real
+  regression from the measured behavior above — file it, don't assume it was a fluke.
 
 ## 4. First run, the way your friend will do it
 

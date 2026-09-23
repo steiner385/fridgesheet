@@ -9,15 +9,19 @@ from __future__ import annotations
 
 import contextlib
 import ipaddress
+import json
 import logging
+import socket
 from dataclasses import dataclass
 from datetime import date, datetime
 from importlib import metadata
 from pathlib import Path
 from typing import Callable
+from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
-from .. import config, late_rules, runner
+from .. import config, late_rules, runner, sources
+from . import updatepin
 
 REPORT_KEY = "open-work"
 LOGIN_STAMP = "login-ok.txt"
@@ -64,6 +68,9 @@ class FormValues:
     port: int = 8433
     allow_lan: bool = False
     check_updates: bool = True
+    update_pin: str = ""        # write-only, like `password`: blank = keep the stored hash
+    sources_assignments: str = "canvas"   # [sources] assignments: household default
+    sources_grades: str = "hac"           # [sources] grades: household default
 
 
 def _settings_for(home: Path) -> config.Settings:
@@ -92,6 +99,8 @@ def load_form(home: Path) -> FormValues:
         port=s.web_port,
         allow_lan=s.web_allow_lan,
         check_updates=s.web_check_updates,
+        sources_assignments=s.sources.default.assignments,
+        sources_grades=s.sources.default.grades,
     )
 
 
@@ -131,6 +140,9 @@ def validate(form: FormValues, stored: str) -> list[str]:
     n = _whole_number(form.port)
     if n is None or not 1024 <= n <= 65535:
         errors.append("Port must be a whole number between 1024 and 65535.")
+    for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
+        if value not in sources.SOURCES:
+            errors.append(f"{label} must come from Canvas or HAC.")
     return errors
 
 
@@ -166,11 +178,18 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     _table(doc, "kids")["nicknames"] = parse_nickname_lines(form.nicknames)
     rep = _table(_table(doc, "reports"), REPORT_KEY)
     rep.update(days_ahead=int(form.days_ahead), overdue_days=int(form.overdue_days))
+    # Only the household defaults: the override rules belong to the course pages and the list below.
+    doc["sources"] = sources.from_doc(doc).with_default(form.sources_assignments, form.sources_grades).to_doc()
 
     prev = dict(_table(doc, "web"))
     web = _table(doc, "web")
     web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)
     web["check_updates"] = bool(form.check_updates)
+    # Write-only, like the password below: a typed PIN is hashed and only the hash is ever
+    # written to config.toml; a blank field leaves whatever hash is already stored alone, so
+    # saving any other setting can never silently erase the household's update PIN.
+    if form.update_pin.strip():
+        web["update_pin_hash"] = updatepin.hash_pin(form.update_pin.strip())
     restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]
 
     messages: list[str] = []
@@ -181,6 +200,9 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
         msg = "The server address changed; restart Fridge Sheet (or the service) for it to take effect."
         log(msg)
         messages.append(msg)
+    if form.update_pin.strip():
+        log("Update PIN stored.")
+        messages.append("Update PIN stored.")
 
     if form.password:
         try:
@@ -194,6 +216,22 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
         messages.append("Password stored.")
 
     return SaveResult(True, messages, restart_needed)
+
+
+def load_sources(home: Path) -> sources.SourcePrefs:
+    return _settings_for(home).sources
+
+
+def set_source_rule(home: Path, kid: str, course: str, assignments: str | None, grades: str | None) -> None:
+    """Add, replace or (both None) remove the one rule for exactly this kid and class."""
+    path = home / CONFIG_NAME
+    doc = config.load_config_doc(path)
+    doc["sources"] = sources.from_doc(doc).with_rule(kid, course, assignments, grades).to_doc()
+    config.save_config_doc(path, doc)
+
+
+def remove_source_rule(home: Path, kid: str, course: str) -> None:
+    set_source_rule(home, kid, course, None, None)
 
 
 @dataclass
@@ -324,41 +362,106 @@ def status_line(home: Path, describe=None) -> str:
     return f"{last} · next run {info.next_run}{suffix}"
 
 
-EDITABLE = {"late-rules.toml", "no-print-days.txt"}
+def late_rules_settings(home: Path) -> late_rules.LateRules:
+    """The parsed register for the graphical editor, seeding the file first if this is its
+    first touch (never overwriting an existing one)."""
+    path = home / "late-rules.toml"
+    late_rules.ensure_seed(path)
+    return late_rules.load(path)
 
 
-def read_editable(home: Path, name: str) -> str:
-    """The file's text, seeding it first if it does not exist (never overwriting)."""
-    if name not in EDITABLE:
-        raise ValueError(f"not an editable settings file: {name}")
-    path = home / name
-    if name == "late-rules.toml":
-        late_rules.ensure_seed(path)
-    elif not path.exists():
+def late_rules_view(rules: late_rules.LateRules) -> dict:
+    """A register as the plain strings the editor's inputs hold -- the same shape a rejected
+    submission is redisplayed in, so an invalid Save shows what was typed, not the file on disk."""
+    return {
+        "default_late_days": str(rules.default.late_days),
+        "default_credit": rules.default.credit,
+        "quarters": [str(q) for q in rules.quarters],
+        "rules": [{
+            "kid": r.kid, "course": r.course,
+            "mode": "quarter_end" if r.until == "quarter_end" else "days",
+            "late_days": "" if r.late_days is None else str(r.late_days),
+            "credit": r.credit, "source": r.source,
+        } for r in rules.rules],
+    }
+
+
+def no_print_days_view(entries: list[runner.SkipEntry]) -> list[dict]:
+    """Entries as the plain strings the editor's inputs hold, for the same reason as `late_rules_view`."""
+    return [{"start": e.start.isoformat(), "end": e.end.isoformat() if e.end else "", "note": e.note} for e in entries]
+
+
+def _parsed_int(label: str, text: str, errors: list[str]) -> int | None:
+    try:
+        return int(text)
+    except (TypeError, ValueError):
+        errors.append(f"{label}: enter a whole number of days, not {text!r}.")
+        return None
+
+
+def save_late_rules(home: Path, *, default_late_days: str, default_credit: str, quarter_dates: list[str],
+                     rule_kid: list[str], rule_course: list[str], rule_mode: list[str],
+                     rule_late_days: list[str], rule_credit: list[str], rule_source: list[str]) -> list[str]:
+    """Build a register from the graphical editor's rows, validate it the same way a hand-typed
+    file would be, then write. Errors mean nothing was written."""
+    import tempfile
+    errors: list[str] = []
+    default_days = _parsed_int("Default", default_late_days, errors)
+    quarters: list[date] = []
+    for i, text in enumerate(quarter_dates, start=1):
+        if not text:
+            continue
+        try:
+            quarters.append(date.fromisoformat(text))
+        except ValueError:
+            errors.append(f"Quarter {i}: {text!r} is not a date (yyyy-mm-dd).")
+    rules: list[late_rules.Rule] = []
+    for i, (kid, course, mode, days_text, credit, source) in enumerate(
+            zip(rule_kid, rule_course, rule_mode, rule_late_days, rule_credit, rule_source), start=1):
+        if mode == "quarter_end":
+            rules.append(late_rules.Rule(kid=kid, course=course, until="quarter_end", late_days=None,
+                                         credit=credit, source=source))
+        else:
+            days = _parsed_int(f"Rule {i}", days_text, errors)
+            if days is not None:
+                rules.append(late_rules.Rule(kid=kid, course=course, late_days=days, credit=credit, source=source))
+    if errors:
+        return errors
+    text = late_rules.to_toml(late_rules.LateRules(late_rules.Rule(late_days=default_days, credit=default_credit),
+                                                    rules, quarters))
+    with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False, encoding="utf-8") as tmp:
+        tmp.write(text)
+    try:
+        late_rules.load(Path(tmp.name))
+    except late_rules.LateRulesError as e:
+        return [str(e)]
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+    path = home / "late-rules.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return []
+
+
+def no_print_days_settings(home: Path) -> list[runner.SkipEntry]:
+    """The parsed skip list for the graphical editor, seeding the file first if this is its
+    first touch (never overwriting an existing one)."""
+    path = home / "no-print-days.txt"
+    if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(runner.SKIP_SEED)
-    return path.read_text(encoding="utf-8")
+    return runner.parse_skip_entries(path.read_text(encoding="utf-8"))
 
 
-def save_editable(home: Path, name: str, text: str) -> list[str]:
+def save_no_print_days(home: Path, entries: list[runner.SkipEntry]) -> list[str]:
     """Validate, then write. Errors mean nothing was written."""
-    import tempfile
-    if name not in EDITABLE:
-        raise ValueError(f"not an editable settings file: {name}")
-    if name == "late-rules.toml":
-        with tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False, encoding="utf-8") as tmp:
-            tmp.write(text)
-        try:
-            late_rules.load(Path(tmp.name))
-        except late_rules.LateRulesError as e:
-            return [str(e)]
-        finally:
-            Path(tmp.name).unlink(missing_ok=True)
-    else:
-        runner.parse_skip_days(text)          # never raises; a line it cannot read is ignored, as the runner does
-    path = home / name
+    errors = [f"Row {i}: the end date is before the start date." for i, e in enumerate(entries, start=1)
+              if e.end is not None and e.end < e.start]
+    if errors:
+        return errors
+    path = home / "no-print-days.txt"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text if text.endswith("\n") else text + "\n", encoding="utf-8")
+    path.write_text(runner.format_skip_entries(entries), encoding="utf-8")
     return []
 
 
@@ -546,3 +649,59 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
             log(f"WARN could not record the run: {e}")
     return RefreshResult(outcome == "OK", message, refresh_id)
+
+
+def self_update(*, home: Path, log: Callable[[str], None], settings, state) -> bool:
+    """Download the newest release's installer, prove it against GitHub's own sha256, and hand
+    off to it. Returns False having already explained itself on `log`; raising would only reach
+    the job worker's generic handler (jobs.Worker._run), which logs the exception type and loses
+    the parent-facing sentence `UpdateError` was written to carry.
+
+    Only ever called from the "update" branch of `jobs.Worker._run`, which is only ever reached
+    by a job the PIN-gated `POST /settings/update` route started (see `jobs.GATED`) -- there is
+    no other way into this function from the web.
+    """
+    import fridgesheet.host as host
+    from ..host import selfupdate, selfupdate_linux
+    from . import updates as updatemod
+    # Refused before any network call or breadcrumb write -- not left for
+    # `selfupdate.spawn_installer`'s dispatcher to discover last, after a 286 MB download
+    # has already happened and a `update-pending.json` has already been left behind for
+    # `resolve_pending` to find on the next (Linux) start, where no running version will
+    # ever match `to_version` and the "did not finish" card can never clear.
+    if not host.IS_WINDOWS:
+        log(selfupdate_linux.NOT_WINDOWS)
+        return False
+    try:
+        current = updatemod.current_version()
+        latest, url, digest, size = updatemod.latest_release(state.extra.get("update_fetch"))
+        if not updatemod.newer(latest, current):
+            log(f"Already on {current}; nothing to do.")
+            return False
+        log(f"Downloading Fridge Sheet {latest} ({size // 10**6} MB)...")
+        folder = home / "updates"
+        # `size` is not decoration: without it `download_verified`'s free-space check is
+        # dead code, because it has nothing to compare the free space against.
+        installer = selfupdate.download_verified(url, digest, folder / f"FridgeSheet-Setup-{latest}.exe",
+                                                 log=log, size=size)
+        log_path = folder / f"install-{latest}.log"
+        selfupdate.write_pending(home, selfupdate.Pending(
+            from_version=current, to_version=latest, started_at=state.now().isoformat(),
+            installer=str(installer), log=str(log_path)))
+        log("Starting the installer. Fridge Sheet will close and come back on its own.")
+        selfupdate.spawn_installer(installer, log_path)
+        return True
+    except selfupdate.UpdateError as e:
+        log(str(e))
+        return False
+    except (URLError, socket.timeout, json.JSONDecodeError) as e:
+        # `updatemod.latest_release` only wraps its own `download_verified`-equivalent
+        # failures in `UpdateError`; a network problem reaching GitHub in the first place
+        # (no internet -- the single most likely failure in a household this feature is
+        # for) or a malformed release JSON escapes as the raw exception instead. Left
+        # uncaught, that reaches `jobs.py`'s generic handler as e.g. `URLError: <urlopen
+        # error [Errno -2] Name or service not known>` -- exactly the raw traceback string
+        # the "one sentence a parent can act on" contract above exists to prevent.
+        log(f"Could not reach GitHub to check for an update ({type(e).__name__}). "
+            "Check the internet connection and try again later.")
+        return False

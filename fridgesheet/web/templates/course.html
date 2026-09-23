@@ -5,15 +5,28 @@
 <h2>{{ course.short_name }} <span class="muted">{{ course.name }}</span></h2>
 <div class="cards">
   <div class="card"><h2>Grade</h2>
-    {% if grade and grade.current is not none %}<p><span class="big">{{ grade.current }}</span> Canvas current{% if grade.letter %} · {{ grade.letter }}{% endif %}</p>{% endif %}
-    {% set h = peer_grade if course.source == 'canvas' else grade %}
-    {% if h and h.average is not none %}<p><span class="big">{{ h.average }}</span> HAC average{% if h.last_updated %} <span class="muted">updated {{ h.last_updated }}</span>{% endif %}</p>{% endif %}
-    {% if not grade and not peer_grade %}<p class="muted">No grade observed yet.</p>{% endif %}
+    {% for g in grade_lines %}
+    <p>{% if loop.first %}<span class="big">{{ g.value }}</span>{% else %}{{ g.value }}{% endif %} {{ g.label }}{% if g.extra %} <span class="muted">{{ g.extra }}</span>{% endif %}{% if loop.first and grade_lines | length > 1 %} <span class="muted">· official</span>{% endif %}</p>
+    {% else %}<p class="muted">No grade observed yet.</p>{% endfor %}
   </div>
   <div class="card"><h2>Teacher</h2>
     {% if course.teacher %}<p>{{ course.teacher }}</p>{% else %}<p class="muted">Not listed.</p>{% endif %}
     {% if course.teacher_email %}<p><a href="mailto:{{ course.teacher_email }}">{{ course.teacher_email }}</a></p>{% endif %}
     {% if peer %}<p class="muted">Also in {{ peer.source }} as {{ peer.name }}</p>{% endif %}
+  </div>
+  <div class="card"><h2>Sources for this class</h2>
+    <form method="post" action="/kids/{{ student.key | urlencode }}/courses/{{ course.id }}/sources">
+    {% for field, word in (('assignments', 'Assignment scores'), ('grades', 'Class average')) %}
+      {% set mine = own_rule[field] if own_rule else none %}
+      <p><label>{{ word }} <select name="{{ field }}">
+        <option value=""{{ ' selected' if mine is none }}>Household default ({{ SOURCE_LABELS[household[field]] }})</option>
+        {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if mine == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}
+      </select></label>
+      {% set d = deciding[field] %}
+      {% if d and mine is none %}<br><span class="muted">Now {{ SOURCE_LABELS[choice[field]] }}, from a rule for {{ d.kid or 'every kid' }}{{ ' in ' ~ d.course if d.course }}</span>{% endif %}</p>
+    {% endfor %}
+    <p><button>Save</button></p>
+    </form>
   </div>
 </div>
 <h3>Grade history</h3>

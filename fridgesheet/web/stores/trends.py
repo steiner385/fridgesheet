@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from ... import sources
 from ...open_items import HANDLED_FLAGS
 from .. import db as _db, outcomes, reconcile
 from . import students as _students
@@ -25,6 +26,7 @@ class GradeSeries:
     source: str                       # canvas | hac
     label: str
     points: list[tuple[datetime, float]] = field(default_factory=list)
+    official: bool = False            # the family's grades source for this kid and class (sources.py)
 
 
 @dataclass(frozen=True)
@@ -54,15 +56,17 @@ def _dt(s: str | None) -> datetime | None:
 
 
 def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
-                 since: datetime | None = None) -> list[GradeSeries]:
+                 since: datetime | None = None, prefs=None) -> list[GradeSeries]:
     """One line per course per source: HAC's marking-period average and Canvas' current score.
 
     `grade_observations` only holds rows where something changed, so each point is a real
     move; a flat stretch is simply the absence of points between two of them.
     """
-    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short
+    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, pc.name AS peer_course_name,
+                    s.key AS student_key
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
+             LEFT JOIN courses pc ON pc.id = c.peer_course_id
              WHERE s.hidden = 0 AND c.hidden = 0"""
     args: list = []
     if student_id is not None:
@@ -85,10 +89,11 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
             key = (r["course_id"], source)
             s = out.get(key)
             if s is None:
+                pick = (prefs or sources.DEFAULT).resolve(r["student_key"], r["course_name"], r["peer_course_name"]).grades
                 s = out[key] = GradeSeries(r["course_id"], r["course_short"], source,
-                                           f"{r['course_short']} ({word})")
+                                           f"{r['course_short']} ({word})", official=source == pick)
             s.points.append((at, float(value)))
-    return [s for s in out.values() if s.points]
+    return sorted((s for s in out.values() if s.points), key=lambda s: not s.official)
 
 
 def _monday(d: date) -> date:
@@ -146,7 +151,7 @@ def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, we
 
 
 def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, weeks: int = 8,
-                    now: datetime) -> list[WeekOutcomes]:
+                    now: datetime, prefs=None) -> list[WeekOutcomes]:
     """Per week of *due date*: how the work that was due then came out. Oldest first, one
     row per week even when nothing was due, so a chart has an even x axis.
 
@@ -170,7 +175,8 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
             week = _monday(due.date())
             if week not in buckets:
                 continue
-            outcome = outcomes.classify(item, latest.get(item["id"], {}), now)
+            outcome = outcomes.classify(item, latest.get(item["id"], {}), now,
+                                        prefer=sources.assignments_for(prefs, item["kid"], item["course_name"], item["peer_course_name"]))
             if outcome in buckets[week]:
                 buckets[week][outcome] += 1
     return [WeekOutcomes(w, **buckets[w]) for w in starts]
@@ -183,7 +189,7 @@ def on_time_rate(weeks: list[WeekCounts]) -> float | None:
 
 
 def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
-              now: datetime) -> list[tuple[str, float]]:
+              now: datetime, prefs=None) -> list[tuple[str, float]]:
     """How long each still-open item has been open, longest first: the days since it was
     *due*, for items no source has cleared. Ten rows at most -- this is a chart, not an
     inventory.
@@ -217,7 +223,8 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
         for item in reconcile.live_items(conn, sid, now):
             if item["flag"] in HANDLED_FLAGS:
                 continue
-            if not reconcile.open_sources(item, latest.get(item["id"], {}), now):
+            if not reconcile.open_sources(item, latest.get(item["id"], {}), now,
+                                          prefer=sources.assignments_for(prefs, item["kid"], item["course_name"], item["peer_course_name"])):
                 continue
             since = reconcile.due_of(item) or _dt(started_at.get(item["first_seen"]))
             if since is None:

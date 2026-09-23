@@ -78,7 +78,7 @@ def test_the_print_confirmation_names_the_printer(tmp_path):
 def test_delete_is_the_danger_button_and_saves_are_primary():
     t = WEB / "templates"
     assert 'class="danger">Delete' in (t / "reports.html").read_text(encoding="utf-8")
-    for name in ("settings.html", "schedules.html", "report_builder.html", "_settings_files.html"):
+    for name in ("settings.html", "schedules.html", "report_builder.html", "_late_rules_editor.html", "_no_print_days_editor.html"):
         assert 'class="primary"' in (t / name).read_text(encoding="utf-8"), name
 
 

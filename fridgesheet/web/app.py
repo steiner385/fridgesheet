@@ -28,7 +28,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import dates, late_rules
 from ..config import Settings
+from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
+from ..host import selfupdate
 from . import db, phrasing, staleness, tiers, updates
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
@@ -85,6 +87,11 @@ class AppState:
             return late_rules.LateRules(late_rules.Rule(), [], [])
         self.extra["warnings"] = []
         return rules
+
+    def sources(self) -> SourcePrefs:
+        """Which gradebook is authoritative per kid and class. Read from settings, which
+        Settings and the course-page control reload after they write config.toml."""
+        return self.settings.sources
 
     def now(self) -> datetime:
         return self.clock()
@@ -362,6 +369,13 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
     # overlay a dict of its own.
     env.filters = {**ENV.filters, **_filters(state)}
     state.extra["env"] = env
+    # Resolved once, here, at startup -- not from the /diagnostics route. `resolve_pending`
+    # archives the breadcrumb on success (renames update-pending.json to update-last.json),
+    # so calling it from a GET would make the page mutate state and hand the one-time verdict
+    # to whoever loads /diagnostics first, leaving a second visitor (or a refresh) with
+    # nothing to see. The spec asks the *next start* to read it, which is exactly this line;
+    # the route below only reads what is stashed here.
+    state.extra["last_update"] = selfupdate.resolve_pending(home, updates.current_version())
     if worker:
         from .jobs import Worker
         state.jobs = Worker(state)

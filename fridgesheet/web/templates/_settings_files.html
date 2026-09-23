@@ -1,6 +1,0 @@
-<form class="card" id="file-{{ fname | replace('.', '-') }}" hx-post="/settings/files/{{ fname }}" hx-target="this" hx-swap="outerHTML">
-  {% if saved %}<p class="ok">Saved {{ fname }}.</p>{% endif %}
-  {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-  <textarea name="text" rows="14">{{ text }}</textarea>
-  <p><button class="primary">Save {{ fname }}</button></p>
-</form>

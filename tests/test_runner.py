@@ -422,6 +422,37 @@ def test_no_refresh_still_hard_fails_on_a_truly_stale_snapshot(env):
     assert "stale" in log and "no refresh was requested" in log
 
 
+def test_parse_skip_entries_keeps_a_range_as_one_row():
+    """Unlike `parse_skip_days` (which the runtime guard uses, and which expands a range into
+    one dict entry per day), the graphical editor needs one row per line so editing a range
+    doesn't turn it into hundreds of single-day rows."""
+    text = "# comment\n2026-11-26 Thanksgiving\n\n2026-12-21..2026-12-23  Holiday break\n2027-01-18\nnot a date\n"
+    entries = runner.parse_skip_entries(text)
+    assert entries == [
+        runner.SkipEntry(date(2026, 11, 26), None, "Thanksgiving"),
+        runner.SkipEntry(date(2026, 12, 21), date(2026, 12, 23), "Holiday break"),
+        runner.SkipEntry(date(2027, 1, 18), None, ""),
+    ]
+
+
+def test_format_skip_entries_round_trips_through_parse_skip_days():
+    entries = [
+        runner.SkipEntry(date(2026, 11, 26), None, "Thanksgiving"),
+        runner.SkipEntry(date(2026, 12, 21), date(2026, 12, 23), "Holiday break"),
+    ]
+    text = runner.format_skip_entries(entries)
+    days = runner.parse_skip_days(text)
+    assert days[date(2026, 11, 26)] == "Thanksgiving"
+    assert days[date(2026, 12, 22)] == "Holiday break"
+    assert date(2026, 12, 24) not in days
+
+
+def test_format_skip_entries_omits_a_redundant_end_date():
+    text = runner.format_skip_entries([runner.SkipEntry(date(2026, 11, 26), date(2026, 11, 26), "")])
+    data_line = text.splitlines()[-1]
+    assert data_line == "2026-11-26"
+
+
 def test_run_recording_failure_is_a_warning(env):
     """The database is a passenger even when it opened cleanly. Here the `runs` table
     disappears under a healthy connection mid-run (another process, a bad migration), which

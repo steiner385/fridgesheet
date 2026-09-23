@@ -53,13 +53,13 @@ def _since(weeks: int, now: datetime) -> datetime:
     return datetime.combine(monday, time.min, tzinfo=now.tzinfo)
 
 
-def _record(conn, student, *, now, rules):
+def _record(conn, student, *, now, rules, prefs=None):
     """How the past-due work came out, by `outcomes.classify` -- for one kid, or summed over
     every visible kid. The same tally the Dashboard cards show, so the two pages cannot
     disagree about a number."""
     from ..stores import items, students
     kids = [student] if student else students.visible(conn)
-    tallies = [items.dashboard_counts(conn, s, now=now, rules=rules).record for s in kids]
+    tallies = [items.dashboard_counts(conn, s, now=now, rules=rules, prefs=prefs).record for s in kids]
     return outcomes.Tally(**{k: sum(getattr(t, k) for t in tallies) for k in ("on_time", "late", "not_done", "done_offline", "unknown")})
 
 
@@ -69,19 +69,19 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     sid = student["id"] if student else None
     weeks = _weeks(request)
     now = state.now()
-    week_rows = trends.weekly_outcomes(conn, student_id=sid, weeks=weeks, now=now)
+    week_rows = trends.weekly_outcomes(conn, student_id=sid, weeks=weeks, now=now, prefs=state.sources())
     # The grades-chart URL this page renders always embeds `weeks={{ weeks }}` (see
     # trends.html) -- unlike a direct grades.json caller with no Weeks selector (course.html),
     # a fetch that comes from this page never omits `weeks`, so grades.json will always treat
     # it as explicit. Match that here with the same clamped `weeks`, so the caption's course
     # list is never broader than the window the chart it captions will actually show.
-    series = trends.grade_series(conn, student_id=sid, since=_since(weeks, now))
+    series = trends.grade_series(conn, student_id=sid, since=_since(weeks, now), prefs=state.sources())
     return render(request, conn, "trends.html", current="trends",
                   kid=student["key"] if student else None, weeks=weeks,
                   series=series, course_names=sorted({s.course_short for s in series}),
                   week_rows=week_rows,
-                  record=_record(conn, student, now=now, rules=state.rules()),
-                  longest=trends.open_days(conn, student_id=sid, now=now))
+                  record=_record(conn, student, now=now, rules=state.rules(), prefs=state.sources()),
+                  longest=trends.open_days(conn, student_id=sid, now=now, prefs=state.sources()))
 
 
 @router.get("/trends/grades.json")
@@ -89,21 +89,21 @@ def grades_json(request: Request, conn: sqlite3.Connection = Db, state=State):
     student = _student(conn, request)
     weeks = _explicit_weeks(request)
     since = _since(weeks, state.now()) if weeks is not None else None
-    series = trends.grade_series(conn, student_id=student["id"] if student else None, since=since)
+    series = trends.grade_series(conn, student_id=student["id"] if student else None, since=since, prefs=state.sources())
     course = request.query_params.get("course")
     if course:
         # A course that is not a number matches no course, so it answers with no series --
         # `?course=abc` must not quietly widen to "every class in the house".
         series = [s for s in series if s.course_id == int(course)] if course.isdigit() else []
     return JSONResponse({"series": [
-        {"label": s.label, "points": [[t.timestamp(), v] for t, v in s.points]} for s in series]})
+        {"label": s.label, "official": s.official, "points": [[t.timestamp(), v] for t, v in s.points]} for s in series]})
 
 
 @router.get("/trends/weekly.json")
 def weekly_json(request: Request, conn: sqlite3.Connection = Db, state=State):
     student = _student(conn, request)
     rows = trends.weekly_outcomes(conn, student_id=student["id"] if student else None,
-                                  weeks=_weeks(request), now=state.now())
+                                  weeks=_weeks(request), now=state.now(), prefs=state.sources())
     return JSONResponse({
         "weeks": [w.week_start.isoformat() for w in rows],
         "on_time": [w.on_time for w in rows], "late": [w.late for w in rows],
