@@ -12,8 +12,11 @@ waits for `ci` to pass on the merge commit, then picks the version itself
 the latest published tag's patch number goes up by one. It tags and publishes without a
 human pushing anything. A pushed `v*` tag or `workflow_dispatch` still works for a
 deliberate, hand-chosen version — the automatic path is only the default for an ordinary
-merge. A merge commit whose message contains `[skip release]` is skipped, for a change
-that should not ship on its own (e.g. one half of a two-PR split).
+merge. A merge commit opts out with `[skip release]` on a line of its own
+(`packaging/skip_release.py`), for a change that should not ship alone (e.g. one half of a
+two-PR split) — deliberately not a substring match anywhere in the message, since PR #61's
+own commit *explaining* that marker in prose tripped a naive `contains()` check and skipped
+its own release.
 
 Work through it in order. Every box has the result you should see next to it; if you see
 something else, stop and fix it before moving on — the sections build on each other (you
