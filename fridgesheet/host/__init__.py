@@ -142,3 +142,9 @@ class ServiceInfo:
     #: fires for its owner, and a per-user install lives in that owner's profile, so an
     #: update run by anyone else builds a second copy and leaves the running one alone.
     owner: str = ""
+    #: The exe+args the unit or task runs, "" when unknown. Added so `service_windows.install`
+    #: can tell an already-registered task that is genuinely the one it would have created
+    #: (safe to just start) from one pointing somewhere else (a real problem -- graphy,
+    #: 2026-09-23). Defaults to "" so `service_linux.py` and every existing construction site
+    #: keep working untouched.
+    command: str = ""
