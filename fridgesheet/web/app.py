@@ -188,8 +188,30 @@ def question_counts(conn: sqlite3.Connection, state) -> dict[str, int]:
     out = {}
     for s in students.visible(conn):
         views = items_store.list_items(conn, s, now=state.now(), rules=state.rules(), show="all", prefs=state.sources())
-        out[s["key"]] = sum(1 for v in views if v.verdict.state == "question")
+        out[s["key"]] = sum(1 for v in views if v.asks)
     return out
+
+
+def here(request: Request) -> str:
+    """The page the person is looking at, as a same-site path: for an htmx partial, the page
+    htmx says it was requested from; otherwise this request's own path. Links that leave for a
+    form (planning a step) carry it as `return_to`, so saving comes back here."""
+    current = request.headers.get("HX-Current-URL")
+    if current:
+        u = urlsplit(current)
+        return u.path + (f"?{u.query}" if u.query else "")
+    return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+def safe_return(raw: str | None) -> str | None:
+    """`raw` if it is a path on this site, else None: never another host, a scheme, or a
+    protocol-relative `//host`."""
+    if not raw:
+        return None
+    u = urlsplit(raw)
+    if u.scheme or u.netloc or not u.path.startswith("/") or u.path.startswith("//"):
+        return None
+    return raw
 
 
 def page_context(request: Request, conn: sqlite3.Connection) -> dict:
@@ -207,6 +229,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "update": updates.cached(state),              # never a network call here: the last answer, or None
         "staleness": staleness.check(conn, state.now()),
         "question_counts": question_counts(conn, state),
+        "here": here(request),
     }
 
 

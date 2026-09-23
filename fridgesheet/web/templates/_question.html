@@ -11,7 +11,7 @@
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   <div class="answers">
     {% for a in vd.answers %}
-      {% if a.flag is none %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}">{{ a.key | say(tier) }}</a>
+      {% if a.flag is none %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">{{ a.key | say(tier) }}</a>
       {% else %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><button name="answer" value="{{ a.flag }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endif %}
     {% endfor %}
   </div>

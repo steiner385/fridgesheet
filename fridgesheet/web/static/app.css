@@ -263,3 +263,4 @@ table.work td.due small.rel { display: block; }
 .seg label { margin-right: 8px; }
 .more-filters { display: inline-block; }
 .rail .count { color: var(--accent); font-weight: 600; font-size: 12px; }
+.badge.plan { border-color: var(--ok); color: var(--ok); }

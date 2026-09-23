@@ -16,7 +16,7 @@ from ... import sources
 from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile, verdicts
-from . import num
+from . import num, plans
 
 SHOW = ("open", "actionable", "all")
 SORTS = ("due", "course", "name", "status")
@@ -77,6 +77,9 @@ class ItemView:
     canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation
     hac_as_of: str = ""
     teacher_email: str = ""         # the class's teacher, from Canvas (the HAC twin borrows it)
+    #: The family's active plan step on this assignment (a `plan_steps` row), or None. A step
+    #: already agreed means the question is being handled: it is not asked again.
+    step: dict | None = None
 
     @property
     def overdue(self) -> bool:
@@ -85,6 +88,11 @@ class ItemView:
     @property
     def handled(self) -> bool:
         return self.flag in HANDLED_FLAGS
+
+    @property
+    def asks(self) -> bool:
+        """A question the family still has to answer: no agreed plan step covers it."""
+        return self.verdict.state == "question" and self.step is None
 
 
 def _score(o: sqlite3.Row, points) -> str:
@@ -226,6 +234,11 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
     flag_text = {i: r["text"] for i, r in active_flags.items()}
     refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
+    # The first active step per assignment, in plan order (planned_for, position).
+    steps: dict[int, dict] = {}
+    for s in plans.for_student(conn, student["id"]):
+        if s["state"] != "done" and s["item_id"] is not None:
+            steps.setdefault(s["item_id"], s)
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
@@ -259,6 +272,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
             hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
             teacher_email=r["teacher_email"] or "",
+            step=steps.get(r["id"]),
         ))
     return out
 
