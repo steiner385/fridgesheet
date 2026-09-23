@@ -1,15 +1,20 @@
-<div class="notes" id="notes-{{ target_type }}-{{ target_id }}">
+<div class="notes" id="notes-{{ target_type }}-{{ target_id }}"{% if announce is defined and announce %} data-announce="{{ announce }}"{% endif %}>
   {% for n in notes %}
   <div class="note">
     <div>{{ n.body }}</div>
     <div class="meta">{{ n.created_at | wd_md_time }}{% if n.updated_at != n.created_at %} · edited {{ n.updated_at | wd_md_time }}{% endif %}
-      <form style="display:inline" hx-post="/notes/{{ n.id }}/edit" hx-target="#notes-{{ target_type }}-{{ target_id }}" hx-swap="outerHTML" hx-prompt="Edit the note"><button>edit</button></form>
-      <form style="display:inline" hx-post="/notes/{{ n.id }}/delete" hx-target="#notes-{{ target_type }}-{{ target_id }}" hx-swap="outerHTML" hx-confirm="Delete this note?"><button>delete</button></form>
+      <details class="note-edit"><summary>edit</summary>
+        <form hx-post="/notes/{{ n.id }}/edit" hx-target="#notes-{{ target_type }}-{{ target_id }}" hx-swap="outerHTML">
+          <label><span class="sr-only">Edit the note from {{ n.created_at | wd_md_time }}</span><textarea name="body" required>{{ n.body }}</textarea></label>
+          <button>Save</button>
+        </form>
+      </details>
+      <form style="display:inline" hx-post="/notes/{{ n.id }}/delete" hx-target="#notes-{{ target_type }}-{{ target_id }}" hx-swap="outerHTML" hx-confirm="Delete this note?"><button aria-label="Delete the note from {{ n.created_at | wd_md_time }}">delete</button></form>
     </div>
   </div>
   {% else %}<p class="muted">No notes yet.</p>{% endfor %}
   <form hx-post="/notes" hx-target="#notes-{{ target_type }}-{{ target_id }}" hx-swap="outerHTML">
     <input type="hidden" name="target_type" value="{{ target_type }}"><input type="hidden" name="target_id" value="{{ target_id }}">
-    <textarea name="body" placeholder="Add a note"></textarea><button>Add note</button>
+    <label><span class="sr-only">Add a note</span><textarea name="body" placeholder="Add a note" required></textarea></label><button>Add note</button>
   </form>
 </div>

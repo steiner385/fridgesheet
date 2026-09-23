@@ -1,3 +1,30 @@
+// Detail rows (#53), registered first so a row is visible before the focus handler below
+// reaches into it: each item row is followed by a hidden `tr.detail`, so a screen reader's row
+// count is the real one. Loading a detail shows its row and marks the item link expanded;
+// the card's Close button hides it again and puts focus back on the link.
+function detailLink(cell) {
+  return document.querySelector('[hx-target="#' + cell.id + '"]');
+}
+document.addEventListener("htmx:afterSwap", function (e) {
+  var cell = e.detail.target;
+  var row = cell && cell.closest && cell.closest("tr.detail");
+  if (!row) return;
+  row.hidden = false;
+  var link = detailLink(cell);
+  if (link) link.setAttribute("aria-expanded", "true");
+});
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest && e.target.closest("[data-close-detail]");
+  if (!btn) return;
+  var row = btn.closest("tr.detail");
+  if (!row) return;
+  var cell = row.querySelector("td");
+  var link = detailLink(cell);
+  cell.innerHTML = "";
+  row.hidden = true;
+  if (link) { link.setAttribute("aria-expanded", "false"); link.focus(); }
+});
+
 // Small helpers; everything interactive is htmx. After a swap that brings in a [data-focus]
 // card -- as the swapped element itself or inside the target -- move focus to its named
 // [data-focus-target] (the card heading). Focusing the first input instead raised the phone
@@ -10,6 +37,19 @@ document.addEventListener("htmx:afterSwap", function (e) {
   var card = el.matches("[data-focus]") ? el : el.querySelector("[data-focus]");
   var f = card && card.querySelector("[data-focus-target]");
   if (f) f.focus();
+});
+
+// Announcements (#43): swapped content can carry `data-announce`; its text goes into the one
+// polite live region in base.html, so a screen reader hears "Note added" or "12 assignments
+// shown" instead of nothing. Cleared first so the same words twice are still read twice.
+document.addEventListener("htmx:afterSwap", function (e) {
+  var root = e.detail.target && e.detail.target.isConnected ? e.detail.target : e.target;
+  var live = document.getElementById("announce");
+  if (!root || !root.matches || !live) return;
+  var src = root.matches("[data-announce]") ? root : root.querySelector("[data-announce]");
+  if (!src) return;
+  live.textContent = "";
+  setTimeout(function () { live.textContent = src.getAttribute("data-announce"); }, 50);
 });
 
 // Live job progress: a <pre data-sse=URL data-reload=URL> opens an EventSource, appends each

@@ -14,6 +14,7 @@
    wherever it sits, so the Open work page can put it on each kid section instead. A child
    with no grade set gets no attribute at all -- the interface that shipped. #}
 <body{% if student is defined and student %}{% set t = student.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}{% endif %}>
+<div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 <div class="shell">
   <aside class="rail">
     <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>

@@ -12,9 +12,9 @@ from .. import db
 router = APIRouter()
 
 
-def _partial(request, conn, target_type, target_id):
+def _partial(request, conn, target_type, target_id, announce=""):
     return render_partial(request, conn, "_notes.html", target_type=target_type, target_id=target_id,
-                          notes=notes.for_target(conn, target_type, target_id))
+                          notes=notes.for_target(conn, target_type, target_id), announce=announce)
 
 
 def _target_exists(conn: sqlite3.Connection, target_type: str, target_id: int) -> bool:
@@ -36,7 +36,7 @@ def add_note(request: Request, target_type: str = Form(...), target_id: int = Fo
     if not body.strip():
         raise HTTPException(400, "an empty note")
     notes.add(conn, target_type, target_id, body.strip(), now=db.now_iso(state.tz))
-    return _partial(request, conn, target_type, target_id)
+    return _partial(request, conn, target_type, target_id, "Note added")
 
 
 @router.post("/notes/{note_id}/edit")
@@ -48,7 +48,7 @@ def edit_note(note_id: int, request: Request, body: str = Form(""), conn: sqlite
     if not body.strip():
         raise HTTPException(400, "an empty note")
     notes.edit(conn, note_id, body.strip(), now=db.now_iso(state.tz))
-    return _partial(request, conn, n["target_type"], n["target_id"])
+    return _partial(request, conn, n["target_type"], n["target_id"], "Note saved")
 
 
 @router.post("/notes/{note_id}/delete")
@@ -57,4 +57,4 @@ def delete_note(note_id: int, request: Request, conn: sqlite3.Connection = Db):
     if n is None:
         raise HTTPException(404, "no such note")
     notes.delete(conn, note_id)
-    return _partial(request, conn, n["target_type"], n["target_id"])
+    return _partial(request, conn, n["target_type"], n["target_id"], "Note deleted")
