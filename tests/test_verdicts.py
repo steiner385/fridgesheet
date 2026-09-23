@@ -197,3 +197,36 @@ def test_every_question_kind_has_facts_ask_and_answer_words():
 
 def test_facts_are_filled_in_and_escaped_by_the_template_not_here():
     assert V.say("facts.graded_in_hac", "", {"hac": "28 of 30"}) == "HAC has 28 of 30. Canvas still shows its automatic \"missing\"."
+
+
+# --- final-review fixes ------------------------------------------------------------------
+
+def test_a_graded_ask_teacher_is_asked_then_graded_with_its_own_answers():
+    """Review 2: a teacher grading work the family asked about is not "still done?"."""
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="ask_teacher",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
+    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert V.say("ask." + v.kind, "") != "ask." + v.kind
+
+
+def test_waiting_rules_never_contradict_an_excused_or_unpublished_outcome():
+    """Review 5 (S19, S20)."""
+    sub = "2026-09-12T20:00:00-04:00"
+    assert run(item(), {"canvas": canvas(excused=1, state="submitted", submitted_at=sub)}).kind == "excused"
+    assert run(item(), {"canvas": canvas(published=0, state="submitted", submitted_at=sub)}).kind == "unpublished"
+
+
+def test_a_teacher_missing_mark_is_not_done_even_with_a_score_or_a_submission():
+    """Review 5 (S18, S22): Canvas's missing flag with a Canvas score and no HAC grade, or with a
+    submission, is not something to wait on."""
+    v = run(item(), {"canvas": canvas(rid=3, missing=1, state="graded", score=5.0), "hac": hac(rid=3)})
+    assert (v.state, v.kind) == (V.STATUS, "not_done")
+    v = run(item(), {"canvas": canvas(missing=1, state="submitted", submitted_at="2026-09-12T20:00:00-04:00")})
+    assert (v.state, v.kind) == (V.STATUS, "not_done")
+
+
+def test_a_zero_both_gradebooks_agree_on_is_not_a_question():
+    """Review 6: Canvas graded the submission 0 and HAC has 0; nothing to tell the teacher."""
+    v = run(item(), {"canvas": canvas(state="graded", score=0.0, submitted_at="2026-09-12T20:00:00-04:00"), "hac": hac(score=0.0)})
+    assert v.state == V.STATUS

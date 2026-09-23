@@ -153,7 +153,8 @@ def _filters(state: AppState) -> dict:
 
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
-            "say": lambda key, tier, values=None: verdicts.say(key, tier, values)}
+            "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
+            "standing": lambda item, tier: verdicts.standing(item, tier)}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

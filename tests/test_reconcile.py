@@ -162,7 +162,8 @@ def test_stale_flags(conn):
     _obs(conn, 3, "canvas", refresh_id=1, state="unsubmitted", missing=1)
     flagstore.set_flag(conn, 3, "done", now=NOW.isoformat())                # flag newer than any observation: not stale
     v = _verdicts(conn)
-    assert v["canvas:1"] == ("question", "stale_answer") and v["canvas:2"] == ("question", "stale_answer")
+    assert v["canvas:1"] == ("question", "stale_answer")                # done, then a zero
+    assert v["canvas:2"] == ("question", "asked_then_graded")           # follow up, then graded
     assert v["canvas:3"] == ("status", "answered")
 
 
@@ -207,7 +208,7 @@ def test_a_hac_grade_posted_after_ask_teacher_makes_the_flag_stale(conn):
     _obs(conn, 1, "hac", refresh_id=1, state="ungraded")
     flagstore.set_flag(conn, 1, "ask_teacher", now="2026-09-12T08:00:00-04:00")
     _obs(conn, 1, "hac", refresh_id=2, state="graded", score=18.0)
-    assert _verdicts(conn)["canvas:1"] == ("question", "stale_answer")
+    assert _verdicts(conn)["canvas:1"] == ("question", "asked_then_graded")
 
 
 def test_a_hac_zero_posted_after_done_makes_the_flag_stale(conn):

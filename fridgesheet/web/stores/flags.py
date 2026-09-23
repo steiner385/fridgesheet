@@ -44,6 +44,21 @@ def confirm(conn: sqlite3.Connection, item_id: int, *, now: str) -> int | None:
                             (item_id, cur["flag"], cur["text"], now)).lastrowid
 
 
+def restore(conn: sqlite3.Connection, item_id: int, flag: str, *, set_at: str, now: str) -> int:
+    """Put back an earlier answer exactly as it was: the same flag, its original date and its
+    reason. Undo uses this, so undoing an answer to a question the school raised brings the
+    question back rather than a freshly dated answer the school has not contradicted yet."""
+    if flag not in FLAGS:
+        raise ValueError(f"unknown flag {flag!r}; one of {', '.join(FLAGS)}")
+    with conn:
+        conn.execute("BEGIN IMMEDIATE")
+        prior = conn.execute("SELECT text FROM flags WHERE item_id = ? AND flag = ? AND set_at = ? ORDER BY id DESC LIMIT 1",
+                             (item_id, flag, set_at)).fetchone()
+        conn.execute("UPDATE flags SET cleared_at = ? WHERE item_id = ? AND cleared_at IS NULL", (now, item_id))
+        return conn.execute("INSERT INTO flags(item_id, flag, text, set_at) VALUES (?, ?, ?, ?)",
+                            (item_id, flag, prior["text"] if prior else "", set_at)).lastrowid
+
+
 def clear(conn: sqlite3.Connection, item_id: int, *, now: str) -> bool:
     with conn:
         cur = conn.execute("UPDATE flags SET cleared_at = ? WHERE item_id = ? AND cleared_at IS NULL", (now, item_id))

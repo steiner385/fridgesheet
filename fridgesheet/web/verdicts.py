@@ -50,6 +50,9 @@ ANSWERS = {
     "still_ungraded": (Answer("a.handed_in", "done"), Answer("a.plan_it", None), ASK),
     "awaiting_grade": (ASK,),
     "stale_answer": (Answer("a.still_done", "confirm"), Answer("a.reopen", "clear"), ASK),
+    # The family asked the teacher (or chose to follow up) and a grade has since appeared:
+    # "still done?" would be the wrong question, and "ask the teacher" would change nothing.
+    "asked_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_asking", "confirm")),
 }
 
 
@@ -127,9 +130,10 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if flag:
         change = _stale_change(flag, flag_set_at, c, h, refresh_times)
         if change:
-            return Verdict(QUESTION, "stale_answer",
+            kind = "asked_then_graded" if flag in MARKED_FLAGS else "stale_answer"
+            return Verdict(QUESTION, kind,
                            {"flag": flag.replace("_", " "), "when": _md(flag_set_at), "change": change},
-                           ANSWERS["stale_answer"])
+                           ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered")
         return Verdict(STATUS, "asked", {"when": _md(flag_set_at)} if flag_set_at else {})
@@ -138,7 +142,8 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if c is not None and h is not None and hs == 0 and (points or 0) > 0:
         if c["excused"]:
             return Verdict(QUESTION, "excused_hac_zero", {}, ANSWERS["excused_hac_zero"])
-        if c["submitted_at"]:
+        # A submission Canvas itself scored 0 is a zero both gradebooks agree on: no question.
+        if c["submitted_at"] and c["score"] != 0:
             return Verdict(QUESTION, "submitted_hac_zero", {"when": _md_time(c["submitted_at"])}, ANSWERS["submitted_hac_zero"])
 
     # 5-6: a real HAC grade against Canvas's missing flag.
@@ -167,8 +172,14 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
     cs = c["score"] if c is not None else None
     hs = h["score"] if h is not None else None
 
+    # The outcome is the one definition (docs/outcomes.md): excused or unpublished work is never
+    # waited on, and neither is work the teacher marked missing or scored zero.
+    if outcome in (outcomes.EXCUSED, outcomes.UNPUBLISHED):
+        return Verdict(STATUS, outcome)
+    settled_not_done = outcome == outcomes.NOT_DONE
+
     # 9-10: Canvas graded it and HAC, which this class has, still has nothing.
-    if cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
+    if not settled_not_done and cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
         seen = _observed_at(c, refresh_times)
         if seen is not None:
             asks_on = seen.date() + timedelta(days=GRACE_DAYS)
@@ -178,7 +189,7 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
             return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on)
 
     # 11: handed in online, no grade anywhere.
-    if c is not None and c["submitted_at"] and cs is None and hs is None:
+    if not settled_not_done and c is not None and c["submitted_at"] and cs is None and hs is None:
         return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])})
 
     # 12-13: nothing to submit online, past due, no grade anywhere.
@@ -203,3 +214,12 @@ def say(key: str, tier: str, values: dict | None = None) -> str:
     """The words for `key` at `tier`, with the verdict's facts filled in. The template's
     autoescaping applies to the result, so a value is never markup."""
     return phrasing.phrase(key, tier).format(**(values or {}))
+
+
+def standing(item, tier: str) -> str:
+    """Where an item stands, in words: the verdict's own phrase when it has one, else the
+    grade, else the status word. Never a raw phrase key."""
+    key = "where." + item.verdict.kind
+    if key in phrasing.PHRASES:
+        return say(key, tier, item.verdict.facts)
+    return phrasing.phrase(item.grade or item.status, tier)

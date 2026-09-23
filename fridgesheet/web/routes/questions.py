@@ -1,6 +1,7 @@
 """Questions: answer one, undo an answer (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md)."""
 from __future__ import annotations
 
+import re
 import sqlite3
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -12,6 +13,12 @@ from .. import db
 
 router = APIRouter()
 ANSWERS = set(flags.FLAGS) | {"confirm", "clear"}
+_SLOT = re.compile(r"qd?-\d+")
+
+
+def _slot(raw: str, item_id: int) -> str:
+    """The element id the card swaps into: the caller's, if it is one of ours, else the list's."""
+    return raw if _SLOT.fullmatch(raw or "") else f"q-{item_id}"
 
 
 def _view(conn, state, item_id):
@@ -32,24 +39,32 @@ def _apply(conn, item_id, answer, now):
 
 
 @router.post("/items/{item_id}/answer")
-def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = Form(""),
-           conn: sqlite3.Connection = Db, state=State):
+def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = Form(""), prev_set_at: str = Form(""),
+           slot: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     if answer not in ANSWERS:
         raise HTTPException(400, f"unknown answer {answer!r}")
     _view(conn, state, item_id)
     _apply(conn, item_id, answer, db.now_iso(state.tz))
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_answered.html", student=s, item=v, prev=prev)
+    return render_partial(request, conn, "_answered.html", student=s, item=v, prev=prev, prev_set_at=prev_set_at,
+                          slot=_slot(slot, item_id))
 
 
 @router.post("/items/{item_id}/undo")
-def undo(item_id: int, request: Request, prev: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str = Form(""), slot: str = Form(""),
+         conn: sqlite3.Connection = Db, state=State):
+    """Put the item back as it was before the answer: the earlier flag with its original date
+    (so a question the school raised comes back), or no flag at all."""
     if prev and prev not in flags.FLAGS:
         raise HTTPException(400, f"unknown flag {prev!r}")
     _view(conn, state, item_id)
-    _apply(conn, item_id, prev or "clear", db.now_iso(state.tz))
+    now = db.now_iso(state.tz)
+    if prev and prev_set_at:
+        flags.restore(conn, item_id, prev, set_at=prev_set_at, now=now)
+    else:
+        _apply(conn, item_id, prev or "clear", now)
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_question.html", student=s, item=v)
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id))
 
 
 @router.get("/questions")
