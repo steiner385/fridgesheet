@@ -163,11 +163,11 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             # Canvas shows paper and in-class work as unsubmitted forever; a grade in HAC is the
             # proof it was handed in. The web app's outcome definition calls that *done on
             # paper* (docs/outcomes.md), and the sheet must not print PAPER — CHECK -- or
-            # MISSING, for online work the teacher graded from a physical copy -- for work the
-            # gradebook has already marked. A Canvas `missing` flag or a 0 still wins: those
-            # are the teacher's word, and a disagreement is the Reconcile page's to show.
-            if status in ("PAPER — CHECK", "MISSING") and not a.get("missing") and a.get("score") is None \
-                    and hac_score not in (None, 0):
+            # MISSING -- for work the gradebook has already marked. That includes Canvas's
+            # `missing`, which is often its late policy's automatic mark. A 0 in either source
+            # still wins. The web app also asks when Canvas changed after HAC; a snapshot has no
+            # history, so the sheet cannot, and follows HAC.
+            if status in ("PAPER — CHECK", "MISSING") and a.get("score") is None and hac_score not in (None, 0):
                 continue
             overdue = status in OVERDUE_STATUSES
             if not overdue and due > horizon:
