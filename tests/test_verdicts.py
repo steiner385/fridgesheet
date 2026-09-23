@@ -38,7 +38,7 @@ def test_hac_grade_over_automatic_missing_is_decided():
     v = run(item(), {"canvas": canvas(missing=1), "hac": hac(score=28.0)})
     assert (v.state, v.kind) == (V.DECIDED, "graded_in_hac")
     assert v.facts == {"hac": "28 of 30"}
-    assert [a.flag for a in v.answers] == ["done", "ask_teacher"]      # what "Not right?" offers
+    assert [a.action for a in v.answers] == ["done", "ask_teacher"]      # what "Not right?" offers
 
 
 def test_missing_recorded_after_the_hac_grade_is_a_question():
@@ -110,7 +110,7 @@ def test_a_done_flag_contradicted_later_is_a_stale_answer():
     v = run(item(), {"canvas": canvas(rid=3, missing=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
     assert (v.state, v.kind) == (V.QUESTION, "stale_answer")
     assert v.facts == {"flag": "it's done", "when": "9/10", "change": "Canvas now says missing"}
-    assert [a.flag for a in v.answers] == ["confirm", "clear", "ask_teacher"]
+    assert [a.action for a in v.answers] == ["confirm", "clear", "ask_teacher"]
 
 
 def test_stale_check_accepts_a_naive_flag_timestamp():
@@ -206,7 +206,7 @@ def test_a_graded_ask_teacher_is_asked_then_graded_with_its_own_answers():
     v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="ask_teacher",
             flag_set_at="2026-09-10T08:00:00-04:00")
     assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
-    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert [a.action for a in v.answers] == ["done", "confirm"]
     assert V.say("ask." + v.kind, "") != "ask." + v.kind
 
 
@@ -244,9 +244,28 @@ def test_follow_up_is_its_own_status_not_asked_the_teacher():
 def test_a_graded_follow_up_does_not_say_you_asked_the_teacher():
     v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="follow_up",
             flag_set_at="2026-09-10T08:00:00-04:00")
-    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
-    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert (v.state, v.kind) == (V.DECIDED, "followed_up_then_graded")           # spec 5: good news settles it
+    assert [a.action for a in v.answers] == ["confirm", "done"]
     assert "asked the teacher" not in V.say("facts." + v.kind, "", v.facts).lower()
+
+
+def test_a_follow_up_overtaken_by_a_zero_is_still_a_question():
+    """Review Focus 5."""
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=0.0)}, flag="follow_up",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
+
+
+def test_a_follow_up_closed_by_canvas_dropping_missing_is_decided():
+    v = _run_prev({"canvas": canvas(rid=3, missing=0)}, {"canvas": canvas(rid=1, missing=1)},
+                  "follow_up", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.DECIDED, "followed_up_then_graded")
+
+
+def test_an_ask_overtaken_by_good_news_is_still_a_question():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="ask_teacher",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
 
 
 def test_under_the_hac_preference_a_later_missing_is_decided_not_asked():
@@ -309,14 +328,14 @@ def test_missing_work_offers_handed_in_and_plan_without_asking():
     """#74: a red row with no question still needs a one-tap "it's handed in"."""
     v = run(item(), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "not_done")
-    assert [a.flag for a in v.answers] == ["done", None]
+    assert [a.action for a in v.answers] == ["done", None]
     assert V.say("facts.not_done", "", v.facts) == "Canvas marks it missing."
 
 
 def test_past_credit_work_offers_let_it_go():
     v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "past_credit")
-    assert [a.flag for a in v.answers] == ["ignore", "done"]
+    assert [a.action for a in v.answers] == ["ignore", "done"]
 
 
 # --- the learned pace (spec 4.5, 4.6) ------------------------------------------------------------

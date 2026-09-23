@@ -24,7 +24,7 @@ TOLERANCE = 0.5
 @dataclass(frozen=True)
 class Answer:
     key: str                # phrase key for the button label
-    flag: str | None        # a flag, "confirm", "clear", or None: open the plan-step form
+    action: str | None      # a flag, "confirm", "clear", or None: open the plan-step form (until Task 6)
 
 
 @dataclass(frozen=True)
@@ -60,7 +60,7 @@ ANSWERS = {
     # The family asked the teacher (or chose to follow up) and a grade has since appeared:
     # "still done?" would be the wrong question, and "ask the teacher" would change nothing.
     "asked_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_asking", "confirm")),
-    "followed_up_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_following", "confirm")),
+    "followed_up_then_graded": (Answer("a.keep_following", "confirm"), Answer("a.its_done", "done")),
     # Statuses that still offer a one-tap answer (#74): these are not questions and are not
     # counted, but a red row must not leave "it's handed in" behind the raw flag menu.
     "not_done": (Answer("a.handed_in_behind", "done"), Answer("a.plan_it", None)),
@@ -105,8 +105,10 @@ def _after(o, set_at: str, refresh_times) -> bool:
     return a > b
 
 
-def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> str | None:
-    """What the school recorded after the family's answer that contradicts it, or None.
+def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> tuple[str, bool] | None:
+    """What the school recorded after the family's answer that contradicts it, as (text, good),
+    or None. `good` is a grade above zero or Canvas dropping its missing mark: for a follow-up,
+    that answers the reminder (spec 5).
 
     For an ask or a follow-up, `prev` (each source's observation before its latest) tells a real
     change from a quiet one: Canvas dropping its missing mark closes the loop, and so does a grade
@@ -115,21 +117,21 @@ def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> 
     prev = prev or {}
     if flag in HANDLED_FLAGS:
         if c is not None and _after(c, set_at, refresh_times) and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
-            return "Canvas now says missing" if c["missing"] else "Canvas now shows a zero"
+            return ("Canvas now says missing" if c["missing"] else "Canvas now shows a zero"), False
         if h is not None and _after(h, set_at, refresh_times) and h["score"] == 0:
-            return "HAC now shows a zero"
+            return "HAC now shows a zero", False
     if flag in MARKED_FLAGS:
         for label, o in (("Canvas", c), ("HAC", h)):
             if o is None or not _after(o, set_at, refresh_times):
                 continue
             before = prev.get(label.lower())
             if label == "Canvas" and before is not None and before["missing"] and not o["missing"]:
-                return "Canvas no longer marks it missing"
+                return "Canvas no longer marks it missing", True
             if o["score"] is not None:
                 if before is None or before["score"] is None:
-                    return f"{label} has graded it: {_of(o['score'], points)}"
+                    return f"{label} has graded it: {_of(o['score'], points)}", o["score"] > 0
                 if abs(before["score"] - o["score"]) > TOLERANCE:
-                    return f"{label} changed the grade: {_n(before['score'])} → {_of(o['score'], points)}"
+                    return f"{label} changed the grade: {_n(before['score'])} → {_of(o['score'], points)}", o["score"] > 0
     return None
 
 
@@ -156,9 +158,13 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if flag:
         change = _stale_change(flag, flag_set_at, c, h, refresh_times, prev_obs, points)
         if change:
+            text, good = change
             kind = {"ask_teacher": "asked_then_graded", "follow_up": "followed_up_then_graded"}.get(flag, "stale_answer")
-            return Verdict(QUESTION, kind,
-                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": change},
+            # A follow-up is the family's own reminder; good news answers it. The flag stays:
+            # the app never records a family answer on the family's behalf.
+            state = DECIDED if (flag == "follow_up" and good) else QUESTION
+            return Verdict(state, kind,
+                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": text},
                            ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered", {"when": _md(flag_set_at)} if flag_set_at else {})
