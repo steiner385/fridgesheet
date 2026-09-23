@@ -62,12 +62,16 @@ class Pace:
     teachers: dict[int, str]
 
     def grade_days(self, item) -> Estimate:
-        return self._lookup(self.grade, item)
+        # Pooling across kinds is for online work only. A class's auto-graded quizzes would
+        # otherwise teach the app that its paper is graded the same day, and it would ask
+        # about a reading guide the morning after it was due; paper waits for paper history.
+        return self._lookup(self.grade, item, pool_offline=False)
 
     def hac_days(self, item) -> Estimate:
-        return self._lookup(self.hac, item)
+        # How long HAC takes to catch up is the teacher's gradebook habit, not the kind of work.
+        return self._lookup(self.hac, item, pool_offline=True)
 
-    def _lookup(self, table, item) -> Estimate:
+    def _lookup(self, table, item, *, pool_offline: bool) -> Estimate:
         if not table:                       # nothing learned at all: the default, without reading the item
             return Estimate(DEFAULT_DAYS, 0, DEFAULT_SCOPE)
         cid = self.classes.get(item["course_id"], item["course_id"])
@@ -75,9 +79,10 @@ class Pace:
         own = table.get((cid, group), [])
         if (days := estimate(own)) is not None:
             return Estimate(days, len(own), COURSE_KIND)
-        pooled = [s for (c, _), ss in table.items() if c == cid for s in ss]
-        if (days := estimate(pooled)) is not None:
-            return Estimate(days, len(pooled), COURSE)
+        if pool_offline or group == "online":
+            pooled = [s for (c, _), ss in table.items() if c == cid for s in ss]
+            if (days := estimate(pooled)) is not None:
+                return Estimate(days, len(pooled), COURSE)
         teacher = teacher_key(item["teacher"])
         if teacher:
             same = {c for c, t in self.teachers.items() if t == teacher}

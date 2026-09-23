@@ -256,6 +256,14 @@ def test_a_follow_up_overtaken_by_a_zero_is_still_a_question():
     assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
 
 
+def test_a_follow_up_where_missing_became_a_zero_is_still_a_question():
+    """Review Focus 5, the other road to a zero: the teacher replaces Canvas's Missing with a
+    graded 0. The missing mark going away is not good news when a zero took its place."""
+    v = _run_prev({"canvas": canvas(rid=3, missing=0, state="graded", score=0.0)}, {"canvas": canvas(rid=1, missing=1)},
+                  "follow_up", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
+
+
 def test_a_follow_up_closed_by_canvas_dropping_missing_is_decided():
     v = _run_prev({"canvas": canvas(rid=3, missing=0)}, {"canvas": canvas(rid=1, missing=1)},
                   "follow_up", "2026-09-10T08:00:00-04:00")

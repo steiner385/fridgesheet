@@ -135,7 +135,8 @@ def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> 
                 continue
             before = prev.get(label.lower())
             if label == "Canvas" and before is not None and before["missing"] and not o["missing"]:
-                return "Canvas no longer marks it missing", True
+                # Missing replaced by a graded 0 is not good news; missing simply lifted is.
+                return "Canvas no longer marks it missing", o["score"] is None or o["score"] > 0
             if o["score"] is not None:
                 if before is None or before["score"] is None:
                     return f"{label} has graded it: {_of(o['score'], points)}", o["score"] > 0

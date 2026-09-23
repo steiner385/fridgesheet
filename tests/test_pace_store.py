@@ -107,3 +107,46 @@ def test_a_hac_only_item_borrows_its_twins_teacher(tmp_path):
     hac = _course(conn, sid, "hac", "Honors English 9 S1", teacher=None, peer=cid)
     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hac, cid))
     assert store.load(conn).teachers[cid] == "michael hoch"
+
+
+# --- review: one grade sample per item, censored and anchored across both sources ------------------
+
+def _twin(conn, sid, cid):
+    hac = _course(conn, sid, "hac", "Honors English 9 S1", peer=cid)
+    conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hac, cid))
+    return hac
+
+
+def test_one_grade_sample_per_item_however_many_sources_graded_it(tmp_path):
+    """The count on the card says "N earlier assignments": an item graded in Canvas and then
+    in HAC is one assignment, and its grade lag is when the app first saw any grade."""
+    conn, sid, cid, (r1, r2, r3) = _home(tmp_path)
+    _twin(conn, sid, cid)
+    iid = _item(conn, sid, cid, "Essay", first_seen=r1)                    # due 9/10
+    _obs(conn, r1, iid, "canvas"); _obs(conn, r1, iid, "hac")
+    _obs(conn, r2, iid, "canvas", score=8.0)                                # seen 9/15
+    _obs(conn, r3, iid, "hac", score=8.0)                                   # seen 9/22
+    assert store.load(conn).grade[(cid, "offline")] == [5]
+
+
+def test_a_grade_met_already_in_canvas_is_not_a_sample_when_hac_catches_up_later(tmp_path):
+    """Review Focus 2 across sources: Canvas had graded it before the app existed; HAC showing
+    the grade a week later is HAC lag, not the teacher's pace."""
+    conn, sid, cid, (r1, r2, r3) = _home(tmp_path)
+    _twin(conn, sid, cid)
+    iid = _item(conn, sid, cid, "Old essay", due="2026-09-01T23:59:00-04:00", first_seen=r1)
+    _obs(conn, r1, iid, "canvas", score=8.0); _obs(conn, r1, iid, "hac")
+    _obs(conn, r3, iid, "hac", score=8.0)
+    pace = store.load(conn)
+    assert pace.grade == {} and pace.hac == {}
+
+
+def test_a_hac_first_grade_anchors_on_the_canvas_submission_when_there_is_one(tmp_path):
+    """A late hand-in graded first in HAC: the lag runs from the hand-in, not the due date."""
+    conn, sid, cid, (r1, r2, r3) = _home(tmp_path)
+    _twin(conn, sid, cid)
+    iid = _item(conn, sid, cid, "Late quiz", kind="online", first_seen=r1)      # due 9/10
+    _obs(conn, r1, iid, "canvas"); _obs(conn, r1, iid, "hac")
+    _obs(conn, r2, iid, "canvas", submitted_at="2026-09-20T20:00:00-04:00")     # handed in late, ungraded
+    _obs(conn, r3, iid, "hac", score=8.0)                                       # seen 9/22
+    assert store.load(conn).grade[(cid, "online")] == [2]

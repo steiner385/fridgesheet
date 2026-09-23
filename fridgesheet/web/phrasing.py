@@ -78,6 +78,7 @@ PHRASES: dict[str, dict[str, str]] = {
     "step.work_on_it":       {"early": "Work on it", "middle": "Work on it", "older": "Work on it"},
     "where.planned_today":   {"early": "You'll work on it today", "middle": "Planned for today", "older": "Planned for today"},
     "where.planned_tomorrow": {"early": "You'll work on it tomorrow", "middle": "Planned for tomorrow", "older": "Planned for tomorrow"},
+    "where.planned_kept":    {"early": "Your step was edited since, so it stays", "middle": "The step was edited since, so it stays", "older": "The step was edited since, so it stays"},
     "facts.not_due_yet":     {"early": "Nothing handed in yet.", "middle": "Nothing handed in yet.", "older": "Nothing handed in yet."},
     "a.still_done":          {"early": "Yes, still done", "middle": "Yes, still done", "older": "Yes, still done"},
     "a.reopen":              {"early": "No, open it again", "middle": "No, reopen it", "older": "No, reopen it"},

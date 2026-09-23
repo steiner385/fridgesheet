@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from datetime import timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from ... import dates
 from ..app import Db, State, render, render_partial
 from ..stores import flags, items, plans, students
 from .. import db, phrasing, tiers, verdicts
@@ -51,11 +52,18 @@ def _plan_step(conn, state, student, view, action: str, request_key: str) -> int
     return plans.save(conn, student["id"], values, now=db.now_iso(state.tz), request_key=request_key, item_id=view.id)
 
 
-def _card(request, conn, state, item_id, slot, status_code=200, **extra) -> HTMLResponse:
-    s, v = _view(conn, state, item_id)
-    r = render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), **extra)
-    r.status_code = status_code
-    return r
+def _already_planned(step) -> HTTPException:
+    """htmx does not swap a 4xx body, so a refused tap is told in a short `detail` that the
+    page shows next to the button (static/app.js), not in a re-rendered card nobody sees."""
+    day = dates.wd_md(date.fromisoformat(step["planned_for"]))
+    return HTTPException(409, f"Already in the plan for {day}. Open the plan to change it.")
+
+
+def _planned_line(request, conn, state, s, v, *, slot, step_id, planned, **extra) -> HTMLResponse:
+    """The done-line for a plan answer or its undo, with the plan panel out of band."""
+    ctx = checkin._context(conn, s, state)
+    ctx.update(item=v, slot=_slot(slot, v.id), step_id=step_id, planned=planned, plan_panel=True, **extra)
+    return render_partial(request, conn, "_answered.html", **ctx)
 
 
 @router.post("/items/{item_id}/answer")
@@ -73,17 +81,15 @@ def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = 
         if earlier is not None and earlier["item_id"] == item_id:
             step_id = earlier["id"]
         elif v.step is not None:
-            return _card(request, conn, state, item_id, slot, status_code=409)
+            raise _already_planned(v.step)
         else:
             try:
                 step_id = _plan_step(conn, state, s, v, answer, request_key)
             except plans.Conflict:
-                return _card(request, conn, state, item_id, slot, status_code=409)
+                raise HTTPException(409, "This card was already answered from this form. Reload the page.")
         s, v = _view(conn, state, item_id)
-        ctx = checkin._context(conn, s, state)
-        ctx.update(item=v, prev=prev, prev_set_at=prev_set_at, slot=_slot(slot, item_id),
-                   step_id=step_id, planned=answer[len("plan:"):], plan_panel=True)
-        return render_partial(request, conn, "_answered.html", **ctx)
+        return _planned_line(request, conn, state, s, v, slot=slot, step_id=step_id, planned=answer[len("plan:"):],
+                             prev=prev, prev_set_at=prev_set_at)
     _apply(conn, item_id, answer, db.now_iso(state.tz))
     s, v = _view(conn, state, item_id)
     return render_partial(request, conn, "_answered.html", student=s, item=v, prev=prev, prev_set_at=prev_set_at,
@@ -105,8 +111,11 @@ def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str 
         step = plans.one(conn, s["id"], int(step_id))
         if step is None or step["item_id"] != item_id:
             raise HTTPException(404, "no such step")
-        if step["revision"] == 1:
-            plans.delete(conn, s["id"], step["id"])
+        if step["revision"] != 1:
+            # Somebody edited the step since the tap: it is theirs now, and saying "undone"
+            # while it stays would be a lie. Say it stays, with the way to it.
+            return _planned_line(request, conn, state, s, v, slot=slot, step_id=step["id"], planned="kept", kept=True)
+        plans.delete(conn, s["id"], step["id"])
         s, v = _view(conn, state, item_id)
         ctx = checkin._context(conn, s, state)
         ctx.update(item=v, slot=_slot(slot, item_id), undone=True, plan_panel=True)

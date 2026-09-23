@@ -1,8 +1,9 @@
 {# A verdict's answer buttons, swapping the element `qid` names (set by the includer). Shared by the
    question card and the check-in's review cards, so both offer the same answers. Every button is a
    one-tap POST; a plan action creates a step with defaults (spec 6.3). One request key per card, so
-   a double-click or a retried POST lands on one step. #}
+   a double-click or a retried POST lands on one step. Work that already has an active step is not
+   offered a second one-tap plan: the item detail's "Plan another step" link is the way to that. #}
   {% set token = request_key() %}
   <div class="answers">
-    {% for a in vd.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endfor %}
+    {% for a in vd.answers if not (a.action.startswith('plan:') and item.step) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endfor %}
   </div>

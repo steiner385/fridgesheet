@@ -58,18 +58,20 @@ Every refresh writes an observation row per item and source only when a field ch
 (`ingest.py`), so the first row that carries a score is when the app first saw a grade. The
 pace module reads those rows for one kid and turns them into samples:
 
-**Grade lag.** For each item and each source, take the earliest observation with a score
+**Grade lag.** For each item, take the earliest observation in either source with a score
 above zero. Its refresh's `started_at` is *seen*. The *anchor* is the Canvas `submitted_at`
-when the source is Canvas and the item has one, otherwise the item's due date. The sample is
+when the item has one, otherwise the item's due date. The sample is
 `max(0, seen.date() - anchor.date())` in days. An item contributes at most one grade-lag
-sample per source.
+sample, so the count on the card is a count of assignments. (Review of the first build: one
+sample per source let an item Canvas had graded before the app existed re-enter through its
+HAC twin as a due-anchored sample, and inflated the count.)
 
 **HAC lag.** For an item with a first-scored observation in both sources, the sample is
 `max(0, hac_seen.date() - canvas_seen.date())`.
 
 **Censoring.** Work the app started watching after it was already graded tells nothing
 about pace: if the first-scored observation belongs to the same refresh as the item's
-`first_seen`, the item is not a sample for that source. Items with no anchor (no due date
+`first_seen`, the item is not a sample, in either source. Items with no anchor (no due date
 and no submission) are not samples. Items that have not been graded yet are not samples;
 they are what the estimate is for.
 
@@ -104,7 +106,8 @@ app knows them.
 `Pace.grade_days(item)` and `Pace.hac_days(item)` each return a `Estimate(days, n, scope)`:
 
 1. this course and kind group, when `estimate` returns a number;
-2. else this course, all kinds pooled;
+2. else this course with all kinds pooled; for grade lag, online work only (a class's auto-graded
+   quizzes must not teach the app that its paper is graded the same day);
 3. else every course in the household whose `courses.teacher` matches this course's
    teacher name (trimmed, case-insensitive), same kind group;
 4. else the default: 7 days, `n = 0`, scope `default`.

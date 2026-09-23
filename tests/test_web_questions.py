@@ -238,3 +238,38 @@ def test_a_planned_item_leaves_the_check_in_queue(tmp_path):
     _plan(c, vid)
     body = c.get("/kids/Alex/check-in").text
     assert f'id="qc-{vid}"' not in body and "Vocabulary" in body.split('<section id="plan"')[1]
+
+
+# --- review: a refusal and a kept step are told to the family, not swallowed --------------------
+
+def test_a_refused_plan_answer_says_why_in_words_the_page_can_show(tmp_path):
+    """htmx does not swap a 409 body; app.js shows a short `detail` next to the button."""
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    r = _plan(c, vid, "plan:tomorrow")
+    assert r.status_code == 409
+    detail = r.json()["detail"]
+    assert "already" in detail.lower() and "9/15" in detail and len(detail) < 300
+
+
+def test_planned_work_offers_no_second_one_tap_plan(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    body = c.get(f"/items/{vid}").text
+    assert 'value="plan:today"' not in body and 'value="plan:tomorrow"' not in body
+    assert "Plan another step" in body                                     # the form is still there
+
+
+def test_undo_on_an_edited_step_says_the_step_stays(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    step = _steps(tmp_path)[0]
+    conn = db.open_db(tmp_path)
+    plans.save(conn, step["student_id"], {**{k: step[k] for k in plans.FIELDS}, "minutes": 20}, now="2026-09-15T15:00:00-04:00",
+               request_key=str(uuid4()), item_id=vid, step_id=step["id"], revision=1)
+    conn.close()
+    r = c.post(f"/items/{vid}/undo", data={"prev": "", "step_id": str(step["id"]), "slot": f"qc-{vid}"})
+    assert r.status_code == 200
+    assert "answer undone" not in r.text and "edited" in r.text and "stays" in r.text
+    assert f'check-in/step?step_id={step["id"]}' in r.text                 # a way to the step
+    assert f'hx-post="/items/{vid}/undo"' not in r.text                    # no undo of an undo

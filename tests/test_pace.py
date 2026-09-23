@@ -42,9 +42,19 @@ def test_the_course_and_kind_group_come_first():
     assert pace.grade_days(_item(kind="online")) == P.Estimate(1, 3, "course_kind")
 
 
-def test_then_the_whole_course_pooled_across_kinds():
+def test_then_the_whole_course_pooled_across_kinds_for_online_work():
     pace = P.Pace(grade={(5, "offline"): [9], (5, "online"): [1, 2]}, hac={}, classes={5: 5}, teachers={5: "michael hoch"})
-    assert pace.grade_days(_item(kind="paper")) == P.Estimate(9, 3, "course")
+    assert pace.grade_days(_item(kind="online")) == P.Estimate(9, 3, "course")
+
+
+def test_paper_work_never_borrows_the_online_pace():
+    """Review: auto-graded quizzes must not teach the app that paper is graded the same day.
+    Offline work skips the pooled tier and goes to the same teacher's offline work, else the default."""
+    pace = P.Pace(grade={(5, "online"): [1, 1, 1, 1], (5, "offline"): [9]}, hac={}, classes={5: 5}, teachers={5: "michael hoch"})
+    assert pace.grade_days(_item(kind="paper")) == P.Estimate(7, 0, "default")
+    pace = P.Pace(grade={(5, "online"): [1, 1, 1, 1], (8, "offline"): [6, 7, 8]}, hac={},
+                  classes={5: 5, 8: 8}, teachers={5: "michael hoch", 8: "michael hoch"})
+    assert pace.grade_days(_item(kind="paper")) == P.Estimate(8, 3, "teacher")
 
 
 def test_then_the_same_teacher_across_the_household_same_kind():
