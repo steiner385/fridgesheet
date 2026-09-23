@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
 
+from . import IS_WINDOWS
+
 CHUNK = 1 << 20              # 1 MiB; the asset is ~286 MB and never held in memory
 #: Free space wanted before starting: the installer on disk plus the install it performs.
 SPACE_FACTOR = 2
@@ -143,3 +145,13 @@ def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | N
         (home / PENDING_NAME).replace(home / LAST_NAME)
         return "ok", pending
     return "failed", pending
+
+
+def spawn_installer(installer: Path, log_path: Path, *, popen=None) -> None:
+    """Start the installer outside this process's tree, then expect to be killed by it."""
+    if IS_WINDOWS:
+        from . import selfupdate_windows as impl
+    else:
+        from . import selfupdate_linux as impl
+    kwargs = {"popen": popen} if popen is not None else {}
+    impl.spawn_installer(installer, log_path, **kwargs)
