@@ -286,17 +286,28 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
     """Rows, plus how many events the store's own cap left out of the feed entirely -- a count
     `build` folds into `Rendered.truncated` so a household past the cap is told, not just shown
     fewer rows than it has."""
-    keys = {s["key"] for s in students_store.visible(conn)}
-    feed = changes_store.since(conn, since=now - timedelta(days=365), limit=MAX_ROWS, prefs=prefs)
+    visible = students_store.visible(conn)
+    keys = {s["key"] for s in visible}
+    start = now - timedelta(days=365)
+    # A scoped report asks the store for each of its kids, so the cap applies to their events,
+    # not to every kid's with the others dropped afterwards (#6).
+    if d.scope:
+        feeds = [changes_store.since(conn, since=start, limit=MAX_ROWS, prefs=prefs, student_id=s["id"])
+                 for s in visible if s["key"] in d.scope]
+        events = [e for f in feeds for e in f]
+        dropped = sum(f.dropped for f in feeds)
+    else:
+        feed = changes_store.since(conn, since=start, limit=MAX_ROWS, prefs=prefs)
+        events, dropped = list(feed), feed.dropped
     out = []
-    for e in feed:
+    for e in events:
         if e.student_key not in keys or (d.scope and e.student_key not in d.scope):
             continue
         row = {"at": _date(e.at), "kid": nicknames.get(e.student_key, e.student_key),
                "what": e.label, "item": e.item_name or "", "course": e.course_short or "",
                "source": e.source or "", "detail": e.detail}
         out.append((row, _keys("changes", row, {"at": e.at})))
-    return out, feed.dropped
+    return out, dropped
 
 
 def _keep(row: dict, f: dict) -> bool:

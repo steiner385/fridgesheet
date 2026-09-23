@@ -3,8 +3,11 @@ stored definition the builder cannot use, and run history naming saved reports."
 from __future__ import annotations
 
 import csv
+import re
 import io
 import json
+
+import pytest
 from datetime import date
 
 from fridgesheet.web import db
@@ -86,3 +89,59 @@ def test_run_history_names_a_saved_report_by_its_title(tmp_path):
     body = _client(tmp_path).get("/runs").text
     assert "<td>Weekly grades</td>" in body
     assert f"<td>view:{rid}</td>" not in body
+
+
+def test_a_scoped_changes_report_asks_the_store_for_that_kid_before_the_cap(tmp_path, monkeypatch):
+    """#6: the changes source took the newest MAX_ROWS events for every kid and only then
+    dropped the other kids, so a busy sibling could push this kid's rows past the cap."""
+    from fridgesheet.web.stores import changes as changes_store
+    conn = seed(tmp_path)
+    sam = conn.execute("SELECT id FROM students WHERE key = 'Sam'").fetchone()["id"]
+    conn.close()
+    asked = []
+    real = changes_store.since
+    monkeypatch.setattr(changes_store, "since", lambda conn, **kw: asked.append(kw.get("student_id")) or real(conn, **kw))
+    rid = _save(tmp_path, source="changes", columns=["kid", "what"], scope=["Sam"])
+    rows = _client(tmp_path).get(f"/reports/{rid}/export.json").json()["rows"]
+    assert asked == [sam]
+    assert rows and {r["kid"] for r in rows} == {"Sam"}
+
+
+def test_the_preview_says_how_many_rows_it_has(tmp_path):
+    seed(tmp_path).close()
+    r = _client(tmp_path).post("/reports/preview", data={"title": "Mine", "source": "items", "columns": ["kid", "name"]})
+    assert re.search(r"\d+ rows?\b", r.text)
+
+
+def test_changing_the_source_redraws_the_builder_for_that_source(tmp_path):
+    """#6: the column, group, sort and filter lists were drawn for the source the page opened
+    with; picking another source left them listing columns it does not have."""
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    body = c.get("/reports/new").text
+    assert 'hx-post="/reports/builder"' in body and 'hx-trigger="change"' in body
+    r = c.post("/reports/builder", data={"title": "Mine", "source": "changes", "columns": ["kid", "name", "status"]})
+    assert r.status_code == 200
+    assert 'value="what"' in r.text and 'value="status"' not in r.text          # changes' columns, not items'
+    assert re.search(r'value="kid"\s+checked', r.text)                           # a column both have stays ticked
+
+
+def test_deleting_a_report_already_deleted_in_another_tab_is_a_plain_404(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path)
+    c = _client(tmp_path)
+    assert c.post(f"/reports/{rid}/delete").status_code == 200
+    r = c.post(f"/reports/{rid}/delete")
+    assert r.status_code == 404
+
+
+def test_running_a_saved_report_that_was_deleted_says_so(tmp_path):
+    from fridgesheet import reports as registry
+    from fridgesheet.reports.base import ReportError
+    seed(tmp_path).close()
+    rid = _save(tmp_path)
+    conn = db.open_db(tmp_path)
+    store.delete(conn, rid)
+    conn.close()
+    with pytest.raises(ReportError, match=f"view:{rid}"):
+        registry.resolve(f"view:{rid}", tmp_path)

@@ -94,6 +94,26 @@ async def create(request: Request, conn: sqlite3.Connection = Db, state=State):
     return await _save(request, conn, state, None)
 
 
+@router.post("/reports/builder")
+async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
+    """The builder redrawn for the source just picked (#6): the column, group, sort and filter
+    lists are that source's, and whatever the old choice had that this source lacks is
+    dropped rather than carried as a problem. Nothing is saved."""
+    form = await request.form()
+    d = definition_from_form(form)
+    known = views.COLUMNS.get(d.source) or {}
+    d = views.Definition(
+        title=d.title, source=d.source, scope=d.scope,
+        columns=tuple(c for c in d.columns if c in known) or tuple(views.DEFAULT_COLUMNS.get(d.source, ())),
+        filters=tuple(f for f in d.filters if f.get("field") in known),
+        group_by=d.group_by if d.group_by in known else None,
+        sort=tuple(s for s in d.sort if s.get("column") in known),
+        orientation=d.orientation, per_kid_sections=d.per_kid_sections)
+    rid = form.get("report_id")
+    report = store.by_id(conn, int(rid)) if rid and str(rid).isdigit() else None
+    return _builder(request, conn, state, report=report, d=d)
+
+
 @router.post("/reports/preview")
 async def preview(request: Request, conn: sqlite3.Connection = Db, state=State):
     form = await request.form()
@@ -239,7 +259,8 @@ def export_json(report_id: int, conn: sqlite3.Connection = Db, state=State):
     `columns` and `labels` are the report's columns, by id and by heading; `rows` is every row
     in the printed order. `groups` is those same rows split the way the PDF prints them --
     one object per group with the heading in `label` -- so a grouped report does not lose its
-    grouping on the way out. A report with no `group_by` has one group whose label is "".
+    grouping on the way out. A report with no `group_by` has one group whose label is "" --
+    or none at all when no row matched, so `groups: []` means an empty report.
     """
     row, d, rendered = _rendered_or_400(conn, state, report_id)
     name = _filename(d.title or row["name"], state.now().date(), "json")
