@@ -11,9 +11,12 @@
   <span>Weeks:</span>
   {% for n in (4, 8, 16) %}<a class="badge {{ 'current' if weeks == n }}" href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
 </div>
-{% if not series and not longest %}
+{# With nothing at all yet, one sentence says so; the cards, the charts and the table each had
+   their own way of saying the same thing (#5). #}
+{% set empty = not series and not longest and record.on_time_rate is none %}
+{% if empty %}
 <p class="muted">Not enough history yet. Trends fill in as refreshes accumulate — come back after a few days of runs.</p>
-{% endif %}
+{% else %}
 <div class="cards">
   <div class="card"><h2>On-time hand-ins</h2>
     {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same
@@ -54,4 +57,5 @@
   {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
   </tbody>
 </table>
+{% endif %}
 {% endblock %}

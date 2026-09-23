@@ -23,6 +23,9 @@
   {% endfor %}
 </div>
 <div id="changes">
+{# Only an htmx request to /changes renders just this block, and nothing in the UI sends one
+   today: the chips and the pager are plain links (see above). It is kept, and tested, as the
+   one place to fetch the rows alone -- cheap to keep, and what an in-place pager would use. #}
 {% block partial %}
 {% include "_change_rows.html" %}
 {% endblock %}
