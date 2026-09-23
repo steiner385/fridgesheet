@@ -63,6 +63,16 @@ def test_too_little_free_space_refuses_before_downloading(tmp_path):
     assert calls == []
 
 
+def test_the_default_free_space_check_works_when_the_folder_does_not_exist_yet(tmp_path):
+    """The real first-run path: a household's updates/ folder does not exist before the
+    first update, and the caller passes `size` but not `free_bytes`. Every other test
+    supplies free_bytes, which is exactly why this crashed unnoticed."""
+    dest = tmp_path / "does-not-exist-yet" / "Setup.exe"
+    out = selfupdate.download_verified("https://x/s.exe", GOOD, dest,
+                                       opener=_opener(BODY), log=_log, size=len(BODY))
+    assert out == dest and dest.read_bytes() == BODY
+
+
 def test_a_download_that_dies_partway_leaves_nothing_behind(tmp_path):
     """Review Focus 4: the space check is not a reservation. A partial file must never be
     left where something could execute it."""

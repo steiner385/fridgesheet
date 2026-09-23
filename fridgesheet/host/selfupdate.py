@@ -41,11 +41,22 @@ def download_verified(url: str, digest: str, dest: Path, *, opener: Callable | N
     if not digest.startswith("sha256:") or len(digest) != len("sha256:") + 64:
         raise UpdateError("That release has no installer to download.")
     want = digest.split(":", 1)[1].lower()
-    free = shutil.disk_usage(dest.parent).free if free_bytes is None else free_bytes
+    # The updates/ folder does not exist before a household's first update, and
+    # disk_usage() needs a path that exists -- create it before asking the filesystem
+    # anything about it, so the common first-run case doesn't crash.
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if free_bytes is None:
+        try:
+            free = shutil.disk_usage(dest.parent).free
+        except OSError as e:
+            # Callers only ever have to handle UpdateError -- a vanished drive or a
+            # permissions problem is exactly the kind of thing this promise covers.
+            raise UpdateError(f"Could not check free space: {e}") from None
+    else:
+        free = free_bytes
     if size and free < size * SPACE_FACTOR:
         raise UpdateError(f"Not enough free space: {size * SPACE_FACTOR // 10**6} MB needed, "
                           f"{free // 10**6} MB free.")
-    dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_suffix(dest.suffix + ".part")
     h = hashlib.sha256()
     got = 0
