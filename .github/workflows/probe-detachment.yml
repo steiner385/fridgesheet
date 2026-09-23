@@ -49,19 +49,38 @@ jobs:
           # C: the reparenting fallback -- cmd exits, breaking the chain.
           subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, w,
                             os.path.join(d, "c.pid")])
+          # D: the same, but every path contains a space. `start` reads a lone quoted
+          # argument as the window title, so the empty "" title is what keeps the real
+          # path from being swallowed. This is the case that would bite a household
+          # whose username has a space in it.
+          spaced = os.path.join(d, "dir with space", "worker copy.py")
+          subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, spaced,
+                            os.path.join(d, "d.pid")])
           open(os.path.join(d, "parent.pid"), "w").write(str(os.getpid()))
           time.sleep(120)
           '@ | Set-Content (Join-Path $dir "parent.py") -Encoding utf8
 
+          # D lives under a path WITH A SPACE. `cmd /c start` treats a lone quoted
+          # argument as the window title, so a naive `start "C:\Program Files\x.exe"`
+          # opens a titled window and runs nothing. Any household whose Windows
+          # username contains a space would hit that, and the update would silently
+          # do nothing while reporting success.
+          $spaced = Join-Path $dir "dir with space"
+          New-Item -ItemType Directory -Force $spaced | Out-Null
+          Copy-Item (Join-Path $dir "worker.py") (Join-Path $spaced "worker copy.py")
+
           Start-Process -FilePath "python" -ArgumentList @((Join-Path $dir "parent.py"), $dir) -WindowStyle Hidden
           foreach ($i in 1..40) {
-            $all = @("parent.pid","a.pid","b.pid","c.pid") | ForEach-Object { Join-Path $dir $_ }
-            if (($all | Where-Object { (Test-Path $_) -and ((Get-Content $_ -Raw).Trim() -match '^\d+$') }).Count -eq 4) { break }
+            $all = @("parent.pid","a.pid","b.pid","c.pid","d.pid") | ForEach-Object { Join-Path $dir $_ }
+            if (($all | Where-Object { (Test-Path $_) -and ((Get-Content $_ -Raw).Trim() -match '^\d+$') }).Count -eq 5) { break }
             Start-Sleep -Milliseconds 500
           }
           function PidOf($n) { [int](Get-Content (Join-Path $dir $n) -Raw).Trim() }
           $parent = PidOf "parent.pid"; $a = PidOf "a.pid"; $b = PidOf "b.pid"; $c = PidOf "c.pid"
-          Write-Host "parent=$parent  A(flagged)=$a  B(control)=$b  C(cmd-start)=$c"
+          $dPath = Join-Path $dir "d.pid"
+          if (-not (Test-Path $dPath)) { throw 'D never started -- cmd /c start failed on a path containing a space. That IS the finding.' }
+          $d = PidOf "d.pid"
+          Write-Host "parent=$parent  A(flagged)=$a  B(control)=$b  C(cmd-start)=$c  D(cmd-start,spaces)=$d"
 
           # Confirm A and B really are recorded descendants of the parent, or the
           # experiment is measuring nothing.
@@ -77,10 +96,11 @@ jobs:
 
           function Alive($p) { [bool](Get-Process -Id $p -ErrorAction SilentlyContinue) }
           if (Alive $parent) { throw "the parent survived its own tree kill; experiment invalid" }
-          $aliveA = Alive $a; $aliveB = Alive $b; $aliveC = Alive $c
+          $aliveA = Alive $a; $aliveB = Alive $b; $aliveC = Alive $c; $aliveD = Alive $d
           Write-Host "RESULT  A flagged (DETACHED|NEW_GROUP): $(if($aliveA){'SURVIVED'}else{'KILLED'})"
           Write-Host "RESULT  B control (no flags):          $(if($aliveB){'SURVIVED'}else{'KILLED'})"
           Write-Host "RESULT  C cmd /c start (reparented):   $(if($aliveC){'SURVIVED'}else{'KILLED'})"
+          Write-Host "RESULT  D cmd /c start, path with spaces: $(if($aliveD){'SURVIVED'}else{'KILLED'})  (it started, so quoting held)"
           Write-Host ""
           if ($aliveB) {
             Write-Host "VERDICT: INVALID -- the unflagged control survived, so taskkill /T never reached these children."
@@ -89,8 +109,9 @@ jobs:
           } else {
             Write-Host "VERDICT: PREMISE IS FALSE -- the flags do NOT defeat taskkill /T."
             Write-Host "         The installer would kill itself mid-upgrade."
-            if ($aliveC) { Write-Host "         The cmd /c start fallback DOES survive: that is the fix." }
+            if ($aliveC -and $aliveD) { Write-Host "         The cmd /c start fallback DOES survive, spaces included: that is the fix." }
+            elseif ($aliveC) { Write-Host "         cmd /c start survives, but NOT with spaces in the path -- quoting needs work." }
             else { Write-Host "         The cmd /c start fallback did NOT survive either -- needs another approach." }
           }
-          Get-Process -Id @($a,$b,$c) -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process -Id @($a,$b,$c,$d) -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
