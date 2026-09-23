@@ -133,6 +133,13 @@ def test_a_populated_schema_1_file_migrates_to_2_with_everything_still_in_it(tmp
     assert db.migrate(conn) == 2
     assert [tuple(r) for r in conn.execute("SELECT version FROM schema_version")] == [(2,)]
     conn.close()
+    # And a fresh connection -- the next request, the next process -- sees the migrated file
+    # as it is, with nothing migrated twice and nothing lost (#2).
+    again = db.open_db(tmp_path)
+    assert again.execute("SELECT version FROM schema_version").fetchone()[0] == 2
+    assert again.execute("SELECT COUNT(*) FROM items").fetchone()[0] == before["items"]
+    assert again.execute("SELECT body FROM notes").fetchone()[0] == "teacher said she would regrade"
+    again.close()
 
 
 def test_a_file_under_the_old_name_is_renamed_and_then_migrated_in_one_open(tmp_path):
