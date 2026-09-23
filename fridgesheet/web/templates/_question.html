@@ -1,7 +1,7 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set vd = item.verdict %}
 <div class="q card" id="q-{{ item.id }}" data-focus>
-  <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}<span>due {{ item.due | wd_md }}</span>{% endif %}</div>
+  <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}<span>due {{ item.due | wd_md }}{% if item.due_time %} {{ item.due_time }}{% endif %}</span>{% endif %}</div>
   <p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   <div class="answers">

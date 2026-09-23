@@ -179,6 +179,18 @@ def get_db(request: Request) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def question_counts(conn: sqlite3.Connection, state) -> dict[str, int]:
+    """How many questions each kid has, for the rail. This runs every verdict for every kid on
+    every page render: fine at household scale (tens of items per kid). If it ever shows up in
+    a profile, cache it per refresh id."""
+    from .stores import items as items_store
+    out = {}
+    for s in students.visible(conn):
+        views = items_store.list_items(conn, s, now=state.now(), rules=state.rules(), show="all", prefs=state.sources())
+        out[s["key"]] = sum(1 for v in views if v.verdict.state == "question")
+    return out
+
+
 def page_context(request: Request, conn: sqlite3.Connection) -> dict:
     state = get_state(request)
     r = refreshes.latest(conn)
@@ -193,6 +205,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
         "staleness": staleness.check(conn, state.now()),
+        "question_counts": question_counts(conn, state),
     }
 
 

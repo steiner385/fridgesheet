@@ -130,3 +130,16 @@ def test_views_carry_as_of_times_and_the_teacher_email(tmp_path):
     started = conn.execute("SELECT started_at FROM refreshes ORDER BY id DESC LIMIT 1").fetchone()["started_at"]
     assert quiz.canvas_as_of == started and quiz.hac_as_of == started
     assert quiz.teacher_email == "hoch@example.org"
+
+
+def test_near_twins_lists_a_missed_pairing_and_not_unrelated_work(tmp_path):
+    from tests.web_fixtures import snapshot
+    snap = snapshot()
+    eng = snap["students"]["Alex"]["canvas"]["courses"][0]
+    eng["assignments"].append(dict(eng["assignments"][-1], id=83, name="Participation grade",
+                                   due_at="2026-09-09T23:59:00-04:00", submission_types=["none"]))
+    conn = seed(tmp_path, snap)
+    views = items.list_items(conn, _doug(conn), now=NOW, rules=RULES, show="all")
+    pairs = {(c.name, h.name) for c, h in items.near_twins(conn, views)}
+    assert ("Participation grade", "Participation") in pairs
+    assert not any(c == "Lab notebook" for c, _ in pairs)

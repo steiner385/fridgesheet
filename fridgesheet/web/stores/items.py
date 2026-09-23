@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 from ...dates import day_part, due_time
 from ... import sources
+from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile, verdicts
 from . import num
@@ -371,6 +372,27 @@ def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
              and (not v.handled or any(c.kind == "stale_flag" for c in by_item[v.id]))}
     out = [(views[i], cs) for i, cs in by_item.items() if i in views]
     return sorted(out, key=lambda pair: _sort_key("due")(pair[0]))
+
+
+def near_twins(conn: sqlite3.Connection, views: list[ItemView]) -> list[tuple[ItemView, ItemView]]:
+    """One-source items that are probably one assignment the pairing missed: in a course and
+    its twin, due within three days, titles sharing at least 40% of their words. For the
+    maintainer (spec cause 7), never a question for the family."""
+    peers = {r["id"]: r["peer_course_id"] for r in conn.execute("SELECT id, peer_course_id FROM courses")}
+    canvas_only = [v for v in views if v.sources == ("canvas",)]
+    hac_only = [v for v in views if v.sources == ("hac",)]
+    out = []
+    for c in canvas_only:
+        for h in hac_only:
+            if peers.get(c.course_id) != h.course_id or c.due is None or h.due is None:
+                continue
+            a, b = reconcile.comparable(c.due, h.due)
+            if abs((a - b).days) > 3 or same_item(c.name, h.name):
+                continue
+            wa, wb = set(norm_name(c.name).split()), set(norm_name(h.name).split())
+            if wa and wb and len(wa & wb) / len(wa | wb) >= 0.4:
+                out.append((c, h))
+    return out
 
 
 @dataclass(frozen=True)

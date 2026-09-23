@@ -62,7 +62,7 @@
   {% endif %}
   {% if w.past_window or w.handled %}
   <p class="muted">Not shown:
-    {% if w.past_window %}<a href="/reconcile?kid={{ s.key }}&amp;kind=past_credit">{{ w.past_window | length }} past the late-work window ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
+    {% if w.past_window %}<a href="/kids/{{ s.key }}?show=all&amp;outcome=not_done">{{ w.past_window | length }} past the late-work window ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
     {%- if w.past_window and w.handled %} · {% endif %}
     {% if w.handled %}<a href="/kids/{{ s.key }}?show=all&amp;flagged=handled">{{ w.handled | length }} handled</a>{% endif %}
   </p>
