@@ -117,3 +117,64 @@ def test_stale_check_accepts_a_naive_flag_timestamp():
     """Review Focus 4: older flag rows carry no offset."""
     v = run(item(), {"canvas": canvas(rid=3, missing=1)}, flag="done", flag_set_at="2026-09-10T08:00:00")
     assert v.kind == "stale_answer"
+
+
+def test_canvas_graded_hac_blank_is_waiting_until_seven_days():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=18.0), "hac": hac(rid=3)})
+    assert (v.state, v.kind) == (V.WAITING, "hac_lag")
+    assert v.asks_on.isoformat() == "2026-09-22"
+
+
+def test_canvas_graded_hac_blank_after_seven_days_is_a_question():
+    v = run(item(), {"canvas": canvas(rid=2, state="graded", score=18.0), "hac": hac(rid=2)})
+    assert (v.state, v.kind) == (V.QUESTION, "hac_still_blank")
+    assert v.facts == {"canvas": "18 of 30", "when": "9/8"}
+
+
+def test_a_class_with_no_hac_twin_never_waits_for_hac():
+    """Review Focus 3."""
+    v = run(item(peer=None), {"canvas": canvas(rid=1, state="graded", score=18.0)})
+    assert v.state == V.STATUS
+
+
+def test_a_canvas_zero_with_hac_blank_is_not_done_not_a_hac_question():
+    v = run(item(), {"canvas": canvas(rid=1, state="graded", score=0.0), "hac": hac(rid=1)})
+    assert (v.state, v.kind) == (V.STATUS, "not_done")
+
+
+def test_submitted_and_ungraded_is_waiting_on_the_teacher():
+    v = run(item(), {"canvas": canvas(state="submitted", submitted_at="2026-09-14T20:00:00-04:00")})
+    assert (v.state, v.kind) == (V.WAITING, "teacher_grading")
+
+
+def test_paper_with_no_grade_waits_seven_calendar_days():
+    v = run(item(kind="paper", due="2026-09-10T23:59:00-04:00"), {"canvas": canvas()})
+    assert (v.state, v.kind) == (V.WAITING, "awaiting_grade")
+    assert v.asks_on.isoformat() == "2026-09-17"
+
+
+def test_paper_with_no_grade_after_seven_days_is_a_question():
+    v = run(item(kind="paper", due="2026-09-08T23:59:00-04:00"), {"canvas": canvas()})
+    assert (v.state, v.kind) == (V.QUESTION, "still_ungraded")
+    assert v.facts == {"kind": "paper", "due": "Tue 9/8"}
+
+
+def test_hac_only_with_no_grade_follows_the_same_grace():
+    v = run(item(kind="", due="2026-09-08T23:59:00-04:00", peer=None), {"hac": hac()})
+    assert v.kind == "still_ungraded"
+
+
+def test_an_undated_item_is_a_status_never_a_question():
+    """Review Focus 1."""
+    v = run(item(kind="paper", due=None), {"canvas": canvas()})
+    assert v.state == V.STATUS
+
+
+def test_open_work_past_its_credit_window_is_a_status():
+    v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
+    assert (v.state, v.kind) == (V.STATUS, "past_credit")
+
+
+def test_open_work_inside_its_window_is_a_not_done_status():
+    v = run(item(due="2026-09-12T23:59:00-04:00"), {"canvas": canvas(missing=1)})
+    assert (v.state, v.kind) == (V.STATUS, "not_done")

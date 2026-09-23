@@ -155,6 +155,45 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     return _waiting_or_status(item, c, h, now=now, rules=rules, refresh_times=refresh_times, prefer=prefer, obs=obs)
 
 
+def _days_past(due: datetime | None, now: datetime) -> int | None:
+    return None if due is None else (now.date() - due.date()).days
+
+
 def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) -> Verdict:
-    """Rules 9-15. Replaced in Task 4; until then everything left is a status."""
-    return Verdict(STATUS, outcomes.classify(item, obs, now, prefer=prefer))
+    """Rules 9-15: what time will settle, and the plain facts left over."""
+    outcome = outcomes.classify(item, obs, now, prefer=prefer)
+    points = item["points"]
+    due = reconcile.due_of(item)
+    cs = c["score"] if c is not None else None
+    hs = h["score"] if h is not None else None
+
+    # 9-10: Canvas graded it and HAC, which this class has, still has nothing.
+    if cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
+        seen = _observed_at(c, refresh_times)
+        if seen is not None:
+            asks_on = seen.date() + timedelta(days=GRACE_DAYS)
+            if now.date() >= asks_on:
+                return Verdict(QUESTION, "hac_still_blank", {"canvas": _of(cs, points), "when": f"{seen.month}/{seen.day}"},
+                               ANSWERS["hac_still_blank"])
+            return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on)
+
+    # 11: handed in online, no grade anywhere.
+    if c is not None and c["submitted_at"] and cs is None and hs is None:
+        return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])})
+
+    # 12-13: nothing to submit online, past due, no grade anywhere.
+    if outcome == outcomes.UNKNOWN and due is not None:
+        asks_on = due.date() + timedelta(days=GRACE_DAYS)
+        facts = {"kind": item["kind"] or "HAC-only", "due": f"{due:%a} {due.month}/{due.day}"}
+        if _days_past(due, now) >= GRACE_DAYS:
+            return Verdict(QUESTION, "still_ungraded", facts, ANSWERS["still_ungraded"])
+        return Verdict(WAITING, "awaiting_grade", facts, ANSWERS["awaiting_grade"], asks_on=asks_on)
+
+    # 14: not done and past the late-work window.
+    if outcome == outcomes.NOT_DONE and due is not None:
+        late, deadline = reconcile._comparable(now, rules.deadline(item["kid"], item["course_name"], due))
+        if late > deadline:
+            return Verdict(STATUS, "past_credit")
+
+    # 15: a plain outcome.
+    return Verdict(STATUS, outcome)
