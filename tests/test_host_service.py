@@ -103,9 +103,10 @@ def test_logon_task_xml_runs_at_logon_and_restarts():
 
 def test_windows_install_creates_and_starts_the_task(tmp_path):
     calls, run = _recorder()
-    service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
+    note = service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
     assert calls[0][:4] == ["schtasks", "/Create", "/TN", "Fridge Sheet - web"] and "/XML" in calls[0] and "/F" in calls[0]
     assert calls[1] == ["schtasks", "/Run", "/TN", "Fridge Sheet - web"]
+    assert not note                                              # today's path: nothing to report
 
 
 def test_windows_remove_ends_then_deletes_and_tolerates_absence():
@@ -144,6 +145,20 @@ def test_command_for_source_and_frozen(monkeypatch):
     monkeypatch.setattr(sys, "executable", r"C:\App\FridgeSheet.exe")
     exe, args, wd = service.command_for()
     assert (exe, args, wd) == (r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")
+
+
+def test_install_service_folds_a_fallback_note_into_its_report(monkeypatch):
+    """`cmd_service` prints exactly `install_service()`'s return value -- this is how a
+    fallback (graphy, 2026-09-23: /Create denied, existing task matched and was started
+    instead of rewritten) becomes visible to whoever reads the install log, without
+    `cmd_service` itself needing to know the fallback happened."""
+    monkeypatch.setattr(service, "_impl", service_windows)
+    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run: "started the existing task")
+    monkeypatch.setattr(service, "command_for", lambda: ("/py", "-m fridgesheet.cli web --no-browser", "/wd"))
+    assert service.install_service() == "/py -m fridgesheet.cli web --no-browser (started the existing task)"
+
+    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run: "")
+    assert service.install_service() == "/py -m fridgesheet.cli web --no-browser"
 
 
 def test_cli_service_show_prints_the_state(capsys, monkeypatch):

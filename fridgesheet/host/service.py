@@ -31,8 +31,14 @@ else:
 
 def install_service(run=subprocess.run) -> str:
     exe, args, workdir = command_for()
-    _impl.install(exe, args, workdir, run=run)
-    return f"{exe} {args}"
+    note = _impl.install(exe, args, workdir, run=run)
+    # `service_windows.install` returns "" on today's ordinary path and a non-empty note when
+    # `/Create` was refused but an already-registered, matching task was started instead of
+    # rewritten (graphy, 2026-09-23) -- fold it in so `cmd_service`'s existing
+    # `print(f"Installed ...: {service.install_service()}")` says which one happened, without
+    # `cmd_service` itself needing to know about the fallback. `service_linux.install` returns
+    # None, which is falsy here just the same.
+    return f"{exe} {args} ({note})" if note else f"{exe} {args}"
 
 
 def remove_service(run=subprocess.run) -> None:
