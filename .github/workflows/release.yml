@@ -22,11 +22,11 @@ concurrency:
 jobs:
   build:
     # A tag push or manual dispatch always runs; a `ci`-triggered run only proceeds when ci
-    # succeeded and the merge commit did not opt out.
+    # succeeded. Whether the merge commit opted out with [skip release] needs the checkout
+    # below (packaging/skip_release.py), so that check is a step, not part of this condition.
     if: >-
       github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       !contains(github.event.workflow_run.head_commit.message, '[skip release]'))
+      github.event.workflow_run.conclusion == 'success'
     runs-on: windows-latest
     permissions:
       contents: write     # needed by both the version-picking step's tag push and Publish, below
@@ -45,6 +45,20 @@ jobs:
         run: |
           $v = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
           if ($env:REF_NAME -ne "v$v") { throw "tag $env:REF_NAME does not match pyproject version $v" }
+      - name: Check for a [skip release] merge commit
+        # The marker only counts on a line of its own (packaging/skip_release.py) -- a plain
+        # `contains()` on the whole message tripped on PR #61's own commit, which *explained*
+        # the marker in prose rather than using it.
+        if: github.event_name == 'workflow_run'
+        id: skip_check
+        shell: pwsh
+        env:
+          HEAD_COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          $skip = ($env:HEAD_COMMIT_MESSAGE | python packaging\skip_release.py).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "skip_release.py failed" }
+          Write-Host "skip release: $skip"
+          "skip=$skip" >> $env:GITHUB_OUTPUT
       - name: Pick and tag the version for this merge
         # Only a `ci`-triggered run gets here without an operator having already chosen a
         # version by hand (a pushed tag, or workflow_dispatch off a checked-out ref). The
@@ -52,7 +66,7 @@ jobs:
         # reads it) names the installer correctly; that edit is never committed back to
         # main -- packaging/pick_version.py's docstring explains why pyproject.toml is left
         # as the floor between deliberate bumps rather than kept in lockstep.
-        if: github.event_name == 'workflow_run'
+        if: github.event_name == 'workflow_run' && steps.skip_check.outputs.skip != 'true'
         id: version
         shell: pwsh
         run: |
@@ -67,15 +81,19 @@ jobs:
           git tag "v$next"
           git push origin "v$next"
       - name: Build, smoke-test and package
+        if: github.event_name != 'workflow_run' || steps.skip_check.outputs.skip != 'true'
         shell: pwsh
         run: .\packaging\windows\build.ps1
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'workflow_run' || steps.skip_check.outputs.skip != 'true'
         with:
           name: FridgeSheet-Setup
           path: dist/FridgeSheet-Setup-*.exe
           if-no-files-found: error
       - name: Publish the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_run'
+        if: >-
+          (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_run') &&
+          (github.event_name != 'workflow_run' || steps.skip_check.outputs.skip != 'true')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.version.outputs.version && format('v{0}', steps.version.outputs.version) || github.ref_name }}
