@@ -262,9 +262,6 @@ class FakeScheduling:
             raise self._describe_error
         return self._info.get(key, host.ScheduleInfo("systemd", False, None, None))
 
-    def task_name(self, key):
-        return f"Fridge Sheet - {key}"
-
     def blocking_name(self, key):
         """The Linux unit name a real `scheduling_linux` would name in an unmanageable-row
         refusal: `LEGACY_TIMERS[key]` for the one key that has a hand-written unit under a

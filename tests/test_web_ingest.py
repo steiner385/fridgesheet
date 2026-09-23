@@ -236,7 +236,7 @@ def test_two_kids_in_like_named_classes_keep_separate_items(tmp_path):
     """
     conn = db.open_db(tmp_path)
     kid = lambda cid: {                                                                   # noqa: E731
-        "name": "Stein", "canvas_id": cid,
+        "name": "Rivera", "canvas_id": cid,
         "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
                                 "grade": {}, "staff": [], "assignments": [_assignment(77, "Quiz 1")]}]},
         "hac": {"week_view": [], "classes": [_hac_class("Honors English 9 S1", "13001 - 5", [_reading_log()])]},

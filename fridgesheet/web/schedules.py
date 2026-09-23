@@ -80,7 +80,19 @@ def _table(doc: dict, key: str) -> dict:
     return doc[key]
 
 
-def _unmanageable(key: str, title: str, scheduling) -> str | None:
+def _describe_once(key: str, scheduling):
+    """`(info, error)` from one `describe` call, so `forget` asks the host once (#8) and both of
+    its checks read the same answer. A failure other than `NotSupported` is logged here, once."""
+    try:
+        return scheduling.describe(key), None
+    except host.NotSupported as e:
+        return None, e
+    except Exception as e:              # noqa: BLE001  same swallow, and the same warning, as rows()
+        log.warning("could not describe the schedule for %s (%s): %s", key, type(e).__name__, e)
+        return None, e
+
+
+def _unmanageable(key: str, title: str, scheduling, described=None) -> str | None:
     """The error to refuse a write with, or None when this app may manage this report's schedule.
 
     The template disables the controls on an unmanageable row; this is the same rule on the
@@ -92,13 +104,9 @@ def _unmanageable(key: str, title: str, scheduling) -> str | None:
     degrades to a line of text on the page (`rows`), and `install`/`remove` do their own
     ownership check before touching anything.
     """
-    try:
-        info = scheduling.describe(key)
-    except host.NotSupported:
-        return None                     # nothing here schedules anything; nothing to protect
-    except Exception as e:              # noqa: BLE001  same swallow, and the same warning, as rows()
-        log.warning("could not describe the schedule for %s (%s): %s", key, type(e).__name__, e)
-        return None
+    info, _ = described or _describe_once(key, scheduling)
+    if info is None:
+        return None                     # nothing here schedules anything, or it cannot say
     if info.manageable:
         return None
     name = scheduling.blocking_name(key)
@@ -109,7 +117,7 @@ def _unmanageable(key: str, title: str, scheduling) -> str | None:
             f"{name} -- then save here.")
 
 
-def _installed_or_unknown(key: str, scheduling) -> bool:
+def _installed_or_unknown(key: str, scheduling, described=None) -> bool:
     """False when nothing is installed for `key`, or when nothing here could have installed it.
 
     `forget` uses this to decide whether `remove()` is worth calling at all, and the two
@@ -128,12 +136,10 @@ def _installed_or_unknown(key: str, scheduling) -> bool:
     systemd cannot reach the bus, since `_is_enabled` treats a non-zero `is-enabled` as "no"
     rather than raising.
     """
-    try:
-        return scheduling.describe(key).installed
-    except host.NotSupported:
-        return False
-    except Exception:                   # noqa: BLE001  same swallow as rows()/_unmanageable
-        return True
+    info, error = described or _describe_once(key, scheduling)
+    if info is not None:
+        return info.installed
+    return not isinstance(error, host.NotSupported)
 
 
 def forget(key: str, *, home: Path, log: Callable[[str], None], title: str = "", scheduling=None) -> Outcome:
@@ -157,7 +163,8 @@ def forget(key: str, *, home: Path, log: Callable[[str], None], title: str = "",
     """
     if scheduling is None:
         from ..host import scheduling
-    refusal = _unmanageable(key, title or key, scheduling)
+    described = _describe_once(key, scheduling)
+    refusal = _unmanageable(key, title or key, scheduling, described)
     if refusal:
         return Outcome(False, errors=[refusal])
 
@@ -166,7 +173,7 @@ def forget(key: str, *, home: Path, log: Callable[[str], None], title: str = "",
     reports = doc.get("reports")
     has_table = isinstance(reports, dict) and key in reports
 
-    if has_table or _installed_or_unknown(key, scheduling):
+    if has_table or _installed_or_unknown(key, scheduling, described):
         try:
             scheduling.remove(key)
         except host.NotSupported:

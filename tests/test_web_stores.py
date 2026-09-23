@@ -68,7 +68,7 @@ def _hac_only_snapshot() -> dict:
     """Two kids in like-named classes, each with the same ungraded HAC-only row, so both
     carry the item key `hac:Honors Biology:lab safety contract`."""
     def kid(first: str) -> dict:
-        return {"name": f"{first} Stein", "canvas": {"courses": []},
+        return {"name": f"{first} Rivera", "canvas": {"courses": []},
                 "hac": {"week_view": [], "classes": [{
                     "code": "22001 - 3", "name": "Honors Biology - 3", "marking_period_avg": 88.0,
                     "last_updated": "9/14/2026", "categories": [],
