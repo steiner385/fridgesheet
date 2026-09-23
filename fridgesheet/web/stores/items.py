@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from ...dates import day_part, due_time
 from ... import sources
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
-from .. import db, outcomes, reconcile
+from .. import db, outcomes, reconcile, verdicts
 from . import num
 
 SHOW = ("open", "actionable", "all")
@@ -71,6 +71,12 @@ class ItemView:
     # printed sheet shows as "50% thru Sat 9/26"; None / "" for a row that is not open.
     late_until: datetime | None = None
     credit: str = ""
+    #: `verdicts.verdict`: what the app concluded about this item and whether the family has
+    #: anything to do (question / decided / waiting / status).
+    verdict: verdicts.Verdict = field(default_factory=lambda: verdicts.Verdict("status", ""))
+    canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation
+    hac_as_of: str = ""
+    teacher_email: str = ""         # the class's teacher, from Canvas (the HAC twin borrows it)
 
     @property
     def overdue(self) -> bool:
@@ -221,6 +227,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
     flag_text = {i: r["text"] for i, r in active_flags.items()}
+    refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
@@ -249,6 +256,11 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             status=status_text(r, obs, now, prefer),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
+            verdict=verdicts.verdict(r, obs, flag=r["flag"], flag_set_at=r["flag_set_at"] or "", now=now, rules=rules,
+                                     refresh_times=refresh_times, prefer=prefer),
+            canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
+            hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
+            teacher_email=r["teacher_email"] or "",
         ))
     return out
 

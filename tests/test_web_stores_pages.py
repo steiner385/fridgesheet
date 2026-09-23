@@ -111,3 +111,22 @@ def test_live_items_is_public_and_upcoming_is_bounded(tmp_path):
     assert reconcile.upcoming(rows["Reading log"], obs[rows["Reading log"]["id"]], NOW)
     assert not reconcile.upcoming(rows["Reading log"], obs[rows["Reading log"]["id"]], NOW, days_ahead=3)
     assert not reconcile.upcoming(rows["Quiz 1"], obs[rows["Quiz 1"]["id"]], NOW)       # past due is open, not upcoming
+
+
+def test_each_seeded_item_carries_the_expected_verdict(tmp_path):
+    """The household in tests/web_fixtures.py, at its frozen clock (Tue 9/15 2 PM)."""
+    conn = seed(tmp_path)
+    views = {v.name: v.verdict for v in items.list_items(conn, _doug(conn), now=NOW, rules=RULES, show="all")}
+    assert (views["Quiz 1"].state, views["Quiz 1"].kind) == ("decided", "graded_in_hac")
+    assert (views["Participation"].state, views["Participation"].kind) == ("question", "still_ungraded")
+    assert (views["Lab notebook"].state, views["Lab notebook"].kind) == ("waiting", "awaiting_grade")
+    assert (views["Essay draft"].state, views["Essay draft"].kind) == ("waiting", "teacher_grading")
+    assert (views["Homework 4"].state, views["Homework 4"].kind) == ("status", "past_credit")
+
+
+def test_views_carry_as_of_times_and_the_teacher_email(tmp_path):
+    conn = seed(tmp_path)
+    quiz = next(v for v in items.list_items(conn, _doug(conn), now=NOW, rules=RULES, show="all") if v.name == "Quiz 1")
+    started = conn.execute("SELECT started_at FROM refreshes ORDER BY id DESC LIMIT 1").fetchone()["started_at"]
+    assert quiz.canvas_as_of == started and quiz.hac_as_of == started
+    assert quiz.teacher_email == "hoch@example.org"
