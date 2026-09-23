@@ -17,6 +17,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from .. import sources
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS, school_year_start
 from . import db
 
@@ -144,9 +145,11 @@ def _on_or_after(due: datetime | None, floor: datetime) -> bool:
     return a >= b
 
 
-def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) -> list[sqlite3.Row]:
+def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, prefs=None) -> list[sqlite3.Row]:
     latest = db.latest_observations(conn, student_id)
-    out = [r for r in live_items(conn, student_id, now) if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now)]
+    out = [r for r in live_items(conn, student_id, now)
+           if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now,
+                            prefer=sources.assignments_for(prefs, r["kid"], r["course_name"]))]
     return sorted(out, key=lambda r: (r["due"] or "", r["course_short"], r["name"]))
 
 
@@ -154,7 +157,7 @@ def _refresh_times(conn: sqlite3.Connection) -> dict[int, str]:
     return {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
 
 
-def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) -> list[Case]:
+def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, prefs=None) -> list[Case]:
     """The six reconciliation cases below, one `Case` per reason found. A single item can
     carry more than one at once -- a `Case` is one reason, not a verdict -- so callers (the
     Plan B reconcile page) group the results by `item_id` to show a parent everything at once."""
@@ -166,7 +169,7 @@ def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) ->
         c, h = obs.get("canvas"), obs.get("hac")
         due = _due(r)
         past = due is not None and due < now
-        opened = open_sources(r, obs, now)
+        opened = open_sources(r, obs, now, prefer=sources.assignments_for(prefs, r["kid"], r["course_name"]))
         flag = r["flag"]
 
         def add(kind: str, reason: str) -> None:

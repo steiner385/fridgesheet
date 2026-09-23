@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from ...dates import due_time
+from ... import sources
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile
 from . import num
@@ -195,10 +196,11 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
     return "", False
 
 
-def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD) -> list[ItemView]:
+def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
+           prefs=None) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
     kinds: dict[int, list[str]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now):
+    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
         kinds.setdefault(case.item_id, []).append(case.kind)
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
@@ -206,10 +208,11 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
+        prefer = sources.assignments_for(prefs, r["kid"], r["course_name"])
         due = reconcile.due_of(r)
         handed, handed_at = handed_in_text(r, obs)
-        grade, zero = grade_text(r, obs)
-        open_in = reconcile.open_sources(r, obs, now)
+        grade, zero = grade_text(r, obs, prefer)
+        open_in = reconcile.open_sources(r, obs, now, prefer=prefer)
         late_until, credit = None, ""
         if open_in and due is not None:
             late_until = rules.deadline(r["kid"], r["course_name"], due)
@@ -217,14 +220,14 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         out.append(ItemView(
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
             due_time=due_time(due, from_canvas="canvas" in obs),
-            outcome=outcomes.classify(r, obs, now), late_until=late_until, credit=credit,
+            outcome=outcomes.classify(r, obs, now, prefer=prefer), late_until=late_until, credit=credit,
             id=r["id"], key=r["key"], name=r["name"], course_id=r["course_id"], course_short=r["course_short"],
             course_name=r["course_name"], kind=r["kind"], points=r["points"], due=reconcile.due_of(r),
             sources=tuple(s for s in ("canvas", "hac") if s in obs),
             open_in=open_in,
-            actionable=reconcile.is_actionable(r, obs, r["flag"], rules, r["kid"], now),
+            actionable=reconcile.is_actionable(r, obs, r["flag"], rules, r["kid"], now, prefer=prefer),
             upcoming=reconcile.upcoming(r, obs, now, days_ahead),
-            flag=r["flag"], flag_text=flag_text.get(r["id"], ""), status=status_text(r, obs, now),
+            flag=r["flag"], flag_text=flag_text.get(r["id"], ""), status=status_text(r, obs, now, prefer),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
         ))
@@ -290,7 +293,7 @@ def sorted_views(views: list[ItemView], sort: str = "due", direction: str = "asc
 def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, show: str = "open",
                source: str | None = None, course_id: int | None = None, kind: str | None = None,
                flagged: str | None = None, sort: str = "due", outcome: str | None = None,
-               days_ahead: int = DAYS_AHEAD, direction: str = "asc") -> list[ItemView]:
+               days_ahead: int = DAYS_AHEAD, direction: str = "asc", prefs=None) -> list[ItemView]:
     """`outcome` is a filter on `outcomes.classify`; when one is given, `show` is forced to
     "all", because "not done" work that is past its credit window is exactly what a parent
     filtering on "not done" wants to see and exactly what "open" hides."""
@@ -307,18 +310,18 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         peer = conn.execute("SELECT peer_course_id FROM courses WHERE id = ?", (course_id,)).fetchone()
         if peer and peer["peer_course_id"]:
             course_ids.add(peer["peer_course_id"])
-    views = [v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
+    views = [v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs)
              if _keep(v, show, source, course_ids, kind, flagged, outcome)]
     return sorted_views(views, sort, direction)
 
 
 def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: datetime, rules,
-        days_ahead: int = DAYS_AHEAD) -> ItemView | None:
-    return next((v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead) if v.id == item_id), None)
+        days_ahead: int = DAYS_AHEAD, prefs=None) -> ItemView | None:
+    return next((v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs) if v.id == item_id), None)
 
 
 def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
-               kind: str | None = None) -> list[tuple[ItemView, list[reconcile.Case]]]:
+               kind: str | None = None, prefs=None) -> list[tuple[ItemView, list[reconcile.Case]]]:
     """Every live item that carries at least one reconciliation case, with its cases, for the
     Reconcile page. Items the parent has already handled (done / excused / ignore) are left out:
     the page is for open questions, and the Kid page's `show=all` still lists them.
@@ -328,11 +331,11 @@ def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
     item (e.g. both `past_credit` and `one_source`) doesn't lose a reason just because the page
     is filtered to a different one."""
     by_item: dict[int, list[reconcile.Case]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now):
+    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
         by_item.setdefault(case.item_id, []).append(case)
     if kind is not None:
         by_item = {i: cs for i, cs in by_item.items() if any(c.kind == kind for c in cs)}
-    views = {v.id: v for v in _views(conn, student, now=now, rules=rules) if v.id in by_item and not v.handled}
+    views = {v.id: v for v in _views(conn, student, now=now, rules=rules, prefs=prefs) if v.id in by_item and not v.handled}
     out = [(views[i], cs) for i, cs in by_item.items() if i in views]
     return sorted(out, key=lambda pair: _sort_key("due")(pair[0]))
 
@@ -352,8 +355,9 @@ class OpenWork:
         return sum((v.points or 0) for v in self.past_window)
 
 
-def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD) -> OpenWork:
-    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
+def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
+              prefs=None) -> OpenWork:
+    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs)
     open_or_upcoming = [v for v in views if v.overdue or v.upcoming]
     handled = [v for v in open_or_upcoming if v.handled]
     live = [v for v in open_or_upcoming if not v.handled]
@@ -382,8 +386,8 @@ def record_for(views: list[ItemView]) -> outcomes.Tally:
 
 
 def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
-                     days_ahead: int = DAYS_AHEAD) -> Counts:
-    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead)
+                     days_ahead: int = DAYS_AHEAD, prefs=None) -> Counts:
+    views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs)
     today = now.date()
     due_today = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today)
     due_tomorrow = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today + timedelta(days=1))

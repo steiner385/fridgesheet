@@ -11,6 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from ... import sources
 from ...open_items import HANDLED_FLAGS
 from .. import db as _db, outcomes, reconcile
 from . import students as _students
@@ -146,7 +147,7 @@ def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, we
 
 
 def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, weeks: int = 8,
-                    now: datetime) -> list[WeekOutcomes]:
+                    now: datetime, prefs=None) -> list[WeekOutcomes]:
     """Per week of *due date*: how the work that was due then came out. Oldest first, one
     row per week even when nothing was due, so a chart has an even x axis.
 
@@ -170,7 +171,8 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
             week = _monday(due.date())
             if week not in buckets:
                 continue
-            outcome = outcomes.classify(item, latest.get(item["id"], {}), now)
+            outcome = outcomes.classify(item, latest.get(item["id"], {}), now,
+                                        prefer=sources.assignments_for(prefs, item["kid"], item["course_name"]))
             if outcome in buckets[week]:
                 buckets[week][outcome] += 1
     return [WeekOutcomes(w, **buckets[w]) for w in starts]
@@ -183,7 +185,7 @@ def on_time_rate(weeks: list[WeekCounts]) -> float | None:
 
 
 def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
-              now: datetime) -> list[tuple[str, float]]:
+              now: datetime, prefs=None) -> list[tuple[str, float]]:
     """How long each still-open item has been open, longest first: the days since it was
     *due*, for items no source has cleared. Ten rows at most -- this is a chart, not an
     inventory.
@@ -217,7 +219,8 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
         for item in reconcile.live_items(conn, sid, now):
             if item["flag"] in HANDLED_FLAGS:
                 continue
-            if not reconcile.open_sources(item, latest.get(item["id"], {}), now):
+            if not reconcile.open_sources(item, latest.get(item["id"], {}), now,
+                                          prefer=sources.assignments_for(prefs, item["kid"], item["course_name"])):
                 continue
             since = reconcile.due_of(item) or _dt(started_at.get(item["first_seen"]))
             if since is None:

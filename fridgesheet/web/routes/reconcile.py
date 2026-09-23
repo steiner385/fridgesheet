@@ -23,13 +23,13 @@ BULK = {"past_credit": ("ignore", "past the late-work window")}
 def _page(request: Request, conn: sqlite3.Connection, state, kid: str | None, kind: str | None):
     now, rules = state.now(), state.rules()
     kids = [s for s in students.visible(conn) if kid is None or s["key"] == kid]
-    groups = [(s, items.with_cases(conn, s, now=now, rules=rules, kind=kind)) for s in kids]
+    groups = [(s, items.with_cases(conn, s, now=now, rules=rules, kind=kind, prefs=state.sources())) for s in kids]
     # Counts drive the kind badges, which must stay navigable while one is selected: an
     # unfiltered-by-kind pass over the same kid(s), not the kind-filtered `groups` above.
     counts: Counter = Counter()
     bulk: dict[str, int] = {}                       # kid key -> how many past-credit items a bulk ignore would take
     for s in kids:
-        for _, cases in items.with_cases(conn, s, now=now, rules=rules):
+        for _, cases in items.with_cases(conn, s, now=now, rules=rules, prefs=state.sources()):
             counts.update(c.kind for c in cases)
             if any(c.kind == "past_credit" for c in cases):
                 bulk[s["key"]] = bulk.get(s["key"], 0) + 1
@@ -64,7 +64,7 @@ def flag_all(request: Request, kid: str = Form(...), case_kind: str = Form(...),
     flag, text = BULK[case_kind]
     now, rules = state.now(), state.rules()
     when = db.now_iso(state.tz)
-    for view, cases in items.with_cases(conn, s, now=now, rules=rules, kind=case_kind):
+    for view, cases in items.with_cases(conn, s, now=now, rules=rules, kind=case_kind, prefs=state.sources()):
         if not view.handled:
             flags.set_flag(conn, view.id, flag, now=when, text=text)
     view_kid, view_kind = _args(request)
