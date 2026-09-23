@@ -103,3 +103,29 @@ def test_the_pace_sentence_shows_on_the_question_card_too(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex").text
     assert "Fridge Sheet has no earlier grades from this class to go on" in body
+
+
+# --- one tap on every card (spec 6.2, 6.5) --------------------------------------------------------
+
+def _card(body, pid):
+    return re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S).group(0)
+
+
+def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
+    vid = _id(tmp_path, "Vocabulary")                      # due today, nothing handed in
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, vid)
+    assert 'value="plan:today"' in card and 'value="plan:tomorrow"' in card and 'value="done"' in card
+    assert 'class="ask"' not in card                        # a status, not a question
+
+
+def test_a_waiting_card_offers_ask_the_teacher(tmp_path):
+    eid = _id(tmp_path, "Essay draft")                      # submitted, ungraded
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, eid)
+    assert 'value="ask_teacher"' in card
+
+
+def test_the_plan_panel_is_one_partial_with_its_id(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    sections = re.findall(r'<section id="plan"[^>]*>', body)          # `id="plan-heading"` is a different id
+    assert len(sections) == 1 and "hx-swap-oob" not in sections[0]
