@@ -37,7 +37,7 @@ def _normalize_command(command: str) -> str:
     return _WHITESPACE.sub(" ", (command or "").replace('"', "").replace("'", "")).strip().casefold()
 
 
-def render_logon_task_xml(name: str, exe: str, args: str, workdir: str) -> str:
+def render_logon_task_xml(exe: str, args: str, workdir: str) -> str:
     template = resources.files("fridgesheet.host").joinpath("logon-task.xml").read_text(encoding="utf-8")
     return (template.replace("{description}", escape("Fridge Sheet: the browser app's server"))
                     .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
@@ -146,7 +146,7 @@ def install(exe: str, args: str, workdir: str, run=subprocess.run, start=None) -
     registered turned out to be the one this install would have created, so `/Run` alone
     was enough -- see `_fallback_note_or_raise` for why that fallback exists and when it is
     safe."""
-    xml = render_logon_task_xml(NAME, exe, args, workdir)
+    xml = render_logon_task_xml(exe, args, workdir)
     fd, path = tempfile.mkstemp(prefix="fridgesheet-web-", suffix=".xml")
     try:
         with os.fdopen(fd, "wb") as f:

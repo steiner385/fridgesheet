@@ -47,7 +47,7 @@
       <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
       <button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ settings.printer or 'the default printer' }}?">Print now</button>
     </p>
-    <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+    {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
     {% endif %}
   </div>
 </div>

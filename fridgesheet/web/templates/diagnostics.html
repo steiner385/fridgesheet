@@ -13,7 +13,7 @@
 </div>
 {% endif %}
 {% if jobs %}<p><button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button></p>{% endif %}
-<div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
+{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 <h3>Last report</h3>
 {% if report %}<pre class="log">{{ report }}</pre>{% else %}<p class="muted">Diagnostics have not been run yet.</p>{% endif %}
 {% endblock %}

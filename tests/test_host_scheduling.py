@@ -639,9 +639,11 @@ def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     exe, args, wd = scheduling.command_for("open-work")
     assert exe == sys.executable and args == "-m fridgesheet.cli run open-work --no-refresh --trigger schedule" and wd == str(Path.cwd())
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "FridgeSheet.exe"))
+    # The frozen exe is always the Windows build, so its folder is a Windows path wherever the
+    # test runs (as `service.command_for` already assumes).
+    monkeypatch.setattr(sys, "executable", r"C:\App\FridgeSheet.exe")
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh --trigger schedule" and wd == str(tmp_path)
+    assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh --trigger schedule" and wd == r"C:\App"
 
 
 def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
@@ -747,8 +749,8 @@ def test_command_for_the_refresh_key_records_the_run_when_frozen(monkeypatch, tm
     assertion as `test_command_for_the_refresh_key_records_the_run`, against `sys.frozen`."""
     from fridgesheet.host import scheduling
     monkeypatch.setattr(scheduling.sys, "frozen", True, raising=False)
-    monkeypatch.setattr(scheduling.sys, "executable", str(tmp_path / "FridgeSheet.exe"))
+    monkeypatch.setattr(scheduling.sys, "executable", r"C:\App\FridgeSheet.exe")
     exe, args, wd = scheduling.command_for(host.DATA_REFRESH_KEY)
     assert exe.endswith("FridgeSheet.exe")
     assert args == "refresh --record"          # no "-m fridgesheet.cli" prefix, and no --no-refresh
-    assert wd == str(tmp_path)
+    assert wd == r"C:\App"

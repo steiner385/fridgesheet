@@ -17,7 +17,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
 from urllib.parse import unquote, urlsplit
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
@@ -76,6 +76,12 @@ class AppState:
             s = config.Settings(home=self.home)
             config.settings_from_doc(config.load_config_doc(self.home / "config.toml"), s)
         self.settings = replace(s, web_host=bound.bind_host, web_host_explicit=True, web_port=bound.web_port)
+        # A changed time zone applies now, not at the next start (#4); a name that is not a
+        # zone keeps the one in force rather than breaking every page.
+        try:
+            self.tz = ZoneInfo(self.settings.timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
         self.extra["env"].filters.update(_filters(self))
 
     def rules(self) -> late_rules.LateRules:
@@ -263,7 +269,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "last_run": (last_run := runs.latest(conn)), "last_run_what": runs.describe(last_run) if last_run else None,
         "students": students.visible(conn), "version": version(),
         "warnings": state.extra.get("warnings") or [],
-        "job": state.jobs.current if state.jobs and state.jobs.current else None,
+        "job": state.jobs.current if state.jobs else None,
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
         "staleness": staleness.check(conn, state.now()),

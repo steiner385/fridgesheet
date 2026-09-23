@@ -104,11 +104,11 @@ def test_linux_install_reports_a_daemon_reload_failure(tmp_path):
 
 
 def test_logon_task_xml_runs_at_logon_and_restarts():
-    xml = service_windows.render_logon_task_xml("Fridge Sheet - web", r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")
+    xml = service_windows.render_logon_task_xml(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")
     assert "<LogonTrigger>" in xml and "<Command>C:\\App\\FridgeSheet.exe</Command>" in xml and "<Arguments>web --no-browser</Arguments>" in xml
     assert "<RestartOnFailure>" in xml and "<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>" in xml
     assert "<MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>" in xml and "InteractiveToken" in xml
-    xml2 = service_windows.render_logon_task_xml("Fridge Sheet - web", r"C:\A & B\FridgeSheet.exe", "web --no-browser", r"C:\A & B")
+    xml2 = service_windows.render_logon_task_xml(r"C:\A & B\FridgeSheet.exe", "web --no-browser", r"C:\A & B")
     assert "<Command>C:\\A &amp; B\\FridgeSheet.exe</Command>" in xml2       # escaped
 
 

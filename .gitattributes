@@ -1,5 +1,7 @@
 # The vendored front-end files are committed byte for byte and their SHA-256 is pinned in
 # fridgesheet/web/static/VENDOR.md. Git must not rewrite their line endings on a Windows
 # checkout, or the hash no longer matches what upstream published.
-fridgesheet/web/static/*.js -text
-fridgesheet/web/static/*.css -text
+# By name, not *.js/*.css: app.js and app.css are ours and may normalise like any source file (#4).
+fridgesheet/web/static/htmx.min.js -text
+fridgesheet/web/static/uplot.min.js -text
+fridgesheet/web/static/uplot.min.css -text

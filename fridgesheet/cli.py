@@ -435,7 +435,7 @@ def cmd_service(args) -> int:
         info = service.describe_service()
         print(f"{service.SERVICE_NAME}: {info.detail} (managed by {info.managed_by})")
         return 0
-    except ServiceError as e:
+    except (ServiceError, OSError) as e:        # schtasks/systemctl missing is a message too (#4)
         print(str(e), file=sys.stderr)
         return 1
 
