@@ -191,3 +191,14 @@ def test_the_all_kids_view_draws_one_grade_chart_per_kid(tmp_path):
     assert 'data-title="Alex — grade per class"' in everyone
     one = c.get("/trends?kid=Sam").text
     assert one.count('data-chart="/trends/grades.json') == 1
+
+
+def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
+    """#9: `drawChart` marks the holder drawn at once but only registers the uPlot when its JSON
+    arrives. An htmx swap in between removes the holder and prunes; the late continuation then
+    drew into the detached node and pushed it into CHARTS. It now checks first."""
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    body = js[js.index("function drawChart"):js.index("// One shared resize listener")]
+    then = body[body.index(".then(function (data)"):]
+    guard = then.index("if (!document.contains(el)) return;")
+    assert guard < then.index("el.innerHTML") and guard < then.index("CHARTS.push")

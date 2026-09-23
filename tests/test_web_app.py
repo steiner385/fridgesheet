@@ -172,3 +172,14 @@ def test_vendored_assets_match_their_recorded_hashes():
     assert len(rows) == 3
     for name, sha in rows:
         assert hashlib.sha256((static / name).read_bytes()).hexdigest() == sha, name
+
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1:8433/evil", "127.0.0.1/evil", "127.0.0.1?x=1", "127.0.0.1#frag", "127.0.0.1\\evil", "127.0.0.1 evil"])
+def test_a_host_header_that_is_not_just_an_authority_is_refused(host):
+    """#9: `urlsplit` ends the authority at `/`, `?` or `#`, so a `Host` carrying one parsed down
+    to an allowed hostname and was admitted. Not a bypass (the surviving name is ours) but a
+    `Host` is an authority and nothing else; like userinfo, anything more is refused."""
+    s = config.Settings()
+    assert not webapp._host_allowed(host, s)
+    assert webapp._host_allowed("127.0.0.1:8433", s)
