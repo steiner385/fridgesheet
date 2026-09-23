@@ -85,7 +85,9 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
     if c is None or due is None or c["excused"] or c["published"] == 0:
         return False
     a, b = _comparable(due, now)
-    if a <= b or a > b + timedelta(days=days_ahead):
+    # Past only once due < now, the line `outcomes` draws: at the due minute itself the item
+    # is still coming due, not in neither list (#3).
+    if a < b or a > b + timedelta(days=days_ahead):
         return False
     return c["state"] in ("unsubmitted", None) and c["score"] is None
 

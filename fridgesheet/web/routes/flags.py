@@ -32,4 +32,4 @@ def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: s
     v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources(), **state.window())
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=LABELS[flag],
-                          notes=notes.for_target(conn, "item", item_id))
+                          notes=notes.for_target(conn, "item", item_id), refresh_row=True)

@@ -7,12 +7,12 @@
   <tr><th>Started</th><th>Report</th><th>Started by</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
   {% for r in rows %}
   <tr>
-    <td>{{ r.started_at | wd_md_time }}</td><td>{{ r.report_key }}</td><td class="muted">{{ r.trigger | trigger_words }}</td>
+    <td>{{ r.started_at | wd_md_time }}</td><td>{{ titles.get(r.report_key, r.report_key) }}</td><td class="muted">{{ r.trigger | trigger_words }}</td>
     <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
     <td>{{ r.message }}</td>
     <td>{% if pdfs[r.id] %}<a href="/runs/{{ r.id }}/pdf">open</a>{% endif %}</td>
     <td>{% if jobs and r.outcome == 'OK' and pdfs[r.id] and r.report_key != 'refresh' %}
-      <form hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.report_key }} from {{ r.started_at | md }} again?">
+      <form hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ titles.get(r.report_key, r.report_key) }} from {{ r.started_at | md }} again?">
         <input type="hidden" name="date" value="{{ dates[r.id] }}">
         <input type="hidden" name="report" value="{{ r.report_key }}"><button>Reprint</button></form>{% endif %}</td>
   </tr>

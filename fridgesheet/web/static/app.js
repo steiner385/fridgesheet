@@ -52,6 +52,26 @@ document.addEventListener("htmx:afterSwap", function (e) {
   setTimeout(function () { live.textContent = src.getAttribute("data-announce"); }, 50);
 });
 
+// A request the server refused (a 400 for a reprint of a day with no data, a 404 for a job
+// that is no longer kept) used to change nothing on the page (#6). Say so next to what was
+// clicked, in the server's own words when it sent a short reason, and read it out.
+function errorText(xhr) {
+  var text = (xhr && xhr.responseText || "").trim();
+  try { var j = JSON.parse(text); if (j && typeof j.detail === "string") text = j.detail; } catch (e) { /* not JSON */ }
+  if (!text || text.length > 300 || text.charAt(0) === "<") text = "The app could not do that (error " + (xhr ? xhr.status : "?") + ").";
+  return text;
+}
+document.addEventListener("htmx:responseError", function (e) {
+  var near = e.detail.elt && e.detail.elt.isConnected ? e.detail.elt : e.detail.target;
+  if (!near || !near.parentNode) return;
+  var box = near.nextElementSibling && near.nextElementSibling.classList.contains("request-error")
+    ? near.nextElementSibling : document.createElement("p");
+  box.className = "request-error warn";
+  box.setAttribute("role", "alert");
+  box.textContent = errorText(e.detail.xhr);
+  if (box !== near.nextElementSibling) near.parentNode.insertBefore(box, near.nextSibling);
+});
+
 // Live job progress: a <pre data-sse=URL data-reload=URL> opens an EventSource, appends each
 // line, and when the server says done, fetches the finished job partial over htmx.
 function attachSse(root) {

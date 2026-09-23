@@ -403,3 +403,23 @@ def test_a_days_value_of_the_wrong_shape_says_so(caplog):
         config.settings_from_doc({"reports": {"open-work": {"days": 5}}}, s)
     assert s.report_config("open-work").days == config.WEEKDAYS
     assert "[reports.open-work] days" in caplog.text
+
+
+@pytest.mark.parametrize("raw, want", [(False, False), ("false", False), ("no", False), ("0", False), (0, False),
+                                       (True, True), ("true", True), ("yes", True), (1, True)])
+def test_a_quoted_boolean_means_what_it_says(raw, want):
+    """#7: `print = "false"` read as True (`bool("false")`), so a report meant to be archived
+    only went to the printer anyway. Same for `enabled`."""
+    s = config.Settings()
+    config.settings_from_doc({"reports": {"open-work": {"print": raw, "enabled": raw}},
+                              "refresh": {"enabled": raw}}, s)
+    rc = s.report_config("open-work")
+    assert (rc.prints, rc.enabled, s.refresh.enabled) == (want, want, want)
+
+
+def test_a_boolean_that_is_not_one_keeps_the_default_and_says_so(caplog):
+    s = config.Settings()
+    with caplog.at_level("WARNING"):
+        config.settings_from_doc({"reports": {"open-work": {"print": "maybe"}}}, s)
+    assert s.report_config("open-work").prints is True
+    assert "[reports.open-work] print" in caplog.text

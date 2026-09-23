@@ -6,6 +6,7 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from ... import reports as registry
 from ..app import Db, State, render, safe_pdf
 from ..stores import runs
 
@@ -19,7 +20,9 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     # The day the reprint button asks for, cut from the stored ISO timestamp here rather than
     # sliced in the template: the template says what it shows, this says what it means.
     dates = {r["id"]: (r["started_at"] or "")[:10] for r in rows}
-    return render(request, conn, "runs.html", current="runs", rows=rows, pdfs=pdfs, dates=dates)
+    # A saved report's key is `view:<id>`; the parent named it, so say that name (#6).
+    titles = {r.key: r.title for r in registry.available(state.home)}
+    return render(request, conn, "runs.html", current="runs", rows=rows, pdfs=pdfs, dates=dates, titles=titles)
 
 
 @router.get("/runs/{run_id}/pdf")

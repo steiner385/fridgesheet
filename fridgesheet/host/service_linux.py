@@ -38,10 +38,13 @@ def _systemctl(args: list[str], run) -> subprocess.CompletedProcess:
 def install(exe: str, args: str, workdir: str, run=subprocess.run, unit_dir: Path | None = None) -> None:
     path = unit_path(unit_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
+    fresh = not path.exists()          # an upgrade re-writes a unit that already works; keep it
     path.write_text(unit_text(exe, args, workdir), encoding="utf-8")
     for cmd in (["daemon-reload"], ["enable", "--now", UNIT_FILE]):
         p = _systemctl(cmd, run)
         if p.returncode != 0:
+            if fresh:                  # a unit this attempt wrote and could not enable (#7)
+                path.unlink(missing_ok=True)
             raise ServiceError(f"systemctl --user {' '.join(cmd)} failed: {(p.stderr or p.stdout or '').strip()[:300]}")
 
 

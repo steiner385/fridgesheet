@@ -336,21 +336,26 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         pairs.sort(key=lambda p, c=s["column"]: p[1][c], reverse=s["dir"] == "desc")
     truncated = max(0, len(pairs) - MAX_ROWS) + dropped  # rows cut here, plus rows the store
                                                           # never handed back because of its own cap
-    rows = [p[0] for p in pairs[:MAX_ROWS]]
+    kept = pairs[:MAX_ROWS]
+    rows = [p[0] for p in kept]
     columns = [COLUMNS[d.source][c] for c in d.columns]
     slim = [{c.id: r.get(c.id, "") for c in columns} | ({d.group_by: r.get(d.group_by, "")} if d.group_by else {})
             for r in rows]
     groups: list[Group] = []
     if d.group_by:
         seen: dict[str, Group] = {}
-        for r in slim:
+        order: dict[str, object] = {}
+        for r, (_, key) in zip(slim, kept):
             label = r.get(d.group_by, "")
             g = seen.get(label)
             if g is None:
                 g = seen[label] = Group(label)
+                order[label] = key[d.group_by]
                 groups.append(g)
             g.rows.append({c.id: r[c.id] for c in columns})
-        groups.sort(key=lambda g: g.label)
+        # Headings in the column's own order, the key the rows sort on: as text "9/8" came
+        # after "9/20" (#6).
+        groups.sort(key=lambda g: order[g.label])
     elif slim:
         groups = [Group("", [{c.id: r[c.id] for c in columns} for r in slim])]
     return Rendered(d.title, columns, groups, truncated)

@@ -327,6 +327,24 @@ class Settings:
         return user, pw
 
 
+_TRUE, _FALSE = {"true", "yes", "on", "1"}, {"false", "no", "off", "0"}
+
+
+def _as_bool(raw, default: bool, where: str) -> bool:
+    """A TOML switch as a bool. `bool("false")` is True, so a hand-edited `print = "false"`
+    printed anyway and `allow_lan = "false"` opened the app to the network (#7). A quoted
+    true/false/yes/no/on/off/1/0 means what it says; anything else keeps the default, with a
+    warning, and never raises (see `_day_list`)."""
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, int) and raw in (0, 1):
+        return bool(raw)
+    if isinstance(raw, str) and raw.strip().lower() in _TRUE | _FALSE:
+        return raw.strip().lower() in _TRUE
+    log.warning("%s must be true or false, got %r; using %s", where, raw, str(default).lower())
+    return default
+
+
 def _day_list(raw, default, where: str) -> list[str]:
     """A `days` value as a list of day names. A list is taken as written. A string names its days
     -- `days = "Mon"` meant Mondays, and falling back to every weekday printed five days a week
@@ -360,8 +378,8 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     raw_web = doc.get("web")
     web = raw_web if isinstance(raw_web, dict) else {}
     s.web_host = str(web.get("host", s.web_host))
-    s.web_allow_lan = bool(web.get("allow_lan", s.web_allow_lan))
-    s.web_check_updates = bool(web.get("check_updates", s.web_check_updates))
+    s.web_allow_lan = _as_bool(web.get("allow_lan", s.web_allow_lan), s.web_allow_lan, "[web] allow_lan")
+    s.web_check_updates = _as_bool(web.get("check_updates", s.web_check_updates), s.web_check_updates, "[web] check_updates")
     s.web_update_pin_hash = str(web.get("update_pin_hash", s.web_update_pin_hash) or "")
     raw_extra = web.get("extra_hosts")
     if isinstance(raw_extra, list):
@@ -391,11 +409,11 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         # every scheduled task. Same reasoning for a `reports` key that is not a table at all.
         days = _day_list(sect.get("days", WEEKDAYS), WEEKDAYS, f"[reports.{key}] days")
         s.reports[key] = ReportConfig(
-            enabled=bool(sect.get("enabled", False)),
+            enabled=_as_bool(sect.get("enabled", False), False, f"[reports.{key}] enabled"),
             time=time_val,
             days=days,
             printer=str(sect.get("printer", "") or ""),
-            prints=bool(sect.get("print", True)),
+            prints=_as_bool(sect.get("print", True), True, f"[reports.{key}] print"),
             options={k: v for k, v in sect.items() if k not in known},
         )
     raw_refresh = doc.get("refresh")
@@ -408,7 +426,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         raw_every = raw_refresh.get("every_hours", s.refresh.every_hours)
         every = raw_every if isinstance(raw_every, int) and not isinstance(raw_every, bool) else s.refresh.every_hours
         days = _day_list(raw_refresh.get("days", host.DAY_NAMES), host.DAY_NAMES, "[refresh] days")
-        s.refresh = RefreshConfig(enabled=bool(raw_refresh.get("enabled", False)),
+        s.refresh = RefreshConfig(enabled=_as_bool(raw_refresh.get("enabled", False), False, "[refresh] enabled"),
                                   every_hours=every, start=str(start), end=str(end), days=days)
     s.sources = _sources.from_doc(doc)
 

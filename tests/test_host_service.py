@@ -80,8 +80,19 @@ def test_linux_install_reports_a_systemctl_failure(tmp_path):
         service_linux.install("/py", "x", "/wd", run=failing_enable, unit_dir=tmp_path)
     assert "Failed to connect to bus" in str(e.value)
     assert calls == [["systemctl", "--user", "daemon-reload"], ["systemctl", "--user", "enable", "--now", "fridgesheet-web.service"]]
+    # A unit this attempt wrote and could not enable does not stay behind (#7).
+    assert not (tmp_path / "fridgesheet-web.service").exists()
+
+
+def test_linux_install_failing_on_upgrade_keeps_the_unit_that_was_there(tmp_path):
     unit = tmp_path / "fridgesheet-web.service"
-    assert unit.is_file() and "ExecStart=/py x" in unit.read_text()   # the unit is written before systemctl runs
+    unit.write_text("[Service]\nExecStart=/old x\n")
+    def failing_enable(argv, **kw):
+        rc = 1 if argv[-3:] == ["enable", "--now", "fridgesheet-web.service"] else 0
+        return subprocess.CompletedProcess(argv, rc, stdout="", stderr="Failed to connect to bus")
+    with pytest.raises(service.ServiceError):
+        service_linux.install("/py", "x", "/wd", run=failing_enable, unit_dir=tmp_path)
+    assert unit.is_file()
 
 
 def test_linux_install_reports_a_daemon_reload_failure(tmp_path):
