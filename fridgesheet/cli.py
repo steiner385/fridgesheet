@@ -493,10 +493,15 @@ def cmd_self_update(args) -> int:
               if updatemod.newer(latest, current) else f"{current} is the newest release.")
         return 0
     info, me = _service_info(), _current_user()
-    if not args.force and info.owner and me and info.owner.casefold() != me.casefold():
+    # `not me` (not `me and ...`) is deliberate: getpass.getuser() can fail (no password-
+    # database entry, some container/service contexts), and when the owner IS known but we
+    # cannot confirm who we are, that is a reason to stop, not to proceed -- proceeding would
+    # be exactly the silent second-install this check exists to prevent.
+    if not args.force and info.owner and (not me or info.owner.casefold() != me.casefold()):
+        who = f"you are {me!r}" if me else "this shell's account could not be determined"
         print(f"The logon task runs as {info.owner!r} and its install lives in that account's "
-              f"profile; you are {me!r}. Updating from here would build a second copy under "
-              f"{me!r} and leave the running one alone. Run this as {info.owner!r}, or pass "
+              f"profile; {who}. Updating from here would build a second copy under the wrong "
+              f"profile and leave the running one alone. Run this as {info.owner!r}, or pass "
               f"--force if you mean to install a separate copy.", file=sys.stderr)
         return 1
     return _do_self_update(home=s.home, settings=s)

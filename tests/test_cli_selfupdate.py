@@ -48,3 +48,23 @@ def test_an_unknown_owner_is_not_treated_as_a_mismatch(monkeypatch):
                         lambda: ServiceInfo("task-scheduler", True, True, "running", owner=""))
     monkeypatch.setattr(cli, "_do_self_update", lambda **kw: 0)
     assert cli.cmd_self_update(Args()) == 0
+
+
+def test_an_unverifiable_current_user_is_refused_not_assumed(monkeypatch):
+    """getpass.getuser() can fail. Knowing an owner exists and being unable to confirm we
+    are it is a reason to stop -- proceeding would build a second install under whatever
+    profile this shell happens to have, and report success."""
+    monkeypatch.setattr(cli, "_current_user", lambda: "")
+    monkeypatch.setattr(cli, "_service_info",
+                        lambda: ServiceInfo("task-scheduler", True, True, "running", owner="houserunner"))
+    assert cli.cmd_self_update(Args()) == 1
+
+
+def test_force_still_overrides_an_unverifiable_current_user(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_current_user", lambda: "")
+    monkeypatch.setattr(cli, "_service_info",
+                        lambda: ServiceInfo("task-scheduler", True, True, "running", owner="houserunner"))
+    monkeypatch.setattr(cli, "_do_self_update", lambda **kw: calls.append(kw) or 0)
+    args = Args(); args.force = True
+    assert cli.cmd_self_update(args) == 0 and calls
