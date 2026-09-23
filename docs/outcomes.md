@@ -29,7 +29,7 @@ this order and the first that applies wins — that is the order of certainty.
 |---|---|---|
 | **excused** | The teacher excused it. | Canvas `excused`. Counted nowhere. |
 | **unpublished** | The teacher unpublished it. Not work the kid can do. | Canvas `published = 0`. Counted nowhere. |
-| **not done** | The work was not done. | Any one of: Canvas flagged it **missing**; a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. |
+| **not done** | The work was not done. | Any one of: Canvas flagged it **missing** (unless HAC has a grade above zero — see below); a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. |
 | **late** | Handed in after the deadline. | Canvas has a submission and marks it `late`. Whatever it was then graded, it was late. |
 | **on time** | Handed in by the deadline. | Canvas has a submission, not marked late. |
 | **done on paper** | Done, but not through Canvas. | A grade above zero — in Canvas or HAC — with no online submission. Paper or in-class work handed in and marked by hand, or online work the teacher graded from a physical copy. Its timing is unknowable, so it is neither on time nor late. |
@@ -43,6 +43,13 @@ Two consequences worth knowing:
 - **Work done on paper is not "not done"**, on purpose. Canvas lists it as unsubmitted
   forever; the grade is the proof it was done. The old Status column called these
   "Missing" and was wrong about them roughly a dozen times per kid.
+- **A HAC grade beats Canvas's automatic "missing"**, whichever source the family prefers.
+  When HAC has a score above zero, the work counts as done on paper even if Canvas still
+  shows it missing: Canvas's late policy sets that flag by itself, and a HAC grade is the
+  teacher's assessment. The one exception is a missing mark Canvas recorded *after* HAC's
+  grade, in a later refresh; then the app asks instead of deciding. Example: Quiz 1, missing
+  in Canvas and 28/30 in HAC, both seen in the same refresh, is done. The printed sheet reads
+  a snapshot with no history, so it always follows HAC's grade here.
 
 ## Where each outcome shows up
 

@@ -125,5 +125,6 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
     start = body.index('id="Alex"')
     end = body.index("<section", start + 1)
     alex_section = body[start:end]
-    assert "Teacher hasn't got it" in alex_section
-    assert ">Missing<" not in alex_section
+    # Lab notebook's "On paper" hand-in cell; Quiz 1's "Missing" left the list when HAC's grade settled it.
+    assert "This one is on paper" in alex_section
+    assert ">On paper<" not in alex_section

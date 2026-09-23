@@ -21,8 +21,8 @@ def test_dashboard_cards_per_kid(tmp_path):
     assert r.status_code == 200
     body = r.text
     assert body.index("Alex") < body.index("Sam")
-    assert "3 actionable" in body and "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
-    assert "2 actionable" in body                                   # Sam
+    assert body.count("2 actionable") == 2                           # Alex (Quiz 1 is settled by HAC's 28/30), Sam
+    assert "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
     # The card reads the run's log line for the parent instead of echoing it (#40 item 4):
     # "Previewed · 2 pages · Al 3, Sam 2", never the file path or "Al=3".
     assert "Today's sheet" in body and "2 pages" in body and "Al 3, Sam 2" in body
@@ -37,15 +37,16 @@ def test_dashboard_with_nothing_printed_says_so(tmp_path):
 
 def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_path):
     conn = seed(tmp_path)
-    qid = _item_id(conn, "Quiz 1")
+    qid = _item_id(conn, "Lab notebook")
     flags.set_flag(conn, qid, "follow_up", now="2026-09-15T14:30:00-04:00")
     conn.close()
     c = app_for(tmp_path)
     r = c.get("/kids/Alex")
     assert r.status_code == 200
     body = r.text
-    for name in ("Quiz 1", "Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
+    for name in ("Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
         assert name in body, name
+    assert "Quiz 1" not in body                                      # HAC's 28/30 settles it (docs/outcomes.md)
     assert "Essay draft" not in body                                 # submitted: not open
     # Status is three columns now (tests/test_web_status_parts.py): the teacher's "Missing"
     # is a Grade, "today" hangs off the Due date, and a HAC-only ungraded item says
@@ -63,14 +64,14 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     assert '>any flag<' in body                                       # FLAGGED's "any" value, relabeled for display
 
     flagged_only = c.get("/kids/Alex?show=all&flagged=any").text
-    assert "Quiz 1" in flagged_only and "Reading log" not in flagged_only   # only the flagged item shows
+    assert "Lab notebook" in flagged_only and "Reading log" not in flagged_only   # only the flagged item shows
 
 
 def test_kid_page_filters_apply_and_htmx_gets_the_table_only(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     r = c.get("/kids/Alex?show=actionable")
-    assert "Quiz 1" in r.text and "Reading log" not in r.text
+    assert "Lab notebook" in r.text and "Reading log" not in r.text
     r = c.get("/kids/Alex?show=all&source=hac", headers={"HX-Request": "true"})
     assert "<html" not in r.text and "Participation" in r.text and "Essay draft" not in r.text
     r = c.get("/kids/Alex?show=all&flagged=marked")
@@ -100,7 +101,7 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
 
 def test_flag_round_trip_updates_the_detail_and_the_list(tmp_path):
     conn = seed(tmp_path)
-    qid = _item_id(conn, "Quiz 1")
+    qid = _item_id(conn, "Lab notebook")
     conn.close()
     c = app_for(tmp_path)
     r = c.post(f"/items/{qid}/flag", data={"flag": "done", "text": "HAC is right"})
@@ -108,11 +109,11 @@ def test_flag_round_trip_updates_the_detail_and_the_list(tmp_path):
     conn = db.open_db(tmp_path)
     assert flags.active(conn, qid)["flag"] == "done"
     conn.close()
-    assert "Quiz 1" not in c.get("/kids/Alex").text               # handled items leave the open list
-    assert "Quiz 1" in c.get("/kids/Alex?show=all").text
+    assert "Lab notebook" not in c.get("/kids/Alex").text               # handled items leave the open list
+    assert "Lab notebook" in c.get("/kids/Alex?show=all").text
     r = c.post(f"/items/{qid}/flag", data={"flag": "clear"})
     assert "No flag" in r.text
-    assert "Quiz 1" in c.get("/kids/Alex").text
+    assert "Lab notebook" in c.get("/kids/Alex").text
     assert c.post(f"/items/{qid}/flag", data={"flag": "bogus"}).status_code == 400
 
 

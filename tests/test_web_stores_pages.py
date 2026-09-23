@@ -23,7 +23,9 @@ def test_all_items_carry_sources_status_and_flags(tmp_path):
     conn = seed(tmp_path)
     v = _by_name(items.list_items(conn, _doug(conn), now=NOW, rules=RULES, show="all"))
     assert set(v) == {"Quiz 1", "Essay draft", "Reading log", "Worksheet 3", "Vocabulary", "Lab notebook", "Participation", "Homework 4"}
-    assert v["Quiz 1"].sources == ("canvas", "hac") and v["Quiz 1"].open_in == {"canvas"} and v["Quiz 1"].actionable
+    # Canvas's automatic MISSING loses to HAC's 28/30 recorded in the same refresh (docs/outcomes.md).
+    assert v["Quiz 1"].sources == ("canvas", "hac") and v["Quiz 1"].open_in == set() and not v["Quiz 1"].actionable
+    assert v["Quiz 1"].outcome == "done_offline"
     assert v["Quiz 1"].status == "Missing" and v["Quiz 1"].hac["score"] == 28.0 and v["Quiz 1"].case_kinds == ["disagree"]
     assert v["Essay draft"].status == "Submitted, ungraded" and not v["Essay draft"].open_in and v["Essay draft"].case_kinds == ["submitted_ungraded"]
     assert v["Vocabulary"].status == "Due today" and v["Worksheet 3"].status == "Due tomorrow" and v["Reading log"].status == "Due Sun"
@@ -38,12 +40,12 @@ def test_show_open_actionable_and_all(tmp_path):
     conn = seed(tmp_path)
     d = _doug(conn)
     names = lambda **kw: sorted(v.name for v in items.list_items(conn, d, now=NOW, rules=RULES, **kw))
-    assert names(show="open") == ["Homework 4", "Lab notebook", "Participation", "Quiz 1", "Reading log", "Vocabulary", "Worksheet 3"]
-    assert names(show="actionable") == ["Lab notebook", "Participation", "Quiz 1"]
+    assert names(show="open") == ["Homework 4", "Lab notebook", "Participation", "Reading log", "Vocabulary", "Worksheet 3"]
+    assert names(show="actionable") == ["Lab notebook", "Participation"]
     assert len(names(show="all")) == 8
-    flags.set_flag(conn, v_id(conn, "Quiz 1"), "done", now="2026-09-15T14:30:00-04:00")
-    assert "Quiz 1" not in names(show="open") and "Quiz 1" not in names(show="actionable")
-    assert "Quiz 1" in names(show="all") and _by_name(items.list_items(conn, d, now=NOW, rules=RULES, show="all"))["Quiz 1"].flag == "done"
+    flags.set_flag(conn, v_id(conn, "Lab notebook"), "done", now="2026-09-15T14:30:00-04:00")
+    assert "Lab notebook" not in names(show="open") and "Lab notebook" not in names(show="actionable")
+    assert "Lab notebook" in names(show="all") and _by_name(items.list_items(conn, d, now=NOW, rules=RULES, show="all"))["Lab notebook"].flag == "done"
 
 
 def v_id(conn, name):
@@ -94,7 +96,7 @@ def test_note_counts_and_one(tmp_path):
 def test_dashboard_counts(tmp_path):
     conn = seed(tmp_path)
     c = items.dashboard_counts(conn, _doug(conn), now=NOW, rules=RULES)
-    assert (c.actionable, c.due_today, c.due_tomorrow, c.new_since_yesterday) == (3, 1, 1, 8)
+    assert (c.actionable, c.due_today, c.due_tomorrow, c.new_since_yesterday) == (2, 1, 1, 8)       # Quiz 1 is done on paper (HAC 28/30)
     k = items.dashboard_counts(conn, students.by_key(conn, "Sam"), now=NOW, rules=RULES)
     assert (k.actionable, k.due_today, k.due_tomorrow, k.new_since_yesterday) == (2, 0, 0, 2)
     later = items.dashboard_counts(conn, _doug(conn), now=NOW + timedelta(days=3), rules=RULES)

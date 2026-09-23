@@ -62,8 +62,13 @@ def test_handed_in_is_canvas_only_whatever_the_preference():
 
 def test_open_sources_settles_when_hac_is_preferred_and_graded():
     obs = {"canvas": canvas(missing=1), "hac": hac(48.0)}
-    assert reconcile.open_sources(item(), obs, NOW) == {"canvas"}
+    # A HAC grade beats Canvas's automatic missing under either preference (docs/outcomes.md);
+    # a missing mark recorded after the HAC grade still keeps it open under the default.
+    assert reconcile.open_sources(item(), obs, NOW) == set()
     assert reconcile.open_sources(item(), obs, NOW, prefer="hac") == set()
+    newer = {"canvas": {**canvas(missing=1), "refresh_id": 3}, "hac": {**hac(48.0), "refresh_id": 2}}
+    assert reconcile.open_sources(item(), newer, NOW) == {"canvas"}
+    assert reconcile.open_sources(item(), newer, NOW, prefer="hac") == set()
 
 
 def test_late_hand_in_graded_in_hac_is_settled_under_hac_preference():

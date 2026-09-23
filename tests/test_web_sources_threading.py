@@ -31,7 +31,8 @@ def test_list_items_follows_prefs(tmp_path):
     alex = students.by_key(conn, "Alex")
     default = quiz(items.list_items(conn, alex, now=NOW, rules=RULES, show="all"))
     hac = quiz(items.list_items(conn, alex, now=NOW, rules=RULES, show="all", prefs=HAC))
-    assert (default.grade, default.outcome, default.actionable) == ("Missing", "not_done", True)
+    # HAC's 28/30 settles Quiz 1 under either preference now; the preference still picks the grade shown.
+    assert (default.grade, default.outcome, default.actionable) == ("Missing", "done_offline", False)
     assert (hac.grade, hac.outcome, hac.actionable) == ("28/30", "done_offline", False)
 
 
@@ -47,7 +48,7 @@ def test_dashboard_counts_follow_prefs(tmp_path):
     alex = students.by_key(conn, "Alex")
     before = items.dashboard_counts(conn, alex, now=NOW, rules=RULES).actionable
     after = items.dashboard_counts(conn, alex, now=NOW, rules=RULES, prefs=HAC).actionable
-    assert after == before - 1
+    assert after == before          # Quiz 1, the one item the preference used to move, is settled either way
 
 
 def test_the_disagreement_is_still_listed_under_hac(tmp_path):

@@ -98,10 +98,11 @@ def test_items_source_renders_rows_a_parent_reads(tmp_path):
     assert [c.id for c in r.columns] == ["kid", "course", "name", "status", "due"]
     assert len(r.groups) == 1 and r.groups[0].label == ""
     names = [row["name"] for row in r.groups[0].rows]
-    assert "Quiz 1" in names and "Essay draft" not in names            # submitted: not open
-    row = next(x for x in r.groups[0].rows if x["name"] == "Quiz 1")
-    assert row["kid"] == "Al" and row["course"] == "Honors English 9" and row["status"] == "Missing"
-    assert row["due"] == "9/12" and all(isinstance(v, str) for v in row.values())
+    assert "Homework 4" in names and "Essay draft" not in names        # submitted: not open
+    assert "Quiz 1" not in names                                       # HAC's 28/30 settles it
+    row = next(x for x in r.groups[0].rows if x["name"] == "Homework 4")
+    assert row["kid"] == "Al" and row["course"] == "Algebra I" and row["status"] == "Missing"
+    assert row["due"] == "8/20" and all(isinstance(v, str) for v in row.values())
     conn.close()
 
 

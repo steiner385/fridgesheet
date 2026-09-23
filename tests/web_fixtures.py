@@ -1,7 +1,7 @@
 """One snapshot for every page test: two kids, and every row situation the pages must show.
 
 Alex, Honors English 9 (Canvas course 5 <-> HAC "Honors English 9 S1"):
-  77 Quiz 1        due 9/12  Canvas MISSING, HAC 28/30           -> open (canvas), disagree
+  77 Quiz 1        due 9/12  Canvas MISSING, HAC 28/30           -> done on paper (HAC's grade beats the automatic flag)
   78 Essay draft   due 9/14  submitted, ungraded                 -> submitted_ungraded, not open
   79 Reading log   due 9/20  unsubmitted, in the future          -> upcoming, not open
   80 Worksheet 3   due 9/16  unsubmitted (tomorrow)              -> upcoming, due tomorrow
