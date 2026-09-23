@@ -52,7 +52,10 @@ class ViewReport:
         finally:
             conn.close()
         pdf = ctx.out_dir / "report.pdf"
-        note = f"{rendered.truncated} more rows are not shown" if rendered.truncated else None
+        # A report limited to a window says so on paper, or "the last 7 days" reads as everything (#94).
+        notes = ([f"Rows from {rendered.window.lower()}"] if rendered.window else []) + \
+                ([f"{rendered.truncated} more rows are not shown"] if rendered.truncated else [])
+        note = "; ".join(notes) or None
         pages = sheet.build_table_pdf(rendered, pdf, title=d.title or self.name, printed_at=ctx.now,
                                       orientation=d.orientation, per_kid_sections=d.per_kid_sections, note=note)
         n = sum(len(g.rows) for g in rendered.groups)
