@@ -114,6 +114,22 @@ try {
     #                  have worked instead.
     Write-Host "smoke: detached spawn survives a tree kill (installer.iss:117's taskkill /T)"
 
+    # This step drives the real mechanism through a *python* parent/worker pair (see the
+    # comment above), not through the shipped FridgeSheet.exe -- so unlike every other step
+    # in this script, it depends on something outside the built bundle. A CI runner with no
+    # Python on PATH would otherwise fail deep inside Start-Process below with a bare "the
+    # flagged grandchild never reported its PID" (Wait-ForPidFile timing out because nothing
+    # ever started), which sends whoever reads the log looking at the detachment mechanism
+    # itself rather than at what actually broke. Fail here, immediately, naming what is
+    # missing and why this one step -- and only this step -- needs it.
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        throw "step 4 (detached spawn survives a tree kill) needs 'python' on PATH: it drives " +
+              "the real DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP mechanism through a " +
+              "throwaway python parent/worker pair rather than the shipped exe, and none was " +
+              "found. Install Python and ensure 'python' resolves, or run this smoke test on " +
+              "a runner that already has it."
+    }
+
     # Waits (bounded: 250ms x 40 = 10s max) for a PID file to hold an actual number. The
     # worker writes its own PID after opening the file, so a bare Test-Path can observe it
     # mid write, and `[int]""` under $ErrorActionPreference = "Stop" is a terminating error
