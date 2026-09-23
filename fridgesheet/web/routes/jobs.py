@@ -4,10 +4,10 @@ from __future__ import annotations
 import sqlite3
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from ... import reports as registry
-from ..app import Db, State, render_partial, safe_pdf
+from ..app import Db, State, is_htmx, render_partial, safe_pdf
 from .. import jobs as jobmod
 
 router = APIRouter()
@@ -51,6 +51,11 @@ def start(kind: str, request: Request, date: str | None = Form(None), report: st
 def show(job_id: int, request: Request, conn: sqlite3.Connection = Db, state=State):
     job = _worker(state).get(job_id)
     if job is None:
+        if is_htmx(request):
+            # The live log's `done` event fetches this to replace the card; after eviction a
+            # 404 page landed in it (#4). Runs still has the outcome.
+            return HTMLResponse('<div class="card job" id="job"><p class="muted">That job is no longer kept here; '
+                                'its result is on the <a href="/runs">Runs</a> page.</p></div>')
         raise HTTPException(404, "no such job")
     return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=_pdf(state, job))
 

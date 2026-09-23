@@ -185,6 +185,11 @@ def _hac_values(row: dict) -> dict:
             "submitted_at": None, "late": None, "missing": None, "excused": None, "published": None}
 
 
+def _assigned_key(raw, tz) -> str:
+    d = parse_hac_date(raw, tz)
+    return d.isoformat() if d else ""
+
+
 def _hac_only_rows(rows: list[dict], course_name: str, tz) -> list[tuple[dict, str]]:
     """HAC rows with no Canvas twin, paired with the item key each should be stored under.
 
@@ -207,6 +212,12 @@ def _hac_only_rows(rows: list[dict], course_name: str, tz) -> list[tuple[dict, s
             continue
         seen_dated_keys: set[str] = set()
         undated_ordinal = 0
+        # Undated rows are numbered in an order read from the rows themselves, not the scrape's
+        # (#2): a gradebook listing them the other way round swapped their keys, and a flag or
+        # note moved to the other assignment. Only fields that do not change as it is graded.
+        group_rows = sorted(group_rows, key=lambda r: (parse_hac_date(r.get("due"), tz) is not None,
+                                                        _assigned_key(r.get("assigned"), tz),
+                                                        str(r.get("category") or ""), float(r.get("points") or 0)))
         for row in group_rows:
             due = parse_hac_date(row.get("due"), tz)
             if due is None:

@@ -288,7 +288,10 @@ def since(conn: sqlite3.Connection, *, since: datetime, until: datetime | None =
     # would tie-break same-instant events in reverse-alphabetical student and item order.
     # `sort` is stable, so the ascending pass survives inside each timestamp.
     kept.sort(key=lambda e: (e.student_key, e.item_name or "", e.kind))
-    kept.sort(key=lambda e: e.at, reverse=True)
+    # One timestamp with no offset among aware ones raised TypeError here (#5). Mixed, compare
+    # wall clocks -- `reconcile.comparable`'s rule, right for timestamps this app writes.
+    mixed = len({e.at.tzinfo is None for e in kept}) > 1
+    kept.sort(key=(lambda e: e.at.replace(tzinfo=None)) if mixed else (lambda e: e.at), reverse=True)
     offset = max(0, offset)
     page = kept[offset:] if limit is None else kept[offset:offset + limit]
     return Feed(page, total=len(kept), offset=offset)

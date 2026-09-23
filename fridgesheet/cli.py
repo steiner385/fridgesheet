@@ -174,7 +174,7 @@ def cmd_run(args) -> int:
     from . import runner
     opts = runner.RunOptions(dry_run=args.dry_run, force=args.force, reprint=args.reprint, date=args.date, kid=args.kid,
                              no_refresh=args.no_refresh, printer=args.printer,
-                             options={"days_ahead": args.days, "overdue_days": args.overdue_days}, trigger="cli")
+                             options={"days_ahead": args.days, "overdue_days": args.overdue_days}, trigger=args.trigger)
     return runner.run(args.report, opts, load_settings())
 
 
@@ -549,6 +549,7 @@ def main(argv=None) -> None:
     rn.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: config.toml, then the system default)")
     rn.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     rn.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
+    rn.add_argument("--trigger", choices=["cli", "schedule"], default="cli", help=argparse.SUPPRESS)   # set by installed schedules
     rn.set_defaults(fn=cmd_run)
     sub.add_parser("reports", help="list report types and their schedules").set_defaults(fn=cmd_reports)
     sc2 = sub.add_parser("schedule", help="install, remove or show a report's scheduled run "
