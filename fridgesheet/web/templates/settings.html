@@ -19,6 +19,12 @@
      <label>Overdue days <input name="overdue_days" value="{{ form.overdue_days }}" size="3"></label></p>
   <p><label>Nicknames (one First=Nick per line)<br><textarea name="nicknames">{{ form.nicknames }}</textarea></label></p>
   <p><label>Archive folder <input name="archive" value="{{ form.archive }}" size="40"></label></p>
+  <p><label>Assignment scores come from <select name="sources_assignments">
+     {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_assignments == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label>
+     <label>Class averages come from <select name="sources_grades">
+     {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_grades == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label><br>
+     <span class="muted">Which gradebook wins when both have a number. The other still fills in what this one lacks.
+       One class or one kid can differ: set it on the class's page.</span></p>
   <p><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
   <p class="muted">Automatic printing: {{ status }}</p>
   <p class="muted">{{ about.split('\n')[0] }}
@@ -37,6 +43,14 @@
   <p><button class="primary">Save</button>
      {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}</p>
 </form>
+{% if source_rules %}
+<h3>Gradebook overrides</h3>
+<table class="items"><tr><th>Kid</th><th>Class</th><th>Assignment scores</th><th>Class average</th><th></th></tr>
+{% for r in source_rules %}<tr><td>{{ r.kid or 'Every kid' }}</td><td>{{ r.course or 'Every class' }}</td>
+  <td>{{ SOURCE_LABELS[r.assignments] if r.assignments else 'Default' }}</td><td>{{ SOURCE_LABELS[r.grades] if r.grades else 'Default' }}</td>
+  <td><form method="post" action="/settings/sources/remove"><input type="hidden" name="kid" value="{{ r.kid }}"><input type="hidden" name="course" value="{{ r.course }}"><button>Remove</button></form></td></tr>
+{% endfor %}</table>
+{% endif %}
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
 {% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}
