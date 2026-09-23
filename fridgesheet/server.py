@@ -4,6 +4,7 @@ Tools return plain JSON. The agent never sees credentials: logins happen inside 
 """
 from __future__ import annotations
 
+import functools
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -21,13 +22,17 @@ from .sources import pick_value
 log = logging.getLogger("fridgesheet.server")
 
 mcp = _McpServer("fridgesheet")
-_settings = load_settings()
+@functools.lru_cache(maxsize=1)
+def _settings():
+    """Read on the first tool call, not at import (#3): a broken config.toml then fails that
+    call with its message, instead of the MCP server failing to start with a traceback."""
+    return load_settings()
 
 
 def _snap(refresh: bool = False) -> dict:
-    snap = collector.load_snapshot(_settings)
-    if refresh or not collector.snapshot_is_fresh(_settings, snap):
-        snap = collector.collect(_settings)
+    snap = collector.load_snapshot(_settings())
+    if refresh or not collector.snapshot_is_fresh(_settings(), snap):
+        snap = collector.collect(_settings())
     return snap
 
 
@@ -43,15 +48,15 @@ def refresh(kids: list[str] | None = None, hac: bool = True, canvas: bool = True
     """Re-pull Canvas and/or HAC now (logs in if a session expired) and return the source status.
     Use before building a report so numbers are current. Takes ~1-3 minutes. A source that
     fails keeps its data from the last good pull; `stale` says which and how old."""
-    snap = collector.collect(_settings, include_hac=hac, include_canvas=canvas, kids_filter=kids)
-    return collector.summary(_settings, snap)
+    snap = collector.collect(_settings(), include_hac=hac, include_canvas=canvas, kids_filter=kids)
+    return collector.summary(_settings(), snap)
 
 
 @mcp.tool()
 def status() -> dict:
     """Snapshot age, whether each source (Canvas, HAC) was reachable on the last pull, and
     which sources are being served from an older pull (`stale`, with that pull's time)."""
-    return collector.summary(_settings, collector.load_snapshot(_settings))
+    return collector.summary(_settings(), collector.load_snapshot(_settings()))
 
 
 @mcp.tool()
@@ -78,7 +83,7 @@ def grades(student: str) -> dict:
         w = _match(c["name"], hac_week) or {}
         seen.add(h.get("name"))
         hac_official = h.get("marking_period_avg", w.get("current_average"))
-        pick = _settings.sources.resolve(first, c["name"], h.get("name")).grades
+        pick = _settings().sources.resolve(first, c["name"], h.get("name")).grades
         official, official_source = pick_value(pick, c["grade"]["current_score"], hac_official)
         out["classes"].append({
             "course": c["name"],
@@ -93,7 +98,7 @@ def grades(student: str) -> dict:
         })
     for name, h in hac_classes.items():  # HAC-only classes (e.g. Hawk Time)
         if name not in seen:
-            pick = _settings.sources.resolve(first, name).grades
+            pick = _settings().sources.resolve(first, name).grades
             official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
             out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None})
     return out
@@ -118,9 +123,9 @@ def assignments(student: str, course: str | None = None, include_graded: bool = 
 
 def _open_work(student: str, days_ahead: int, include_hac: bool = True):
     e = _kid(_snap(), student)
-    now = datetime.now(ZoneInfo(_settings.timezone))
-    rules = late_rules.load(_settings.home / "late-rules.toml")
-    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac, prefs=_settings.sources)
+    now = datetime.now(ZoneInfo(_settings().timezone))
+    rules = late_rules.load(_settings().home / "late-rules.toml")
+    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac, prefs=_settings().sources)
 
 
 @mcp.tool()

@@ -34,7 +34,7 @@ def snapshot(monkeypatch, tmp_path):
     }
     monkeypatch.setattr(collector, "load_snapshot", lambda s: snap)
     monkeypatch.setattr(collector, "snapshot_is_fresh", lambda s, snap: True)
-    monkeypatch.setattr(server._settings, "home", tmp_path)
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
     return snap
 
 
@@ -74,12 +74,12 @@ def graded(monkeypatch, tmp_path):
 
 
 def test_grades_official_follows_the_grades_source(graded, monkeypatch):
-    monkeypatch.setattr(server._settings, "sources", sources.DEFAULT)
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
     bio = out["Honors Biology S1-2027-Nance"]
     assert (bio["official"], bio["official_source"]) == (88.0, "hac")
     assert (bio["hac_official"], bio["canvas_current"]) == (88.0, 91.2)          # both still there
-    monkeypatch.setattr(server._settings, "sources", sources.DEFAULT.with_default("canvas", "canvas"))
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT.with_default("canvas", "canvas"))
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
     assert (out["Honors Biology S1-2027-Nance"]["official"], out["Honors Biology S1-2027-Nance"]["official_source"]) == (91.2, "canvas")
     assert (out["Hawk Time"]["official"], out["Hawk Time"]["official_source"]) == (100.0, "hac")   # HAC-only fills the gap
