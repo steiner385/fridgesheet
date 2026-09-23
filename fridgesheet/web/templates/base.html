@@ -37,7 +37,7 @@
       {% block rail_extra %}{% endblock %}
     </nav>
   </aside>
-  <main>
+  <main{% block main_attrs %}{% endblock %}>
     {% include "_header.html" %}
     {% block content %}{% endblock %}
   </main>

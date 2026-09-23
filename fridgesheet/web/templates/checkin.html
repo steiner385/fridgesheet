@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ student.key | nickname }} · {{ 'Plan' if plan_only else 'Check-in' }} · Fridge Sheet{% endblock %}
+{% block main_attrs %}{% if not plan_only %} class="wide"{% endif %}{% endblock %}
 {% block content %}
 <div class="workspace-heading">
   <div><p class="eyebrow">One step at a time</p><h2>{{ student.key | nickname }}’s {{ 'plan' if plan_only else 'check-in' }}</h2></div>
@@ -24,6 +25,7 @@
   {% for label, rows in queues.items() %}
   <details class="queue-group" {{ 'open' if rows }}>
     <summary>{{ label }} <span class="badge">{{ rows | length }}</span></summary>
+    <div class="review-grid">
     {% for view in rows %}
     <article class="card review-card">
       <p class="eyebrow">{{ view.course_short }}</p><h4>{{ view.name }}</h4>
@@ -34,11 +36,13 @@
       <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}{% if label == waiting_group %}&amp;state=waiting{% endif %}">Choose a next step</a>
     </article>
     {% else %}<p class="muted">Nothing in this group.</p>{% endfor %}
+    </div>
   </details>
   {% endfor %}
   <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this review queue.</p>
 </section>
 {% endif %}
+<div class="checkin-side">
 <section id="plan" class="plan-panel" aria-labelledby="plan-heading">
   <div class="workspace-heading"><h3 id="plan-heading">Our next steps</h3><a class="button-link" href="{{ base }}/step">Add a task</a></div>
   <p class="plan-total"><strong>{{ total_minutes }} min estimated for today</strong>{% if unestimated %} · {{ unestimated }} step{{ 's' if unestimated != 1 }} without an estimate{% endif %}</p>
@@ -64,7 +68,6 @@
     {% for step in completed %}<div class="card plan-card"><strong>{{ step.title }}</strong><p>{{ step.next_step }} · {{ step.owner }} · completed {{ step.updated_at | wd_md_time }}{% if step.recorded_by %} by {{ step.recorded_by }}{% endif %}</p>{% if step.family_account %}<p class="family-account">{{ step.family_account }}</p>{% endif %}<a href="{{ base }}/step?step_id={{ step.id }}">Edit or reopen</a>{% if step.item_id %} · <a href="{{ base }}/step?item_id={{ step.item_id }}">Add another step</a>{% endif %}</div>{% endfor %}
   </details>
 </section>
-</div>
 {% if not plan_only %}
 <section class="card finish-checkin">
   <h3>Agree and wrap up</h3><p>Check that the plan fits. Save what you agreed, including who will help and when you’ll meet again.</p>
@@ -79,5 +82,7 @@
   </form>
 </section>
 {% endif %}
+</div>
+</div>
 {% if history %}<details class="queue-group"><summary>Previous agreements <span class="badge">{{ history | length }}</span></summary>{% for check in history %}<article class="card plan-card"><h4>{{ check.finished_at | wd_md_time }}</h4><p>{{ check.summary }}</p><p>Next check-in {{ check.next_check | wd_md }} · {{ check.available_minutes }} min available{% if check.recorded_by %} · Recorded by {{ check.recorded_by }}{% endif %}</p><ul>{% for step in check.steps %}<li>{{ step.title }} · {{ step.owner }}: {{ step.next_step }} — {{ step.planned_for | wd_md }} ({{ states[step.state] }})</li>{% else %}<li>No active steps at this check-in.</li>{% endfor %}</ul></article>{% endfor %}</details>{% endif %}
 {% endblock %}
