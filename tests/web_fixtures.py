@@ -88,9 +88,25 @@ def snapshot() -> dict:
     }
 
 
-def seed(home: Path, snap: dict | None = None, now: datetime = NOW) -> sqlite3.Connection:
+#: `seed`'s sentinel for "the caller didn't pass this" -- distinct from any real value
+#: (including "", the default a blank update PIN and an untouched config.toml agree on) so
+#: `seed(tmp_path)` alone still leaves config.toml untouched, the way every other test that
+#: asserts on its absence (e.g. test_web_schedules_page.py) already expects.
+_UNSET = object()
+
+
+def seed(home: Path, snap: dict | None = None, now: datetime = NOW, *,
+         update_pin_hash: str = _UNSET, check_updates: bool = _UNSET) -> sqlite3.Connection:
     conn = db.open_db(home)
     ingest.record(conn, snap or snapshot(), tz=TZ, now=now)
+    if update_pin_hash is not _UNSET or check_updates is not _UNSET:
+        doc = config.load_config_doc(home / "config.toml")
+        web = dict(doc.get("web") or {})
+        if update_pin_hash is not _UNSET:
+            web["update_pin_hash"] = update_pin_hash
+        if check_updates is not _UNSET:
+            web["check_updates"] = check_updates
+        config.save_config_doc(home / "config.toml", {**doc, "web": web})
     return conn
 
 
@@ -103,8 +119,15 @@ LOCAL_HOST_HEADERS = {"host": "127.0.0.1"}
 
 
 def app_for(home: Path, now: datetime = NOW, worker: bool = False) -> TestClient:
-    """A client whose app clock is frozen at `now` (pages compare due dates against it)."""
+    """A client whose app clock is frozen at `now` (pages compare due dates against it).
+
+    Reads `home/config.toml` if `seed(..., update_pin_hash=..., check_updates=...)` (or a
+    test writing it directly) left one -- the same load `AppState.reload()` does for a
+    non-default home, so a test that seeds a PIN before building its client sees it without
+    a separate reload() call.
+    """
     s = config.Settings(home=home)
+    config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
     application = webapp.create_app(s, worker=worker)
     application.state.fridgesheet.clock = lambda: now
     return TestClient(application, headers=LOCAL_HOST_HEADERS)

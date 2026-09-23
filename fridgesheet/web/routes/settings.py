@@ -5,10 +5,11 @@ import logging
 import sqlite3
 from datetime import date
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 
 from ..app import Db, State, loopback, render, render_partial
-from .. import actions, updates
+from .. import actions, updatepin, updates
+from .jobs import _worker
 from ... import qr, runner
 
 router = APIRouter()
@@ -143,3 +144,34 @@ async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, st
     rows = actions.no_print_days_view(actions.no_print_days_settings(state.home)) if not errors else \
         [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes) if s]
     return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)
+
+
+@router.post("/settings/update")
+def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+    """The only way to start an "update" job -- see `jobs.GATED`. `POST /jobs/update` (the
+    generic, unauthenticated route) is refused a kind ahead of ever reaching a worker; this
+    route is the PIN-gated door for it, and every check below runs before `_worker` is even
+    asked for, so none of them can be skipped by a caller that races the worker into existing.
+    """
+    if not state.settings.web_check_updates:
+        # The parent turned off this app's one outbound call (Settings' check_updates box).
+        # A button here must not quietly put it back regardless of what it is gating.
+        raise HTTPException(409, "Update checks are turned off in Settings.")
+    stored = state.settings.web_update_pin_hash
+    if not stored:
+        raise HTTPException(403, "Set an update PIN in Settings before updating from here.")
+    attempts = state.extra.setdefault("update_attempts", updatepin.Attempts())
+    until = attempts.locked_until(state.now())
+    if until is not None:
+        raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes.")
+    if not updatepin.verify(pin, stored):
+        attempts.record_failure(state.now())
+        raise HTTPException(403, "That PIN is not right.")
+    attempts.clear()
+    w = _worker(state)
+    job = w.submit("update")
+    if job is None:
+        r = render_partial(request, conn, "_job.html", job=w.current, busy=True, pdf=None)
+        r.status_code = 409
+        return r
+    return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=None)

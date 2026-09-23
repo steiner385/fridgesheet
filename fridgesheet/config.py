@@ -216,6 +216,12 @@ class Settings:
     #: [web] check_updates: ask GitHub once a day whether a newer release exists (web/updates.py).
     #: The one call the app makes to anything but OneLogin, Canvas and HAC; a checkbox on Settings.
     web_check_updates: bool = True
+    #: [web] update_pin_hash: a PBKDF2 hash of the update PIN (web.updatepin.hash_pin) -- never
+    #: the PIN itself. config.toml is plain text on disk, and this field is what stands between
+    #: every device on the house LAN and a button that downloads and runs an installer. Blank
+    #: means no PIN has been set, which means Settings offers no Update button at all: a button
+    #: gated by nothing would be worse than no button.
+    web_update_pin_hash: str = ""
     onelogin_user_selector: str = "input#username, input[name='username'], input[type='email']"
     onelogin_pass_selector: str = "input#password, input[name='password'], input[type='password']"
     onelogin_submit_selector: str = "button[type='submit'], input[type='submit']"
@@ -312,6 +318,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     s.web_host = str(web.get("host", s.web_host))
     s.web_allow_lan = bool(web.get("allow_lan", s.web_allow_lan))
     s.web_check_updates = bool(web.get("check_updates", s.web_check_updates))
+    s.web_update_pin_hash = str(web.get("update_pin_hash", s.web_update_pin_hash) or "")
     raw_extra = web.get("extra_hosts")
     if isinstance(raw_extra, list):
         # Lowercased on the way in: `urlsplit` lowercases an incoming Host, so a name typed

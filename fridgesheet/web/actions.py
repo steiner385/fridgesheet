@@ -611,3 +611,39 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         except Exception as e:  # noqa: BLE001  the database is a passenger here too
             log(f"WARN could not record the run: {e}")
     return RefreshResult(outcome == "OK", message, refresh_id)
+
+
+def self_update(*, home: Path, log: Callable[[str], None], settings, state) -> bool:
+    """Download the newest release's installer, prove it against GitHub's own sha256, and hand
+    off to it. Returns False having already explained itself on `log`; raising would only reach
+    the job worker's generic handler (jobs.Worker._run), which logs the exception type and loses
+    the parent-facing sentence `UpdateError` was written to carry.
+
+    Only ever called from the "update" branch of `jobs.Worker._run`, which is only ever reached
+    by a job the PIN-gated `POST /settings/update` route started (see `jobs.GATED`) -- there is
+    no other way into this function from the web.
+    """
+    from ..host import selfupdate
+    from . import updates as updatemod
+    try:
+        current = updatemod.current_version()
+        latest, url, digest, size = updatemod.latest_release(state.extra.get("update_fetch"))
+        if not updatemod.newer(latest, current):
+            log(f"Already on {current}; nothing to do.")
+            return False
+        log(f"Downloading Fridge Sheet {latest} ({size // 10**6} MB)...")
+        folder = home / "updates"
+        # `size` is not decoration: without it `download_verified`'s free-space check is
+        # dead code, because it has nothing to compare the free space against.
+        installer = selfupdate.download_verified(url, digest, folder / f"FridgeSheet-Setup-{latest}.exe",
+                                                 log=log, size=size)
+        log_path = folder / f"install-{latest}.log"
+        selfupdate.write_pending(home, selfupdate.Pending(
+            from_version=current, to_version=latest, started_at=state.now().isoformat(),
+            installer=str(installer), log=str(log_path)))
+        log("Starting the installer. Fridge Sheet will close and come back on its own.")
+        selfupdate.spawn_installer(installer, log_path)
+        return True
+    except selfupdate.UpdateError as e:
+        log(str(e))
+        return False
