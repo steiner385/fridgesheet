@@ -21,7 +21,7 @@ def _filters(request: Request) -> dict:
     return {
         "show": q.get("show", "open"), "source": q.get("source") or None,
         "course_id": int(course) if course and course.isdigit() else None,
-        "kind": q.get("kind") or None, "flagged": q.get("flagged") or None, "outcome": q.get("outcome") or None, "sort": q.get("sort", "due"),
+        "kind": q.get("kind") or None, "flagged": q.get("flagged") or None, "outcome": q.get("outcome") or None, "verdict": q.get("verdict") or None, "sort": q.get("sort", "due"),
         "direction": _direction(q.get("dir")),
     }
 
@@ -37,7 +37,7 @@ def _sort_base(key: str, f: dict) -> str:
     q = [("show", f["show"])]
     q += [(name, v) for name, v in (("source", f["source"]), ("course", f["course_id"]),
                                     ("kind", f["kind"]), ("flagged", f["flagged"]),
-                                    ("outcome", f["outcome"])) if v]
+                                    ("outcome", f["outcome"]), ("verdict", f["verdict"])) if v]
     return f"/kids/{quote(key)}?{urlencode(q)}&"
 
 
@@ -52,6 +52,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
     by_state["question"] = [v for v in everything if v.asks]          # an agreed step already covers the rest
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
+                  widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
                   questions=by_state["question"], decided=by_state["decided"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
