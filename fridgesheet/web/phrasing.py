@@ -23,6 +23,7 @@ PHRASES: dict[str, dict[str, str]] = {
     "Missing":             {"early": "Teacher hasn't got it", "middle": "Marked missing", "older": "Missing"},
     "Zero":                {"early": "Marked zero - ask about it", "middle": "Scored zero", "older": "Zero"},
     "Paper, check":        {"early": "On paper - check if it's handed in", "middle": "Paper - check whether it was handed in", "older": "Paper, check"},
+    "In class, check":     {"early": "In class - check if it's handed in", "middle": "In class - check whether it was handed in", "older": "In class, check"},
     "Late, ungraded":      {"early": "Handed in late, no grade yet", "middle": "Late, not graded", "older": "Late, ungraded"},
     "Submitted, ungraded": {"early": "Handed in - waiting", "middle": "Submitted, not graded", "older": "Submitted, ungraded"},
     "Unpublished":         {"early": "Not open yet", "middle": "Not published", "older": "Unpublished"},
@@ -31,13 +32,6 @@ PHRASES: dict[str, dict[str, str]] = {
     # an online one; "Done on paper" would assert a fact no source gave us.
     "On paper":            {"early": "This one is on paper", "middle": "On paper, not online", "older": "On paper"},
     "Unknown":             {"early": "We can't tell", "middle": "Not recorded", "older": "Unknown"},
-    # --- what the two sources disagree about ------------------------------------------
-    "disagree":            {"early": "Ask your teacher", "middle": "Sources disagree", "older": "disagree"},
-    "past_credit":         {"early": "Too late to fix", "middle": "Past the credit window", "older": "past credit"},
-    "one_source":          {"early": "Only one system lists it", "middle": "Only one source lists it", "older": "one source"},
-    "paper_no_grade":      {"early": "On paper, no grade yet", "middle": "Paper, no grade yet", "older": "paper no grade"},
-    "submitted_ungraded":  {"early": "Handed in - waiting", "middle": "Submitted, not graded", "older": "submitted ungraded"},
-    "stale_flag":          {"early": "This changed after you marked it", "middle": "Your flag is out of date", "older": "stale flag"},
     # --- the badge that means "you can still do something about this" -----------------
     "actionable":          {"early": "Can still fix", "middle": "Still fixable", "older": "actionable"},
     # --- verdicts: what the records show (facts), what we ask, the answers, where it stands --

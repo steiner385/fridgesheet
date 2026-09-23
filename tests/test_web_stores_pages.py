@@ -26,13 +26,12 @@ def test_all_items_carry_sources_status_and_flags(tmp_path):
     # Canvas's automatic MISSING loses to HAC's 28/30 recorded in the same refresh (docs/outcomes.md).
     assert v["Quiz 1"].sources == ("canvas", "hac") and v["Quiz 1"].open_in == set() and not v["Quiz 1"].actionable
     assert v["Quiz 1"].outcome == "done_offline"
-    assert v["Quiz 1"].status == "Missing" and v["Quiz 1"].hac["score"] == 28.0 and v["Quiz 1"].case_kinds == ["disagree"]
-    assert v["Essay draft"].status == "Submitted, ungraded" and not v["Essay draft"].open_in and v["Essay draft"].case_kinds == ["submitted_ungraded"]
+    assert v["Quiz 1"].status == "Missing" and v["Quiz 1"].hac["score"] == 28.0 and v["Quiz 1"].verdict.kind == "graded_in_hac"
+    assert v["Essay draft"].status == "Submitted, ungraded" and not v["Essay draft"].open_in and v["Essay draft"].verdict.kind == "teacher_grading"
     assert v["Vocabulary"].status == "Due today" and v["Worksheet 3"].status == "Due tomorrow" and v["Reading log"].status == "Due Sun"
-    assert v["Lab notebook"].kind == "paper" and v["Lab notebook"].status == "Paper, check" and "paper_no_grade" in v["Lab notebook"].case_kinds
-    assert v["Participation"].sources == ("hac",) and v["Participation"].status == "HAC, no grade" and v["Participation"].case_kinds == ["one_source"]
-    assert v["Homework 4"].open_in == {"canvas"} and not v["Homework 4"].actionable and "past_credit" in v["Homework 4"].case_kinds
-    assert v["Homework 4"].case_kinds == ["one_source", "past_credit"]     # Algebra's HAC twin has no row for it (rule 2) and credit closed (rule 5)
+    assert v["Lab notebook"].kind == "paper" and v["Lab notebook"].status == "Paper, check" and v["Lab notebook"].verdict.kind == "awaiting_grade"
+    assert v["Participation"].sources == ("hac",) and v["Participation"].status == "HAC, no grade" and v["Participation"].verdict.kind == "still_ungraded"
+    assert v["Homework 4"].open_in == {"canvas"} and not v["Homework 4"].actionable and v["Homework 4"].verdict.kind == "past_credit"
     assert v["Quiz 1"].course_short == "Honors English 9" and v["Quiz 1"].due.date().isoformat() == "2026-09-12"
 
 

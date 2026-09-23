@@ -8,7 +8,7 @@
 {%- set tier = s.key | tier_of -%}
 <a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
 {%- if v.notes %} <span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-{%- for k in v.case_kinds %} <span class="badge warn">{{ k | phrase(tier) }}</span>{% endfor %}
+{%- if v.verdict.state == 'question' %} <a class="qmark" href="/questions?kid={{ s.key }}#q-{{ v.id }}">question</a>{% endif %}
 {%- endmacro %}
 {% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
 <h2>Open work</h2>

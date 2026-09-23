@@ -1,8 +1,8 @@
-"""The item list behind the Kid page, the Dashboard counts and the Reconcile page.
+"""The item list behind the Kid page, the Dashboard counts and the Questions page.
 
 One pass over a kid's live items (Plan A's `reconcile.live_items`) decorates each row with
 what the browser shows: the sources that know it, whether it is open and actionable, its
-active flag, a status phrase, the note count and the reconciliation case kinds. Routes
+active flag, a status phrase, the note count and its verdict (`web/verdicts.py`). Routes
 filter and sort these views; they never touch SQL.
 """
 from __future__ import annotations
@@ -47,7 +47,6 @@ class ItemView:
     hac: sqlite3.Row | None
     notes: int = 0
     flag_set_at: str = ""           # when the active flag was set (ISO), "" when unflagged
-    case_kinds: list[str] = field(default_factory=list)
     # `status` above is one word -- the sheet's word -- and it was the whole Status column.
     # It folds three facts into one label: when it is due, whether it was handed in, and
     # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "In class, check", "Due Sun" and
@@ -221,9 +220,6 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
 def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
            prefs=None) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
-    kinds: dict[int, list[str]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
-        kinds.setdefault(case.item_id, []).append(case.kind)
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
@@ -256,7 +252,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             flag_set_at=active_flags[r["id"]]["set_at"] if r["id"] in active_flags else "",
             status=status_text(r, obs, now, prefer),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
-            notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
+            notes=note_counts.get(r["id"], 0),
             verdict=verdicts.verdict(r, obs, flag=r["flag"], flag_set_at=r["flag_set_at"] or "", now=now, rules=rules,
                                      refresh_times=refresh_times, prefer=prefer),
             canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
@@ -350,28 +346,6 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
 def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: datetime, rules,
         days_ahead: int = DAYS_AHEAD, prefs=None) -> ItemView | None:
     return next((v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs) if v.id == item_id), None)
-
-
-def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
-               kind: str | None = None, prefs=None) -> list[tuple[ItemView, list[reconcile.Case]]]:
-    """Every live item that carries at least one reconciliation case, with its cases, for the
-    Reconcile page. Items the parent has already handled (done / excused / ignore) are left out:
-    the page is for open questions, and the Kid page's `show=all` still lists them. The exception
-    is a handled flag the school has since contradicted (`stale_flag`): that is an open question.
-
-    `kind` selects which *groups* appear, not which reasons: an item is kept when at least one
-    of its cases has that kind, and a kept item still lists all of its cases, so a multi-kind
-    item (e.g. both `past_credit` and `one_source`) doesn't lose a reason just because the page
-    is filtered to a different one."""
-    by_item: dict[int, list[reconcile.Case]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
-        by_item.setdefault(case.item_id, []).append(case)
-    if kind is not None:
-        by_item = {i: cs for i, cs in by_item.items() if any(c.kind == kind for c in cs)}
-    views = {v.id: v for v in _views(conn, student, now=now, rules=rules, prefs=prefs) if v.id in by_item
-             and (not v.handled or any(c.kind == "stale_flag" for c in by_item[v.id]))}
-    out = [(views[i], cs) for i, cs in by_item.items() if i in views]
-    return sorted(out, key=lambda pair: _sort_key("due")(pair[0]))
 
 
 def near_twins(conn: sqlite3.Connection, views: list[ItemView]) -> list[tuple[ItemView, ItemView]]:

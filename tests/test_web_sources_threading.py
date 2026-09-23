@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from fridgesheet import config, late_rules, sources
-from fridgesheet.web import app as webapp, reconcile
+from fridgesheet.web import app as webapp
 from fridgesheet.web.stores import items, students
 from tests.web_fixtures import LOCAL_HOST_HEADERS, NOW, seed
 
@@ -51,12 +51,14 @@ def test_dashboard_counts_follow_prefs(tmp_path):
     assert after == before          # Quiz 1, the one item the preference used to move, is settled either way
 
 
-def test_the_disagreement_is_still_listed_under_hac(tmp_path):
+def test_the_disagreement_is_still_shown_under_hac(tmp_path):
+    """Preferring HAC must not hide that Canvas says missing: Quiz 1 is a "Decided for you" line
+    (with "Not right?") under either preference."""
     conn = seed(tmp_path)
     alex = students.by_key(conn, "Alex")
-    qid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
-    kinds = [c.kind for c in reconcile.cases(conn, alex["id"], rules=RULES, now=NOW, prefs=HAC) if c.item_id == qid]
-    assert "disagree" in kinds
+    for prefs in (None, HAC):
+        (quiz,) = [v for v in items.list_items(conn, alex, now=NOW, rules=RULES, show="all", prefs=prefs) if v.name == "Quiz 1"]
+        assert (quiz.verdict.state, quiz.verdict.kind) == ("decided", "graded_in_hac"), prefs
 
 
 def test_the_kid_page_reads_the_preference_from_config(tmp_path):

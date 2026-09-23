@@ -46,7 +46,7 @@ def _group(v) -> str | None:
         return None
     submitted = v.canvas is not None and v.canvas["submitted_at"]
     ungraded = submitted and v.canvas["score"] is None and (v.hac is None or v.hac["score"] is None)
-    uncertain = v.grade_zero or v.outcome == outcomes.UNKNOWN or "disagree" in v.case_kinds
+    uncertain = v.grade_zero or v.outcome == outcomes.UNKNOWN
     # Undated work (HAC lists some) is never "open" or "upcoming" by date; unfinished, it still
     # deserves a look rather than silence.
     undated = v.due is None and v.outcome == outcomes.NOT_DUE
@@ -56,14 +56,18 @@ def _group(v) -> str | None:
 
 
 def queue_for(v, covered: set[int]) -> str | None:
-    """The review group for one item at a check-in, or None to leave it out.
-
-    Work with an agreed step is already in the plan. Handled work stays out -- unless the
-    school has since contradicted the flag, which is the disagreement a check-in is for."""
+    """The review group for one item at a check-in, or None to leave it out. A question
+    (web/verdicts.py) is something to clarify together; waiting on the teacher is its own
+    group; work with an agreed step is already in the plan; handled work stays out unless the
+    school has since contradicted the answer."""
     if v.id in covered:
         return None
     if v.handled:
-        return QUEUES[1] if "stale_flag" in v.case_kinds else None
+        return QUEUES[1] if v.verdict.kind == "stale_answer" else None
+    if v.verdict.state == "question":
+        return QUEUES[1]
+    if v.verdict.kind == "teacher_grading":
+        return QUEUES[2]
     return _group(v)
 
 

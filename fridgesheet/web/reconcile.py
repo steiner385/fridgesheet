@@ -1,10 +1,11 @@
 # fridgesheet/web/reconcile.py
-"""What is actionable, and what the sources cannot settle by themselves.
+"""What is open and actionable, over database rows.
 
-Pure functions over database rows. An item is actionable when (1) at least one source
-still considers it open, (2) the late-work rules say it still earns credit, and (3) no
-handled flag (done / excused / ignore) is set. The six case kinds are the situations the
-Reconcile page shows a parent, each with a one-line reason and the flag menu.
+Pure functions. An item is actionable when (1) at least one source still considers it open,
+(2) the late-work rules say it still earns credit, and (3) no handled flag (done / excused /
+ignore) is set. What the sources cannot settle by themselves, and whether the family has
+anything to do about it, is `web/verdicts.py`'s question; this module used to answer it with
+six "case" kinds for the Reconcile page, which Questions replaced.
 
 Both entry points look only at items that are still live: reported by a source in the most
 recent refresh that saw this student, and due on or after the school year began (see
@@ -14,26 +15,11 @@ history; a page that asks a parent to decide something must not.
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from .. import sources
-from ..open_items import HANDLED_FLAGS, MARKED_FLAGS, school_year_start
+from ..open_items import HANDLED_FLAGS, school_year_start
 from . import db
-
-KINDS = ("disagree", "one_source", "submitted_ungraded", "paper_no_grade", "past_credit", "stale_flag")
-
-
-@dataclass(frozen=True)
-class Case:
-    kind: str
-    item_id: int
-    key: str
-    course: str
-    name: str
-    due: datetime | None
-    reason: str
-
 
 def _due(item: sqlite3.Row) -> datetime | None:
     return datetime.fromisoformat(item["due"]) if item["due"] else None
@@ -57,12 +43,6 @@ def _comparable(a: datetime, b: datetime) -> tuple[datetime, datetime]:
 
 due_of = _due
 comparable = _comparable
-
-
-def _score_text(o: sqlite3.Row | None) -> str:
-    if o is None or o["score"] is None:
-        return "no grade"
-    return f"{o['score']:g}"
 
 
 def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, prefer: str = "canvas") -> set[str]:
@@ -156,74 +136,3 @@ def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: d
            if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now,
                             prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))]
     return sorted(out, key=lambda r: (r["due"] or "", r["course_short"], r["name"]))
-
-
-def _refresh_times(conn: sqlite3.Connection) -> dict[int, str]:
-    return {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
-
-
-def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, prefs=None) -> list[Case]:
-    """The six reconciliation cases below, one `Case` per reason found. A single item can
-    carry more than one at once -- a `Case` is one reason, not a verdict -- so callers (the
-    Plan B reconcile page) group the results by `item_id` to show a parent everything at once."""
-    latest = db.latest_observations(conn, student_id)
-    refresh_times = _refresh_times(conn)
-    found: list[Case] = []
-    for r in live_items(conn, student_id, now):
-        obs = latest.get(r["id"], {})
-        c, h = obs.get("canvas"), obs.get("hac")
-        due = _due(r)
-        past = due is not None and due < now
-        opened = open_sources(r, obs, now, prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))
-        flag = r["flag"]
-
-        def add(kind: str, reason: str) -> None:
-            found.append(Case(kind, r["id"], r["key"], r["course_short"], r["name"], due, reason))
-
-        # 1. the sources disagree about whether the work is done
-        if c is not None and h is not None:
-            if (c["missing"] or (c["state"] == "graded" and c["score"] == 0)) and h["score"] not in (None, 0):
-                add("disagree", f"Canvas says {'MISSING' if c['missing'] else 'ZERO'}, HAC shows {_score_text(h)}")
-            elif h["score"] is None and c["state"] == "graded" and c["score"] not in (None, 0):
-                add("disagree", f"HAC has no grade, Canvas shows {_score_text(c)}")
-        # 2. only one source knows about the item at all
-        if r["key"].startswith("hac:") and "hac" in opened:
-            add("one_source", "Only HAC lists this; probably paper work")
-        elif c is not None and h is None and past and r["peer_course_id"] is not None and "canvas" in opened:
-            add("one_source", "Not in HAC's gradebook yet")
-        # 3. turned in but Canvas hasn't graded it
-        if c is not None and c["submitted_at"] and c["score"] is None and past:
-            add("submitted_ungraded", "Turned in, not graded yet")
-        # 4. paper or in-class work, past due, no grade posted anywhere
-        # A HAC score answers the question this case asks, so it never fires once HAC has one.
-        if (c is not None and r["kind"] in ("paper", "in class") and past and c["state"] in ("unsubmitted", None)
-                and c["score"] is None and (h is None or h["score"] is None)):
-            add("paper_no_grade", f"{r['kind'].capitalize()} work with no grade: ask")
-        # 5. still open but past the late-work credit window
-        if opened and flag not in HANDLED_FLAGS and due is not None:
-            deadline = rules.deadline(r["kid"], r["course_name"], due)
-            if now > deadline:
-                add("past_credit", f"No longer earns credit (window closed {deadline:%a %m/%d}); flag ignore to hide")
-        # 6. a flag the sources have since overtaken (an observation newer than the flag contradicts
-        # it). Either source counts: for paper and in-class work the teacher fixes HAC, not Canvas.
-        if flag and r["flag_set_at"]:
-            said = flag.replace("_", " ")
-
-            def newer(o) -> bool:
-                started_at = refresh_times.get(o["refresh_id"]) if o is not None else None
-                if not started_at:
-                    return False
-                refreshed, flagged = _comparable(_parse_ts(started_at), _parse_ts(r["flag_set_at"]))
-                return refreshed > flagged
-
-            if flag in HANDLED_FLAGS:
-                if newer(c) and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
-                    add("stale_flag", f"Flagged {said} but Canvas now says {'MISSING' if c['missing'] else 'ZERO'}")
-                elif newer(h) and h["score"] == 0:
-                    add("stale_flag", f"Flagged {said} but HAC now shows a zero")
-            elif flag in MARKED_FLAGS:
-                if newer(c) and c["score"] is not None:
-                    add("stale_flag", f"Flagged {said} but it is graded now ({_score_text(c)})")
-                elif newer(h) and h["score"] is not None:
-                    add("stale_flag", f"Flagged {said} but HAC has graded it now ({_score_text(h)})")
-    return sorted(found, key=lambda x: (x.due or datetime.max.replace(tzinfo=now.tzinfo), x.course, x.name))
