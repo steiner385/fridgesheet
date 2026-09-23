@@ -108,16 +108,22 @@ def test_grade_falls_back_to_hac_only_when_canvas_has_nothing():
 # --- the page ---------------------------------------------------------------------------------
 
 def test_the_kid_table_has_the_three_columns_and_the_old_composite_words_are_gone(tmp_path):
+    """Three columns: Due, Assignment, Where it stands (docs/superpowers/specs/
+    2026-09-23-questions-not-cases-design.md, 6.1). Where it stands is one phrase from the
+    item's verdict; for work not yet due it is simply when it is due."""
     from web_fixtures import app_for, seed
     seed(tmp_path).close()
     c = app_for(tmp_path)
     html = c.get("/kids/Alex", headers={"host": "127.0.0.1"}).text
-    # A sortable heading now carries an arrow inside its link when it is the column doing the
-    # sorting (#11 item 9), so the label is no longer the whole of the element's text.
-    for header in ("Due", "Handed in", "Grade"):
-        assert re.search(rf">{header}(?:<| <span class=\"arrow\">)", html), header
-    assert ">Status<" not in html
-    # The composite phrases answered two questions at once; each half now has its own cell.
-    for composite in ("Submitted, ungraded", "Late, ungraded", "HAC, no grade", "Paper, check", "Due today", "Due tomorrow"):
-        assert composite not in html, composite
-    assert 'class="rel">today</span>' in html or 'class="rel">tomorrow</span>' in html
+    table = html[html.index('id="items"'):]
+    # A sortable heading carries an arrow inside its link when it is the column doing the
+    # sorting (#11 item 9), so the label is not always the whole of the element's text.
+    for header in ("Due", "Assignment", "Where it stands"):
+        assert re.search(rf">{header}(?:<| <span class=\"arrow\">)", table), header
+    for gone in (">Status<", ">Handed in<", ">Grade<", ">Sources<"):
+        assert gone not in table, gone
+    # The composite words the old Status column used for settled or waiting work are the
+    # verdict's words now.
+    for composite in ("Submitted, ungraded", "Late, ungraded", "HAC, no grade", "Paper, check"):
+        assert composite not in table, composite
+    assert "Due today" in table and 'class="rel">today</small>' in table

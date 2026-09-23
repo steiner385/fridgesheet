@@ -66,8 +66,9 @@ def test_check_in_sorts_the_school_record_into_three_review_groups(tmp_path):
     assert set(q) == {"Work to consider", "Needs clarification", "Submitted · waiting for a grade"}
     for name in ("Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):     # open or upcoming, nothing to explain
         assert name in q["Work to consider"], name
-    for name in ("Quiz 1", "Lab notebook", "Participation"):                    # disagree, paper unknown, HAC blank
+    for name in ("Lab notebook", "Participation"):                              # paper unknown, HAC blank
         assert name in q["Needs clarification"], name
+    assert "Quiz 1" not in r.text.split('id="plan"')[0]                          # HAC's 28/30 settles it (docs/outcomes.md)
     assert "Essay draft" in q["Submitted · waiting for a grade"]
     assert "Essay draft" not in q["Work to consider"]                            # submitted work is never "redo it"
 
@@ -76,7 +77,7 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
     seed(tmp_path).close()
     c = app_for(tmp_path)
     alex = c.get("/kids/Alex/check-in").text
-    assert "The sources disagree. Hear what happened before choosing more work." in alex   # Quiz 1
+    assert "The sources disagree." not in alex        # Quiz 1 was the only disagreement; HAC's grade settles it
     assert "paper / in-class work; no online submission expected" in alex                   # Lab notebook
     assert "Late work is usually accepted until" in alex and "Ask the teacher if you need longer" in alex
     sam = c.get("/kids/Sam/check-in").text
@@ -616,8 +617,10 @@ def test_the_print_view_carries_the_markers_a_reader_needs(tmp_path):
 
 
 def test_hac_scores_print_with_their_denominator(tmp_path):
-    seed(tmp_path).close()
-    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    conn = seed(tmp_path)
+    qid = _item_id(conn, "Quiz 1")
+    conn.close()
+    body = app_for(tmp_path).get(f"/kids/Alex/check-in/step?item_id={qid}").text     # Quiz 1 is settled, so not in review
     assert "HAC: 28/30" in body and "score 28.0" not in body
     assert "Canvas: no submission recorded · 0/10" in app_for(tmp_path).get("/kids/Sam/check-in").text
 

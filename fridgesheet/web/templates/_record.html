@@ -1,0 +1,5 @@
+{# The school record behind a verdict: what each source says, and as of when. #}
+<div class="record">
+  {% if item.canvas %}<div><span class="src">Canvas{% if item.canvas_as_of %} <small>as of {{ item.canvas_as_of | wd_md_time }}</small>{% endif %}</span><span>{% if item.canvas.missing %}marked missing{% elif item.canvas.submitted_at %}handed in {{ item.canvas.submitted_at | wd_md_time }}{% elif item.kind in ('paper', 'in class') %}nothing to submit online{% else %}nothing submitted{% endif %}{% if item.canvas.score is not none %} · {{ item.canvas.score | round(1) | string | replace('.0', '') }}{% if item.points %} of {{ item.points | round(1) | string | replace('.0', '') }}{% endif %}{% endif %}</span></div>{% endif %}
+  {% if item.hac %}<div><span class="src">HAC{% if item.hac_as_of %} <small>as of {{ item.hac_as_of | wd_md_time }}</small>{% endif %}</span><span>{% if item.hac.score is not none %}{{ item.hac.score | round(1) | string | replace('.0', '') }}{% if item.points %} of {{ item.points | round(1) | string | replace('.0', '') }}{% endif %}{% else %}no grade{% endif %}</span></div>{% endif %}
+</div>

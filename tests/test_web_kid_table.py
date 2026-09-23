@@ -28,7 +28,7 @@ def _header(body: str) -> str:
 
 
 def _row(body: str, item_id: int) -> str:
-    m = re.search(rf'<tr class="[^"]*" id="row-{item_id}">(.*?)</tr>', body, re.S)
+    m = re.search(rf'<tr[^>]*id="row-{item_id}">(.*?)</tr>', body, re.S)
     assert m, f"no row for item {item_id}"
     return m.group(1)
 
@@ -49,11 +49,12 @@ def _course_id(conn, short_name: str) -> int:
 # --- the Flag column ----------------------------------------------------------------------
 
 def test_the_table_has_no_flag_column(tmp_path):
-    """Six columns, not seven. The seventh was blank on every row of a real household."""
+    """Three columns (Due, Assignment, Where it stands). A Flag column was blank on every row
+    of a real household."""
     seed(tmp_path).close()
     header = _header(app_for(tmp_path).get("/kids/Alex").text)
     assert ">Flag<" not in header
-    assert header.count("<th") == 6
+    assert header.count("<th") == 3
 
 
 def test_a_flag_shows_as_a_badge_beside_the_item_it_is_on(tmp_path):
@@ -64,7 +65,7 @@ def test_a_flag_shows_as_a_badge_beside_the_item_it_is_on(tmp_path):
     flags.set_flag(conn, item, "ignore", now=NOW.isoformat(), text="past the late-work window")
     conn.close()
     body = app_for(tmp_path).get("/kids/Alex?show=all").text
-    assert re.search(r'class="badge flag"[^>]*>ignore<', _row(body, item))
+    assert re.search(r'class="badge flag"[^>]*>ignore \d+/\d+<', _row(body, item))   # with the day it was set
 
 
 def test_an_unflagged_row_spends_no_space_on_the_flag(tmp_path):
@@ -76,22 +77,22 @@ def test_an_unflagged_row_spends_no_space_on_the_flag(tmp_path):
 
 
 def test_the_detail_row_spans_every_column(tmp_path):
-    """`colspan` was 7 for a seven-column table; a stale one leaves a ragged edge."""
+    """`colspan` must match the three-column table; a stale one leaves a ragged edge."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex").text
-    assert 'colspan="6"' in body and 'colspan="7"' not in body
+    assert 'colspan="3"' in body and 'colspan="6"' not in body and 'colspan="7"' not in body
 
 
 # --- sort indicators and direction ---------------------------------------------------------
 
 def test_the_sorting_column_is_marked_and_the_others_are_not(tmp_path):
     seed(tmp_path).close()
-    header = _header(app_for(tmp_path).get("/kids/Alex?sort=course").text)
+    header = _header(app_for(tmp_path).get("/kids/Alex?sort=name").text)
     assert 'aria-sort="ascending"' in header
     assert header.count("aria-sort") == 1, "exactly one column sorts at a time"
-    course = re.search(r"<th[^>]*>(?:(?!</th>).)*?sort=course.*?</th>", header, re.S).group(0)
-    assert 'aria-sort="ascending"' in course
-    assert "▲" in course
+    name = re.search(r"<th[^>]*>(?:(?!</th>).)*?sort=name.*?</th>", header, re.S).group(0)
+    assert 'aria-sort="ascending"' in name
+    assert "▲" in name
 
 
 def test_clicking_the_sorting_column_again_turns_it_around(tmp_path):
@@ -154,8 +155,9 @@ def test_the_course_page_sorts_the_same_way(tmp_path):
 
 # --- the Sources cell ----------------------------------------------------------------------
 
-def test_the_sources_cell_does_not_wrap(tmp_path):
-    """"canvas + hac" wrapped to two lines while "canvas" did not, so row heights alternated
-    down the page. The cell is three short words; it never needs to wrap."""
-    assert re.search(r'class="[^"]*\bsources\b[^"]*"', ROWS)
-    assert re.search(r"td\.sources\s*\{[^}]*white-space: nowrap", CSS)
+def test_the_table_has_no_sources_column(tmp_path):
+    """Which gradebooks list an item is evidence, not a column: it lives in the item's record
+    (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md, 6.1)."""
+    assert not re.search(r'class="[^"]*\bsources\b[^"]*"', ROWS)
+    seed(tmp_path).close()
+    assert ">Sources<" not in _header(app_for(tmp_path).get("/kids/Alex").text)

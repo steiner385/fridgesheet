@@ -11,7 +11,6 @@ from ... import sources
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import items, notes, students
-from .. import reconcile
 
 router = APIRouter()
 
@@ -48,7 +47,11 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     now, rules = state.now(), state.rules()
     f = _filters(request)
     rows = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), **f)
+    # The sections above the table cover all of the kid's work, whatever the table shows.
+    everything = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), show="all")
+    by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("question", "decided", "waiting")}
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
+                  questions=by_state["question"], decided=by_state["decided"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
                   SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,
@@ -62,9 +65,8 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
     v = items.one(conn, s, item_id, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources()) if s is not None else None
     if v is None:
         raise HTTPException(404, "no such item")
-    cases = [c for c in reconcile.cases(conn, s["id"], rules=rules, now=now, prefs=state.sources()) if c.item_id == item_id]
     return render_partial(request, conn, "_item_detail.html", student=s, item=v, message=None,
-                          notes=notes.for_target(conn, "item", item_id), cases=cases)
+                          notes=notes.for_target(conn, "item", item_id))
 
 
 @router.get("/kids/{key}/courses/{course_id}")

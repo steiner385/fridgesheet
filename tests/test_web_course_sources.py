@@ -29,8 +29,13 @@ def rules(home):
 
 
 def test_the_control_writes_a_short_name_rule_and_the_page_follows_it(tmp_path):
+    from tests.web_fixtures import canvas_grades_later
     cid = course_id(tmp_path, "Honors English 9")
+    conn = seed(tmp_path)
+    canvas_grades_later(conn, "Quiz 1", 20.0)        # Canvas 20/30, HAC 28/30: the preference picks one
+    conn.close()
     c, _ = client(tmp_path)
+    assert "20/30" in c.get(f"/kids/Alex/courses/{cid}").text
     assert "Sources for this class" in c.get(f"/kids/Alex/courses/{cid}").text
     r = c.post(f"/kids/Alex/courses/{cid}/sources", data={"assignments": "hac", "grades": ""}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == f"/kids/Alex/courses/{cid}"

@@ -67,6 +67,18 @@ PAST_DUE = (ON_TIME, LATE, NOT_DONE, DONE_OFFLINE, UNKNOWN)
 _NOTHING_TO_SUBMIT = ("paper", "in class")
 
 
+def _refresh_id(o) -> int | None:
+    return o["refresh_id"] if o is not None and "refresh_id" in o.keys() else None
+
+
+def newer(a, b) -> bool:
+    """Whether observation `a` was recorded in a later refresh than `b`. Refresh ids only
+    grow, and ingest writes an observation only when something changed, so this is "did
+    `a`'s source change after `b`'s did". An unknown id is never newer."""
+    ra, rb = _refresh_id(a), _refresh_id(b)
+    return ra is not None and rb is not None and ra > rb
+
+
 def _is_past(item: sqlite3.Row, now: datetime) -> bool:
     due = reconcile.due_of(item)
     if due is None:
@@ -80,7 +92,8 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
 
     Canvas carries the teacher's marks and the submission; HAC carries only a grade. `prefer`
     is the family's assignments source (sources.py). Under "canvas" a Canvas score wins and HAC
-    fills the gap. Under "hac" a HAC score, when there is one, decides done-or-not -- it
+    fills the gap, and a HAC grade above zero also overrides Canvas's `missing` flag unless
+    Canvas changed later (docs/outcomes.md). Under "hac" a HAC score, when there is one, decides done-or-not -- it
     overrides Canvas's `missing` flag and Canvas's own score -- while excused, unpublished and
     the submission's timing still come from Canvas, which is the only source that knows them.
     The order of the checks is the order of certainty: a mark or a zero settles it; a
@@ -96,7 +109,12 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
             return UNPUBLISHED
     c_score = c["score"] if c is not None else None
     h_score = h["score"] if h is not None else None
-    hac_decides = prefer == "hac" and h_score is not None
+    # A real HAC grade is the teacher's assessment, and Canvas's `missing` is often its late
+    # policy's automatic mark, so HAC decides whenever it has a grade above zero -- unless
+    # Canvas changed after HAC did, which is the teacher saying something new. Under the HAC
+    # preference HAC decides whenever it has any score, as before.
+    hac_graded = h_score is not None and h_score > 0
+    hac_decides = h_score is not None and (prefer == "hac" or (hac_graded and not newer(c, h)))
     score = h_score if hac_decides else (c_score if c_score is not None else h_score)
     points = item["points"] or 0
     zero = score == 0 and points > 0

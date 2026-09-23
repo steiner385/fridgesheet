@@ -1,0 +1,20 @@
+{# One question (or decided/waiting) card. `slot` names the element the answer buttons swap:
+   "q-<id>" in a page's question list, "qd-<id>" inside the item detail, so the two can be on
+   one page without the buttons in one reaching for the other. #}
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
+{% set vd = item.verdict %}
+{% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
+<div class="q card" id="{{ qid }}" data-focus>
+  <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}<span>due {{ item.due | wd_md }}{% if item.due_time %} {{ item.due_time }}{% endif %}</span>{% endif %}</div>
+  {% if vd.state == 'status' %}<p class="facts">{{ item | standing(tier) }}</p>
+  {% else %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>{% endif %}
+  {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
+  <div class="answers">
+    {% for a in vd.answers %}
+      {% if a.flag is none %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}">{{ a.key | say(tier) }}</a>
+      {% else %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><button name="answer" value="{{ a.flag }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endif %}
+    {% endfor %}
+  </div>
+  <details class="more"><summary>See the record</summary>{% include "_record.html" %}</details>
+  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a></p>{% endif %}
+</div>

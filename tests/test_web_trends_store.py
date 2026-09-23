@@ -139,10 +139,10 @@ def test_open_days_drops_an_item_the_parent_has_handled(tmp_path):
     """"Open the longest" has to mean what the Kid page means by open. A `done`, `excused` or
     `ignore` flag takes an item off that page; it must take it off this card too."""
     conn = seed(tmp_path)
-    quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
-    assert "Quiz 1" in [name for name, _ in trends.open_days(conn, now=NOW)]
-    flags.set_flag(conn, quiz, "done", now="2026-09-15T15:00:00-04:00")
-    assert "Quiz 1" not in [name for name, _ in trends.open_days(conn, now=NOW)]
+    lab = conn.execute("SELECT id FROM items WHERE name = 'Lab notebook'").fetchone()["id"]
+    assert "Lab notebook" in [name for name, _ in trends.open_days(conn, now=NOW)]
+    flags.set_flag(conn, lab, "done", now="2026-09-15T15:00:00-04:00")
+    assert "Lab notebook" not in [name for name, _ in trends.open_days(conn, now=NOW)]
     conn.close()
 
 

@@ -112,8 +112,10 @@ def test_the_kid_card_shows_the_record_and_the_kid_page_filters_by_outcome(tmp_p
     assert 'class="record"' in dash and "not done</a>" in dash and "due so far" in dash
     page = c.get("/kids/Alex?outcome=not_done", headers={"host": "127.0.0.1"}).text
     assert 'name="outcome"' in page and '<option value="not_done" selected>not done</option>' in page
-    assert "Quiz 1" in page                                  # missing in Canvas: not done
-    assert "Essay draft" not in page                         # submitted: not this outcome
+    assert "Homework 4" in page                              # missing in Canvas, no HAC grade: not done
+    assert "Quiz 1" not in page[page.index('id="items"'):]   # missing in Canvas but 28/30 in HAC: done on paper
+    assert "Quiz 1" in c.get("/kids/Alex?outcome=done_offline", headers={"host": "127.0.0.1"}).text
+    assert "Essay draft" not in page[page.index('id="items"'):]   # submitted: not this outcome
     # an outcome filter shows all matching rows, including those past the credit window
     everything = c.get("/kids/Alex?outcome=on_time", headers={"host": "127.0.0.1"}).text
     assert "Essay draft" in everything
@@ -128,12 +130,15 @@ def test_sorting_a_column_keeps_the_outcome_filter(tmp_path):
 
 # --- which source decides the score (docs/superpowers/specs/2026-09-22-source-of-truth-design.md) ---
 
-def test_honors_algebra_quiz_canvas_missing_hac_48():
-    """Real, 2026-09-21: Canvas marked the calculator quiz missing; HAC recorded 48/50."""
+def test_honors_algebra_quiz_canvas_missing_hac_48_is_done_on_paper():
+    """Real, 2026-09-21: Canvas marked the calculator quiz missing; HAC recorded 48/50. HAC's
+    grade beats Canvas's automatic flag under either preference (docs/outcomes.md)."""
     obs = {"canvas": canvas(missing=1), "hac": hac(48.0)}
     it = item(points=50)
-    assert oc.classify(it, obs, NOW) == oc.NOT_DONE                      # today: Canvas's flag wins
+    assert oc.classify(it, obs, NOW) == oc.DONE_OFFLINE
     assert oc.classify(it, obs, NOW, prefer="hac") == oc.DONE_OFFLINE
+    later = {"canvas": {**canvas(missing=1), "refresh_id": 3}, "hac": {**hac(48.0), "refresh_id": 2}}
+    assert oc.classify(it, later, NOW) == oc.NOT_DONE                    # missing marked after the grade
 
 
 def test_hac_preference_reads_hac_zero_as_not_done_over_a_canvas_score():
@@ -158,3 +163,51 @@ def test_hac_preference_with_no_hac_score_changes_nothing():
 
 def test_canvas_preference_fills_the_gap_from_hac():
     assert oc.classify(item(kind="paper"), {"canvas": canvas(), "hac": hac(9.0)}, NOW, prefer="canvas") == oc.DONE_OFFLINE
+
+
+# --- a HAC grade beats Canvas's automatic "missing" (spec 4.2) ------------------------------
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo as _Zone
+
+from fridgesheet.web import outcomes as _o
+
+
+def _obs_row(refresh_id, **kw):
+    base = dict(refresh_id=refresh_id, state="unsubmitted", score=None, grade=None, submitted_at=None,
+                late=0, missing=0, excused=0, published=1)
+    base.update(kw)
+    return base
+
+
+def _hac_row(refresh_id, score):
+    return dict(refresh_id=refresh_id, state="graded", score=score, grade=None, submitted_at=None,
+                late=None, missing=None, excused=None, published=None)
+
+
+_ITEM = {"kind": "online", "due": "2026-09-12T23:59:00-04:00", "points": 30.0}
+_NOW = _dt(2026, 9, 15, 14, 0, tzinfo=_Zone("America/New_York"))
+
+
+def test_a_hac_grade_beats_canvas_automatic_missing():
+    """Canvas's `missing` is often its late policy's automatic mark; a real HAC grade is the
+    teacher's assessment."""
+    obs = {"canvas": _obs_row(2, missing=1), "hac": _hac_row(2, 28.0)}
+    assert _o.classify(_ITEM, obs, _NOW) == _o.DONE_OFFLINE
+
+
+def test_a_missing_mark_newer_than_the_hac_grade_still_wins():
+    obs = {"canvas": _obs_row(3, missing=1), "hac": _hac_row(2, 28.0)}
+    assert _o.classify(_ITEM, obs, _NOW) == _o.NOT_DONE
+
+
+def test_a_hac_zero_never_beats_the_missing_flag():
+    obs = {"canvas": _obs_row(2, missing=1), "hac": _hac_row(2, 0.0)}
+    assert _o.classify(_ITEM, obs, _NOW) == _o.NOT_DONE
+
+
+def test_observations_without_a_refresh_id_are_never_newer():
+    canvas = _obs_row(0, missing=1)
+    del canvas["refresh_id"]
+    obs = {"canvas": canvas, "hac": _hac_row(2, 28.0)}
+    assert _o.classify(_ITEM, obs, _NOW) == _o.DONE_OFFLINE
+    assert _o.newer(obs["canvas"], obs["hac"]) is False

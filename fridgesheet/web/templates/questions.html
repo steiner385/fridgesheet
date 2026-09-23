@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Questions · Fridge Sheet{% endblock %}
+{% block content %}
+<h2>Questions</h2>
+<p class="muted">Where the school's records disagree, or say too little to act on. Answer one and it leaves this page.</p>
+{% for g in groups %}
+{% set student = g.student %}{% set tier = student.key | tier_of %}
+<section class="kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>
+  <div class="section-head"><h3>{{ student.key | nickname }} · {{ g.questions | length }}</h3><a href="/kids/{{ student.key | urlencode }}">Open {{ student.key | nickname }}'s work →</a></div>
+  {% if g.past_credit | length >= 2 %}
+  <form class="lines bulk" method="post" action="/questions/let-go" data-confirm="Let all {{ g.past_credit | length }} go? They leave the sheet and this page; nothing is deleted.">
+    <input type="hidden" name="kid" value="{{ student.key }}">
+    <span>{{ g.past_credit | length }} of {{ student.key | nickname }}'s assignments are too late for credit.</span> <button>Let all {{ g.past_credit | length }} go</button>
+  </form>
+  {% endif %}
+  {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
+  {% if g.twins %}
+  <details class="quiet"><summary>Can't pair these ({{ g.twins | length }})</summary>
+    <p class="muted">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>
+    <ul>{% for c, h in g.twins %}<li>Canvas "{{ c.name }}" ({{ c.due | wd_md }}) and HAC "{{ h.name }}" ({{ h.due | wd_md }})</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

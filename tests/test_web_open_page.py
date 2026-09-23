@@ -19,9 +19,10 @@ def test_open_work_splits_a_kid_into_still_fixable_and_coming_due(tmp_path):
     alex = students.by_key(conn, "Alex")
     w = items.open_work(conn, alex, now=NOW, rules=RULES, days_ahead=14)
     # Still fixable, soonest-closing window first: the 14-day default puts Participation
-    # (due 9/08) first and Quiz 1 (due 9/12) last. Homework 4 (due 8/20) closed on 9/03.
-    assert _names(w.fixable) == ["Participation", "Lab notebook", "Quiz 1"]
-    assert [v.late_until.date().isoformat() for v in w.fixable] == ["2026-09-22", "2026-09-24", "2026-09-26"]
+    # (due 9/08) first. Homework 4 (due 8/20) closed on 9/03. Quiz 1 is settled: HAC's 28/30
+    # beats Canvas's automatic missing (docs/outcomes.md).
+    assert _names(w.fixable) == ["Participation", "Lab notebook"]
+    assert [v.late_until.date().isoformat() for v in w.fixable] == ["2026-09-22", "2026-09-24"]
     assert all(v.credit == "" for v in w.fixable)          # the built-in default carries no credit text
     assert _names(w.past_window) == ["Homework 4"]
     assert _names(w.upcoming) == ["Vocabulary", "Worksheet 3", "Reading log"]
@@ -40,13 +41,13 @@ def test_open_work_coming_due_stops_at_days_ahead(tmp_path):
 def test_open_work_moves_a_handled_item_out_of_both_lists(tmp_path):
     conn = seed(tmp_path)
     alex = students.by_key(conn, "Alex")
-    qid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    qid = conn.execute("SELECT id FROM items WHERE name = 'Lab notebook'").fetchone()["id"]
     wid = conn.execute("SELECT id FROM items WHERE name = 'Worksheet 3'").fetchone()["id"]
     flags.set_flag(conn, qid, "done", now="2026-09-15T13:00:00-04:00")
     flags.set_flag(conn, wid, "ignore", now="2026-09-15T13:00:00-04:00")
     w = items.open_work(conn, alex, now=NOW, rules=RULES, days_ahead=14)
-    assert "Quiz 1" not in _names(w.fixable) and "Worksheet 3" not in _names(w.upcoming)
-    assert _names(w.handled) == ["Quiz 1", "Worksheet 3"]
+    assert "Lab notebook" not in _names(w.fixable) and "Worksheet 3" not in _names(w.upcoming)
+    assert _names(w.handled) == ["Lab notebook", "Worksheet 3"]
     conn.close()
 
 
@@ -60,14 +61,15 @@ def test_open_page_shows_each_kid_in_two_sections(tmp_path):
     assert alex < sam
     assert body.count("Still fixable") == 2 and body.count("Coming due") == 2
     # Alex's still-fixable rows, soonest-closing window first, each saying when it closes.
-    assert alex < body.index("Participation") < body.index("Lab notebook") < body.index("Quiz 1") < sam
-    assert "thru Tue 9/22" in body and "thru Thu 9/24" in body and "thru Sat 9/26" in body
+    assert alex < body.index("Participation") < body.index("Lab notebook") < sam
+    assert "Quiz 1" not in body[alex:sam]                              # settled by HAC's grade
+    assert "thru Tue 9/22" in body and "thru Thu 9/24" in body
     # Coming due, by due date, inside Alex's section.
     assert alex < body.index("Vocabulary") < body.index("Worksheet 3") < body.index("Reading log") < sam
     assert "Essay draft" not in body                                  # submitted: nothing to do
     # The trailer counts what the tables leave out, the way the sheet does, and links to it.
     assert "Not shown:" in body
-    assert 'href="/reconcile?kid=Alex&amp;kind=past_credit">1 past the late-work window (10 pts)</a>' in body
+    assert 'href="/kids/Alex?show=all&amp;outcome=not_done">1 past the late-work window (10 pts)</a>' in body
     # Sam has nothing coming due, and says so rather than showing an empty table.
     assert body.index("Cell diagram") > sam and body.index("Safety quiz") > sam
     assert "Nothing coming due" in body

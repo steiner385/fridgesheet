@@ -1,7 +1,7 @@
 """One snapshot for every page test: two kids, and every row situation the pages must show.
 
 Alex, Honors English 9 (Canvas course 5 <-> HAC "Honors English 9 S1"):
-  77 Quiz 1        due 9/12  Canvas MISSING, HAC 28/30           -> open (canvas), disagree
+  77 Quiz 1        due 9/12  Canvas MISSING, HAC 28/30           -> done on paper (HAC's grade beats the automatic flag)
   78 Essay draft   due 9/14  submitted, ungraded                 -> submitted_ungraded, not open
   79 Reading log   due 9/20  unsubmitted, in the future          -> upcoming, not open
   80 Worksheet 3   due 9/16  unsubmitted (tomorrow)              -> upcoming, due tomorrow
@@ -271,3 +271,14 @@ class FakeScheduling:
         different name, `fridgesheet-<safe_key(key)>.timer` for everything else."""
         from fridgesheet.host import scheduling_linux
         return scheduling_linux.blocking_name(key)
+
+
+def canvas_grades_later(conn: sqlite3.Connection, name: str, score: float) -> None:
+    """Record a Canvas grade for `name` in a refresh after the seed's, as a teacher who later
+    scored it in Canvas would. Quiz 1 then has a Canvas score (not MISSING) *and* HAC's 28/30,
+    which is the case where the family's source preference decides which score shows."""
+    with conn:
+        rid = conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES ('2026-09-15T13:55:00-04:00', '{}', 1)").lastrowid
+        iid = conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]
+        conn.execute("""INSERT INTO item_observations(refresh_id, item_id, source, state, score, grade, submitted_at, late, missing, excused, published)
+                        VALUES (?, ?, 'canvas', 'graded', ?, ?, NULL, 0, 0, 0, 1)""", (rid, iid, score, str(score)))

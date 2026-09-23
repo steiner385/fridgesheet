@@ -1,6 +1,8 @@
 {# `sort_base` comes from the route (it ends in ? or &): sorting stays on the page you are on.
-   Three columns where "Status" used to be one: when it is due, whether it was handed in, and
-   what the gradebook says. The old single word still drives the Grade header's sort.
+   Three columns: when it is due, the assignment (its class and kind beneath it), and where it
+   stands -- one phrase from the item's verdict (web/verdicts.py). Red only when the school
+   recorded it as not done and nothing settled it otherwise. The old status word still drives
+   the "Where it stands" header's sort.
 
    A sortable header carries three things a bare link did not (#11 item 9): `aria-sort`, so a
    screen reader says which column is ordering the table; an arrow, so everyone else can see
@@ -16,37 +18,32 @@
     <a href="{{ href }}" hx-get="{{ href }}" hx-target="#items" hx-push-url="true">{{ label
       }}{% if active %} <span class="arrow">{{ '▼' if direction == 'desc' else '▲' }}</span>{% endif %}</a></th>
 {%- endmacro %}
-<table class="items">
+<table class="items work">
   <thead><tr>
     {{ sortable('due', 'Due') }}
-    {{ sortable('course', 'Course') }}
-    {{ sortable('name', 'Item') }}
-    <th>Handed in</th>
-    {{ sortable('status', 'Grade') }}
-    <th>Sources</th>
+    {{ sortable('name', 'Assignment') }}
+    {{ sortable('status', 'Where it stands') }}
   </tr></thead>
   <tbody>
   {% for v in rows %}
-  <tr class="{{ 'overdue' if v.overdue }}" id="row-{{ v.id }}">
+  <tr id="row-{{ v.id }}">
     {# The one place a template reads `tier` as a value rather than through the `phrase`
        filter: this picks between two facts the row already holds (`due_part` vs.
        `due_time`), it does not translate a word, so the no-branching-on-tier rule for
        vocabulary does not apply here. #}
-    <td class="due">{{ v.due | md if v.due else '' }}{% if tier == 'early' %}{% if v.due_part %} <span class="at">{{ v.due_part }}</span>{% endif %}{% elif v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}
-        {% if v.actionable %}<span class="badge">{{ 'actionable' | phrase(tier) }}</span>{% endif %}</td>
-    <td><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
-    <td><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
-        {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}</span>{% endif %}
+    <td class="due">{{ v.due | md if v.due else '' }}{% if tier == 'early' %}{% if v.due_part %} <span class="at">{{ v.due_part }}</span>{% endif %}{% elif v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
+    <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
+        {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
+        {% if v.verdict.state == 'question' %}<a class="qmark" href="#q-{{ v.id }}">question</a>{% endif %}
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-        {% for k in v.case_kinds %}<span class="badge warn">{{ k | phrase(tier) }}</span>{% endfor %}</td>
-    <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}{% if v.handed_in_at %} <span class="rel">{{ v.handed_in_at | md }}</span>{% endif %}</td>
-    <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
-    <td class="muted sources">{{ v.sources | join(' + ') }}</td>
+        <small><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a>{% if v.kind in ('paper', 'in class') %} · {{ v.kind }}{% endif %}</small></td>
+    {# Red only when the school recorded not-done and the app did not settle it otherwise. #}
+    {% set school_no = (v.grade == 'Missing' or v.grade_zero) and v.verdict.state != 'decided' %}
+    <td class="where{{ ' red' if school_no }}">{{ v | standing(tier) }}</td>
   </tr>
-  <tr class="detail"><td colspan="6" id="detail-{{ v.id }}"></td></tr>
+  <tr class="detail"><td colspan="3" id="detail-{{ v.id }}"></td></tr>
   {% else %}
-  <tr><td colspan="6" class="muted">Nothing matches these filters.</td></tr>
+  <tr><td colspan="3" class="muted">Nothing matches these filters.</td></tr>
   {% endfor %}
   </tbody>
 </table>
-{% include "_handed_legend.html" %}

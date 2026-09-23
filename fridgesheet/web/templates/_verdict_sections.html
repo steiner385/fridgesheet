@@ -1,0 +1,26 @@
+{# The three sections above a kid's work list (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md, 6.1).
+   Computed over all of the kid's work, whatever the table below is filtered to. #}
+{% set tier = student.key | tier_of %}
+{% if questions %}
+<section class="questions" aria-labelledby="q-head">
+  <div class="section-head"><h3 id="q-head">{{ questions | length }} question{{ 's' if questions | length != 1 }} about {{ student.key | nickname }}'s work</h3><span class="muted">Answering one takes it off this list</span></div>
+  {% for item in questions %}{% include "_question.html" %}{% endfor %}
+</section>
+{% endif %}
+{% if decided %}
+<section class="decided" aria-labelledby="d-head">
+  <h3 id="d-head" class="quiet-head">Decided for you</h3>
+  <div class="lines">{% for item in decided %}
+    <div class="line" id="q-{{ item.id }}"><span class="tick" aria-hidden="true">✓</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}</span></span>
+      <a href="#q-{{ item.id }}" hx-post="/items/{{ item.id }}/undo" hx-vals='{"prev": "{{ item.flag or '' }}"}' hx-target="#q-{{ item.id }}" hx-swap="outerHTML">Not right?</a></div>
+  {% endfor %}</div>
+</section>
+{% endif %}
+{% if waiting %}
+<details class="quiet"><summary>Waiting, nothing to do yet ({{ waiting | length }})</summary>
+  <div class="lines">{% for item in waiting %}
+    <div class="line" id="q-{{ item.id }}"><span class="clock" aria-hidden="true">◷</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}{% if item.verdict.asks_on %} Asks you after {{ item.verdict.asks_on | wd_md }}.{% endif %}</span></span>
+      {% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher">Ask now</button></form>{% endif %}</div>
+  {% endfor %}</div>
+</details>
+{% endif %}

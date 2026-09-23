@@ -1,15 +1,10 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 <div class="card" data-focus>
-  <h2 tabindex="-1" data-focus-target>{{ item.name }} <span class="muted">· {{ item.course_short }} · {{ item.kind or 'online' }}{% if item.points %} · {{ item.points | round(1) }} pts{% endif %}</span></h2>
+  <h2 tabindex="-1" data-focus-target>{{ item.name }} <span class="muted">· {{ item.course_short }}{% if item.kind %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}</span></h2>
   {% if message %}<p role="status"><strong>{{ message }}</strong></p>{% endif %}
-  <table class="items">
-    <tr><th>Source</th><th>Says</th><th>Score</th><th>Submitted</th></tr>
-    {% if item.canvas %}<tr><td>Canvas</td><td>{{ item.status }}</td><td>{{ item.canvas.score if item.canvas.score is not none else item.canvas.grade or '' }}</td><td>{{ item.canvas.submitted_at | wd_md_time }}</td></tr>{% endif %}
-    {% if item.hac %}<tr><td>HAC</td><td>{{ 'graded' if item.hac.score is not none else 'no grade' }}</td><td>{% if item.hac.score is not none %}{{ item.hac.score | round(1) | string | replace('.0', '') }}{% if item.points %}/{{ item.points | round(1) | string | replace('.0', '') }}{% endif %}{% endif %}</td><td></td></tr>{% endif %}
-  </table>
-  {% if cases %}<ul>{% for c in cases %}<li class="case {{ c.kind }}"><strong>{{ c.kind | phrase(tier) }}</strong>: {{ c.reason }}</li>{% endfor %}</ul>{% endif %}
-  <p><a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}">Choose a next step</a></p>
-  {% include "_flag_menu.html" %}
+  {% if item.verdict.state in ('question', 'decided', 'waiting') %}{% set slot = 'qd-' ~ item.id %}{% include "_question.html" %}{% else %}{% include "_record.html" %}{% endif %}
+  <p><a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}">Plan a step</a></p>
+  <details><summary>More</summary>{% include "_flag_menu.html" %}</details>
   {% set target_type = "item" %}{% set target_id = item.id %}
   {% include "_notes.html" %}
 </div>

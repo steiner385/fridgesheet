@@ -1,8 +1,8 @@
-"""The item list behind the Kid page, the Dashboard counts and the Reconcile page.
+"""The item list behind the Kid page, the Dashboard counts and the Questions page.
 
 One pass over a kid's live items (Plan A's `reconcile.live_items`) decorates each row with
 what the browser shows: the sources that know it, whether it is open and actionable, its
-active flag, a status phrase, the note count and the reconciliation case kinds. Routes
+active flag, a status phrase, the note count and its verdict (`web/verdicts.py`). Routes
 filter and sort these views; they never touch SQL.
 """
 from __future__ import annotations
@@ -13,8 +13,9 @@ from datetime import datetime, timedelta
 
 from ...dates import day_part, due_time
 from ... import sources
+from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
-from .. import db, outcomes, reconcile
+from .. import db, outcomes, reconcile, verdicts
 from . import num
 
 SHOW = ("open", "actionable", "all")
@@ -46,7 +47,6 @@ class ItemView:
     hac: sqlite3.Row | None
     notes: int = 0
     flag_set_at: str = ""           # when the active flag was set (ISO), "" when unflagged
-    case_kinds: list[str] = field(default_factory=list)
     # `status` above is one word -- the sheet's word -- and it was the whole Status column.
     # It folds three facts into one label: when it is due, whether it was handed in, and
     # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "In class, check", "Due Sun" and
@@ -71,6 +71,12 @@ class ItemView:
     # printed sheet shows as "50% thru Sat 9/26"; None / "" for a row that is not open.
     late_until: datetime | None = None
     credit: str = ""
+    #: `verdicts.verdict`: what the app concluded about this item and whether the family has
+    #: anything to do (question / decided / waiting / status).
+    verdict: verdicts.Verdict = field(default_factory=lambda: verdicts.Verdict("status", ""))
+    canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation
+    hac_as_of: str = ""
+    teacher_email: str = ""         # the class's teacher, from Canvas (the HAC twin borrows it)
 
     @property
     def overdue(self) -> bool:
@@ -214,13 +220,11 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
 def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
            prefs=None) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
-    kinds: dict[int, list[str]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
-        kinds.setdefault(case.item_id, []).append(case.kind)
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
     flag_text = {i: r["text"] for i, r in active_flags.items()}
+    refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
@@ -248,7 +252,12 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             flag_set_at=active_flags[r["id"]]["set_at"] if r["id"] in active_flags else "",
             status=status_text(r, obs, now, prefer),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
-            notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
+            notes=note_counts.get(r["id"], 0),
+            verdict=verdicts.verdict(r, obs, flag=r["flag"], flag_set_at=r["flag_set_at"] or "", now=now, rules=rules,
+                                     refresh_times=refresh_times, prefer=prefer),
+            canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
+            hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
+            teacher_email=r["teacher_email"] or "",
         ))
     return out
 
@@ -339,26 +348,25 @@ def one(conn: sqlite3.Connection, student: sqlite3.Row, item_id: int, *, now: da
     return next((v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs) if v.id == item_id), None)
 
 
-def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
-               kind: str | None = None, prefs=None) -> list[tuple[ItemView, list[reconcile.Case]]]:
-    """Every live item that carries at least one reconciliation case, with its cases, for the
-    Reconcile page. Items the parent has already handled (done / excused / ignore) are left out:
-    the page is for open questions, and the Kid page's `show=all` still lists them. The exception
-    is a handled flag the school has since contradicted (`stale_flag`): that is an open question.
-
-    `kind` selects which *groups* appear, not which reasons: an item is kept when at least one
-    of its cases has that kind, and a kept item still lists all of its cases, so a multi-kind
-    item (e.g. both `past_credit` and `one_source`) doesn't lose a reason just because the page
-    is filtered to a different one."""
-    by_item: dict[int, list[reconcile.Case]] = {}
-    for case in reconcile.cases(conn, student["id"], rules=rules, now=now, prefs=prefs):
-        by_item.setdefault(case.item_id, []).append(case)
-    if kind is not None:
-        by_item = {i: cs for i, cs in by_item.items() if any(c.kind == kind for c in cs)}
-    views = {v.id: v for v in _views(conn, student, now=now, rules=rules, prefs=prefs) if v.id in by_item
-             and (not v.handled or any(c.kind == "stale_flag" for c in by_item[v.id]))}
-    out = [(views[i], cs) for i, cs in by_item.items() if i in views]
-    return sorted(out, key=lambda pair: _sort_key("due")(pair[0]))
+def near_twins(conn: sqlite3.Connection, views: list[ItemView]) -> list[tuple[ItemView, ItemView]]:
+    """One-source items that are probably one assignment the pairing missed: in a course and
+    its twin, due within three days, titles sharing at least 40% of their words. For the
+    maintainer (spec cause 7), never a question for the family."""
+    peers = {r["id"]: r["peer_course_id"] for r in conn.execute("SELECT id, peer_course_id FROM courses")}
+    canvas_only = [v for v in views if v.sources == ("canvas",)]
+    hac_only = [v for v in views if v.sources == ("hac",)]
+    out = []
+    for c in canvas_only:
+        for h in hac_only:
+            if peers.get(c.course_id) != h.course_id or c.due is None or h.due is None:
+                continue
+            a, b = reconcile.comparable(c.due, h.due)
+            if abs((a - b).days) > 3 or same_item(c.name, h.name):
+                continue
+            wa, wb = set(norm_name(c.name).split()), set(norm_name(h.name).split())
+            if wa and wb and len(wa & wb) / len(wa | wb) >= 0.4:
+                out.append((c, h))
+    return out
 
 
 @dataclass(frozen=True)

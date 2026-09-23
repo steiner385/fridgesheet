@@ -101,12 +101,14 @@ def test_the_kid_table_shows_no_time_for_a_hac_only_item(tmp_path):
     assert "pm" not in row.lower() and "am" not in row.lower(), row
 
 
-def test_the_reconcile_card_shows_the_time_too(tmp_path):
-    """The same fact, on the page where a parent decides what to do about it."""
-    from tests.web_fixtures import app_for, seed
+def test_the_question_card_shows_the_time_too(tmp_path):
+    """The same fact, on the page where a parent decides what to do about it. A week after
+    Lab notebook's due date (Canvas: 9/10 11:59pm) it has become a question."""
+    from datetime import timedelta
+    from tests.web_fixtures import NOW, app_for, seed
     seed(tmp_path).close()
-    body = app_for(tmp_path).get("/reconcile").text
-    assert "due 9/12 11:59pm" in body
+    body = app_for(tmp_path, now=NOW + timedelta(days=3)).get("/questions").text
+    assert "Lab notebook" in body and "9/10 11:59pm" in body
 
 
 def _row(body: str, item_id: int) -> str:

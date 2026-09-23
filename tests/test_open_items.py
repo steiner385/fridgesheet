@@ -199,10 +199,11 @@ def test_paper_work_graded_in_hac_is_done_and_not_on_the_sheet(rules):
     e["hac"] = {"classes": [{"name": hac_class, "assignments": [
         {"name": "Concert Contract Due", "due": "09/10/2026", "assigned": "09/01/2026", "score": 10.0, "score_raw": "10.00", "points": 10.0}]}]}
     assert run(e, rules).items == []
-    # ... but a teacher's own MISSING flag still prints, whatever HAC says: that is a disagreement
+    # ... and so does Canvas's MISSING flag: HAC's grade beats it (docs/outcomes.md). The sheet
+    # has no refresh history, so it cannot see a flag set after the grade; the web app asks.
     e2 = entry([canvas_item(id=1, name="Concert Contract Due", submission_types=["on_paper"], missing=True)])
     e2["hac"] = e["hac"]
-    assert [i.status for i in run(e2, rules).items] == ["MISSING"]
+    assert run(e2, rules).items == []
 
 
 from fridgesheet import sources  # noqa: E402
@@ -221,7 +222,7 @@ def hac_row(name, score, points=10.0):
 
 def test_hac_preference_drops_canvas_missing_when_hac_graded_it(rules):
     e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
-    assert [i.status for i in run(e, rules).items] == ["MISSING"]     # today: Canvas's flag wins
+    assert run(e, rules).items == []                  # HAC's grade beats the automatic flag under either preference
     assert run(e, rules, prefs=HAC).items == []
 
 
@@ -242,3 +243,21 @@ def test_rules_resolve_by_first_name_not_the_printed_nickname(rules):
     p = sources.DEFAULT.with_rule("Alex", "Honors Biology", "hac", None)
     e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
     assert open_items.open_items(e, "Dougie", NOW, rules=rules, prefs=p).items == []
+
+
+# --- a HAC grade beats Canvas's automatic missing on the sheet too (docs/outcomes.md) -------------
+
+def _entry_with_ws(hac_score):
+    hac = [{"name": "Honors Biology - 3", "assignments": [
+        {"name": "WS 1", "score": hac_score, "due": "09/10/2026", "assigned": "09/01/2026", "points": 10.0}]}]
+    return entry([canvas_item(missing=True)], hac_classes=hac)
+
+
+def test_a_hac_grade_drops_an_auto_missing_row_from_the_sheet():
+    work = open_items.open_items(_entry_with_ws(9.0), "Alex", NOW)
+    assert "WS 1" not in [i.name for i in work.items]
+
+
+def test_a_hac_zero_keeps_the_missing_row():
+    work = open_items.open_items(_entry_with_ws(0.0), "Alex", NOW)
+    assert "WS 1" in [i.name for i in work.items]

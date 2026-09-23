@@ -261,7 +261,7 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None) -> list[tuple[dict
                 "status": v.status, "due": _date(v.due), "points": _num(v.points), "kind": v.kind,
                 "sources": " + ".join(v.sources), "flag": (v.flag or "").replace("_", " "),
                 "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
-                "notes": _num(v.notes), "cases": ", ".join(k.replace("_", " ") for k in v.case_kinds),
+                "notes": _num(v.notes), "cases": v.verdict.kind.replace("_", " ") if v.verdict.state in ("question", "decided", "waiting") else "",
             }
             out.append((row, _keys("items", row, {"due": v.due, "points": v.points, "notes": v.notes})))
     return out

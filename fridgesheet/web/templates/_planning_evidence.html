@@ -7,8 +7,8 @@
   {% endif %}
   {% if view.hac %}<p>HAC: {% if view.hac.score is not none %}{{ score(view.hac, view.points) }}{% else %}no grade posted{% endif %}</p>{% endif %}
   {% if view.grade_zero %}<p class="review-note">Zero recorded. A zero can mean not graded yet, not handed in, or handed in on paper — ask before assuming.</p>{% endif %}
-  {% if 'disagree' in view.case_kinds %}<p class="review-note">The sources disagree. Hear what happened before choosing more work.</p>{% endif %}
-  {% if view.outcome == 'unknown' and not view.grade_zero and 'disagree' not in view.case_kinds %}
+  {% if view.verdict.state in ('question', 'decided') %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
+  {% if view.outcome == 'unknown' and not view.grade_zero %}
     <p class="review-note">{% if view.kind in ('paper', 'in class') %}To clarify: was it handed in on paper? The school record cannot see that.{% elif not view.canvas %}To clarify: only HAC lists this and has no grade yet. Was it collected?{% else %}To clarify: nothing is recorded either way. Ask what happened.{% endif %}</p>
   {% endif %}
   {% if view.flag %}<p>Existing family flag: {{ view.flag.replace('_', ' ') }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}

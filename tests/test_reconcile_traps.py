@@ -1,4 +1,5 @@
-"""Batch 2 of the persona UX review: the Reconcile card's interaction traps (#37, #38, #40, #41)."""
+"""Batch 2 of the persona UX review: the flag menu's interaction traps (#37, #38, #40). The
+Reconcile card #41 was about is gone; its flag now shows on the kid page's badge and asked line."""
 from __future__ import annotations
 
 import re
@@ -37,8 +38,8 @@ def _setup(tmp_path, flag=None, text=""):
 def test_enter_on_an_unflagged_item_submits_nothing(tmp_path):
     """Implicit submission uses a form's first submit button; a disabled one submits nothing."""
     c, qid = _setup(tmp_path)
-    forms = _flag_forms(c.get("/reconcile").text) + _flag_forms(c.get(f"/items/{qid}").text)
-    assert len(forms) >= 2
+    forms = _flag_forms(c.get(f"/items/{qid}").text)      # the raw flag menu, behind the detail card's More
+    assert forms
     for form in forms:
         first = _first_button(form)
         assert "hidden" in first and "disabled" in first, first
@@ -79,19 +80,3 @@ def test_app_js_focuses_the_named_target_not_the_first_input():
     js = APP_JS.read_text()
     assert "[data-focus-target]" in js
     assert 'querySelector("textarea, input")' not in js
-
-
-# -- #41: a kept flag is visible on the outer card, and the page's promise is true --------------
-
-def test_the_outer_card_shows_the_current_flag_and_reason(tmp_path):
-    c, qid = _setup(tmp_path, "follow_up", text="waiting on Mr Hoch")
-    body = c.get("/reconcile").text
-    card = re.search(rf'<div class="card case[^"]*" id="group-{qid}">.*?<form', body, re.S).group(0)
-    assert "follow up" in card and "waiting on Mr Hoch" in card
-
-
-def test_the_page_only_promises_what_the_flags_do(tmp_path):
-    c, _ = _setup(tmp_path)
-    body = c.get("/reconcile").text
-    assert "Flag an item and it leaves this page" not in body
-    assert "done, excused or ignore" in body

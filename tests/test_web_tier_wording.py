@@ -1,7 +1,8 @@
 """The words on the page follow the reader.
 
-Same rows, same actions, plainer words. The fixture's Quiz 1 is Canvas-missing and HAC-graded
--- it carries both a status word and a `disagree` badge, so one row exercises both paths.
+Same rows, same actions, plainer words. Sam's Cell diagram is Canvas-missing with no HAC
+grade, so its row carries the "Missing" status word; Alex's Participation is a question, so
+its card carries the question and answer words (web/verdicts.py).
 """
 from __future__ import annotations
 
@@ -20,44 +21,44 @@ from tests.web_fixtures import client_with_grades, seed
 
 def test_a_young_reader_sees_the_plain_words(tmp_path):
     seed(tmp_path).close()
-    body = html.unescape(client_with_grades(tmp_path, Alex=5).get("/kids/Alex?show=all").text)
+    body = html.unescape(client_with_grades(tmp_path, Sam=5).get("/kids/Sam?show=all").text)
     assert "Teacher hasn't got it" in body
     assert ">Missing<" not in body
 
 
 def test_a_middle_reader_sees_the_middle_words(tmp_path):
     seed(tmp_path).close()
-    body = client_with_grades(tmp_path, Alex=7).get("/kids/Alex?show=all").text
+    body = client_with_grades(tmp_path, Sam=7).get("/kids/Sam?show=all").text
     assert "Marked missing" in body
 
 
 def test_an_older_reader_sees_exactly_what_ships_today(tmp_path):
     seed(tmp_path).close()
-    body = html.unescape(client_with_grades(tmp_path, Alex=9).get("/kids/Alex?show=all").text)
+    body = html.unescape(client_with_grades(tmp_path, Sam=9).get("/kids/Sam?show=all").text)
     assert "Missing" in body and "Teacher hasn't got it" not in body
 
 
 def test_no_grade_set_renders_the_shipped_words(tmp_path):
     seed(tmp_path).close()
-    body = html.unescape(client_with_grades(tmp_path).get("/kids/Alex?show=all").text)
+    body = html.unescape(client_with_grades(tmp_path).get("/kids/Sam?show=all").text)
     assert "Missing" in body and "Teacher hasn't got it" not in body
 
 
 def test_no_grade_set_renders_words_not_table_keys(tmp_path):
-    """The regression this branch shipped: `phrase(word, "")` returning the raw snake_case
-    table key instead of the `older` phrase. Participation is HAC-only, so it carries the
-    `one_source` case kind (see web_fixtures) -- exactly the word that broke."""
+    """The regression PR #27 shipped: `phrase(word, "")` returning the raw table key instead
+    of the `older` phrase. The verdict words are keys too ("where.still_ungraded")."""
     seed(tmp_path).close()
     body = client_with_grades(tmp_path).get("/kids/Alex?show=all").text
-    assert "one source" in body
-    assert "one_source" not in body
+    assert "No grade after a week" in body and "Was it handed in?" in body
+    import re
+    assert not re.search(r"\b(where|ask|facts|a)\.[a-z_]+\b", body.split("<body", 1)[1]), "a raw phrase key reached the page"
 
 
-def test_the_reconcile_kinds_follow_the_reader_too(tmp_path):
+def test_the_questions_follow_the_reader_too(tmp_path):
     seed(tmp_path).close()
     body = client_with_grades(tmp_path, Alex=5).get("/kids/Alex?show=all").text
-    assert "Ask your teacher" in body          # `disagree` on Quiz 1
-    assert ">disagree<" not in body
+    assert "Did you hand it in?" in body          # Participation's question, for a fifth grader
+    assert "Was it handed in?" not in body
 
 
 def test_an_apostrophe_phrase_stays_escaped(tmp_path):
@@ -66,7 +67,7 @@ def test_an_apostrophe_phrase_stays_escaped(tmp_path):
     someone re-adds that wrapper, this is the test that catches it -- the raw apostrophe
     would appear unescaped in the response body."""
     seed(tmp_path).close()
-    body = client_with_grades(tmp_path, Alex=5).get("/kids/Alex?show=all").text
+    body = client_with_grades(tmp_path, Sam=5).get("/kids/Sam?show=all").text
     assert "hasn&#39;t" in body
     assert "hasn't" not in body
 
@@ -125,5 +126,6 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
     start = body.index('id="Alex"')
     end = body.index("<section", start + 1)
     alex_section = body[start:end]
-    assert "Teacher hasn't got it" in alex_section
-    assert ">Missing<" not in alex_section
+    # Lab notebook's "On paper" hand-in cell; Quiz 1's "Missing" left the list when HAC's grade settled it.
+    assert "This one is on paper" in alex_section
+    assert ">On paper<" not in alex_section

@@ -47,7 +47,10 @@ def test_handed_in_and_graded_are_settled_and_late_stays_open_until_graded():
     assert reconcile.open_sources(item("paper"), {"hac": hac(9)}, NOW) == set()                        # done on paper
 
 
-def test_a_teachers_flag_or_zero_is_open_whatever_hac_says():
-    """A disagreement between the sources is Reconcile's to show, not this function's to settle."""
-    assert reconcile.open_sources(item(), {"canvas": canvas(missing=1), "hac": hac(28)}, NOW) == {"canvas"}
-    assert reconcile.open_sources(item(), {"canvas": canvas(state="graded", score=0), "hac": hac(28)}, NOW) == {"canvas"}
+def test_a_teachers_flag_or_zero_is_open_unless_hac_has_a_grade():
+    """A HAC grade above zero is the teacher's assessment and settles it over Canvas's missing
+    flag or a placeholder zero (docs/outcomes.md). A HAC zero, or no HAC grade, leaves it open."""
+    assert reconcile.open_sources(item(), {"canvas": canvas(missing=1), "hac": hac(28)}, NOW) == set()
+    assert reconcile.open_sources(item(), {"canvas": canvas(state="graded", score=0), "hac": hac(28)}, NOW) == set()
+    assert reconcile.open_sources(item(), {"canvas": canvas(missing=1), "hac": hac(0)}, NOW) == {"canvas"}
+    assert reconcile.open_sources(item(), {"canvas": canvas(missing=1), "hac": hac(None)}, NOW) == {"canvas", "hac"}

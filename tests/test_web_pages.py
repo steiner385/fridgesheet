@@ -21,8 +21,8 @@ def test_dashboard_cards_per_kid(tmp_path):
     assert r.status_code == 200
     body = r.text
     assert body.index("Alex") < body.index("Sam")
-    assert "3 actionable" in body and "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
-    assert "2 actionable" in body                                   # Sam
+    assert body.count("2 actionable") == 2                           # Alex (Quiz 1 is settled by HAC's 28/30), Sam
+    assert "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
     # The card reads the run's log line for the parent instead of echoing it (#40 item 4):
     # "Previewed · 2 pages · Al 3, Sam 2", never the file path or "Al=3".
     assert "Today's sheet" in body and "2 pages" in body and "Al 3, Sam 2" in body
@@ -37,44 +37,42 @@ def test_dashboard_with_nothing_printed_says_so(tmp_path):
 
 def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_path):
     conn = seed(tmp_path)
-    qid = _item_id(conn, "Quiz 1")
+    qid = _item_id(conn, "Lab notebook")
     flags.set_flag(conn, qid, "follow_up", now="2026-09-15T14:30:00-04:00")
     conn.close()
     c = app_for(tmp_path)
     r = c.get("/kids/Alex")
     assert r.status_code == 200
     body = r.text
-    for name in ("Quiz 1", "Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
-        assert name in body, name
-    assert "Essay draft" not in body                                 # submitted: not open
-    # Status is three columns now (tests/test_web_status_parts.py): the teacher's "Missing"
-    # is a Grade, "today" hangs off the Due date, and a HAC-only ungraded item says
-    # "Not yet" for its grade and "Unknown" for handed-in, since HAC does not record
-    # submissions. "Unknown" is a word rather than the dash it used to share with paper work.
-    assert ">Missing<" in body and 'class="rel">today</span>' in body and ">Not yet<" in body
-    handed = re.findall(r'<td class="handed[^"]*">(.*?)</td>', body, re.S)
-    assert "Unknown" in handed                                        # the HAC-only row says so in words
-    assert not [c for c in handed if c.strip() in ("—", "")]          # no cell is a bare dash or blank
-    assert "nothing to hand in online" in body                        # the column's legend
-    assert 'name="show"' in body and 'value="actionable"' in body and 'name="course"' in body
+    table = body[body.index('id="items"'):]
+    for name in ("Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
+        assert name in table, name
+    assert "Quiz 1" not in table                                      # HAC's 28/30 settles it (docs/outcomes.md)
+    assert "Essay draft" not in table                                 # submitted: not open
+    # Three columns (Due, Assignment, Where it stands): Homework 4 is too late for credit (and
+    # red: Canvas marked it missing), "today" hangs off the Due date, and the HAC-only
+    # Participation says in words that a week has gone by with no grade.
+    assert "Too late for credit" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade after a week" in table
+    assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
-    assert '<option value="">all</option>' in body                    # "all" (no filter), distinct from "any flag"
-    assert '>any flag<' in body                                       # FLAGGED's "any" value, relabeled for display
+    assert ">All classes<" in body                                    # the class picker's "no filter"
+    assert ">answered or asked<" in body                              # FLAGGED's "any", in family words
 
     flagged_only = c.get("/kids/Alex?show=all&flagged=any").text
-    assert "Quiz 1" in flagged_only and "Reading log" not in flagged_only   # only the flagged item shows
+    flagged_table = flagged_only[flagged_only.index('id="items"'):]
+    assert "Lab notebook" in flagged_table and "Reading log" not in flagged_table   # only the flagged item shows
 
 
 def test_kid_page_filters_apply_and_htmx_gets_the_table_only(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     r = c.get("/kids/Alex?show=actionable")
-    assert "Quiz 1" in r.text and "Reading log" not in r.text
+    assert "Lab notebook" in r.text and "Reading log" not in r.text
     r = c.get("/kids/Alex?show=all&source=hac", headers={"HX-Request": "true"})
     assert "<html" not in r.text and "Participation" in r.text and "Essay draft" not in r.text
     r = c.get("/kids/Alex?show=all&flagged=marked")
-    assert "Quiz 1" not in r.text
+    assert "Quiz 1" not in r.text[r.text.index('id="items"'):]
 
 
 def test_unknown_kid_is_404(tmp_path):
@@ -90,8 +88,8 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     r = app_for(tmp_path).get(f"/items/{qid}")
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
-    assert "Canvas" in body and "Missing" in body and "HAC" in body and "28/30" in body
-    assert "Canvas says MISSING, HAC shows 28" in body              # the reconcile reason (reconcile._score_text prints the bare score)
+    assert "Canvas" in body and "marked missing" in body and "HAC" in body and "28 of 30" in body   # the record
+    assert "HAC has 28 of 30. Canvas still shows its automatic" in body   # the verdict: decided, with its reason
     assert "Asked Mr Hoch" in body
     for f in ("done", "excused", "ignore", "follow_up", "ask_teacher"):
         assert f'value="{f}"' in body, f
@@ -100,7 +98,7 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
 
 def test_flag_round_trip_updates_the_detail_and_the_list(tmp_path):
     conn = seed(tmp_path)
-    qid = _item_id(conn, "Quiz 1")
+    qid = _item_id(conn, "Lab notebook")
     conn.close()
     c = app_for(tmp_path)
     r = c.post(f"/items/{qid}/flag", data={"flag": "done", "text": "HAC is right"})
@@ -108,11 +106,11 @@ def test_flag_round_trip_updates_the_detail_and_the_list(tmp_path):
     conn = db.open_db(tmp_path)
     assert flags.active(conn, qid)["flag"] == "done"
     conn.close()
-    assert "Quiz 1" not in c.get("/kids/Alex").text               # handled items leave the open list
-    assert "Quiz 1" in c.get("/kids/Alex?show=all").text
+    assert "Lab notebook" not in c.get("/kids/Alex").text               # handled items leave the open list
+    assert "Lab notebook" in c.get("/kids/Alex?show=all").text
     r = c.post(f"/items/{qid}/flag", data={"flag": "clear"})
     assert "No flag" in r.text
-    assert "Quiz 1" in c.get("/kids/Alex").text
+    assert "Lab notebook" in c.get("/kids/Alex").text
     assert c.post(f"/items/{qid}/flag", data={"flag": "bogus"}).status_code == 400
 
 
@@ -208,3 +206,14 @@ def test_course_of_another_kid_is_404(tmp_path):
     cid = conn.execute("SELECT id FROM courses WHERE short_name = 'Science 7' AND source = 'canvas'").fetchone()["id"]
     conn.close()
     assert app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").status_code == 404
+
+
+def test_item_detail_is_the_verdict_the_record_notes_and_a_more_menu(tmp_path):
+    conn = seed(tmp_path)
+    pid = _item_id(conn, "Participation")
+    conn.close()
+    body = app_for(tmp_path).get(f"/items/{pid}").text
+    assert "Was it handed in?" in body                     # the question card
+    assert 'class="record"' in body                        # the evidence
+    assert "<summary>More</summary>" in body and 'value="excused"' in body   # the raw flags, behind More
+    assert "<th>Says</th>" not in body                     # the old Source/Says table is gone

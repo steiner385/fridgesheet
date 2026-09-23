@@ -29,7 +29,7 @@ this order and the first that applies wins — that is the order of certainty.
 |---|---|---|
 | **excused** | The teacher excused it. | Canvas `excused`. Counted nowhere. |
 | **unpublished** | The teacher unpublished it. Not work the kid can do. | Canvas `published = 0`. Counted nowhere. |
-| **not done** | The work was not done. | Any one of: Canvas flagged it **missing**; a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. |
+| **not done** | The work was not done. | Any one of: Canvas flagged it **missing** (unless HAC has a grade above zero — see below); a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. |
 | **late** | Handed in after the deadline. | Canvas has a submission and marks it `late`. Whatever it was then graded, it was late. |
 | **on time** | Handed in by the deadline. | Canvas has a submission, not marked late. |
 | **done on paper** | Done, but not through Canvas. | A grade above zero — in Canvas or HAC — with no online submission. Paper or in-class work handed in and marked by hand, or online work the teacher graded from a physical copy. Its timing is unknowable, so it is neither on time nor late. |
@@ -43,6 +43,13 @@ Two consequences worth knowing:
 - **Work done on paper is not "not done"**, on purpose. Canvas lists it as unsubmitted
   forever; the grade is the proof it was done. The old Status column called these
   "Missing" and was wrong about them roughly a dozen times per kid.
+- **A HAC grade beats Canvas's automatic "missing"**, whichever source the family prefers.
+  When HAC has a score above zero, the work counts as done on paper even if Canvas still
+  shows it missing: Canvas's late policy sets that flag by itself, and a HAC grade is the
+  teacher's assessment. The one exception is a missing mark Canvas recorded *after* HAC's
+  grade, in a later refresh; then the app asks instead of deciding. Example: Quiz 1, missing
+  in Canvas and 28/30 in HAC, both seen in the same refresh, is done. The printed sheet reads
+  a snapshot with no history, so it always follows HAC's grade here.
 
 ## Where each outcome shows up
 
@@ -54,8 +61,8 @@ Two consequences worth knowing:
 | **Kid page, Handed in and Grade columns** | The raw facts the outcome was decided from, kept separate: Handed in is the submission (Yes / Late / No / Excused / — for paper, in-class and HAC-only work); Grade is the gradebook (the score, a 0 in red, the teacher's Missing, "Not yet" for handed in and unmarked). |
 | **Trends, "How the work due each week came out"** | The five settled outcomes per week of *due date* — the same numbers as the card, spread over the calendar. By due week, not refresh week, so the chart shows the year so far from the first day. |
 | **Trends, "On-time hand-ins"** | *on time ÷ (on time + late + not done)* over work due so far. "Done on paper" is left out because its timing is unknowable; "unknown" is left out because it is unknown. |
-| **Reconcile** | Not an outcome — a *reason the outcome is uncertain*: the two sources disagree, only one source knows the item, it is turned in but ungraded, it is paper work with no grade (the "unknown" outcome, with a button to ask), it is still open past its credit window, or a flag you set has been overtaken. |
-| **"open"** (Kid page filter, Reconcile, *Open the longest*) | *not done* or *unknown*, plus *late* until it is graded. Defined from the outcome, so paper work the gradebook has marked is settled — it used to count as open forever because Canvas never sees a paper hand-in. |
+| **Questions** | Not an outcome — a *verdict* on top of it (`web/verdicts.py`): the app **decides** what the records settle (a HAC grade over Canvas's automatic missing; a gap explained by the late-work rule), **waits** on what time will settle (a Canvas grade not yet in HAC; paper work with no grade for under 7 days; work handed in and not graded), and **asks** only when the family can act: HAC lower than Canvas, a HAC zero on work handed in online or excused in Canvas, HAC still blank 7 days after Canvas graded it, paper or HAC-only work with no grade 7 days on, or a newer record contradicting your own answer. Too late for credit is a status, not a question. |
+| **"open"** (Kid page filter, *Open the longest*) | *not done* or *unknown*, plus *late* until it is graded. Defined from the outcome, so paper work the gradebook has marked is settled — it used to count as open forever because Canvas never sees a paper hand-in. |
 | **The printed sheet** | Only what is still open: MISSING, ZERO, LATE, PAPER — CHECK, HAC — NO GRADE, and DUE TODAY / DUE TOMORROW / DUE *day*. These are the same facts, shouted, and limited to what a kid can still do something about. Paper or in-class work with a grade in HAC is *done on paper* and does not print; a teacher's own MISSING flag or 0 still does. |
 | **"actionable"** (Dashboard, Kid page) | Also not an outcome: *not done* or *unknown* work that is still inside its late-work credit window (`late-rules.toml`) and that you have not flagged as handled. It is the short list for tonight; the record line is the long one for the quarter. |
 | **How it is worded** | Every child sees every row and every action. A `[kids].grades` entry changes type, density, colour and vocabulary only (`fridgesheet/web/tiers.py`, `fridgesheet/web/phrasing.py`) — never which rows appear, which `tests/test_web_tier_parity.py` holds. No child phrase states a time, date or number its adult equivalent does not. |
@@ -91,7 +98,7 @@ fills in what it lacks, so a class Canvas never lists still shows HAC's work and
 school uses one system still shows that system. Submitted, late and excused always come from
 Canvas, because HAC does not record them. Under a HAC preference a HAC score settles the item:
 a HAC 48/50 is *done on paper* even where Canvas says *missing*, and a HAC zero is *not done*
-even where Canvas shows a score. The Reconcile page still lists every disagreement.
+even where Canvas shows a score. The kid page's *Decided for you* lines still show where Canvas disagrees, each with a *Not right?* link.
 
 Paper work is not a reason on its own to prefer HAC. In this household's data on 2026-09-21,
 20 of 27 past-due paper assignments were graded in Canvas. The real conflicts were one

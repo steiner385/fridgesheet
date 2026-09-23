@@ -31,7 +31,7 @@ from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
 from ..host import selfupdate
-from . import db, phrasing, staleness, tiers, updates
+from . import db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
 from .stores.items import DAYS_AHEAD
@@ -152,7 +152,9 @@ def _filters(state: AppState) -> dict:
         return dates.wd_md(v) if v else ""
 
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
-            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase}
+            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
+            "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
+            "standing": lambda item, tier: verdicts.standing(item, tier)}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
@@ -178,6 +180,18 @@ def get_db(request: Request) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def question_counts(conn: sqlite3.Connection, state) -> dict[str, int]:
+    """How many questions each kid has, for the rail. This runs every verdict for every kid on
+    every page render: fine at household scale (tens of items per kid). If it ever shows up in
+    a profile, cache it per refresh id."""
+    from .stores import items as items_store
+    out = {}
+    for s in students.visible(conn):
+        views = items_store.list_items(conn, s, now=state.now(), rules=state.rules(), show="all", prefs=state.sources())
+        out[s["key"]] = sum(1 for v in views if v.verdict.state == "question")
+    return out
+
+
 def page_context(request: Request, conn: sqlite3.Connection) -> dict:
     state = get_state(request)
     r = refreshes.latest(conn)
@@ -192,6 +206,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
         "staleness": staleness.check(conn, state.now()),
+        "question_counts": question_counts(conn, state),
     }
 
 
@@ -458,8 +473,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
-    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, questions as question_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
+    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
         app.include_router(r)
     return app
 
