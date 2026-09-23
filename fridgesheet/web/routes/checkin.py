@@ -19,7 +19,11 @@ from ..stores import items, plans
 
 router = APIRouter()
 
-QUEUES = ("Work to consider", "Needs clarification", "Submitted · waiting for a grade")
+#: The review groups, named after the verdicts (web/verdicts.py) so Check-in and Assignments say
+#: the same thing about the same item (#68, #69). "Waiting on the school" is not the plan's
+#: "Waiting" state: that one is our step on hold.
+QUESTIONS, WAITING, TO_DO = "Questions", "Waiting on the school", "To do"
+QUEUES = (QUESTIONS, WAITING, TO_DO)
 
 
 def root(key):
@@ -37,22 +41,15 @@ def _id(value: str | None) -> int | None:
 
 
 def _group(v) -> str | None:
-    """Which review group a live item belongs in, or None when there is nothing to talk about.
-
-    Handled work and existing commitments are skipped by the caller. Anything the sources
-    cannot settle -- a zero, a disagreement, paper work with no grade -- is a question before it
-    is a task. Submitted but ungraded work is waiting on the teacher, not on the child."""
+    """Work that is neither a question nor waiting on the school: "To do" when it is open,
+    coming due or undated and unfinished, else nothing to talk about. Handled work and
+    existing commitments are skipped by the caller."""
     if v.outcome in (outcomes.EXCUSED, outcomes.UNPUBLISHED):
         return None
-    submitted = v.canvas is not None and v.canvas["submitted_at"]
-    ungraded = submitted and v.canvas["score"] is None and (v.hac is None or v.hac["score"] is None)
-    uncertain = v.grade_zero or v.outcome == outcomes.UNKNOWN
     # Undated work (HAC lists some) is never "open" or "upcoming" by date; unfinished, it still
     # deserves a look rather than silence.
     undated = v.due is None and v.outcome == outcomes.NOT_DUE
-    if not (v.open_in or v.upcoming or ungraded or undated):
-        return None
-    return QUEUES[1] if uncertain else QUEUES[2] if ungraded else QUEUES[0]
+    return TO_DO if (v.open_in or v.upcoming or undated) else None
 
 
 def queue_for(v, covered: set[int]) -> str | None:
@@ -63,11 +60,11 @@ def queue_for(v, covered: set[int]) -> str | None:
     if v.id in covered:
         return None
     if v.handled:
-        return QUEUES[1] if v.verdict.kind == "stale_answer" else None
+        return QUESTIONS if v.verdict.kind == "stale_answer" else None
     if v.verdict.state == "question":
-        return QUEUES[1]
-    if v.verdict.kind == "teacher_grading":
-        return QUEUES[2]
+        return QUESTIONS
+    if v.verdict.state == "waiting":
+        return WAITING
     return _group(v)
 
 
@@ -121,7 +118,7 @@ def _context(conn, student, state):
                 history=history, last_check=last_check, today=today, next_default=next_default,
                 total_minutes=total, over=(total - last_check["available_minutes"]) if last_check else 0,
                 unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
-                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=QUEUES[2])
+                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING)
 
 
 @router.get("/kids/{key}/check-in")

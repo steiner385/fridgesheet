@@ -21,16 +21,16 @@ def test_handled_work_stays_out_of_review():
 
 def test_a_stale_answer_needs_clarification_even_when_handled():
     v = view(handled=True, open_in=set(), verdict=V.Verdict(V.QUESTION, "stale_answer"))
-    assert checkin.queue_for(v, covered=set()) == "Needs clarification"
+    assert checkin.queue_for(v, covered=set()) == "Questions"
 
 
 def test_any_question_needs_clarification():
-    assert checkin.queue_for(view(verdict=V.Verdict(V.QUESTION, "hac_lower")), covered=set()) == "Needs clarification"
+    assert checkin.queue_for(view(verdict=V.Verdict(V.QUESTION, "hac_lower")), covered=set()) == "Questions"
 
 
 def test_waiting_on_the_teacher_is_the_waiting_group():
     v = view(open_in=set(), verdict=V.Verdict(V.WAITING, "teacher_grading"))
-    assert checkin.queue_for(v, covered=set()) == "Submitted · waiting for a grade"
+    assert checkin.queue_for(v, covered=set()) == "Waiting on the school"
 
 
 def test_work_with_an_agreed_step_stays_out_of_review():
@@ -38,4 +38,4 @@ def test_work_with_an_agreed_step_stays_out_of_review():
 
 
 def test_open_work_is_work_to_consider():
-    assert checkin.queue_for(view(), covered=set()) == "Work to consider"
+    assert checkin.queue_for(view(), covered=set()) == "To do"

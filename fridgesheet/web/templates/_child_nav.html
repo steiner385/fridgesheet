@@ -4,3 +4,4 @@
   <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>Assignments</a>
 </nav>
 <p class="tab-hint muted">{% if workspace == 'checkin' %}Talk it through together and agree a few next steps.{% elif workspace == 'plan' %}What you agreed to do, day by day.{% else %}Everything the school lists, with what needs your answer at the top.{% endif %}</p>
+{% include "_sources_hint.html" %}

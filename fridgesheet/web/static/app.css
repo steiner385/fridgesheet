@@ -315,3 +315,5 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 @media (max-width: 800px) {
   .settings-grid { grid-template-columns: minmax(0, 1fr); }
 }
+.sources-hint { font-size: 13px; margin: -8px 0 16px; }
+.record .sources-hint { margin: 0 0 6px; }

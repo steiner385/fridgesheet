@@ -13,7 +13,7 @@ from .. import db
 
 router = APIRouter()
 ANSWERS = set(flags.FLAGS) | {"confirm", "clear"}
-_SLOT = re.compile(r"qd?-\d+")
+_SLOT = re.compile(r"q[cd]?-\d+")      # q- list card, qd- item detail, qc- check-in card
 
 
 def _slot(raw: str, item_id: int) -> str:

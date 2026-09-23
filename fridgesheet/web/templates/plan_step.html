@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Choose a next step' }} · {{ student.key | nickname }}{% endblock %}
+{% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Plan a step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
 {% set back = return_to if return_to is defined and return_to else base ~ '#plan' %}
 <p><a href="{{ back }}">← {{ 'Back' if return_to is defined and return_to else student.key | nickname ~ '’s check-in' }}</a></p>
 {% if step_id %}<h2>Edit a step</h2><p>Change what was agreed, mark it complete, or put it back.</p>
-{% elif item_id %}<h2>Choose a next step</h2><p>What happened, and what would help move this forward?</p>
+{% elif item_id %}<h2>Plan a step</h2><p>What happened, and what would help move this forward?</p>
 {% else %}<h2>Add a task</h2><p>Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment.</p>{% endif %}
 {% if error %}<p role="alert" class="notice warn" tabindex="-1" autofocus>{{ error }}</p>{% endif %}
 {% if latest %}
