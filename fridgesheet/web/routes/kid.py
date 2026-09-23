@@ -4,10 +4,11 @@ from __future__ import annotations
 import sqlite3
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi.responses import RedirectResponse
 
 from ... import sources
-from .. import outcomes
+from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import items, notes, students
 from .. import reconcile
@@ -80,6 +81,13 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     own, other = grades.get(course_id), (grades.get(peer["id"]) if peer else None)
     canvas_g, hac_g = (own, other) if c["source"] == "canvas" else (other, own)
     grade_lines = students.grade_lines(canvas_g, hac_g, prefs.resolve(s["key"], c["name"]).grades)
+    source_ctx = {
+        "own_rule": prefs.rule_for(s["key"], c["short_name"]),
+        "household": prefs.default,
+        "choice": prefs.resolve(s["key"], c["name"]),
+        "deciding": {f: prefs.deciding_rule(s["key"], c["name"], f) for f in ("assignments", "grades")},
+        "SOURCE_LABELS": sources.LABELS,
+    }
     # This course and its twin in the other source are one list to a parent, so the peer's
     # rows join it -- and the headers sort the merged list, not each half.
     rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
@@ -90,4 +98,23 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
                   history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,
                   sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
-                  notes=notes.for_target(conn, "course", course_id))
+                  notes=notes.for_target(conn, "course", course_id), **source_ctx)
+
+
+@router.post("/kids/{key}/courses/{course_id}/sources")
+def course_sources(key: str, course_id: int, assignments: str = Form(""), grades: str = Form(""),
+                   conn: sqlite3.Connection = Db, state=State):
+    """The rule for exactly this kid and this class, keyed by the class's short name: the full
+    Canvas name is not contained in HAC's name for the same class, so a rule written from it
+    would miss the HAC-only rows. "" (or anything unknown) means the household default."""
+    s = student_or_404(conn, key)
+    c = students.course(conn, course_id)
+    if c is None or c["student_id"] != s["id"]:
+        raise HTTPException(404, "no such course")
+
+    def pick(v: str) -> str | None:
+        return v if v in sources.SOURCES else None
+
+    actions.set_source_rule(state.home, s["key"], c["short_name"], pick(assignments), pick(grades))
+    state.reload()
+    return RedirectResponse(f"/kids/{quote(key)}/courses/{course_id}", status_code=303)

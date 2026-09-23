@@ -14,6 +14,20 @@
     {% if course.teacher_email %}<p><a href="mailto:{{ course.teacher_email }}">{{ course.teacher_email }}</a></p>{% endif %}
     {% if peer %}<p class="muted">Also in {{ peer.source }} as {{ peer.name }}</p>{% endif %}
   </div>
+  <div class="card"><h2>Sources for this class</h2>
+    <form method="post" action="/kids/{{ student.key | urlencode }}/courses/{{ course.id }}/sources">
+    {% for field, word in (('assignments', 'Assignment scores'), ('grades', 'Class average')) %}
+      {% set mine = own_rule[field] if own_rule else none %}
+      <p><label>{{ word }} <select name="{{ field }}">
+        <option value=""{{ ' selected' if mine is none }}>Household default ({{ SOURCE_LABELS[household[field]] }})</option>
+        {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if mine == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}
+      </select></label>
+      {% set d = deciding[field] %}
+      {% if d and mine is none %}<br><span class="muted">Now {{ SOURCE_LABELS[choice[field]] }}, from a rule for {{ d.kid or 'every kid' }}{{ ' in ' ~ d.course if d.course }}</span>{% endif %}</p>
+    {% endfor %}
+    <p><button>Save</button></p>
+    </form>
+  </div>
 </div>
 <h3>Grade history</h3>
 <table class="items"><tr><th>Seen</th><th>Canvas current</th><th>Canvas final</th><th>HAC average</th><th>Letter</th></tr>
