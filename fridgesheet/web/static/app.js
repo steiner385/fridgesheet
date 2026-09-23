@@ -1,7 +1,15 @@
-// Small helpers; everything interactive is htmx. Keep the expanded row open after a swap.
+// Small helpers; everything interactive is htmx. After a swap that brings in a [data-focus]
+// card -- as the swapped element itself or inside the target -- move focus to its named
+// [data-focus-target] (the card heading). Focusing the first input instead raised the phone
+// keyboard on every tap and sent screen readers past the card's content.
+// An outerHTML swap leaves e.detail.target pointing at the removed element; the event itself
+// is dispatched on its replacement, so fall back to e.target when the target is detached.
 document.addEventListener("htmx:afterSwap", function (e) {
-  var el = e.detail.target;
-  if (el && el.matches && el.matches("[data-focus]")) { var f = el.querySelector("textarea, input"); if (f) f.focus(); }
+  var el = e.detail.target && e.detail.target.isConnected ? e.detail.target : e.target;
+  if (!el || !el.matches) return;
+  var card = el.matches("[data-focus]") ? el : el.querySelector("[data-focus]");
+  var f = card && card.querySelector("[data-focus-target]");
+  if (f) f.focus();
 });
 
 // Live job progress: a <pre data-sse=URL data-reload=URL> opens an EventSource, appends each

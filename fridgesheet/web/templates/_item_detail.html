@@ -1,7 +1,7 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 <div class="card" data-focus>
-  <h2>{{ item.name }} <span class="muted">· {{ item.course_short }} · {{ item.kind or 'online' }}{% if item.points %} · {{ item.points | round(1) }} pts{% endif %}</span></h2>
-  {% if message %}<p><strong>{{ message }}</strong>{% if item.flag_text %} <span class="muted">{{ item.flag_text }}</span>{% endif %}</p>{% endif %}
+  <h2 tabindex="-1" data-focus-target>{{ item.name }} <span class="muted">· {{ item.course_short }} · {{ item.kind or 'online' }}{% if item.points %} · {{ item.points | round(1) }} pts{% endif %}</span></h2>
+  {% if message %}<p role="status"><strong>{{ message }}</strong></p>{% endif %}
   <table class="items">
     <tr><th>Source</th><th>Says</th><th>Score</th><th>Submitted</th></tr>
     {% if item.canvas %}<tr><td>Canvas</td><td>{{ item.status }}</td><td>{{ item.canvas.score if item.canvas.score is not none else item.canvas.grade or '' }}</td><td>{{ item.canvas.submitted_at | wd_md_time }}</td></tr>{% endif %}

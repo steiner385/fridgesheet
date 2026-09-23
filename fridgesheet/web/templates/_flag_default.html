@@ -1,0 +1,5 @@
+{# Pressing Enter in a form's text box submits its first submit button. That used to be "done",
+   so typing a reason and pressing Enter dismissed the item. This invisible first button makes
+   Enter re-save the current flag with the new reason, and do nothing when there is no flag
+   (a disabled default button submits nothing). #}
+<button name="flag" value="{{ item.flag or '' }}" hidden{{ ' disabled' if not item.flag }}></button>

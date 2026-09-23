@@ -194,21 +194,35 @@ def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, pr
         if c is not None and c["submitted_at"] and c["score"] is None and past:
             add("submitted_ungraded", "Turned in, not graded yet")
         # 4. paper or in-class work, past due, no grade posted anywhere
-        if c is not None and r["kind"] in ("paper", "in class") and past and c["state"] in ("unsubmitted", None) and c["score"] is None:
+        # A HAC score answers the question this case asks, so it never fires once HAC has one.
+        if (c is not None and r["kind"] in ("paper", "in class") and past and c["state"] in ("unsubmitted", None)
+                and c["score"] is None and (h is None or h["score"] is None)):
             add("paper_no_grade", f"{r['kind'].capitalize()} work with no grade: ask")
         # 5. still open but past the late-work credit window
         if opened and flag not in HANDLED_FLAGS and due is not None:
             deadline = rules.deadline(r["kid"], r["course_name"], due)
             if now > deadline:
                 add("past_credit", f"No longer earns credit (window closed {deadline:%a %m/%d}); flag ignore to hide")
-        # 6. a flag the sources have since overtaken (a later observation contradicts it)
-        if flag and c is not None and r["flag_set_at"]:
-            started_at = refresh_times.get(c["refresh_id"])
-            if started_at:
+        # 6. a flag the sources have since overtaken (an observation newer than the flag contradicts
+        # it). Either source counts: for paper and in-class work the teacher fixes HAC, not Canvas.
+        if flag and r["flag_set_at"]:
+            said = flag.replace("_", " ")
+
+            def newer(o) -> bool:
+                started_at = refresh_times.get(o["refresh_id"]) if o is not None else None
+                if not started_at:
+                    return False
                 refreshed, flagged = _comparable(_parse_ts(started_at), _parse_ts(r["flag_set_at"]))
-                if refreshed > flagged:
-                    if flag in HANDLED_FLAGS and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
-                        add("stale_flag", f"Flagged {flag} but Canvas now says {'MISSING' if c['missing'] else 'ZERO'}")
-                    elif flag in MARKED_FLAGS and c["score"] is not None:
-                        add("stale_flag", f"Flagged {flag} but it is graded now ({_score_text(c)})")
+                return refreshed > flagged
+
+            if flag in HANDLED_FLAGS:
+                if newer(c) and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
+                    add("stale_flag", f"Flagged {said} but Canvas now says {'MISSING' if c['missing'] else 'ZERO'}")
+                elif newer(h) and h["score"] == 0:
+                    add("stale_flag", f"Flagged {said} but HAC now shows a zero")
+            elif flag in MARKED_FLAGS:
+                if newer(c) and c["score"] is not None:
+                    add("stale_flag", f"Flagged {said} but it is graded now ({_score_text(c)})")
+                elif newer(h) and h["score"] is not None:
+                    add("stale_flag", f"Flagged {said} but HAC has graded it now ({_score_text(h)})")
     return sorted(found, key=lambda x: (x.due or datetime.max.replace(tzinfo=now.tzinfo), x.course, x.name))

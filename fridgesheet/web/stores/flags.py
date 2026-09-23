@@ -18,6 +18,13 @@ def set_flag(conn: sqlite3.Connection, item_id: int, flag: str, *, now: str, tex
         raise ValueError(f"unknown flag {flag!r}; one of {', '.join(FLAGS)}")
     with conn:
         conn.execute("BEGIN IMMEDIATE")   # clear-then-insert must not lose the write lock in between
+        # The same flag again is an edit of its reason, not a new verdict: `set_at` is when the
+        # parent decided ("asked the teacher on Sat"), and the stale-flag check measures from it.
+        same = conn.execute("SELECT id FROM flags WHERE item_id = ? AND cleared_at IS NULL AND flag = ?",
+                            (item_id, flag)).fetchone()
+        if same is not None:
+            conn.execute("UPDATE flags SET text = ? WHERE id = ?", (text, same["id"]))
+            return same["id"]
         conn.execute("UPDATE flags SET cleared_at = ? WHERE item_id = ? AND cleared_at IS NULL", (now, item_id))
         cur = conn.execute("INSERT INTO flags(item_id, flag, text, set_at) VALUES (?, ?, ?, ?)", (item_id, flag, text, now))
         return cur.lastrowid
