@@ -28,6 +28,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .. import dates, late_rules
 from ..config import Settings
+from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
 from . import db, staleness, updates
 from .actions import REPORT_KEY
@@ -85,6 +86,11 @@ class AppState:
             return late_rules.LateRules(late_rules.Rule(), [], [])
         self.extra["warnings"] = []
         return rules
+
+    def sources(self) -> SourcePrefs:
+        """Which gradebook is authoritative per kid and class. Read from settings, which
+        Settings and the course-page control reload after they write config.toml."""
+        return self.settings.sources
 
     def now(self) -> datetime:
         return self.clock()
