@@ -60,6 +60,9 @@ def test_the_disagreement_is_still_listed_under_hac(tmp_path):
 
 
 def test_the_kid_page_reads_the_preference_from_config(tmp_path):
-    seed(tmp_path).close()
+    from tests.web_fixtures import canvas_grades_later
+    conn = seed(tmp_path)
+    canvas_grades_later(conn, "Quiz 1", 20.0)        # Canvas 20/30, HAC 28/30: the preference picks one
+    conn.close()
     assert "28/30" not in client(tmp_path, "").get("/kids/Alex?show=all").text
     assert "28/30" in client(tmp_path, '[sources]\nassignments = "hac"\n').get("/kids/Alex?show=all").text

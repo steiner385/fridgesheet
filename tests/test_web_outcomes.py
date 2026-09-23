@@ -113,9 +113,9 @@ def test_the_kid_card_shows_the_record_and_the_kid_page_filters_by_outcome(tmp_p
     page = c.get("/kids/Alex?outcome=not_done", headers={"host": "127.0.0.1"}).text
     assert 'name="outcome"' in page and '<option value="not_done" selected>not done</option>' in page
     assert "Homework 4" in page                              # missing in Canvas, no HAC grade: not done
-    assert "Quiz 1" not in page                              # missing in Canvas but 28/30 in HAC: done on paper
+    assert "Quiz 1" not in page[page.index('id="items"'):]   # missing in Canvas but 28/30 in HAC: done on paper
     assert "Quiz 1" in c.get("/kids/Alex?outcome=done_offline", headers={"host": "127.0.0.1"}).text
-    assert "Essay draft" not in page                         # submitted: not this outcome
+    assert "Essay draft" not in page[page.index('id="items"'):]   # submitted: not this outcome
     # an outcome filter shows all matching rows, including those past the credit window
     everything = c.get("/kids/Alex?outcome=on_time", headers={"host": "127.0.0.1"}).text
     assert "Essay draft" in everything

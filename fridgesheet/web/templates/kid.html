@@ -3,19 +3,19 @@
 {% block content %}
 <h2>{{ student.key | nickname }}</h2>
 {% set workspace = "all" %}{% include "_child_nav.html" %}
+{% include "_verdict_sections.html" %}
 <form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
-  <label>Show
-    <select name="show">{% for v in SHOW %}<option value="{{ v }}" {{ 'selected' if f.show == v }}>{{ v }}</option>{% endfor %}</select></label>
-  <label>Source
-    <select name="source"><option value="">all</option>{% for v in ("canvas", "hac", "both") %}<option value="{{ v }}" {{ 'selected' if f.source == v }}>{{ v }}</option>{% endfor %}</select></label>
-  <label>Course
-    <select name="course"><option value="">any</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
-  <label>Kind
-    <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "in class") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
-  <label>Flagged
-    <select name="flagged"><option value="">all</option>{% for v in FLAGGED %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ 'any flag' if v == 'any' else v }}</option>{% endfor %}</select></label>
-  <label>Outcome
-    <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+  <span class="seg" role="group" aria-label="Show">
+    <label><input type="radio" name="show" value="open" {{ 'checked' if f.show != 'all' }}> Open</label>
+    <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
+  </span>
+  <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
+  <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome }}><summary>More filters</summary>
+    <label>Which gradebook <select name="source"><option value="">either</option><option value="canvas" {{ 'selected' if f.source == 'canvas' }}>in Canvas</option><option value="hac" {{ 'selected' if f.source == 'hac' }}>in HAC</option><option value="both" {{ 'selected' if f.source == 'both' }}>in both</option></select></label>
+    <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "in class") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
+    <label>Your answer <select name="flagged"><option value="">any</option><option value="any" {{ 'selected' if f.flagged == 'any' }}>answered or asked</option><option value="handled" {{ 'selected' if f.flagged == 'handled' }}>done, excused or let go</option><option value="marked" {{ 'selected' if f.flagged == 'marked' }}>asked the teacher or following up</option><option value="none" {{ 'selected' if f.flagged == 'none' }}>not answered</option></select></label>
+    <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+  </details>
   {# The filter form re-asks for the whole table; without these the sort and its direction
      would reset to "due, ascending" every time a parent narrowed to one course. #}
   <input type="hidden" name="sort" value="{{ f.sort }}">

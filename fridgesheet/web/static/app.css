@@ -60,7 +60,7 @@ header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn);
 table.items { width: 100%; border-collapse: collapse; background: var(--paper); }
 table.items th, table.items td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 table.items th a { text-decoration: none; }
-tr.overdue td.due { color: var(--warn); }
+/* A past due date is not red on its own: red is only for school-recorded not-done (td.where.red). */
 /* The Kid table's three fact columns. `.rel` is the second, quieter half of a cell: "today"
    after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
    grade cells a parent must not skim past; a "No" in Handed in is the third. */
@@ -77,6 +77,7 @@ th .arrow { color: var(--muted); font-size: 11px; }
    that decides whether tonight is the deadline; never wrapped away from its date. */
 td .at { font-size: 12px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
+td.where.red { color: var(--warn); font-weight: 600; }
 /* "On paper" and "Unknown": the two Handed in cells that are not an answer about the child.
    Quiet, so the eye still lands on the "No" three rows down, but words rather than the "—"
    they used to share -- one glyph for two different non-answers reads as a third thing. */
@@ -248,3 +249,16 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .done-line .tick { color: var(--ok); font-weight: 700; }
 .done-line form { margin-left: auto; }
 button.link { border: none; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; }
+
+table.work td.item small { display: block; color: var(--muted); font-size: 13px; }
+table.work td.item small a { color: inherit; }
+table.work td.due small.rel { display: block; }
+.qmark { font-size: 12px; color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; }
+.quiet-head { font-size: 14px; color: var(--muted); }
+.lines { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 4px 16px; margin-bottom: 10px; }
+.lines .line { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.lines .line:last-child { border-bottom: none; }
+.lines .line > a, .lines .line > form { margin-left: auto; font-size: 13px; }
+.seg label { margin-right: 8px; }
+.more-filters { display: inline-block; }

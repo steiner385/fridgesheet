@@ -42,3 +42,19 @@ def test_no_tier_hides_a_badge_the_oldest_gets(tmp_path_factory):
         return len(re.findall(r'<span class="badge', body))
     for tier in list(tiers.TIERS) + [""]:
         assert badges(tier) == badges("older"), tier
+
+
+def _question_ids(tmp_path_factory, tier: str) -> set[str]:
+    home = tmp_path_factory.mktemp(f"questions-{tier or 'none'}")
+    seed(home).close()
+    c = client_with_grades(home, Alex=GRADE_OF[tier]) if GRADE_OF[tier] is not None else client_with_grades(home)
+    return set(re.findall(r'id="q-(\d+)"', c.get("/kids/Alex").text))
+
+
+@pytest.mark.parametrize("tier", list(tiers.TIERS) + [""])
+def test_no_tier_hides_a_question_or_a_decided_or_waiting_line(tmp_path_factory, tier):
+    """The questions, decided and waiting lines above the table (web/verdicts.py) are facts
+    about the child's work too; a younger reader gets plainer words, never fewer of them."""
+    older = _question_ids(tmp_path_factory, "older")
+    assert older, "the fixture must render at least one question card or line"
+    assert _question_ids(tmp_path_factory, tier) == older

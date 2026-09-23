@@ -44,27 +44,24 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     r = c.get("/kids/Alex")
     assert r.status_code == 200
     body = r.text
+    table = body[body.index('id="items"'):]
     for name in ("Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
-        assert name in body, name
-    assert "Quiz 1" not in body                                      # HAC's 28/30 settles it (docs/outcomes.md)
-    assert "Essay draft" not in body                                 # submitted: not open
-    # Status is three columns now (tests/test_web_status_parts.py): the teacher's "Missing"
-    # is a Grade, "today" hangs off the Due date, and a HAC-only ungraded item says
-    # "Not yet" for its grade and "Unknown" for handed-in, since HAC does not record
-    # submissions. "Unknown" is a word rather than the dash it used to share with paper work.
-    assert ">Missing<" in body and 'class="rel">today</span>' in body and ">Not yet<" in body
-    handed = re.findall(r'<td class="handed[^"]*">(.*?)</td>', body, re.S)
-    assert "Unknown" in handed                                        # the HAC-only row says so in words
-    assert not [c for c in handed if c.strip() in ("—", "")]          # no cell is a bare dash or blank
-    assert "nothing to hand in online" in body                        # the column's legend
-    assert 'name="show"' in body and 'value="actionable"' in body and 'name="course"' in body
+        assert name in table, name
+    assert "Quiz 1" not in table                                      # HAC's 28/30 settles it (docs/outcomes.md)
+    assert "Essay draft" not in table                                 # submitted: not open
+    # Three columns (Due, Assignment, Where it stands): Homework 4 is too late for credit (and
+    # red: Canvas marked it missing), "today" hangs off the Due date, and the HAC-only
+    # Participation says in words that a week has gone by with no grade.
+    assert "Too late for credit" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade after a week" in table
+    assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
-    assert '<option value="">all</option>' in body                    # "all" (no filter), distinct from "any flag"
-    assert '>any flag<' in body                                       # FLAGGED's "any" value, relabeled for display
+    assert ">All classes<" in body                                    # the class picker's "no filter"
+    assert ">answered or asked<" in body                              # FLAGGED's "any", in family words
 
     flagged_only = c.get("/kids/Alex?show=all&flagged=any").text
-    assert "Lab notebook" in flagged_only and "Reading log" not in flagged_only   # only the flagged item shows
+    flagged_table = flagged_only[flagged_only.index('id="items"'):]
+    assert "Lab notebook" in flagged_table and "Reading log" not in flagged_table   # only the flagged item shows
 
 
 def test_kid_page_filters_apply_and_htmx_gets_the_table_only(tmp_path):
@@ -75,7 +72,7 @@ def test_kid_page_filters_apply_and_htmx_gets_the_table_only(tmp_path):
     r = c.get("/kids/Alex?show=all&source=hac", headers={"HX-Request": "true"})
     assert "<html" not in r.text and "Participation" in r.text and "Essay draft" not in r.text
     r = c.get("/kids/Alex?show=all&flagged=marked")
-    assert "Quiz 1" not in r.text
+    assert "Quiz 1" not in r.text[r.text.index('id="items"'):]
 
 
 def test_unknown_kid_is_404(tmp_path):
