@@ -47,9 +47,9 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     s = student_or_404(conn, key)
     now, rules = state.now(), state.rules()
     f = _filters(request)
-    rows = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), **f)
+    rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
     # The sections above the table cover all of the kid's work, whatever the table shows.
-    everything = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), show="all")
+    everything = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), show="all", **state.window())
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
     # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
     week_ago = now - timedelta(days=7)
@@ -72,7 +72,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
 def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, state=State):
     now, rules = state.now(), state.rules()
     s = students.owner_of_item(conn, item_id)
-    v = items.one(conn, s, item_id, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources()) if s is not None else None
+    v = items.one(conn, s, item_id, now=now, rules=rules, prefs=state.sources(), **state.window()) if s is not None else None
     if v is None:
         raise HTTPException(404, "no such item")
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,

@@ -14,5 +14,7 @@
         <small><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a>{% if v.kind in ('paper', 'in class') %} · {{ v.kind }}{% endif %}</small></td>
     {# Red only when the school recorded not-done and the app did not settle it otherwise. #}
     {% set school_no = (v.grade == 'Missing' or v.grade_zero) and v.verdict.state != 'decided' %}
-    <td class="where{{ ' red' if school_no }}">{{ v | standing(tier) }}</td>
+    <td class="where{{ ' red' if school_no }}">{{ v | standing(tier) }}
+      {#- Open work's still-fixable rows say when credit ends, as the sheet does (`thru`). -#}
+      {% if thru is defined and thru and v.late_until %}<small class="thru">Credit thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} · {{ v.credit }}{% endif %}</small>{% endif %}</td>
   </tr>

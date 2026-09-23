@@ -91,11 +91,20 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
 
 
 def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime,
-                  prefer: str = "canvas") -> bool:
+                  prefer: str = "canvas", overdue_days: int | None = None) -> bool:
+    """Open, not handled, and still inside its late-work window -- and, given `overdue_days`,
+    no older than the printed sheet lets an overdue row be (`open_items.open_items` drops
+    `due < now - overdue_days`), so "still fixable" on a page is what prints (#20)."""
     if flag in HANDLED_FLAGS or not open_sources(item, obs, now, prefer=prefer):
         return False
     due = _due(item)
-    return due is None or now <= rules.deadline(kid, item["course_name"], due)
+    if due is None:
+        return True
+    if overdue_days is not None:
+        a, b = _comparable(due, now - timedelta(days=overdue_days))
+        if a < b:
+            return False
+    return now <= rules.deadline(kid, item["course_name"], due)
 
 
 def live_items(conn: sqlite3.Connection, student_id: int, now: datetime) -> list[sqlite3.Row]:

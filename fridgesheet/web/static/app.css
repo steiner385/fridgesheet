@@ -51,6 +51,8 @@ header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn);
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
 .card h2 { margin: 0 0 8px; font-size: 16px; }
 .big { font-size: 28px; font-weight: 600; }
+.tally { margin: 4px 0; }
+.tally .big { margin-right: 4px; }
 /* The kid card's record line: five outcomes for the work that was due, each a link to the
    rows behind the number. The two a parent must not skim past are warn-coloured only when
    they are non-zero (the template decides). */
@@ -65,8 +67,6 @@ table.items th a { text-decoration: none; }
    after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
    grade cells a parent must not skim past; a "No" in Handed in is the third. */
 td .rel { color: var(--muted); font-size: 13px; }
-/* The Open work page's "thru Sat 9/26": one line, like the sheet prints it. */
-td.thru { white-space: nowrap; }
 /* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
    taller than its neighbours all the way down the page (#11 item 9). */
 td.sources { white-space: nowrap; }
@@ -267,6 +267,11 @@ button.link { border: none; background: none; color: var(--muted); text-decorati
 table.work td.item small { display: block; color: var(--muted); font-size: 13px; }
 table.work td.item small a { color: inherit; }
 table.work td.due small.rel { display: block; }
+/* Open work stacks several short tables; fixed columns line them up under each other. */
+table.work.open-list { table-layout: fixed; }
+table.work.open-list th:nth-child(1) { width: 22%; }
+table.work.open-list th:nth-child(2) { width: 43%; }
+table.work td.where small.thru { display: block; color: var(--muted); font-size: 13px; font-weight: normal; }
 .qmark { font-size: 13px; color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
 .section-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
 .quiet-head { font-size: 14px; color: var(--muted); }

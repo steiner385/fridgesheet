@@ -21,13 +21,13 @@ def test_dashboard_cards_per_kid(tmp_path):
     assert r.status_code == 200
     body = r.text
     assert body.index("Alex") < body.index("Sam")
-    assert body.count("2 actionable") == 2                           # Alex (Quiz 1 is settled by HAC's 28/30), Sam
+    assert body.count('<span class="big">2</span> still fixable') == 2                        # Alex (Quiz 1 is settled by HAC's 28/30), Sam
     assert "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
     # The card reads the run's log line for the parent instead of echoing it (#40 item 4):
     # "Previewed · 2 pages · Al 3, Sam 2", never the file path or "Al=3".
     assert "Today's sheet" in body and "2 pages" in body and "Al 3, Sam 2" in body
     assert "Al=3" not in body and "sheet.pdf" not in body
-    assert 'href="/kids/Alex?show=actionable"' in body
+    assert "actionable" not in body and 'href="/kids/Alex">Assignments</a>' in body
 
 
 def test_dashboard_with_nothing_printed_says_so(tmp_path):

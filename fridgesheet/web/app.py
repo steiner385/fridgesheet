@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 import jinja2
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .. import dates, late_rules
+from .. import config, dates, late_rules
 from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
@@ -35,7 +35,6 @@ from ..host import selfupdate
 from . import db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
-from .stores.items import DAYS_AHEAD
 
 HERE = Path(__file__).parent
 APP_NAME = "fridgesheet"
@@ -102,12 +101,17 @@ class AppState:
         open-work report's `days_ahead` option in config.toml), so the browser and the sheet
         draw the same line. The web pages used to hard-code 14 and silently disagree with a
         sheet the parent had set to 7."""
-        raw = self.settings.report_config(REPORT_KEY).options.get("days_ahead")
-        try:
-            n = int(str(raw).strip())
-        except (TypeError, ValueError):
-            return DAYS_AHEAD
-        return n if n > 0 else DAYS_AHEAD
+        return config.day_option(self.settings.report_config(REPORT_KEY).options, "days_ahead")
+
+    def overdue_days(self) -> int:
+        """How far past due a row can be and still count as fixable: the sheet's Overdue days,
+        so "still fixable" on the web is what the sheet prints (#20)."""
+        return config.day_option(self.settings.report_config(REPORT_KEY).options, "overdue_days")
+
+    def window(self) -> dict:
+        """Both, as keyword arguments for the item store: every page that says "still
+        fixable" or "coming due" passes these, so none of them falls back to a default."""
+        return {"days_ahead": self.days_ahead(), "overdue_days": self.overdue_days()}
 
 
 def _filters(state: AppState) -> dict:
