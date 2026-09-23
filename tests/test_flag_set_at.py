@@ -43,3 +43,19 @@ def test_the_detail_card_says_when_the_flag_was_set(tmp_path):
     conn.close()
     body = app_for(tmp_path).get(f"/items/{qid}").text
     assert "set " + dates.wd_md_time(datetime.fromisoformat(ASKED).astimezone(TZ)) in body
+
+
+def test_confirming_an_answer_restarts_its_date(tmp_path):
+    """Spec 5.1: "Yes, still done" must stop the stale question returning on the next refresh."""
+    conn = seed(tmp_path)
+    qid = _item_id(conn, "Quiz 1")
+    flags.set_flag(conn, qid, "done", now=ASKED, text="handed in on paper")
+    assert flags.confirm(conn, qid, now="2026-09-16T08:00:00-04:00") is not None
+    active = flags.active(conn, qid)
+    assert (active["flag"], active["set_at"], active["text"]) == ("done", "2026-09-16T08:00:00-04:00", "handed in on paper")
+    assert len(flags.history(conn, qid)) == 2
+
+
+def test_confirming_with_no_flag_does_nothing(tmp_path):
+    conn = seed(tmp_path)
+    assert flags.confirm(conn, _item_id(conn, "Quiz 1"), now=ASKED) is None
