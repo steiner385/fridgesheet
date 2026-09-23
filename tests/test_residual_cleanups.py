@@ -107,7 +107,10 @@ def test_the_web_lock_file_goes_before_the_lock_is_let_go(tmp_path, monkeypatch)
     real_unlock = server._unlock
     monkeypatch.setattr(server, "_unlock", lambda fd: (order.append(("unlock", (tmp_path / "web.lock").exists())), real_unlock(fd)))
     lock.release()
-    assert order == [("unlock", False)]                     # the file was already gone when it unlocked
+    if sys.platform == "win32":                             # an open file cannot be deleted there
+        assert order == [("unlock", True)] and not (tmp_path / "web.lock").exists()
+    else:
+        assert order == [("unlock", False)]                 # the file was already gone when it unlocked
 
     lock2 = server.WebLock(tmp_path / "web.lock")
     assert lock2.acquire()

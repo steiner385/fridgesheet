@@ -103,16 +103,24 @@ class WebLock:
             return
         fd, self.fd = self.fd, None
         # Delete the file while still holding the lock, then let go (#3): unlocking first let a
-        # second server take the lock in between and then lose its file to this unlink. On
-        # Windows an open file may refuse deletion; that is no reason to fail a shutdown.
+        # second server take the lock in between and then lose its file to this unlink. Windows
+        # will not delete a file that is still open, so there the delete waits until after the
+        # close -- the old order, and the old (narrow) window, but the file does go. A delete
+        # refused even then is no reason to fail a shutdown.
         try:
             self.path.unlink(missing_ok=True)
+            deleted = True
         except OSError:
-            pass
+            deleted = False
         try:
             _unlock(fd)
         finally:
             os.close(fd)
+        if not deleted:
+            try:
+                self.path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _wait_and_open(url: str, opener, *, answers=port_answers, tries: int = 100, interval: float = 0.2) -> bool:
