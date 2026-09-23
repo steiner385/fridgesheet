@@ -170,7 +170,14 @@ def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | N
 
 
 def spawn_installer(installer: Path, log_path: Path, *, popen=None) -> None:
-    """Start the installer outside this process's tree, then expect to be killed by it."""
+    """Start the installer, then expect to be killed by it.
+
+    On Windows this does not put the installer outside this process's tree -- nothing
+    reachable from `subprocess` does. It works because the thing this actually spawns
+    (cmd.exe) exits within moments, breaking the recorded parent/child chain before
+    `installer.iss`'s `taskkill /T` ever walks it. See `selfupdate_windows.py`'s module
+    docstring for the measurement this is built on.
+    """
     if host.IS_WINDOWS:
         from . import selfupdate_windows as impl
     else:

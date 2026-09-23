@@ -175,9 +175,15 @@ try {
     $pidSpaced = Join-Path $env:TEMP "$tag-spaced.pid"
     # C's worker lives under a directory whose name contains a space, and is itself copied
     # to a filename with a space -- the case that would bite a household whose Windows
-    # username has a space in it (%LOCALAPPDATA% is under C:\Users\<username>\...).
+    # username has a space in it (%LOCALAPPDATA% is under C:\Users\<username>\...). This
+    # path is built INSIDE the python parent, not here: Start-Process -ArgumentList joins
+    # array elements with spaces and does not quote them, so handing it a path containing a
+    # space would silently split into multiple arguments, misassigning every argv position
+    # after it in the parent script below -- with no error, just wrong pid files and step 4
+    # blaming the mechanism for a failure that was actually in this harness. $tag itself has
+    # no spaces, so it is the only thing that needs to cross that boundary; kept here only
+    # so `finally` can clean up the same directory the parent constructs from it.
     $spacedDir = Join-Path $env:TEMP "$tag dir with space"
-    $spacedWorker = Join-Path $spacedDir "$tag worker copy.py"
     $tempFiles = @($workerScript, $parentScript, $pidMechanism, $pidPlain, $pidSpaced)
     $parentProc = $null
     $mechanismId = $null; $mechanismStart = $null
@@ -197,20 +203,27 @@ with open(sys.argv[1], "w", encoding="ascii") as f:
     f.write(str(os.getpid()))
 time.sleep(120)
 '@
-        New-Item -ItemType Directory -Force $spacedDir | Out-Null
-        Copy-Item -Path $workerScript -Destination $spacedWorker
 
         # The parent stands in for FridgeSheet.exe: it spawns all three grandchildren the
         # moment it starts, then stays alive itself so there is something for
         # `taskkill /PID ... /T` to actually kill.
         Set-Content -Path $parentScript -Value @'
+import os
+import shutil
 import subprocess
 import sys
 import time
 
 CREATE_NO_WINDOW = 0x08000000
 
-worker, spaced_worker, pid_mechanism, pid_plain, pid_spaced = sys.argv[1:6]
+worker, tag, pid_mechanism, pid_plain, pid_spaced = sys.argv[1:6]
+
+# C's spaced path is built HERE, not by PowerShell, and only `tag` (no spaces) crossed that
+# boundary to get here -- see the comment beside $spacedDir in smoke.ps1 for why.
+spaced_dir = os.path.join(os.path.dirname(worker), tag + " dir with space")
+spaced_worker = os.path.join(spaced_dir, tag + " worker copy.py")
+os.makedirs(spaced_dir, exist_ok=True)
+shutil.copy(worker, spaced_worker)
 
 # A: the production mechanism -- exactly what host/selfupdate_windows.py's spawn_installer
 # hands to Popen. cmd.exe exits immediately after launching its target, which is what
@@ -233,7 +246,7 @@ subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, spaced_worker,
 
 time.sleep(120)
 '@
-        $parentProc = Start-Process -FilePath python -ArgumentList $parentScript,$workerScript,$spacedWorker,$pidMechanism,$pidPlain,$pidSpaced -WindowStyle Hidden -PassThru
+        $parentProc = Start-Process -FilePath python -ArgumentList $parentScript,$workerScript,$tag,$pidMechanism,$pidPlain,$pidSpaced -WindowStyle Hidden -PassThru
         $parentStart = $parentProc.StartTime
 
         $mechanismId = Wait-ForPidFile $pidMechanism
@@ -295,7 +308,7 @@ time.sleep(120)
         # (Windows recycles PIDs) -- never a name-based sweep like `Get-Process python |
         # Stop-Process`, which would also take out any other python process this CI runner
         # happens to have going.
-        if (Get-KnownProcess $parentProc.Id $parentProc.StartTime) { Stop-Process -Id $parentProc.Id -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $parentProc.Id $parentStart) { Stop-Process -Id $parentProc.Id -Force -ErrorAction SilentlyContinue }
         if (Get-KnownProcess $mechanismId $mechanismStart) { Stop-Process -Id $mechanismId -Force -ErrorAction SilentlyContinue }
         if (Get-KnownProcess $plainId $plainStart) { Stop-Process -Id $plainId -Force -ErrorAction SilentlyContinue }
         if (Get-KnownProcess $spacedId $spacedStart) { Stop-Process -Id $spacedId -Force -ErrorAction SilentlyContinue }
