@@ -188,7 +188,8 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
     Under the default, Canvas first: it carries the teacher's marks ("Missing", "Excused") as
     well as the score, and HAC only when Canvas has nothing. Under `prefer="hac"` a HAC score is
     shown whenever there is one, ahead of Canvas's score and its Missing mark; Unpublished and
-    Excused still come first. A disagreement between the two is the Reconcile page's job."""
+    Excused still come first. What a disagreement between the two means is the item's verdict's
+    job (web/verdicts.py)."""
     c, h = obs.get("canvas"), obs.get("hac")
     if prefer == "hac" and h is not None and h["score"] is not None:
         if c is not None and c["published"] == 0:

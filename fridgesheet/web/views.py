@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from .. import dates
+from . import verdicts
 from .stores import changes as changes_store, items as items_store, students as students_store, trends as trends_store
 
 SOURCES = ("items", "grades", "changes")
@@ -44,7 +45,7 @@ COLUMNS: dict[str, dict[str, Column]] = {
         ("status", "Status", "text"), ("due", "Due", "date"), ("points", "Points", "number"),
         ("kind", "Kind", "text"), ("sources", "Seen in", "text"), ("flag", "Flag", "text"),
         ("open", "Open", "bool"), ("actionable", "Actionable", "bool"),
-        ("notes", "Notes", "number"), ("cases", "Reconcile", "text"),
+        ("notes", "Notes", "number"), ("cases", "Where it stands", "text"),
     ),
     "grades": _cols(
         ("kid", "Kid", "text"), ("course", "Class", "text"), ("source", "Source", "text"),
@@ -261,7 +262,7 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None) -> list[tuple[dict
                 "status": v.status, "due": _date(v.due), "points": _num(v.points), "kind": v.kind,
                 "sources": " + ".join(v.sources), "flag": (v.flag or "").replace("_", " "),
                 "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
-                "notes": _num(v.notes), "cases": v.verdict.kind.replace("_", " ") if v.verdict.state in ("question", "decided", "waiting") else "",
+                "notes": _num(v.notes), "cases": verdicts.standing(v, "") if v.verdict.state in ("question", "decided", "waiting") else "",
             }
             out.append((row, _keys("items", row, {"due": v.due, "points": v.points, "notes": v.notes})))
     return out

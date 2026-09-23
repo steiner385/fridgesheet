@@ -53,6 +53,7 @@ ANSWERS = {
     # The family asked the teacher (or chose to follow up) and a grade has since appeared:
     # "still done?" would be the wrong question, and "ask the teacher" would change nothing.
     "asked_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_asking", "confirm")),
+    "followed_up_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_following", "confirm")),
 }
 
 
@@ -130,13 +131,15 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if flag:
         change = _stale_change(flag, flag_set_at, c, h, refresh_times)
         if change:
-            kind = "asked_then_graded" if flag in MARKED_FLAGS else "stale_answer"
+            kind = {"ask_teacher": "asked_then_graded", "follow_up": "followed_up_then_graded"}.get(flag, "stale_answer")
             return Verdict(QUESTION, kind,
                            {"flag": flag.replace("_", " "), "when": _md(flag_set_at), "change": change},
                            ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered")
-        return Verdict(STATUS, "asked", {"when": _md(flag_set_at)} if flag_set_at else {})
+        # "follow up" is the family's own reminder; only "ask teacher" means someone asked.
+        return Verdict(STATUS, "asked" if flag == "ask_teacher" else "following_up",
+                       {"when": _md(flag_set_at)} if flag_set_at else {})
 
     # 3-4: HAC counts a zero that Canvas says should not be there.
     if c is not None and h is not None and hs == 0 and (points or 0) > 0:
@@ -148,7 +151,9 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
 
     # 5-6: a real HAC grade against Canvas's missing flag.
     if hs is not None and hs > 0 and c is not None and c["missing"]:
-        kind = "missing_after_grade" if outcomes.newer(c, h) else "graded_in_hac"
+        # Under the HAC preference the family already told us HAC decides this class, so a later
+        # Canvas mark is not a question for them (and `classify` counts it done).
+        kind = "missing_after_grade" if outcomes.newer(c, h) and prefer != "hac" else "graded_in_hac"
         return Verdict(QUESTION if kind == "missing_after_grade" else DECIDED, kind, {"hac": _of(hs, points)}, ANSWERS[kind])
 
     # 7-8: both have a score and HAC is lower.

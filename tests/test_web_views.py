@@ -234,3 +234,15 @@ def test_build_refuses_an_invalid_definition(tmp_path):
     with pytest.raises(views.ViewError):
         _build(conn, d)
     conn.close()
+
+
+def test_the_verdict_column_is_named_for_parents_and_says_where_it_stands(tmp_path):
+    """Deferred finding 8: the column was labelled "Reconcile" and showed a raw verdict kind."""
+    assert views.COLUMNS["items"]["cases"].label == "Where it stands"
+    conn = seed(tmp_path)
+    d = views.from_json(json.dumps({"title": "Questions", "source": "items", "columns": ["name", "cases"],
+                                    "filters": [], "sort": [{"column": "name", "dir": "asc"}]}))
+    rows = {row["name"]: row["cases"] for row in _build(conn, d).groups[0].rows}
+    assert rows["Participation"] == "No grade after a week"
+    assert rows["Quiz 1"] == "Done · 28 of 30 in HAC"
+    assert "_" not in "".join(rows.values())
