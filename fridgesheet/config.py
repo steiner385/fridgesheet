@@ -202,6 +202,10 @@ class Settings:
     username: str = ""                 # OneLogin username from config.toml; the password is in the OS store
     printer: str = ""                  # blank = the system default printer
     nicknames: dict[str, str] = field(default_factory=dict)
+    #: Child key -> school grade (0 = kindergarten). Drives the age-appropriate presentation
+    #: in `web/tiers.py`; a child not listed here reads exactly the interface that shipped
+    #: before grades existed.
+    grades: dict[str, int] = field(default_factory=dict)
     reports: dict[str, ReportConfig] = field(default_factory=dict)
     refresh: RefreshConfig = field(default_factory=RefreshConfig)
     #: [sources]: which gradebook is authoritative for assignments and for class averages (sources.py).
@@ -316,6 +320,10 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     s.sheets_archive = str(prn.get("archive", s.sheets_archive))
     nick = kids.get("nicknames") or {}
     s.nicknames = {str(k): str(v) for k, v in nick.items()} if isinstance(nick, dict) else {}
+    raw_grades = kids.get("grades")
+    # `bool` is an `int` subclass, so `grades = { Kayla = true }` would otherwise read as 1.
+    s.grades = {str(k): v for k, v in raw_grades.items()
+                if isinstance(v, int) and not isinstance(v, bool)} if isinstance(raw_grades, dict) else {}
     raw_web = doc.get("web")
     web = raw_web if isinstance(raw_web, dict) else {}
     s.web_host = str(web.get("host", s.web_host))
