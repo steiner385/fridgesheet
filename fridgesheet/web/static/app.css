@@ -251,9 +251,9 @@ main.wide { max-width: 1600px; }
 .q .what { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
 .q .what b { color: var(--ink); font-size: 15px; }
 .q .facts { margin: 6px 0 2px; }
-.q .ask { font-weight: 600; margin: 8px 0 10px; }
-.q .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.q .answers form { display: inline; margin: 0; }
+.q .ask, .review-card .ask { font-weight: 600; margin: 8px 0 10px; }
+.q .answers, .review-card .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.q .answers form, .review-card .answers form { display: inline; margin: 0; }
 .q .more { margin-top: 10px; font-size: 13px; }
 .record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: 13px; }
 .record div { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }

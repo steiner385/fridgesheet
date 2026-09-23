@@ -92,3 +92,9 @@ def test_layout_and_names(tmp_path):
     detail = c.get(f"/items/{qid}").text
     assert detail.index("data-focus-target") < detail.index("data-close-detail")          # Close after the heading
     assert re.search(r'data-close-detail[^>]*aria-label="Close Quiz 1"', detail)
+
+
+def test_check_in_answer_buttons_sit_in_a_row_like_on_assignments():
+    """Found in Chrome after #79: the check-in's review cards reuse _answers.html but the row
+    styling was scoped to .q cards, so the buttons stacked one per line."""
+    assert re.search(r"\.review-card \.answers[^{]*\{[^}]*display:\s*flex", CSS)
