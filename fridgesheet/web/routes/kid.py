@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from ... import sources
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
-from ..stores import items, notes, students
+from ..stores import changes, items, notes, students
 
 router = APIRouter()
 
@@ -67,7 +67,8 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
     v = items.one(conn, s, item_id, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources()) if s is not None else None
     if v is None:
         raise HTTPException(404, "no such item")
-    return render_partial(request, conn, "_item_detail.html", student=s, item=v, message=None,
+    return render_partial(request, conn, "_item_detail.html", student=s, item=v,
+                          item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=None,
                           notes=notes.for_target(conn, "item", item_id))
 
 

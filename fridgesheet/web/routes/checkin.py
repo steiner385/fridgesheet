@@ -148,7 +148,10 @@ def _form_context(conn, student, state, item_id=None, step_id=None, default_stat
         raise HTTPException(404, "No such assignment")
     view = items.one(conn, student, item_id, now=state.now(), rules=state.rules(), prefs=state.sources()) if item_id else None
     if values is None:
-        values = dict(title=view.name if view else "", family_account="", next_step="", owner=state.settings.nicknames.get(student["key"], student["key"]),
+        # What the family already said about this assignment -- the flag's reason and the newest
+        # note -- is where their account starts (#47), so it is not typed twice.
+        said = [t for t in ((view.flag_text if view else ""), (view.latest_note["body"] if view and view.latest_note else "")) if t]
+        values = dict(title=view.name if view else "", family_account="\n".join(said), next_step="", owner=state.settings.nicknames.get(student["key"], student["key"]),
                       planned_for=state.now().date().isoformat(), minutes="",
                       state=default_state if default_state in plans.STATES else "planned", position=10,
                       recorded_by="", revision=0, request_key=str(uuid4()))

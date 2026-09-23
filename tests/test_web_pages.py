@@ -127,7 +127,7 @@ def test_notes_round_trip(tmp_path):
     r = c.post(f"/notes/{n['id']}/edit", data={"body": "edited note"})
     assert "edited note" in r.text and "first note" not in r.text
     r = c.post(f"/notes/{n['id']}/delete")
-    assert "edited note" not in r.text and "No notes yet" in r.text
+    assert "edited note" not in r.text and '<details class="add-note"><summary>' in r.text   # empty: one "Add a note" line
     assert c.post("/notes", data={"target_type": "item", "target_id": qid, "body": "   "}).status_code == 400
     assert c.post("/notes", data={"target_type": "planet", "target_id": 1, "body": "x"}).status_code == 400
 

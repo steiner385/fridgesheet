@@ -63,7 +63,8 @@ def test_the_flag_reason_shows_without_a_just_saved_message(tmp_path):
 def test_the_reason_is_not_printed_twice_after_saving(tmp_path):
     c, qid = _setup(tmp_path)
     body = c.post(f"/items/{qid}/flag", data={"flag": "ask_teacher", "text": "emailed Mr Hoch"}).text
-    visible = re.sub(r'value="[^"]*"', "", body)           # the input keeps it for editing; that is not a display
+    visible = re.sub(r'value="[^"]*"', "", body)
+    visible = re.sub(r'<details class="history">.*?</details>', "", visible, flags=re.S)   # History lists the flag too, by design           # the input keeps it for editing; that is not a display
     assert visible.count("emailed Mr Hoch") == 1
 
 

@@ -281,3 +281,6 @@ tr.detail .close-detail { display: inline-block; float: right; }
 .flagmenu fieldset { border: 0; padding: 0; margin: 0; }
 .flagmenu legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
 .tab-hint { margin: -12px 0 16px; font-size: 14px; }
+.note .body { white-space: pre-wrap; }
+.add-note > summary { cursor: pointer; color: var(--accent); }
+td.grade .src, .src { color: var(--muted); font-size: 13px; }
