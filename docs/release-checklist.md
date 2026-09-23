@@ -18,6 +18,9 @@ two-PR split) — deliberately not a substring match anywhere in the message, si
 own commit *explaining* that marker in prose tripped a naive `contains()` check and skipped
 its own release.
 
+Read §1 first even if you have done this before: it is the hazard (an upgrade landing on a
+running app, #33) that §3 and later sections exist to prove fixed.
+
 Work through it in order. Every box has the result you should see next to it; if you see
 something else, stop and fix it before moving on — the sections build on each other (you
 can't test a schedule before Settings works, and you can't uninstall before you've

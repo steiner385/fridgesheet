@@ -14,7 +14,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     "reportlab>=4",
-    "segno>=1.6",
+    "segno>=1.6,<2",
     "tomli-w>=1.0",
     "tzdata>=2024.1; sys_platform == 'win32'",
     "uvicorn>=0.30",

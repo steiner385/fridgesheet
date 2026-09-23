@@ -331,3 +331,24 @@ def test_a_report_may_not_claim_the_reserved_refresh_key(tmp_path):
                          scheduling=fake)
     assert not out.ok and any("reserved" in e.lower() for e in out.errors)
     assert fake.installed == []
+
+
+def test_forget_asks_the_scheduler_once(tmp_path):
+    """#8: `forget` described the schedule twice, once to check it may be managed and once to
+    see whether anything is installed; each is a systemctl or schtasks round trip."""
+    sched = FakeScheduling()
+    calls = []
+    real = sched.describe
+    sched.describe = lambda key: calls.append(key) or real(key)
+    schedules.forget("view:3", home=tmp_path, log=lambda m: None, scheduling=sched)
+    assert calls == ["view:3"]
+
+
+def test_a_qr_that_cannot_be_drawn_leaves_the_settings_page_up(monkeypatch):
+    """#8: the Settings page's QR is a convenience; `_lan_qr` swallows a drawing failure, and
+    nothing pinned that it does."""
+    from fridgesheet import qr
+    from fridgesheet.web.routes import settings as settings_route
+    monkeypatch.setattr(qr, "svg", lambda url: (_ for _ in ()).throw(RuntimeError("segno broke")))
+    assert settings_route._lan_qr("http://192.168.1.50:8433/") is None
+    assert settings_route._lan_qr(None) is None

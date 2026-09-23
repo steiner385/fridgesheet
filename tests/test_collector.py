@@ -42,7 +42,7 @@ class FakeHAC:
         pass
 
     def students(self):
-        return ["STEIN, ALEX", "STEIN, SAM"]
+        return ["RIVERA, ALEX", "RIVERA, SAM"]
 
     def select_student(self, name):
         pass
