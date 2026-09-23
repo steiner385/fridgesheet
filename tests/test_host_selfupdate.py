@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+from pathlib import Path
 
 import pytest
 
@@ -151,3 +152,31 @@ def test_a_second_update_overwrites_the_previous_archive(tmp_path):
     verdict, got = selfupdate.resolve_pending(tmp_path, "0.5.0")
     assert verdict == "ok" and got == second
     assert (tmp_path / selfupdate.LAST_NAME).exists()
+
+
+def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
+    """The dispatcher is what production calls -- `actions.self_update` never reaches the
+    platform module directly -- so its branch is the one that must not rot."""
+    seen = {}
+    monkeypatch.setattr(selfupdate, "IS_WINDOWS", True)
+    selfupdate.spawn_installer(Path("C:/u/Setup.exe"), Path("C:/u/i.log"),
+                               popen=lambda cmd, **kw: seen.update(cmd=cmd, kw=kw))
+    assert seen["cmd"][0] == "C:/u/Setup.exe"
+    assert seen["kw"]["creationflags"]          # the flags reached the real call
+
+
+def test_the_dispatcher_refuses_on_linux(monkeypatch):
+    monkeypatch.setattr(selfupdate, "IS_WINDOWS", False)
+    with pytest.raises(selfupdate.UpdateError, match="git pull"):
+        selfupdate.spawn_installer(Path("/tmp/x"), Path("/tmp/x.log"))
+
+
+def test_the_dispatcher_forwards_an_injected_popen_and_omits_it_otherwise(monkeypatch):
+    """`kwargs = {"popen": popen} if popen is not None else {}` -- if that forwarding
+    broke, every test above would still pass while production silently used the wrong
+    spawn. Pin it."""
+    monkeypatch.setattr(selfupdate, "IS_WINDOWS", True)
+    calls = []
+    selfupdate.spawn_installer(Path("C:/u/S.exe"), Path("C:/u/i.log"),
+                               popen=lambda cmd, **kw: calls.append("injected"))
+    assert calls == ["injected"]
