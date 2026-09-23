@@ -11,7 +11,6 @@ from ... import sources
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import items, notes, students
-from .. import reconcile
 
 router = APIRouter()
 
@@ -66,9 +65,8 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
     v = items.one(conn, s, item_id, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources()) if s is not None else None
     if v is None:
         raise HTTPException(404, "no such item")
-    cases = [c for c in reconcile.cases(conn, s["id"], rules=rules, now=now, prefs=state.sources()) if c.item_id == item_id]
     return render_partial(request, conn, "_item_detail.html", student=s, item=v, message=None,
-                          notes=notes.for_target(conn, "item", item_id), cases=cases)
+                          notes=notes.for_target(conn, "item", item_id))
 
 
 @router.get("/kids/{key}/courses/{course_id}")

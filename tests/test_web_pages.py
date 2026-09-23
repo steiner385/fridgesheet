@@ -88,8 +88,8 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     r = app_for(tmp_path).get(f"/items/{qid}")
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
-    assert "Canvas" in body and "Missing" in body and "HAC" in body and "28/30" in body
-    assert "Canvas says MISSING, HAC shows 28" in body              # the reconcile reason (reconcile._score_text prints the bare score)
+    assert "Canvas" in body and "marked missing" in body and "HAC" in body and "28 of 30" in body   # the record
+    assert "HAC has 28 of 30. Canvas still shows its automatic" in body   # the verdict: decided, with its reason
     assert "Asked Mr Hoch" in body
     for f in ("done", "excused", "ignore", "follow_up", "ask_teacher"):
         assert f'value="{f}"' in body, f
@@ -206,3 +206,14 @@ def test_course_of_another_kid_is_404(tmp_path):
     cid = conn.execute("SELECT id FROM courses WHERE short_name = 'Science 7' AND source = 'canvas'").fetchone()["id"]
     conn.close()
     assert app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").status_code == 404
+
+
+def test_item_detail_is_the_verdict_the_record_notes_and_a_more_menu(tmp_path):
+    conn = seed(tmp_path)
+    pid = _item_id(conn, "Participation")
+    conn.close()
+    body = app_for(tmp_path).get(f"/items/{pid}").text
+    assert "Was it handed in?" in body                     # the question card
+    assert 'class="record"' in body                        # the evidence
+    assert "<summary>More</summary>" in body and 'value="excused"' in body   # the raw flags, behind More
+    assert "<th>Says</th>" not in body                     # the old Source/Says table is gone
