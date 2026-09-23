@@ -27,7 +27,7 @@ from pathlib import Path
 
 import tomli_w
 
-from .matching import short_course
+from .matching import course_matches, kid_matches
 
 DEFAULT_LATE_DAYS = 14
 
@@ -80,13 +80,7 @@ class Rule:
     course: str = ""
 
     def matches(self, kid: str, course: str) -> bool:
-        if self.kid:
-            a, b = self.kid.lower(), (kid or "").lower()
-            if not (a.startswith(b) or b.startswith(a)):
-                return False
-        if self.course and self.course.lower() not in (course or "").lower() and self.course.lower() not in short_course(course).lower():
-            return False
-        return True
+        return kid_matches(self.kid, kid) and course_matches(self.course, course)
 
 
 class LateRules:

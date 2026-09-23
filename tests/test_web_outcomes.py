@@ -124,3 +124,37 @@ def test_sorting_a_column_keeps_the_outcome_filter(tmp_path):
     seed(tmp_path).close()
     page = app_for(tmp_path).get("/kids/Alex?outcome=not_done", headers={"host": "127.0.0.1"}).text
     assert "outcome=not_done&amp;sort=name" in page or "outcome=not_done&sort=name" in page
+
+
+# --- which source decides the score (docs/superpowers/specs/2026-09-22-source-of-truth-design.md) ---
+
+def test_honors_algebra_quiz_canvas_missing_hac_48():
+    """Real, 2026-09-21: Canvas marked the calculator quiz missing; HAC recorded 48/50."""
+    obs = {"canvas": canvas(missing=1), "hac": hac(48.0)}
+    it = item(points=50)
+    assert oc.classify(it, obs, NOW) == oc.NOT_DONE                      # today: Canvas's flag wins
+    assert oc.classify(it, obs, NOW, prefer="hac") == oc.DONE_OFFLINE
+
+
+def test_hac_preference_reads_hac_zero_as_not_done_over_a_canvas_score():
+    """Review focus 5."""
+    obs = {"canvas": canvas(state="graded", score=8), "hac": hac(0.0)}
+    assert oc.classify(item(), obs, NOW) == oc.DONE_OFFLINE
+    assert oc.classify(item(), obs, NOW, prefer="hac") == oc.NOT_DONE
+
+
+def test_hac_preference_keeps_canvas_timing_and_marks():
+    sub = {"canvas": canvas(submitted_at=PAST, late=1, state="graded", score=3), "hac": hac(9.0)}
+    assert oc.classify(item(), sub, NOW, prefer="hac") == oc.LATE
+    assert oc.classify(item(), {"canvas": canvas(excused=1), "hac": hac(0.0)}, NOW, prefer="hac") == oc.EXCUSED
+    assert oc.classify(item(), {"canvas": canvas(published=0), "hac": hac(9.0)}, NOW, prefer="hac") == oc.UNPUBLISHED
+
+
+def test_hac_preference_with_no_hac_score_changes_nothing():
+    for obs in ({"canvas": canvas(missing=1), "hac": hac(None)}, {"canvas": canvas(state="graded", score=7)},
+                {"canvas": canvas(), "hac": hac(None)}):
+        assert oc.classify(item(), obs, NOW, prefer="hac") == oc.classify(item(), obs, NOW)
+
+
+def test_canvas_preference_fills_the_gap_from_hac():
+    assert oc.classify(item(kind="paper"), {"canvas": canvas(), "hac": hac(9.0)}, NOW, prefer="canvas") == oc.DONE_OFFLINE

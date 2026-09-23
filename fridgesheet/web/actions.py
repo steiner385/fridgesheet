@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable
 from zoneinfo import ZoneInfo
 
-from .. import config, late_rules, runner
+from .. import config, late_rules, runner, sources
 
 REPORT_KEY = "open-work"
 LOGIN_STAMP = "login-ok.txt"
@@ -64,6 +64,8 @@ class FormValues:
     port: int = 8433
     allow_lan: bool = False
     check_updates: bool = True
+    sources_assignments: str = "canvas"   # [sources] assignments: household default
+    sources_grades: str = "hac"           # [sources] grades: household default
 
 
 def _settings_for(home: Path) -> config.Settings:
@@ -92,6 +94,8 @@ def load_form(home: Path) -> FormValues:
         port=s.web_port,
         allow_lan=s.web_allow_lan,
         check_updates=s.web_check_updates,
+        sources_assignments=s.sources.default.assignments,
+        sources_grades=s.sources.default.grades,
     )
 
 
@@ -131,6 +135,9 @@ def validate(form: FormValues, stored: str) -> list[str]:
     n = _whole_number(form.port)
     if n is None or not 1024 <= n <= 65535:
         errors.append("Port must be a whole number between 1024 and 65535.")
+    for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
+        if value not in sources.SOURCES:
+            errors.append(f"{label} must come from Canvas or HAC.")
     return errors
 
 
@@ -166,6 +173,8 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     _table(doc, "kids")["nicknames"] = parse_nickname_lines(form.nicknames)
     rep = _table(_table(doc, "reports"), REPORT_KEY)
     rep.update(days_ahead=int(form.days_ahead), overdue_days=int(form.overdue_days))
+    # Only the household defaults: the override rules belong to the course pages and the list below.
+    doc["sources"] = sources.from_doc(doc).with_default(form.sources_assignments, form.sources_grades).to_doc()
 
     prev = dict(_table(doc, "web"))
     web = _table(doc, "web")
@@ -194,6 +203,22 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
         messages.append("Password stored.")
 
     return SaveResult(True, messages, restart_needed)
+
+
+def load_sources(home: Path) -> sources.SourcePrefs:
+    return _settings_for(home).sources
+
+
+def set_source_rule(home: Path, kid: str, course: str, assignments: str | None, grades: str | None) -> None:
+    """Add, replace or (both None) remove the one rule for exactly this kid and class."""
+    path = home / CONFIG_NAME
+    doc = config.load_config_doc(path)
+    doc["sources"] = sources.from_doc(doc).with_rule(kid, course, assignments, grades).to_doc()
+    config.save_config_doc(path, doc)
+
+
+def remove_source_rule(home: Path, kid: str, course: str) -> None:
+    set_source_rule(home, kid, course, None, None)
 
 
 @dataclass

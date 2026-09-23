@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # mcp 1.x
 from . import collector, late_rules, open_items
 from .config import load_settings
 from .matching import match_course as _match
+from .sources import pick_value
 
 log = logging.getLogger("fridgesheet.server")
 
@@ -62,9 +63,12 @@ def list_students() -> list[dict]:
 
 @mcp.tool()
 def grades(student: str) -> dict:
-    """Official HAC marking-period averages side by side with Canvas current/final scores, per class.
-    HAC is the gradebook of record; Canvas can be hidden or partial."""
+    """Class averages per class: HAC's marking-period average and Canvas's current/final score
+    side by side, plus `official` -- the one the family has chosen as authoritative for this kid
+    and class ([sources] in config.toml; HAC unless changed), falling back to the other source
+    when that one has no average. Canvas can be hidden or partial."""
     e = _kid(_snap(), student)
+    first = (e["name"].split() or [student])[0]
     out = {"student": e["name"], "classes": []}
     hac_classes = {c["name"]: c for c in (e.get("hac") or {}).get("classes", [])}
     hac_week = {w["class"]: w for w in (e.get("hac") or {}).get("week_view", [])}
@@ -73,9 +77,13 @@ def grades(student: str) -> dict:
         h = _match(c["name"], hac_classes) or {}
         w = _match(c["name"], hac_week) or {}
         seen.add(h.get("name"))
+        hac_official = h.get("marking_period_avg", w.get("current_average"))
+        pick = _settings.sources.resolve(first, c["name"], h.get("name")).grades
+        official, official_source = pick_value(pick, c["grade"]["current_score"], hac_official)
         out["classes"].append({
             "course": c["name"],
-            "hac_official": h.get("marking_period_avg", w.get("current_average")),
+            "official": official, "official_source": official_source,
+            "hac_official": hac_official,
             "hac_last_updated": h.get("last_updated"),
             "hac_categories": h.get("categories"),
             "canvas_current": c["grade"]["current_score"],
@@ -85,7 +93,9 @@ def grades(student: str) -> dict:
         })
     for name, h in hac_classes.items():  # HAC-only classes (e.g. Hawk Time)
         if name not in seen:
-            out["classes"].append({"course": name, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None})
+            pick = _settings.sources.resolve(first, name).grades
+            official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
+            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None})
     return out
 
 
@@ -110,7 +120,7 @@ def _open_work(student: str, days_ahead: int, include_hac: bool = True):
     e = _kid(_snap(), student)
     now = datetime.now(ZoneInfo(_settings.timezone))
     rules = late_rules.load(_settings.home / "late-rules.toml")
-    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac)
+    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac, prefs=_settings.sources)
 
 
 @mcp.tool()

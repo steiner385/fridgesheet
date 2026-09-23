@@ -160,6 +160,17 @@ archive = ""                          # optional folder for a second copy of eve
 [kids]
 nicknames = { Alex = "Al" }      # snapshot first name -> name printed on the sheet
 
+# Which gradebook wins when both have a number (the other still fills gaps). These are the
+# defaults; Settings changes them, and each class's page can override one class for one kid.
+[sources]
+assignments = "canvas"
+grades = "hac"
+
+[[sources.rule]]                      # first matching rule that sets a field wins
+kid = "Alex"                          # optional; prefix match (Alex ~ Alexander)
+course = "Honors Algebra II"          # optional; whole words of the class name
+assignments = "hac"                   # this teacher finalises quiz scores in HAC
+
 [reports.open-work]
 enabled = true
 time = "14:00"

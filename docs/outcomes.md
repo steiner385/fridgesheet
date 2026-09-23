@@ -75,11 +75,27 @@ Neither, for everything — each is authoritative for something the other does n
   for a class that is mostly HAC-graded work it is not the grade — HAC's average is.
 
 So the app pairs the two by course and then by assignment, and reads both: submission and
-marks from Canvas, the grade from whichever has it (Canvas first, since it carries the
-marks; HAC when Canvas has nothing). Pairing is by title, with a fallback for titles the
-two teachers typed differently — the same due date, the same points, exactly one candidate,
-and every number in the two titles agreeing — because an assignment that fails to pair
-shows up **twice**: once as *done on paper* from HAC and once as *unknown* from Canvas.
+marks from Canvas, and the score from the family's chosen source. Pairing is by title, with a
+fallback for titles the two teachers typed differently — the same due date, the same points,
+exactly one candidate, and every number in the two titles agreeing — because an assignment
+that fails to pair shows up **twice**: once as *done on paper* from HAC and once as *unknown*
+from Canvas.
+
+### Choosing the source
+
+By default assignment scores come from **Canvas** and class averages from **HAC**. Both can be
+changed for the whole family on Settings, and for one kid or one class on the class's page
+(`[sources]` in `config.toml`). The chosen source wins when both have a number; the other still
+fills in what it lacks, so a class Canvas never lists still shows HAC's work and a kid whose
+school uses one system still shows that system. Submitted, late and excused always come from
+Canvas, because HAC does not record them. Under a HAC preference a HAC score settles the item:
+a HAC 48/50 is *done on paper* even where Canvas says *missing*, and a HAC zero is *not done*
+even where Canvas shows a score. The Reconcile page still lists every disagreement.
+
+Paper work is not a reason on its own to prefer HAC. In this household's data on 2026-09-21,
+20 of 27 past-due paper assignments were graded in Canvas. The real conflicts were one
+teacher's online quizzes, auto-scored in Canvas and finalised in HAC — which is what a
+per-class rule is for.
 
 ### Two assignments with the same title
 

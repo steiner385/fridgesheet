@@ -73,6 +73,31 @@ def short_course(name: str) -> str:
     return b
 
 
+def kid_matches(pattern: str, kid: str) -> bool:
+    """A rule's kid against a student's first name: empty matches everyone; otherwise a prefix
+    match either way, so "Alex" and "Alexander" (and a nickname "Al") are one kid."""
+    if not pattern:
+        return True
+    a, b = pattern.lower(), (kid or "").lower()
+    return a.startswith(b) or b.startswith(a)
+
+
+def course_matches(pattern: str, course: str, *, whole_words: bool = False) -> bool:
+    """A rule's course against a class name, or that name with its term/teacher tail removed.
+
+    Empty matches every class. Late rules use a plain case-insensitive substring. Source rules
+    ask for `whole_words`, so "Algebra I" does not also mean "Algebra II": a rule that flips
+    which gradebook a class's grades come from must not reach a second class by accident."""
+    if not pattern:
+        return True
+    p = pattern.lower().strip()
+    names = ((course or "").lower(), short_course(course).lower())
+    if not whole_words:
+        return any(p in n for n in names)
+    rx = re.compile(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])")
+    return any(rx.search(n) for n in names)
+
+
 def hac_item_key(course: str, name: str) -> str:
     """The stable key for a HAC row with no Canvas twin: `hac:<short course>:<norm name>`.
 

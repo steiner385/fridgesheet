@@ -17,6 +17,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from .. import sources
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS, school_year_start
 from . import db
 
@@ -64,7 +65,7 @@ def _score_text(o: sqlite3.Row | None) -> str:
     return f"{o['score']:g}"
 
 
-def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) -> set[str]:
+def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, prefer: str = "canvas") -> set[str]:
     """Which sources consider the item open -- something the kid, or the parent, can still act
     on. Empty means settled.
 
@@ -80,9 +81,12 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) 
     source" reasoning: Canvas whenever it lists the item, HAC when it lists the item without
     a grade a day past due."""
     from . import outcomes                      # outcomes imports this module's helpers
-    outcome = outcomes.classify(item, obs, now)
+    outcome = outcomes.classify(item, obs, now, prefer=prefer)
     c, h = obs.get("canvas"), obs.get("hac")
-    late_ungraded = outcome == outcomes.LATE and c is not None and c["score"] is None
+    # "Still ungraded" asks the family's assignments source first: under a HAC preference a
+    # HAC grade settles a late hand-in, as it does in the Grade cell and on the printed sheet.
+    graded = (h is not None and h["score"] is not None) if prefer == "hac" else False
+    late_ungraded = outcome == outcomes.LATE and c is not None and c["score"] is None and not graded
     if outcome not in (outcomes.NOT_DONE, outcomes.UNKNOWN) and not late_ungraded:
         return set()
     out: set[str] = set()
@@ -107,8 +111,9 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
     return c["state"] in ("unsubmitted", None) and c["score"] is None
 
 
-def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime) -> bool:
-    if flag in HANDLED_FLAGS or not open_sources(item, obs, now):
+def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime,
+                  prefer: str = "canvas") -> bool:
+    if flag in HANDLED_FLAGS or not open_sources(item, obs, now, prefer=prefer):
         return False
     due = _due(item)
     return due is None or now <= rules.deadline(kid, item["course_name"], due)
@@ -126,8 +131,9 @@ def live_items(conn: sqlite3.Connection, student_id: int, now: datetime) -> list
     """
     rows = conn.execute(
         """SELECT i.*, c.name AS course_name, c.short_name AS course_short, c.source AS course_source, c.peer_course_id,
-                  s.key AS kid, f.flag AS flag, f.set_at AS flag_set_at
+                  pc.name AS peer_course_name, s.key AS kid, f.flag AS flag, f.set_at AS flag_set_at
            FROM items i JOIN courses c ON c.id = i.course_id JOIN students s ON s.id = i.student_id
+           LEFT JOIN courses pc ON pc.id = c.peer_course_id
            LEFT JOIN flags f ON f.item_id = i.id AND f.cleared_at IS NULL
            WHERE i.student_id = ?
              AND i.last_seen = (SELECT MAX(last_seen) FROM items WHERE student_id = ?)""",
@@ -143,9 +149,11 @@ def _on_or_after(due: datetime | None, floor: datetime) -> bool:
     return a >= b
 
 
-def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) -> list[sqlite3.Row]:
+def actionable_items(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, prefs=None) -> list[sqlite3.Row]:
     latest = db.latest_observations(conn, student_id)
-    out = [r for r in live_items(conn, student_id, now) if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now)]
+    out = [r for r in live_items(conn, student_id, now)
+           if is_actionable(r, latest.get(r["id"], {}), r["flag"], rules, r["kid"], now,
+                            prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))]
     return sorted(out, key=lambda r: (r["due"] or "", r["course_short"], r["name"]))
 
 
@@ -153,7 +161,7 @@ def _refresh_times(conn: sqlite3.Connection) -> dict[int, str]:
     return {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
 
 
-def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) -> list[Case]:
+def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime, prefs=None) -> list[Case]:
     """The six reconciliation cases below, one `Case` per reason found. A single item can
     carry more than one at once -- a `Case` is one reason, not a verdict -- so callers (the
     Plan B reconcile page) group the results by `item_id` to show a parent everything at once."""
@@ -165,7 +173,7 @@ def cases(conn: sqlite3.Connection, student_id: int, *, rules, now: datetime) ->
         c, h = obs.get("canvas"), obs.get("hac")
         due = _due(r)
         past = due is not None and due < now
-        opened = open_sources(r, obs, now)
+        opened = open_sources(r, obs, now, prefer=sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"]))
         flag = r["flag"]
 
         def add(kind: str, reason: str) -> None:

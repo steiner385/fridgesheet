@@ -34,6 +34,7 @@ import tomli_w
 from dotenv import load_dotenv
 
 from . import host, migrate
+from . import sources as _sources
 
 log = logging.getLogger("fridgesheet.config")
 
@@ -203,6 +204,8 @@ class Settings:
     nicknames: dict[str, str] = field(default_factory=dict)
     reports: dict[str, ReportConfig] = field(default_factory=dict)
     refresh: RefreshConfig = field(default_factory=RefreshConfig)
+    #: [sources]: which gradebook is authoritative for assignments and for class averages (sources.py).
+    sources: "_sources.SourcePrefs" = field(default_factory=lambda: _sources.DEFAULT)
     web_host: str = "127.0.0.1"        # [web] host; bind address when allow_lan is off
     web_port: int = 8433
     web_allow_lan: bool = False        # [web] allow_lan; True binds 0.0.0.0 (spec section 8)
@@ -361,6 +364,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         days = [str(d) for d in raw_days] if isinstance(raw_days, (list, tuple)) else list(host.DAY_NAMES)
         s.refresh = RefreshConfig(enabled=bool(raw_refresh.get("enabled", False)),
                                   every_hours=every, start=str(start), end=str(end), days=days)
+    s.sources = _sources.from_doc(doc)
 
 
 def load_settings() -> Settings:

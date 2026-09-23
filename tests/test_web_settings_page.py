@@ -494,3 +494,48 @@ def test_no_print_days_editor_validates_and_saves(tmp_path):
     r = c.post("/settings/no-print-days", data={"start": ["2026-12-25"], "end": ["2026-12-20"], "note": [""]})
     assert r.status_code == 200 and "before the start" in r.text
     assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()        # unchanged
+
+
+RULE = '\n[[sources.rule]]\nkid = "Alex"\ncourse = "Band"\nassignments = "hac"\n'
+
+
+def test_source_defaults_round_trip(tmp_path):
+    c, app = _client(tmp_path)
+    r = c.post("/settings", data={**FORM, "sources_assignments": "hac", "sources_grades": "canvas"})
+    assert r.status_code == 200 and "Settings saved" in r.text
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert (doc["sources"]["assignments"], doc["sources"]["grades"]) == ("hac", "canvas")
+    assert app.state.fridgesheet.settings.sources.default.assignments == "hac"     # reloaded
+    body = c.get("/settings").text
+    assert 'name="sources_assignments"' in body and '<option value="hac" selected>' in body
+
+
+def test_saving_the_form_keeps_rules(tmp_path):
+    """Review focus 4: the main form owns the defaults, never the rules."""
+    c, _ = _client(tmp_path)
+    with open(tmp_path / "config.toml", "a") as f:
+        f.write(RULE)
+    assert c.post("/settings", data=FORM).status_code == 200
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["sources"]["rule"] == [{"kid": "Alex", "course": "Band", "assignments": "hac"}]
+
+
+def test_a_bad_source_value_is_refused_and_nothing_is_written(tmp_path):
+    c, _ = _client(tmp_path)
+    before = (tmp_path / "config.toml").read_text()
+    r = c.post("/settings", data={**FORM, "sources_grades": "powerschool"})
+    assert "Canvas or HAC" in r.text
+    assert (tmp_path / "config.toml").read_text() == before
+
+
+def test_rules_are_listed_and_removable(tmp_path):
+    c, app = _client(tmp_path)
+    with open(tmp_path / "config.toml", "a") as f:
+        f.write(RULE)
+    app.state.fridgesheet.reload()
+    body = c.get("/settings").text
+    assert "Band" in body and 'action="/settings/sources/remove"' in body
+    r = c.post("/settings/sources/remove", data={"kid": "Alex", "course": "Band"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/settings"
+    assert "rule" not in config.load_config_doc(tmp_path / "config.toml")["sources"]
+    assert app.state.fridgesheet.settings.sources.rules == ()

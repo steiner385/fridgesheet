@@ -6,10 +6,11 @@ import sqlite3
 from datetime import date
 
 from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
 
 from ..app import Db, State, loopback, render, render_partial
 from .. import actions, updates
-from ... import qr, runner
+from ... import qr, runner, sources
 
 router = APIRouter()
 log = logging.getLogger("fridgesheet.web.settings")
@@ -56,7 +57,8 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
-                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)))
+                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
+                  source_rules=actions.load_sources(state.home).rules, SOURCE_LABELS=sources.LABELS)
 
 
 @router.get("/settings")
@@ -68,6 +70,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 def save(request: Request, username: str = Form(""), password: str = Form(""), printer: str = Form(""),
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
+         sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
          conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
@@ -89,7 +92,8 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     # form, never returned by any route, and a blank field keeps whatever is stored.
     form = actions.FormValues(username=username, password=password, printer=printer, days_ahead=days_ahead,
                               overdue_days=overdue_days, nicknames=nicknames, archive=archive,
-                              port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates))
+                              port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
+                              sources_assignments=sources_assignments, sources_grades=sources_grades)
     lines: list[str] = []
     result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
     if result.ok:
@@ -143,3 +147,10 @@ async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, st
     rows = actions.no_print_days_view(actions.no_print_days_settings(state.home)) if not errors else \
         [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes) if s]
     return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)
+
+
+@router.post("/settings/sources/remove")
+def remove_source(kid: str = Form(""), course: str = Form(""), state=State):
+    actions.remove_source_rule(state.home, kid, course)
+    state.reload()
+    return RedirectResponse("/settings", status_code=303)

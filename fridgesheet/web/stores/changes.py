@@ -12,6 +12,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from ... import sources
 from . import num
 
 KINDS = ("new_item", "grade_posted", "grade_changed", "now_missing", "cleared", "flag_set", "flag_cleared", "course_grade")
@@ -197,12 +198,13 @@ def _new_item_events(conn: sqlite3.Connection, student_id: int | None) -> list[E
             for r in conn.execute(sql, args)]
 
 
-def _course_grade_events(conn: sqlite3.Connection, student_id: int | None) -> list[Event]:
+def _course_grade_events(conn: sqlite3.Connection, student_id: int | None, prefs=None) -> list[Event]:
     """A class average moving. One event per course per refresh that changed something."""
-    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.source AS course_source,
-                    c.student_id AS student_id, s.key AS student_key
+    sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, c.source AS course_source,
+                    c.student_id AS student_id, s.key AS student_key, pc.name AS peer_course_name
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
+             LEFT JOIN courses pc ON pc.id = c.peer_course_id
              WHERE s.hidden = 0"""
     args: list = []
     if student_id is not None:
@@ -216,12 +218,14 @@ def _course_grade_events(conn: sqlite3.Connection, student_id: int | None) -> li
         prev[row["course_id"]] = row
         if before is None:
             continue
-        for field, word in (("average", "HAC average"), ("current", "Canvas current")):
+        pick = (prefs or sources.DEFAULT).resolve(row["student_key"], row["course_name"], row["peer_course_name"]).grades
+        for field, word, src in (("average", "HAC average", "hac"), ("current", "Canvas current", "canvas")):
             a, b = before[field], row[field]
             if a is not None and b is not None and a != b:
+                mark = " · official" if src == pick else ""
                 out.append(Event("course_grade", _dt(row["at"]), row["student_key"], row["student_id"],
                                  course_short=row["course_short"], source=row["course_source"],
-                                 detail=f"{word} {_num(a)} → {_num(b)}"))
+                                 detail=f"{word} {_num(a)} → {_num(b)}{mark}"))
     return out
 
 
@@ -248,7 +252,7 @@ def _flag_events(conn: sqlite3.Connection, student_id: int | None) -> list[Event
 
 def since(conn: sqlite3.Connection, *, since: datetime, until: datetime | None = None,
           student_id: int | None = None, kinds: tuple[str, ...] | None = None,
-          limit: int | None = DEFAULT_LIMIT, offset: int = 0) -> Feed:
+          limit: int | None = DEFAULT_LIMIT, offset: int = 0, prefs=None) -> Feed:
     """Everything that happened in (`since`, `until`], newest first, then by student key,
     item name and kind.
 
@@ -261,7 +265,7 @@ def since(conn: sqlite3.Connection, *, since: datetime, until: datetime | None =
     """
     from .. import reconcile
     events = (_observation_events(conn, student_id) + _new_item_events(conn, student_id)
-              + _course_grade_events(conn, student_id) + _flag_events(conn, student_id))
+              + _course_grade_events(conn, student_id, prefs) + _flag_events(conn, student_id))
     if kinds is not None:
         events = [e for e in events if e.kind in kinds]
     kept = []
