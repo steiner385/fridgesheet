@@ -82,11 +82,17 @@ def _score(o: sqlite3.Row, points) -> str:
     return f"{num(o['score'])}/{num(points)}" if points else num(o["score"])
 
 
-def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) -> str:
+def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, prefer: str = "canvas") -> str:
     """The status column, in words a parent reads (the sheet's status words, unshouted)."""
     c, h = obs.get("canvas"), obs.get("hac")
     due = reconcile.due_of(item)
     past = due is not None and reconcile.comparable(due, now)[0] < reconcile.comparable(due, now)[1]
+    if prefer == "hac" and h is not None and h["score"] is not None:
+        if c is not None and c["excused"]:
+            return "Excused"
+        if c is not None and c["published"] == 0:
+            return "Unpublished"
+        return "Zero" if h["score"] == 0 and (item["points"] or 0) > 0 else _score(h, item["points"])
     if c is not None:
         if c["excused"]:
             return "Excused"
@@ -154,13 +160,20 @@ def handed_in_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str,
     return "No", None
 
 
-def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str, bool]:
+def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "canvas") -> tuple[str, bool]:
     """What the gradebook says about the work itself, and whether it is a real zero.
 
-    Canvas first: it carries the teacher's marks ("Missing", "Excused") as well as the score.
-    HAC only when Canvas has nothing, and then only score or "Not yet" -- a disagreement
-    between the two is the Reconcile page's job, not this cell's."""
+    Under the default, Canvas first: it carries the teacher's marks ("Missing", "Excused") as
+    well as the score, and HAC only when Canvas has nothing. Under `prefer="hac"` a HAC score is
+    shown whenever there is one, ahead of Canvas's score and its Missing mark; Unpublished and
+    Excused still come first. A disagreement between the two is the Reconcile page's job."""
     c, h = obs.get("canvas"), obs.get("hac")
+    if prefer == "hac" and h is not None and h["score"] is not None:
+        if c is not None and c["published"] == 0:
+            return "Unpublished", False
+        if c is not None and c["excused"]:
+            return "Excused", False
+        return _score(h, item["points"]), h["score"] == 0 and (item["points"] or 0) > 0
     if c is not None:
         if c["published"] == 0:
             return "Unpublished", False

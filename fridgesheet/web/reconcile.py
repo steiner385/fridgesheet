@@ -64,7 +64,7 @@ def _score_text(o: sqlite3.Row | None) -> str:
     return f"{o['score']:g}"
 
 
-def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) -> set[str]:
+def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, prefer: str = "canvas") -> set[str]:
     """Which sources consider the item open -- something the kid, or the parent, can still act
     on. Empty means settled.
 
@@ -80,7 +80,7 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime) 
     source" reasoning: Canvas whenever it lists the item, HAC when it lists the item without
     a grade a day past due."""
     from . import outcomes                      # outcomes imports this module's helpers
-    outcome = outcomes.classify(item, obs, now)
+    outcome = outcomes.classify(item, obs, now, prefer=prefer)
     c, h = obs.get("canvas"), obs.get("hac")
     late_ungraded = outcome == outcomes.LATE and c is not None and c["score"] is None
     if outcome not in (outcomes.NOT_DONE, outcomes.UNKNOWN) and not late_ungraded:
@@ -107,8 +107,9 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
     return c["state"] in ("unsubmitted", None) and c["score"] is None
 
 
-def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime) -> bool:
-    if flag in HANDLED_FLAGS or not open_sources(item, obs, now):
+def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime,
+                  prefer: str = "canvas") -> bool:
+    if flag in HANDLED_FLAGS or not open_sources(item, obs, now, prefer=prefer):
         return False
     due = _due(item)
     return due is None or now <= rules.deadline(kid, item["course_name"], due)
