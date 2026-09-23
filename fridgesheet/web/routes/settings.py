@@ -172,6 +172,16 @@ async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, st
     return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)
 
 
+@router.post("/settings/update/check")
+def check_for_updates_now(request: Request, conn: sqlite3.Connection = Db, state=State):
+    """A parent's own "check now" click -- skips the once-a-day cache, but still honours the
+    checkbox: refused, not a fetch, when the parent turned checks off (see `updates.check`)."""
+    if not state.settings.web_check_updates:
+        raise HTTPException(409, "Update checks are turned off in Settings.")
+    update = updates.check(state, now=state.now(), force=True)
+    return render_partial(request, conn, "_update_status.html", update=update)
+
+
 @router.post("/settings/update")
 def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     """The only way to start an "update" job -- see `jobs.GATED`. `POST /jobs/update` (the

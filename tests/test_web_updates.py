@@ -75,6 +75,17 @@ def test_check_caches_for_a_day_and_a_failure_for_an_hour(tmp_path):
     assert updates.check(state, now=NOW + timedelta(minutes=61), fetch=fetch).available    # retried after an hour
 
 
+def test_force_bypasses_the_cache_even_when_fresh(tmp_path):
+    c, state = _state(tmp_path)
+    calls = []
+    def fetch(url):
+        calls.append(url); return release()(url)
+    first = updates.check(state, now=NOW, fetch=fetch)
+    assert len(calls) == 1
+    forced = updates.check(state, now=NOW + timedelta(minutes=1), fetch=fetch, force=True)
+    assert len(calls) == 2 and forced is not first and forced.available
+
+
 def test_the_checkbox_turns_it_off_entirely(tmp_path):
     c, state = _state(tmp_path)
     state.settings.web_check_updates = False
@@ -118,6 +129,22 @@ def test_saving_settings_round_trips_the_checkbox(tmp_path):
     assert config.load_config_doc(tmp_path / "config.toml")["web"]["check_updates"] is False
     r = c.post("/settings", data={**form, "check_updates": "on"}, headers={"host": "127.0.0.1", "Origin": "http://127.0.0.1"})
     assert config.load_config_doc(tmp_path / "config.toml")["web"]["check_updates"] is True
+
+
+def test_check_now_button_forces_a_fresh_check_and_shows_the_result(tmp_path):
+    c, state = _state(tmp_path)
+    state.extra["update_fetch"] = release("v0.1.0")            # older than anything running
+    c.get("/settings", headers={"host": "127.0.0.1"})           # seed a fresh cache
+    state.extra["update_fetch"] = release("v0.9.0")             # a newer release appears
+    r = c.post("/settings/update/check", headers={"host": "127.0.0.1"})
+    assert r.status_code == 200 and "Fridge Sheet 0.9.0 is available" in r.text
+
+
+def test_check_now_is_refused_when_checks_are_off(tmp_path):
+    c, state = _state(tmp_path)
+    state.settings.web_check_updates = False
+    r = c.post("/settings/update/check", headers={"host": "127.0.0.1"})
+    assert r.status_code == 409
 
 
 def test_the_installers_digest_and_size_come_back_with_its_url():
