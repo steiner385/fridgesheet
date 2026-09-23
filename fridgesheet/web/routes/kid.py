@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import timedelta
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -50,12 +51,17 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     # The sections above the table cover all of the kid's work, whatever the table shows.
     everything = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), show="all")
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
+    # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
+    week_ago = now - timedelta(days=7)
+    recent = [v for v in by_state["decided"] if items.changed_since(v, week_ago)]
+    by_state["decided_earlier"] = [v for v in by_state["decided"] if v not in recent]
+    by_state["decided"] = recent
     # Asked the teacher, or following up: waiting too, with the date and the email (#73).
     by_state["waiting"] += [v for v in everything if v.verdict.kind in ("asked", "following_up")]
     by_state["question"] = [v for v in everything if v.asks]          # an agreed step already covers the rest
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
                   widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
-                  questions=by_state["question"], decided=by_state["decided"], waiting=by_state["waiting"],
+                  questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
                   SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,

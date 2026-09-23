@@ -55,7 +55,7 @@ def test_asking_the_teacher_offers_their_email(tmp_path):
 def test_the_record_says_as_of_when(tmp_path):
     c, pid = _setup(tmp_path)
     c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""})
-    assert "as of" in c.post(f"/items/{pid}/undo", data={"prev": ""}).text
+    assert "checked" in c.post(f"/items/{pid}/undo", data={"prev": ""}).text          # last checked, and last changed (#75)
 
 
 def test_an_unknown_answer_is_refused(tmp_path):

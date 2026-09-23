@@ -19,7 +19,7 @@
 <form class="plan-form card" method="post" action="{{ base }}/step{% if step_id %}?step_id={{ step_id }}{% elif item_id %}?item_id={{ item_id }}{% endif %}">
   <input type="hidden" name="request_key" value="{{ values.request_key }}">{% if return_to is defined and return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}<input type="hidden" name="revision" value="{{ values.revision }}">
   <label>Assignment or task<input name="title" required maxlength="500" value="{{ values.title }}"></label>
-  <label>Family account <span class="muted">(optional: your side of the story)</span><textarea name="family_account" maxlength="4000" placeholder="I handed this in on paper Tuesday. / I’m stuck on question 4.">{{ values.family_account }}</textarea></label>
+  <label>Family account <span class="muted">(optional: your side of the story)</span><textarea name="family_account" maxlength="4000" placeholder="What happened, in their words: I’m stuck on question 4. / I left it in my locker.">{{ values.family_account }}</textarea></label>
   <label>Agreed next step<input name="next_step" required maxlength="500" value="{{ values.next_step }}" placeholder="Complete questions 1–4, then put the worksheet in my bag"></label>
   <div class="form-pair"><label>Who will do this?<input name="owner" required maxlength="500" value="{{ values.owner }}"></label>
   <label>State<select name="state">{% for value, label in states.items() %}<option value="{{ value }}" {{ 'selected' if values.state == value }}>{{ label }}</option>{% endfor %}</select></label></div>

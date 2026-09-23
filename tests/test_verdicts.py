@@ -109,7 +109,7 @@ def test_ask_teacher_is_an_asked_status_with_its_date():
 def test_a_done_flag_contradicted_later_is_a_stale_answer():
     v = run(item(), {"canvas": canvas(rid=3, missing=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
     assert (v.state, v.kind) == (V.QUESTION, "stale_answer")
-    assert v.facts == {"flag": "done", "when": "9/10", "change": "Canvas now says missing"}
+    assert v.facts == {"flag": "it's done", "when": "9/10", "change": "Canvas now says missing"}
     assert [a.flag for a in v.answers] == ["confirm", "clear", "ask_teacher"]
 
 
@@ -196,7 +196,7 @@ def test_every_question_kind_has_facts_ask_and_answer_words():
 
 
 def test_facts_are_filled_in_and_escaped_by_the_template_not_here():
-    assert V.say("facts.graded_in_hac", "", {"hac": "28 of 30"}) == "HAC has 28 of 30. Canvas still shows its automatic \"missing\"."
+    assert V.say("facts.graded_in_hac", "", {"hac": "28 of 30"}) == "HAC has 28 of 30. Canvas still says missing; HAC has the teacher's grade."
 
 
 # --- final-review fixes ------------------------------------------------------------------

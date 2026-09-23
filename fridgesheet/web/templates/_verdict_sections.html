@@ -1,4 +1,4 @@
-{# The three sections above a kid's work list (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md, 6.1).
+{# The sections above a kid's work list (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md, 6.1).
    Computed over all of the kid's work, whatever the table below is filtered to. #}
 {% set tier = student.key | tier_of %}
 {% if questions %}
@@ -6,21 +6,27 @@
   <div class="section-head"><h3 id="q-head">{{ questions | length }} question{{ 's' if questions | length != 1 }} about {{ student.key | nickname }}'s work</h3><span class="muted">Answering one takes it off this list</span></div>
   {% for item in questions %}{% include "_question.html" %}{% endfor %}
 </section>
+{% else %}
+<h3 id="q-head" class="quiet-head">Nothing to answer for {{ student.key | nickname }}.</h3>
 {% endif %}
-{% if decided %}
-<section class="decided" aria-labelledby="d-head">
-  <h3 id="d-head" class="quiet-head">Decided for you</h3>
-  <div class="lines">{% for item in decided %}
+{% macro decided_line(item, tier) %}
     <div class="line" id="q-{{ item.id }}"><span class="tick" aria-hidden="true">✓</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}</span></span>
-      <a href="#q-{{ item.id }}" hx-post="/items/{{ item.id }}/undo" hx-vals='{"prev": "{{ item.flag or '' }}"}' hx-target="#q-{{ item.id }}" hx-swap="outerHTML">Not right?</a></div>
-  {% endfor %}</div>
+      <button type="button" class="link" hx-post="/items/{{ item.id }}/undo" hx-vals='{"prev": "{{ item.flag or '' }}"}' hx-target="#q-{{ item.id }}" hx-swap="outerHTML" aria-label="Not right? {{ item.name }}">Not right?</button></div>
+{% endmacro %}
+{% if decided or decided_earlier %}
+<section class="decided" aria-labelledby="d-head">
+  <h3 id="d-head" class="quiet-head">Settled by the records</h3>
+  {% if decided %}<div class="lines">{% for item in decided %}{{ decided_line(item, tier) }}{% endfor %}</div>{% endif %}
+  {# Older settled items fold away so the list never pushes the work off the first screen (#76). #}
+  {% if decided_earlier %}<details class="quiet"><summary>Earlier ({{ decided_earlier | length }})</summary>
+    <div class="lines">{% for item in decided_earlier %}{{ decided_line(item, tier) }}{% endfor %}</div></details>{% endif %}
 </section>
 {% endif %}
 {% if waiting %}
 <details class="quiet"><summary>Waiting, nothing to do yet ({{ waiting | length }})</summary>
   <div class="lines">{% for item in waiting %}
-    <div class="line" id="q-{{ item.id }}"><span class="clock" aria-hidden="true">◷</span><span><b>{{ item.name }}</b> <span class="muted">{% if item.verdict.state == 'waiting' %}{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if item.verdict.asks_on %} Asks you after {{ item.verdict.asks_on | wd_md }}.{% endif %}</span>{% if item.verdict.kind == 'asked' and item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>
-      {% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher">Ask now</button></form>{% endif %}</div>
+    <div class="line" id="q-{{ item.id }}"><span class="clock" aria-hidden="true">◷</span><span><b>{{ item.name }}</b> <span class="muted">{% if item.verdict.state == 'waiting' %}{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if item.verdict.asks_on %} Asks you on {{ item.verdict.asks_on | wd_md }}.{% endif %}</span>{% if item.verdict.kind == 'asked' and item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>
+      {% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher" aria-label="Ask the teacher now about {{ item.name }}">Ask now</button></form>{% endif %}</div>
   {% endfor %}</div>
 </details>
 {% endif %}

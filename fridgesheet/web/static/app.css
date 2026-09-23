@@ -90,7 +90,7 @@ p.legend { font-size: 12px; margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
-.filters label { font-size: 13px; color: var(--muted); }
+.filters label { font-size: 14px; color: var(--ink); }
 /* Rows of a graphical config editor (Settings: late-rules, no-print-days): one row per quarter,
    rule or skip-date, added/removed/reordered client-side before the whole form's one Save. */
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; align-items: center; }
@@ -134,7 +134,9 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
      Sources and Flag simply fell off the right edge, with nothing to scroll -- the table is
      wider than the page but the page is not. A block-level table scrolls sideways on its
      own, so the first three columns stay put and a swipe reveals the rest. */
-  table.items { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Other tables (Open work's seven columns) scroll as blocks. The work list scrolls inside
+     .table-wrap instead, keeping its white background to the edge (#53, #78). */
+  table.items:not(.work) { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 /* Touch: nothing to tap is smaller than 44px. Every button measured 21px on the phone and
    the kiosk (#40 item 2); Reconcile alone puts 47 x 5 of them under a finger. Scoped to a
@@ -254,7 +256,7 @@ main.wide { max-width: 1600px; }
 .q .answers form { display: inline; margin: 0; }
 .q .more { margin-top: 10px; font-size: 13px; }
 .record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: 13px; }
-.record div { display: grid; grid-template-columns: 170px 1fr; gap: 8px; }
+.record div { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }
 .record .src { color: var(--muted); }
 .record .src small { color: var(--muted); }
 .done-line { display: flex; align-items: center; gap: 10px; background: #edf6ee; border-radius: 10px; padding: 10px 16px; margin-bottom: 10px; }
@@ -265,8 +267,8 @@ button.link { border: none; background: none; color: var(--muted); text-decorati
 table.work td.item small { display: block; color: var(--muted); font-size: 13px; }
 table.work td.item small a { color: inherit; }
 table.work td.due small.rel { display: block; }
-.qmark { font-size: 12px; color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
-.section-head { display: flex; align-items: baseline; justify-content: space-between; }
+.qmark { font-size: 13px; color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
+.section-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
 .quiet-head { font-size: 14px; color: var(--muted); }
 .lines { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 4px 16px; margin-bottom: 10px; }
 .lines .line { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); }
@@ -274,7 +276,7 @@ table.work td.due small.rel { display: block; }
 .lines .line > a, .lines .line > form { margin-left: auto; font-size: 13px; }
 .seg label { margin-right: 8px; }
 .more-filters { display: inline-block; }
-.rail .count { color: var(--accent); font-weight: 600; font-size: 12px; }
+.rail .count { color: var(--accent); font-weight: 600; font-size: 13px; }
 .badge.plan { border-color: var(--ok); color: var(--ok); }
 
 /* Accessibility (#43, #53) */
@@ -318,3 +320,8 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 .sources-hint { font-size: 13px; margin: -8px 0 16px; }
 .record .sources-hint { margin: 0 0 6px; }
 .count:empty { display: none; }
+.record .src small { font-size: inherit; }
+th .arrow { font-size: 13px; }
+@media (pointer: coarse) {
+  .lines .line > button, .lines .line > form button, .qmark, .q details.more > summary, .q .more a, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }
+}

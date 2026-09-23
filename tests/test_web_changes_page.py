@@ -68,7 +68,7 @@ def test_a_flag_shows_as_the_parents_own_change(tmp_path):
     flags.set_flag(conn, quiz, "ask_teacher", now="2026-09-15T15:00:00-04:00", text="emailed")
     conn.close()
     body = app_for(tmp_path).get("/changes").text
-    assert "You flagged" in body and "ask teacher" in body and "emailed" in body
+    assert "You answered" in body and "ask the teacher" in body and "emailed" in body
 
 
 def test_one_refresh_only_shows_state_not_a_wall_of_new(tmp_path):
