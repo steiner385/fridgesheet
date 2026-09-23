@@ -88,9 +88,12 @@ One defect came out of that pass and is fixed: a silent uninstall stopped on the
 - The **`taskkill /T` children**: §3 and §7 were both exercised against an idle server. A
   Refresh or a print in flight, so that Chromium under `ms-playwright\` and `SumatraPDF.exe`
   are live under `{app}`, is the case `/T` exists for and it still has not been run.
-- **Which account hosts it.** graphy's interactive console user is `GRAPHY\gdrunner`; the
-  test install went in under `tony`. A per-user logon task only fires for the user that owns
-  it, so if the family sits at graphy as `gdrunner`, the app has to be installed there.
+- **Which account hosts it.** As of 2026-09-22 the `Fridge Sheet - web` task on graphy runs
+  as `lakotarunner`, with its install under `C:\Users\lakotarunner\AppData\Local\Programs\
+  Fridge Sheet`. (It has been `tony` and `gdrunner` at different times; check rather than
+  assume — `schtasks /Query /TN "Fridge Sheet - web" /FO LIST /V` prints `Run As User`.) A
+  per-user logon task only fires for the user that owns it, and a per-user install lives in
+  that user's profile, so `fridgesheet self-update` refuses when run by anyone else.
 
 ## 1. The hazard, and what's supposed to fix it
 
@@ -188,6 +191,57 @@ launch the installer, to actually exercise that.
   seconds of polling before the launcher opens the browser and exits, per
   `fridgesheet/web/__main__.py`'s `launch()`. One process is the steady state once
   the page is actually up; more than one at that point is the real finding.)
+
+## 3b. Self-update, over a running app
+
+Section 3 proves the *installer* survives landing on a running app, run by a human. This
+proves the app can start that installer **on itself** — the in-app Update button and
+`fridgesheet self-update` both end up calling the same `PrepareToInstall` this checklist has
+already exercised, but by way of a Windows spawn (`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`
+in `fridgesheet/host/selfupdate_windows.py`) that has never run on real Windows before this
+section. It needs a release newer than the installed one, so do it on the release after the
+one that introduces self-update — the current install stays as-is until then.
+
+⚠️ **What this section cannot prove.** `packaging/windows/smoke.ps1` checks, on a real
+Windows runner, whether `taskkill /T` actually kills a process spawned with those flags before
+it kills a plain child — but that check has not yet run on `windows-latest` CI as of this
+writing (it is new in this same change). A reviewer has argued those flags may not be enough:
+`DETACHED_PROCESS` detaches the console and `CREATE_NEW_PROCESS_GROUP` changes Ctrl+C routing,
+and neither is documented to change the `InheritedFromUniqueProcessId` that `taskkill /T`
+actually walks. The last bullet below is where that theory meets a real family PC; treat it as
+the first real evidence either way, not a formality.
+
+- [ ] Settings → set an **Update PIN**, Save. **Expect:** `config.toml`'s `[web]` has an
+  `update_pin_hash` beginning `pbkdf2_sha256$...`, and the PIN itself appears nowhere in it —
+  same rule as the password, but a hash instead of a keyring entry, because a PIN this short
+  is only as strong as its hash's cost.
+- [ ] Reload Settings. **Expect:** the PIN box is empty, with its placeholder — a PIN is
+  settable and never readable, same as the password field above it.
+- [ ] From a **phone**, enter the wrong PIN five times. **Expect:** each one refused with
+  "That PIN is not right.", then the sixth attempt — right or wrong — answered with "Too many
+  wrong PINs. Try again in 15 minutes." for fifteen minutes from the fifth failure.
+- [ ] From the phone, after the lock expires, enter the right PIN and press **Update**.
+  **Expect:** progress in the page, then it waits (the server is about to be killed out from
+  under the response that told it to wait), then it reloads on its own showing the new
+  version — the page's own poll against `/health`, not you refreshing it.
+- [ ] Open **Settings** and read the version at the bottom of the form. **Expect:** the new
+  one. This is the same `[InstallDelete]` hazard section 3 already covers: if it still reads
+  the old version, that is a real finding, not something to shrug off because "the update
+  reported success."
+- [ ] Open **Task Scheduler**. **Expect:** `Fridge Sheet - web` still there, still Running (or
+  Ready) — the spawned installer's own `[Run]` step re-registered it, the same as section 3.
+- [ ] **Wait until the dashboard page has finished loading**, then open **Task Manager**.
+  **Expect:** exactly one `FridgeSheet.exe`, for the same reason and on the same timing as
+  section 3's equivalent box.
+- [ ] **Do it again with a Refresh in flight**, so Chromium is live under `{app}` when the
+  installer's `taskkill /T` runs. This is the case `/T` exists for, the one section 3 also
+  flagged as still-unexercised, and the one the caveat above is actually about: if the
+  detached installer is *itself* a child Windows still tracks under `FridgeSheet.exe` despite
+  the creation flags, this is where a Refresh's Chromium — or the installer itself — would die
+  mid-update instead of surviving it. **Expect:** the installer completes and the page reloads
+  on the new version, same as the idle-server run above. If the update instead stalls, the
+  page never reloads, or Task Manager shows no `FridgeSheet.exe` at all afterward, that is the
+  reviewer's concern made real — file it, don't assume it was a fluke.
 
 ## 4. First run, the way your friend will do it
 
