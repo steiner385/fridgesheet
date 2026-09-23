@@ -35,9 +35,10 @@ def command_for(key: str) -> tuple[str, str, str]:
         if getattr(sys, "frozen", False):
             return sys.executable, "refresh --record", str(Path(sys.executable).parent)
         return sys.executable, "-m fridgesheet.cli refresh --record", str(Path.cwd())
+    # `--trigger schedule` so Runs says who started it (#8); refresh already records its own.
     if getattr(sys, "frozen", False):
-        return sys.executable, f"run {key} --no-refresh", str(Path(sys.executable).parent)
-    return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh", str(Path.cwd())
+        return sys.executable, f"run {key} --no-refresh --trigger schedule", str(Path(sys.executable).parent)
+    return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh --trigger schedule", str(Path.cwd())
 
 
 if IS_WINDOWS:

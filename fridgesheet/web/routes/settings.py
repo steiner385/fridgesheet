@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from ..app import Db, State, loopback, render, render_partial
 from .. import actions, updatepin, updates
 from .jobs import _worker
-from ... import host, qr, runner, sources
+from ... import config, host, qr, runner, sources
 from ...host import selfupdate_linux
 
 router = APIRouter()
@@ -122,7 +122,12 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     lines: list[str] = []
     result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
     if result.ok:
-        state.reload()
+        try:
+            state.reload()
+        except config.ConfigError as e:
+            # Written, but config.toml has something the form does not own that no longer
+            # reads (#4): say so on the page rather than a 500.
+            return _page(request, conn, state, form, errors=[f"Saved, but the settings could not be re-read: {e}"])
         form = actions.load_form(state.home)
         return _page(request, conn, state, form, messages=result.messages)
     return _page(request, conn, state, form, errors=result.messages)

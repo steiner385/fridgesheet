@@ -637,11 +637,11 @@ def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     import sys
     monkeypatch.delattr(sys, "frozen", raising=False)
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work --no-refresh" and wd == str(Path.cwd())
+    assert exe == sys.executable and args == "-m fridgesheet.cli run open-work --no-refresh --trigger schedule" and wd == str(Path.cwd())
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "FridgeSheet.exe"))
     exe, args, wd = scheduling.command_for("open-work")
-    assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh" and wd == str(tmp_path)
+    assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh --trigger schedule" and wd == str(tmp_path)
 
 
 def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
@@ -738,7 +738,7 @@ def test_command_for_a_report_is_unchanged(monkeypatch):
     from fridgesheet.host import scheduling
     monkeypatch.setattr(scheduling.sys, "frozen", False, raising=False)
     _, args, _ = scheduling.command_for("open-work")
-    assert args.endswith("run open-work --no-refresh")
+    assert args.endswith("run open-work --no-refresh --trigger schedule")
 
 
 def test_command_for_the_refresh_key_records_the_run_when_frozen(monkeypatch, tmp_path):
