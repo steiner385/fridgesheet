@@ -199,12 +199,16 @@ def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
     binding would leave stale and which this monkeypatch would then miss entirely."""
     seen = {}
     monkeypatch.setattr(host, "IS_WINDOWS", True)
-    selfupdate.spawn_installer(Path("C:/u/Setup.exe"), Path("C:/u/i.log"),
+    # Backslashes, not forward slashes: `WindowsPath` normalises "C:/u/x" to "C:\\u\\x", so a
+    # forward-slash literal here passes on Linux and fails on the platform this code ships to
+    # (seen on windows-latest CI). A backslash is not a separator on POSIX, so `str()` leaves
+    # it alone there -- the same spelling `test_host_selfupdate_windows.py` already uses.
+    selfupdate.spawn_installer(Path(r"C:\u\Setup.exe"), Path(r"C:\u\i.log"),
                                popen=lambda cmd, **kw: seen.update(cmd=cmd, kw=kw))
     # cmd.exe is the real child now (see selfupdate_windows.py's docstring for why); the
     # installer path is an argument to `start`, not argv[0].
     assert seen["cmd"][:5] == ["cmd", "/c", "start", "", "/b"]
-    assert seen["cmd"][5] == "C:/u/Setup.exe"
+    assert seen["cmd"][5] == r"C:\u\Setup.exe"
     # CREATE_NO_WINDOW is 0 on this (non-Windows) test host, so assert the key reached the
     # real call rather than that it's truthy.
     assert "creationflags" in seen["kw"]
@@ -222,6 +226,6 @@ def test_the_dispatcher_forwards_an_injected_popen_and_omits_it_otherwise(monkey
     spawn. Pin it."""
     monkeypatch.setattr(host, "IS_WINDOWS", True)
     calls = []
-    selfupdate.spawn_installer(Path("C:/u/S.exe"), Path("C:/u/i.log"),
+    selfupdate.spawn_installer(Path(r"C:\u\S.exe"), Path(r"C:\u\i.log"),
                                popen=lambda cmd, **kw: calls.append("injected"))
     assert calls == ["injected"]
