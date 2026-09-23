@@ -93,6 +93,8 @@ PHRASES: dict[str, dict[str, str]] = {
     "facts.past_credit":     {"early": "{school}, and the late date has passed.", "middle": "{school}, and the late-work window has closed.", "older": "{school}, and the late-work window has closed."},
     "a.handed_in_behind":    {"early": "I handed it in", "middle": "It's handed in", "older": "It's handed in"},
     "a.let_go":              {"early": "Let it go", "middle": "Let it go", "older": "Let it go"},
+    "a.too_late":            {"early": "Too late to submit", "middle": "Too late to submit", "older": "Too late to submit"},
+    "where.too_late":        {"early": "Too late to submit, {when}", "middle": "Marked too late to submit on {when}", "older": "Marked too late to submit on {when}"},
     "where.past_credit":     {"early": "{school} · late date passed", "middle": "{school} · past the late-work window", "older": "{school} · past the late-work window"},
     "where.teacher_grading": {"early": "Handed in, waiting", "middle": "Handed in, not graded", "older": "Handed in, not graded"},
     "where.awaiting_grade":  {"early": "Waiting for a grade", "middle": "Waiting for a grade", "older": "Waiting for a grade"},

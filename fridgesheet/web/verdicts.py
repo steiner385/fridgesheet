@@ -50,7 +50,8 @@ TODAY, TOMORROW = Answer("a.today", "plan:today"), Answer("a.tomorrow", "plan:to
 
 #: A family answer said back in family words, never the stored flag name ("ignore").
 FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
-              "follow_up": "follow up", "ask_teacher": "ask the teacher"}
+              "follow_up": "follow up", "ask_teacher": "ask the teacher", "too_late": "too late to submit"}
+TOO_LATE = Answer("a.too_late", "too_late")
 ANSWERS = {
     "missing_after_grade": (Answer("a.hac_right_done", "done"), ASK),
     "graded_in_hac": (Answer("a.hac_right_done", "done"), ASK),
@@ -70,10 +71,10 @@ ANSWERS = {
     "followed_up_then_graded": (Answer("a.keep_following", "confirm"), Answer("a.its_done", "done")),
     # Statuses that still offer a one-tap answer (#74): these are not questions and are not
     # counted, but a red row must not leave "it's handed in" behind the raw flag menu.
-    "not_done": (Answer("a.handed_in_behind", "done"), TODAY, TOMORROW),
-    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done"), TODAY),
+    "not_done": (Answer("a.handed_in_behind", "done"), TODAY, TOMORROW, TOO_LATE),
+    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done"), TODAY, TOO_LATE),
     # Upcoming or undated work with nothing handed in: the plan is the answer (spec 6.2).
-    "not_due_yet": (TODAY, TOMORROW, Answer("a.handed_in_behind", "done")),
+    "not_due_yet": (TODAY, TOMORROW, Answer("a.handed_in_behind", "done"), TOO_LATE),
 }
 
 
@@ -312,7 +313,7 @@ def standing(item, tier: str) -> str:
     grade, else the status word. Never a raw phrase key."""
     kind = item.verdict.kind
     if kind == "answered" and item.verdict.facts.get("when"):
-        kind = {"done": "done", "excused": "excused", "ignore": "let_go"}.get(getattr(item, "flag", None) or "", kind)
+        kind = {"done": "done", "excused": "excused", "ignore": "let_go", "too_late": "too_late"}.get(getattr(item, "flag", None) or "", kind)
     key = "where." + kind
     if key in phrasing.PHRASES and ("{when}" not in phrasing.phrase(key, tier) or item.verdict.facts.get("when")):
         return say(key, tier, item.verdict.facts)

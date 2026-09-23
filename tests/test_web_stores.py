@@ -63,7 +63,13 @@ def test_active_by_student_for_the_runner(conn):
                                                       ("Honors Biology S1", "canvas:2"): "ask_teacher"}}
     flags.clear(conn, 1, now="t2")
     assert flags.active_by_student(conn) == {"Alex": {("Honors Biology S1", "canvas:2"): "ask_teacher"}}
-    assert flags.HANDLED == ("done", "excused", "ignore")
+    assert flags.HANDLED == ("done", "excused", "ignore", "too_late")
+
+
+def test_too_late_is_a_choice_the_detail_menu_offers(conn):
+    assert ("too_late", "Too late to submit") in flags.CHOICES
+    flags.set_flag(conn, 1, "too_late", now="2026-09-15T10:00:00")
+    assert flags.active(conn, 1)["flag"] == "too_late"
 
 
 def _hac_only_snapshot() -> dict:

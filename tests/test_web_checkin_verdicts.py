@@ -118,6 +118,13 @@ def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
     assert 'class="ask"' not in card                        # a status, not a question
 
 
+def test_an_upcoming_card_also_offers_too_late_to_submit(tmp_path):
+    """The manual override sits beside done/plan:today/plan:tomorrow on any not-yet-done card."""
+    vid = _id(tmp_path, "Vocabulary")
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, vid)
+    assert 'value="too_late"' in card and "Too late to submit" in card
+
+
 def test_a_waiting_card_offers_ask_the_teacher(tmp_path):
     eid = _id(tmp_path, "Essay draft")                      # submitted, ungraded
     card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, eid)

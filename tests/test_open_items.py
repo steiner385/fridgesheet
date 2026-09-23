@@ -183,7 +183,7 @@ def test_handled_flags_remove_items_and_marked_flags_annotate():
     assert [i.key for i in work.handled] == ["canvas:1"] and work.handled[0].flag == "done"
     assert work.dropped == []
     assert "flag" in work.items[0].to_dict()
-    assert open_items.HANDLED_FLAGS == ("done", "excused", "ignore") and open_items.MARKED_FLAGS == ("follow_up", "ask_teacher")
+    assert open_items.HANDLED_FLAGS == ("done", "excused", "ignore", "too_late") and open_items.MARKED_FLAGS == ("follow_up", "ask_teacher")
 
 
 def test_no_flags_means_no_change():

@@ -34,7 +34,7 @@ DEFAULT_LIMIT = 500
 
 #: How a family answer reads in the change log: the family's words, not the stored flag name.
 _FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
-               "follow_up": "follow up", "ask_teacher": "ask the teacher"}
+               "follow_up": "follow up", "ask_teacher": "ask the teacher", "too_late": "too late to submit"}
 
 
 @dataclass(frozen=True)
