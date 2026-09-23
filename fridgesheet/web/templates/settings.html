@@ -4,62 +4,104 @@
 <h2>Settings</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-<form method="post" action="/settings" class="card">
-  <p><label>OneLogin username <input name="username" value="{{ form.username }}" autocomplete="username"></label></p>
-  <p><label>OneLogin password <input name="password" type="password" autocomplete="current-password" placeholder="leave blank to keep the stored one"></label>
-     {% if loopback %}<span class="muted">stored in this computer's credential store, never in a file</span>
-     {% else %}<span class="muted">stored in the credential store on the computer running Fridge Sheet, never in a file.
-       You are not on that computer, and this page has no HTTPS, so the password crosses your
-       network in the clear on its way there — over a tailnet it is encrypted; over Wi-Fi it is
-       only as private as the network is.</span>{% endif %}</p>
-  <p><label>Printer <select name="printer"><option value="" {{ 'selected' if not form.printer }}>System default</option>
-     {% for p in printers %}<option value="{{ p }}" {{ 'selected' if p == form.printer }}>{{ p }}</option>{% endfor %}
-     {% if form.printer and form.printer not in printers %}<option value="{{ form.printer }}" selected>{{ form.printer }}</option>{% endif %}</select></label></p>
-  <p><label>Days ahead <input name="days_ahead" value="{{ form.days_ahead }}" size="3"></label>
-     <label>Overdue days <input name="overdue_days" value="{{ form.overdue_days }}" size="3"></label></p>
-  <p><label>Nicknames (one First=Nick per line)<br><textarea name="nicknames">{{ form.nicknames }}</textarea></label></p>
-  <p><label>Archive folder <input name="archive" value="{{ form.archive }}" size="40"></label></p>
-  <p><label>Assignment scores come from <select name="sources_assignments">
-     {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_assignments == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label>
-     <label>Class averages come from <select name="sources_grades">
-     {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_grades == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label><br>
-     <span class="muted">Which gradebook wins when both have a number. The other still fills in what this one lacks.
-       One class or one kid can differ: set it on the class's page.</span></p>
-  <p><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
-  <p class="muted">Automatic printing: {{ status }}</p>
-  <p class="muted">{{ about.split('\n')[0] }}</p>
-  {% include "_update_status.html" %}
-  <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label>
-     <span class="muted">(the only thing this app talks to besides the school systems; it sends nothing)</span></p>
-  <p><label>Update PIN
-     <input type="password" name="update_pin" autocomplete="new-password"
-            placeholder="leave blank to keep the stored one"></label>
-     <span class="muted">Needed to update Fridge Sheet from this page. It is stored as a
-     hash, never read back, and it crosses your network in the clear -- this page has no
-     HTTPS.</span></p>
-  <p><label>Port <input name="port" value="{{ form.port }}" size="5"></label>
-     <label><input type="checkbox" name="allow_lan" {{ 'checked' if form.allow_lan }}> Allow other devices on this network</label>
-     {% if lan_url %}<span class="muted">Other devices: <a href="{{ lan_url }}">{{ lan_url }}</a></span>
-     {% if lan_qr %}{# lan_qr is qr.svg's own output: <svg>, <path> and module geometry, and nothing else. segno never echoes the encoded text into the drawing (no <title>/<desc> is asked for), so the URL -- whose port comes from this form and is therefore a raw user string on the error re-render -- cannot reach the markup. That is why it is marked safe rather than escaped into visible markup; "the server computed it" would not be a good enough reason on its own. #}{{ lan_qr | safe }}{% endif %}
-     {% endif %}
-     {% if tailnet_url %}<span class="muted">On your tailnet: <a href="{{ tailnet_url }}">{{ tailnet_url }}</a></span>{% endif %}</p>
-  <p><button class="primary">Save</button>
-     {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}</p>
+<form method="post" action="/settings" class="settings-form">
+  <section class="card">
+    <h3>School login</h3>
+    <div class="settings-grid">
+      <label>OneLogin username <input name="username" value="{{ form.username }}" autocomplete="username"></label>
+      <label>OneLogin password <input name="password" type="password" autocomplete="current-password" placeholder="leave blank to keep the stored one"></label>
+    </div>
+    <p class="field-help">{% if loopback %}The password is stored in this computer's credential store, never in a file.{% else %}The password is stored in the credential store on the computer running Fridge Sheet, never in a file.{% endif %}</p>
+    {% if not loopback %}<details class="field-help"><summary>You are not on that computer</summary>
+      This page has no HTTPS, so the password crosses your network in the clear on its way
+      there — over a tailnet it is encrypted; over Wi-Fi it is only as private as the network is.</details>{% endif %}
+  </section>
+
+  <section class="card">
+    <h3>Printing and the report window</h3>
+    <div class="settings-grid">
+      <label>Printer <select name="printer"><option value="" {{ 'selected' if not form.printer }}>System default</option>
+         {% for p in printers %}<option value="{{ p }}" {{ 'selected' if p == form.printer }}>{{ p }}</option>{% endfor %}
+         {% if form.printer and form.printer not in printers %}<option value="{{ form.printer }}" selected>{{ form.printer }}</option>{% endif %}</select></label>
+      <label>Days ahead <input name="days_ahead" value="{{ form.days_ahead }}" size="3"></label>
+      <label>Overdue days <input name="overdue_days" value="{{ form.overdue_days }}" size="3"></label>
+      <label>Archive folder <input name="archive" value="{{ form.archive }}"></label>
+    </div>
+    <p><label>Nicknames (one First=Nick per line)<br><textarea name="nicknames">{{ form.nicknames }}</textarea></label></p>
+    <p class="field-help"><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
+    <p class="field-help">Automatic printing: {{ status }}</p>
+  </section>
+
+  <section class="card">
+    <h3>Gradebook sources</h3>
+    <div class="settings-grid">
+      <label>Assignment scores come from <select name="sources_assignments">
+         {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_assignments == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label>
+      <label>Class averages come from <select name="sources_grades">
+         {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_grades == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label>
+    </div>
+    <p class="field-help">Which gradebook wins when both have a number. The other still fills in what this one lacks.
+       One class or one kid can differ: set it on the class's page.</p>
+  </section>
+
+  <section class="card">
+    <h3>Network</h3>
+    <div class="settings-grid">
+      <label>Port <input name="port" value="{{ form.port }}" size="5"></label>
+    </div>
+    <p><label><input type="checkbox" name="allow_lan" {{ 'checked' if form.allow_lan }}> Allow other devices on this network</label></p>
+    {% if lan_url or tailnet_url %}
+    <div class="network-row">
+      <div>
+        {% if lan_url %}<p class="field-help">Other devices: <a href="{{ lan_url }}">{{ lan_url }}</a></p>{% endif %}
+        {% if tailnet_url %}<p class="field-help">On your tailnet: <a href="{{ tailnet_url }}">{{ tailnet_url }}</a></p>{% endif %}
+      </div>
+      {% if lan_url and lan_qr %}{# lan_qr is qr.svg's own output: <svg>, <path> and module geometry, and nothing else. segno never echoes the encoded text into the drawing (no <title>/<desc> is asked for), so the URL -- whose port comes from this form and is therefore a raw user string on the error re-render -- cannot reach the markup. That is why it is marked safe rather than escaped into visible markup; "the server computed it" would not be a good enough reason on its own. #}<div class="qr">{{ lan_qr | safe }}</div>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h3>Updates</h3>
+    <p class="field-help">{{ about.split('\n')[0] }}</p>
+    {% include "_update_status.html" %}
+    <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label><br>
+       <span class="field-help">The only thing this app talks to besides the school systems; it sends nothing.</span></p>
+    <div class="settings-grid">
+      <label>New update PIN <input type="password" name="update_pin" autocomplete="new-password"
+             placeholder="leave blank to keep the stored one"></label>
+    </div>
+    <p class="field-help">Needed to update Fridge Sheet from this page. It is stored as a
+       hash, never read back, and it crosses your network in the clear -- this page has no
+       HTTPS.</p>
+  </section>
+
+  <div class="settings-save-bar">
+    <button class="primary">Save</button>
+    {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}
+  </div>
 </form>
 {# Outside the Settings form -- it POSTs to /settings/update, not /settings, and a <form>
-   inside another <form> is invalid HTML that browsers do not render predictably. #}
+   inside another <form> is invalid HTML that browsers do not render predictably. The same goes
+   for the Gradebook overrides table below, whose Remove buttons are forms of their own. #}
+<div class="settings-below">
 {% include "_update_button.html" %}
 {% if source_rules %}
+<section class="card">
 <h3>Gradebook overrides</h3>
 <table class="items"><tr><th>Kid</th><th>Class</th><th>Assignment scores</th><th>Class average</th><th></th></tr>
 {% for r in source_rules %}<tr><td>{{ r.kid or 'Every kid' }}</td><td>{{ r.course or 'Every class' }}</td>
   <td>{{ SOURCE_LABELS[r.assignments] if r.assignments else 'Default' }}</td><td>{{ SOURCE_LABELS[r.grades] if r.grades else 'Default' }}</td>
   <td><form method="post" action="/settings/sources/remove"><input type="hidden" name="kid" value="{{ r.kid }}"><input type="hidden" name="course" value="{{ r.course }}"><button>Remove</button></form></td></tr>
 {% endfor %}</table>
+</section>
 {% endif %}
 <div id="job">{% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% endif %}</div>
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
 {% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}
+<section class="card">
 <h3>About</h3>
 <pre class="muted">{{ about }}</pre>
+</section>
+</div>
 {% endblock %}

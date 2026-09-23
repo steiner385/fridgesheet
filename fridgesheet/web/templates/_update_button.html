@@ -8,9 +8,12 @@
 {% if update_blocked_reason %}
   <p class="muted">{{ update_blocked_reason }}</p>
 {% elif update_ready %}
-  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job">
-    <label>Update PIN <input type="password" name="pin" autocomplete="off" required></label>
-    <button type="submit">Update to {{ update.latest }}</button>
+  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="card update-action">
+    <h3>Update Fridge Sheet</h3>
+    <div class="row">
+      <label>Enter your update PIN <input type="password" name="pin" autocomplete="off" required></label>
+      <button type="submit" class="primary">Update to {{ update.latest }}</button>
+    </div>
   </form>
   <div id="update-job"></div>
   <script>

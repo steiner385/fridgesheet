@@ -2,7 +2,7 @@
   <h3>Late-work rules</h3>
   {% if saved %}<p class="ok">Saved late-rules.toml.</p>{% endif %}
   {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-  <p class="muted">The printed sheet drops an overdue item once it can no longer earn credit.
+  <p class="field-help">The printed sheet drops an overdue item once it can no longer earn credit.
      The first rule below that matches wins; anything matching none of them uses the default.</p>
 
   <fieldset>
