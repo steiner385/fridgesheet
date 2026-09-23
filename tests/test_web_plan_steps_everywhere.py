@@ -94,3 +94,14 @@ def test_an_outside_return_address_is_ignored(tmp_path):
     for bad in ("https://evil.example/x", "//evil.example/x", "javascript:alert(1)", "kids/Alex"):
         r = c.post(f"/kids/Alex/check-in/step?item_id={iid}", data=_form("Lab notebook", return_to=bad), follow_redirects=False)
         assert r.status_code == 303 and r.headers["location"].startswith("/kids/Alex/check-in"), bad
+
+
+def test_return_addresses_browsers_would_rewrite_to_another_host_are_refused():
+    """A browser treats "\\" as "/" and drops tabs and newlines in a Location header, so each of
+    these would become "//evil.example" and leave the site (security review of #62)."""
+    from fridgesheet.web.app import safe_return
+    for bad in ("/\\evil.example", "/\\/evil.example", "\\\\evil.example", "/\t/evil.example", "/\n/evil.example",
+                "/ /evil.example", "/%09/evil.example"):
+        assert safe_return(bad) is None, repr(bad)
+    for good in ("/kids/Alex", "/kids/Alex?show=all&course=5", "/questions#q-4", "/kids/Al%20ex"):
+        assert safe_return(good) == good, good

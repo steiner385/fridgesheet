@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -15,7 +16,7 @@ from html import escape
 from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -203,13 +204,22 @@ def here(request: Request) -> str:
     return request.url.path + (f"?{request.url.query}" if request.url.query else "")
 
 
+_SNEAKY = re.compile(r"[\s\x00-\x1f\x7f\\]")
+
+
 def safe_return(raw: str | None) -> str | None:
     """`raw` if it is a path on this site, else None: never another host, a scheme, or a
-    protocol-relative `//host`."""
-    if not raw:
+    protocol-relative `//host`. Browsers read "\\" as "/" and drop tabs and newlines from a
+    Location header, so "/\\evil" or "/<tab>/evil" would become "//evil" and leave the site:
+    raw whitespace, control characters and backslashes are refused outright, and so is
+    anything that turns into "//" once percent-decoded and normalised the way a browser would."""
+    if not raw or _SNEAKY.search(raw):
         return None
     u = urlsplit(raw)
     if u.scheme or u.netloc or not u.path.startswith("/") or u.path.startswith("//"):
+        return None
+    normalised = _SNEAKY.sub(lambda m: "/" if m.group(0) == "\\" else "", unquote(raw))
+    if normalised.startswith("//"):
         return None
     return raw
 
