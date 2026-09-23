@@ -137,12 +137,24 @@ def read_pending(home: Path) -> Pending | None:
 def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | None:
     """Did the update this breadcrumb describes take? ("ok"|"failed", pending), or None when
     there was no update in flight. On success, the breadcrumb is archived (renames to
-    update-last.json); on failure, it is kept so Diagnostics can report it."""
+    update-last.json); on failure, it is kept so Diagnostics can report it.
+
+    Called from app startup (see `web/app.py`'s `create_app`), so an exception here would
+    stop the app from starting at all -- exactly the outcome `read_pending`'s own docstring
+    promises never to cause. The update itself already succeeded by the time this runs (the
+    running version matches); an antivirus scanner or any other open handle on the file on
+    Windows, or a read-only home, can still make the archiving `.replace()` raise. That is a
+    failure to tidy up, not a failure to update, so it must not turn a successful update into
+    an app that will not boot.
+    """
     pending = read_pending(home)
     if pending is None:
         return None
     if running_version == pending.to_version:
-        (home / PENDING_NAME).replace(home / LAST_NAME)
+        try:
+            (home / PENDING_NAME).replace(home / LAST_NAME)
+        except OSError:
+            pass
         return "ok", pending
     return "failed", pending
 

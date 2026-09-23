@@ -6,7 +6,7 @@
 <div class="card">
   <h3>The last update did not finish</h3>
   <p>An update from {{ verdict[1].from_version }} to {{ verdict[1].to_version }} was started
-     on {{ verdict[1].started_at }}, and this is still {{ verdict[1].from_version }}.</p>
+     on {{ verdict[1].started_at | wd_md_time }}, and this is still {{ verdict[1].from_version }}.</p>
   <p class="muted">The installer is still on disk at <code>{{ verdict[1].installer }}</code> --
      you can run it yourself. What it logged while it ran is in
      <code>{{ verdict[1].log }}</code>.</p>

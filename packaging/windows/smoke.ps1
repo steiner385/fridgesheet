@@ -8,9 +8,10 @@
 #   3b. no-args launch  finds the running server and exits 0 (a crash here is the one failure
 #                       the friend would otherwise be first to see)
 #   3c. logon task      service install/remove round-trips through schtasks
-#   4. detached spawn   a process spawned the way host/selfupdate_windows.py spawns the
-#                       installer survives `taskkill /T` aimed at its parent -- the one claim
-#                       no unit test (a fake Popen) can actually prove
+#   4. detached spawn   a python child spawned with the exact flags host/selfupdate_windows.py
+#                       uses survives `taskkill /T` aimed at its parent, an unflagged sibling
+#                       does not, and a reparented one is recorded for reference -- the one
+#                       claim no unit test (a fake Popen) can actually prove
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $exe = Join-Path $root "dist\FridgeSheet\FridgeSheet.exe"
@@ -86,59 +87,177 @@ try {
     #
     # installer.iss:117 runs `taskkill /IM FridgeSheet.exe /T /F` before [Files] copies a
     # single file, and /T also kills every process Windows still has recorded as a
-    # descendant of the one it targets. selfupdate_windows.py spawns the installer with
-    # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP specifically so the installer -- and
-    # whatever it spawns in turn -- is NOT recorded as FridgeSheet.exe's descendant, and so
-    # is not caught by that /T. Every unit test written for self-update asserts only the
-    # flags handed to a fake `popen`; none of them proves Windows actually honors those flags
-    # the way the design assumes. Prove it here, once, on a real runner: start a "parent"
-    # process that itself spawns a detached "grandchild", tree-kill the parent by PID exactly
-    # as installer.iss does, and confirm the grandchild is still alive afterward. If it is
-    # not, self-update would kill its own installer mid-upgrade on a family PC -- so this
-    # throws instead of merely warning.
-    Write-Host "smoke: detached spawn survives a tree kill"
+    # descendant of the one it targets. fridgesheet/host/selfupdate_windows.py spawns the
+    # installer with creationflags = DETACHED_PROCESS (0x8) | CREATE_NEW_PROCESS_GROUP
+    # (0x200) specifically so the installer is NOT recorded as FridgeSheet.exe's descendant,
+    # and so is not caught by that /T. Unit tests only assert those flags are handed to a
+    # fake `Popen`; none of them proves Windows actually honors them. This spawns through the
+    # REAL mechanism instead of a PowerShell stand-in for it -- a python parent calling
+    # `subprocess.Popen` with the exact same flags -- so the thing under test is the thing we
+    # ship. (A temp .py file, not `python -c`, to keep two layers of quoting -- PowerShell's
+    # -ArgumentList and Python's own -- out of the same string.)
+    #
+    # One run answers three questions, one grandchild process each:
+    #   A. flagged     the real mechanism above. Expected to SURVIVE the tree kill. If it
+    #                  dies, that is a real defect -- self-update would kill its own
+    #                  installer mid-upgrade on a family PC -- so this step FAILS loudly
+    #                  rather than merely warning.
+    #   B. plain       an ordinary child, no special flags -- the negative control. Expected
+    #                  to DIE with the parent. If it survives instead, taskkill /T never
+    #                  reached the children on this runner at all, which means A surviving
+    #                  would prove nothing, so that also fails loudly.
+    #   C. reparented  spawned via the classic `cmd /c start` reparenting trick, recorded but
+    #                  never gating: DETACHED_PROCESS detaches the console and
+    #                  CREATE_NEW_PROCESS_GROUP changes Ctrl+C routing, and neither is
+    #                  documented to change the InheritedFromUniqueProcessId that taskkill /T
+    #                  actually walks. If A ever fails, this says whether reparenting would
+    #                  have worked instead.
+    Write-Host "smoke: detached spawn survives a tree kill (installer.iss:117's taskkill /T)"
+
+    # Waits (bounded: 250ms x 40 = 10s max) for a PID file to hold an actual number. The
+    # worker writes its own PID after opening the file, so a bare Test-Path can observe it
+    # mid write, and `[int]""` under $ErrorActionPreference = "Stop" is a terminating error
+    # that would abort the whole release build over a timing hiccup, not a real failure.
+    function Wait-ForPidFile($path) {
+        for ($i = 0; $i -lt 40; $i++) {
+            if (Test-Path $path) {
+                $content = Get-Content $path -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($content -match '^\d+$') { return [int]$content }
+            }
+            Start-Sleep -Milliseconds 250
+        }
+        return $null
+    }
+
+    # Windows recycles PIDs. Every later "is it still alive" check -- including cleanup --
+    # goes through here instead of a bare `Get-Process -Id`, so a PID this check spawned that
+    # has since been reused by an unrelated process is never mistaken for a survivor, and
+    # cleanup never Stop-Process'es a stranger.
+    function Get-KnownProcess($processId, $startTime) {
+        if (-not $processId) { return $null }
+        $p = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($p -and $p.StartTime -eq $startTime) { return $p }
+        return $null
+    }
+
     $tag = "fridgesheet-smoke-" + [guid]::NewGuid().ToString("N")
-    $grandchildScript = Join-Path $env:TEMP "$tag-grandchild.ps1"
-    $parentScript = Join-Path $env:TEMP "$tag-parent.ps1"
-    $pidFile = Join-Path $env:TEMP "$tag.pid"
-    # The grandchild stands in for the installer: it just has to keep running long enough for
-    # this check to look at it.
-    Set-Content -Path $grandchildScript -Value "Start-Sleep -Seconds 60"
-    # The parent stands in for FridgeSheet.exe: it spawns the "installer" the same shape as
-    # `spawn_installer` does (a detached child of a still-running app) and then keeps running
-    # itself, so it is still there for `taskkill /PID ... /T` to find and kill.
-    Set-Content -Path $parentScript -Value @'
-param($GrandchildScript, $PidFile)
-$g = Start-Process -FilePath powershell -ArgumentList "-NoProfile","-File",$GrandchildScript -WindowStyle Hidden -PassThru
-Set-Content -Path $PidFile -Value $g.Id
-Start-Sleep -Seconds 60
-'@
-    $parentProc = Start-Process -FilePath powershell -ArgumentList "-NoProfile","-File",$parentScript,"-GrandchildScript",$grandchildScript,"-PidFile",$pidFile -WindowStyle Hidden -PassThru
-    $grandchildId = $null
+    $workerScript = Join-Path $env:TEMP "$tag-worker.py"
+    $parentScript = Join-Path $env:TEMP "$tag-parent.py"
+    $pidFlagged = Join-Path $env:TEMP "$tag-flagged.pid"
+    $pidPlain = Join-Path $env:TEMP "$tag-plain.pid"
+    $pidReparented = Join-Path $env:TEMP "$tag-reparented.pid"
+    $tempFiles = @($workerScript, $parentScript, $pidFlagged, $pidPlain, $pidReparented)
+    $parentProc = $null
+    $flaggedId = $null; $flaggedStart = $null
+    $plainId = $null; $plainStart = $null
+    $reparentedId = $null; $reparentedStart = $null
     try {
-        $found = $false
-        foreach ($i in 1..20) { Start-Sleep -Milliseconds 500; if (Test-Path $pidFile) { $found = $true; break } }
-        if (-not $found) { throw "the grandchild never reported its PID" }
-        $grandchildId = [int](Get-Content $pidFile)
-        if (-not (Get-Process -Id $grandchildId -ErrorAction SilentlyContinue)) {
-            throw "the grandchild exited before the tree kill could even be attempted"
+        # The worker just proves it is alive: write its own PID, then sleep. Writing its OWN
+        # pid (rather than trusting whatever Popen/Start-Process handed back) is what makes
+        # the reparenting case (C) work at all -- `cmd /c start` returns cmd.exe's PID, not
+        # the real worker's.
+        Set-Content -Path $workerScript -Value @'
+import os
+import sys
+import time
+
+with open(sys.argv[1], "w", encoding="ascii") as f:
+    f.write(str(os.getpid()))
+time.sleep(120)
+'@
+        # The parent stands in for FridgeSheet.exe: it spawns all three grandchildren the
+        # moment it starts, then stays alive itself so there is something for
+        # `taskkill /PID ... /T` to actually kill.
+        Set-Content -Path $parentScript -Value @'
+import subprocess
+import sys
+import time
+
+DETACHED_PROCESS = 0x00000008
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+
+worker, pid_flagged, pid_plain, pid_reparented = sys.argv[1:5]
+
+# A: the real mechanism -- exactly the flags selfupdate_windows.py hands to Popen.
+subprocess.Popen([sys.executable, worker, pid_flagged],
+                  creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                  close_fds=True, stdin=None, stdout=None, stderr=None)
+
+# B: negative control -- an ordinary child, none of those flags.
+subprocess.Popen([sys.executable, worker, pid_plain])
+
+# C: the classic reparenting trick, recorded for information only.
+subprocess.Popen(["cmd", "/c", "start", "", "/B", sys.executable, worker, pid_reparented])
+
+time.sleep(120)
+'@
+        $parentProc = Start-Process -FilePath python -ArgumentList $parentScript,$workerScript,$pidFlagged,$pidPlain,$pidReparented -WindowStyle Hidden -PassThru
+        $parentStart = $parentProc.StartTime
+
+        $flaggedId = Wait-ForPidFile $pidFlagged
+        $plainId = Wait-ForPidFile $pidPlain
+        $reparentedId = Wait-ForPidFile $pidReparented
+        if (-not $flaggedId) { throw "the flagged grandchild never reported its PID" }
+        if (-not $plainId) { throw "the negative-control grandchild never reported its PID" }
+        # A missing reparented PID is not an abort: a fast-exiting `cmd /c start` racing this
+        # script's patience on a loaded runner just means "not observed", and C is
+        # informational only -- it never gates pass/fail.
+
+        $flaggedProc = Get-Process -Id $flaggedId -ErrorAction SilentlyContinue
+        $plainProc = Get-Process -Id $plainId -ErrorAction SilentlyContinue
+        if (-not $flaggedProc) { throw "the flagged grandchild exited before the tree kill could even be attempted" }
+        if (-not $plainProc) { throw "the negative-control grandchild exited before the tree kill could even be attempted" }
+        $flaggedStart = $flaggedProc.StartTime
+        $plainStart = $plainProc.StartTime
+        if ($reparentedId) {
+            $reparentedProc = Get-Process -Id $reparentedId -ErrorAction SilentlyContinue
+            if ($reparentedProc) { $reparentedStart = $reparentedProc.StartTime }
         }
 
-        taskkill /PID $parentProc.Id /T /F | Out-Null
-        Start-Sleep -Seconds 2
-
-        if (-not (Get-Process -Id $grandchildId -ErrorAction SilentlyContinue)) {
-            throw "detached spawn did not survive taskkill /T -- self-update would kill its own installer mid-upgrade"
+        taskkill /PID $parentProc.Id /T /F 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "taskkill /PID $($parentProc.Id) /T /F exited $LASTEXITCODE -- the tree kill was never actually attempted, so nothing below can be trusted"
         }
-        Write-Host "  ok: detached grandchild (pid $grandchildId) outlived the tree kill"
+
+        # taskkill's exit code alone is not proof it landed -- confirm the parent is actually
+        # gone (bounded: 250ms x 20 = 5s) before asking what survived it.
+        $parentGone = $false
+        for ($i = 0; $i -lt 20; $i++) {
+            if (-not (Get-KnownProcess $parentProc.Id $parentStart)) { $parentGone = $true; break }
+            Start-Sleep -Milliseconds 250
+        }
+        if (-not $parentGone) {
+            throw "the parent process is still alive after taskkill /T /F -- the tree kill never landed, so nothing below can be trusted"
+        }
+        # A brief, bounded settle: a just-killed process can take an instant to release its
+        # children's bookkeeping even after its own PID has already gone.
+        Start-Sleep -Seconds 1
+
+        $plainSurvived = [bool](Get-KnownProcess $plainId $plainStart)
+        $flaggedSurvived = [bool](Get-KnownProcess $flaggedId $flaggedStart)
+        $reparentedSurvived = [bool]($reparentedStart -and (Get-KnownProcess $reparentedId $reparentedStart))
+
+        Write-Host "  B. negative control (unflagged, pid $plainId): $(if ($plainSurvived) { 'SURVIVED (unexpected)' } else { 'died (expected)' })"
+        Write-Host "  A. flagged (DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, pid $flaggedId): $(if ($flaggedSurvived) { 'survived (expected)' } else { 'DIED (unexpected)' })"
+        Write-Host "  C. reparented (cmd /c start, informational only): $(if ($reparentedSurvived) { 'survived' } else { 'died' })"
+
+        if ($plainSurvived) {
+            throw "the unflagged negative control survived taskkill /T -- it never reached child processes on this runner at all, so the flagged result above proves nothing"
+        }
+        if (-not $flaggedSurvived) {
+            throw "detached spawn (DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP) did NOT survive taskkill /T -- self-update would kill its own installer mid-upgrade on a family PC"
+        }
+        Write-Host "  ok: the flagged grandchild survived the tree kill and the negative control did not"
     } finally {
-        # Clean up exactly the two processes this check spawned, by PID -- never a
-        # name-based sweep like `Get-Process powershell | Stop-Process`, which would also
-        # take out any other powershell process this CI runner happens to have going.
-        foreach ($id in @($parentProc.Id, $grandchildId)) {
-            if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
-        }
-        Remove-Item $grandchildScript, $parentScript, $pidFile -ErrorAction SilentlyContinue
+        # Clean up exactly the processes this check spawned, guarded by PID *and* start time
+        # (Windows recycles PIDs) -- never a name-based sweep like `Get-Process python |
+        # Stop-Process`, which would also take out any other python process this CI runner
+        # happens to have going.
+        if (Get-KnownProcess $parentProc.Id $parentProc.StartTime) { Stop-Process -Id $parentProc.Id -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $flaggedId $flaggedStart) { Stop-Process -Id $flaggedId -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $plainId $plainStart) { Stop-Process -Id $plainId -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $reparentedId $reparentedStart) { Stop-Process -Id $reparentedId -Force -ErrorAction SilentlyContinue }
+        Remove-Item $tempFiles -ErrorAction SilentlyContinue
     }
 
     Write-Host "smoke OK"

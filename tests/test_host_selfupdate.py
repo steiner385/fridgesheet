@@ -154,6 +154,30 @@ def test_a_second_update_overwrites_the_previous_archive(tmp_path):
     assert (tmp_path / selfupdate.LAST_NAME).exists()
 
 
+def test_archiving_failure_does_not_stop_the_update_from_counting_as_ok(tmp_path, monkeypatch):
+    """`resolve_pending` now runs once from app startup (`web/app.py`'s `create_app`), so an
+    exception here would stop the whole app from booting -- an antivirus scanner or any other
+    open handle on update-last.json on Windows, or a read-only home, can make the archiving
+    `.replace()` raise `OSError`. The update itself already succeeded (the running version
+    matches); a failure to tidy up the breadcrumb afterward must not turn that into an app
+    that will not start."""
+    selfupdate.write_pending(tmp_path, _pending())
+    real_replace = Path.replace
+
+    def boom(self, target):
+        if self.name == selfupdate.PENDING_NAME:
+            raise OSError("file is open elsewhere")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", boom)
+    verdict, pending = selfupdate.resolve_pending(tmp_path, "0.5.0")
+    assert verdict == "ok" and pending == _pending()
+    # The breadcrumb was never archived -- the failed replace left it in place -- but that is
+    # a cosmetic leftover, not a reason the caller above should ever see, so the return value
+    # is unaffected.
+    assert (tmp_path / selfupdate.PENDING_NAME).exists()
+
+
 def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
     """The dispatcher is what production calls -- `actions.self_update` never reaches the
     platform module directly -- so its branch is the one that must not rot."""

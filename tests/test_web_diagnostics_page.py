@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from fridgesheet import config
 from fridgesheet.host import selfupdate
-from fridgesheet.web import app as webapp, jobs
+from fridgesheet.web import app as webapp, jobs, updates
 from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 from tests.test_web_jobs import FakeActions
 
@@ -46,6 +46,35 @@ def test_a_failed_update_is_reported_with_its_log(tmp_path):
     assert "9.9.9" in body and "install.log" in body
 
 
+def test_a_successful_update_archives_the_breadcrumb_and_shows_no_card(tmp_path):
+    """The `to_version` this process is actually running -- not a made-up "9.9.9" -- so
+    `resolve_pending` (run once at startup) takes the "ok" branch: it archives
+    update-pending.json to update-last.json, and the "did not finish" card must not appear.
+    A test that only ever wrote a failing breadcrumb (the old version of this test) would
+    still pass with the card's `{% if %}` deleted outright -- this earns its place by
+    covering the branch that never renders a card at all."""
+    seed(tmp_path).close()
+    running = updates.current_version()
+    selfupdate.write_pending(tmp_path, selfupdate.Pending(
+        from_version="0.1.0", to_version=running, started_at="2026-09-22T15:00:00-04:00",
+        installer=r"C:\u\Setup.exe", log=r"C:\u\install.log"))
+    body = app_for(tmp_path).get("/diagnostics").text
+    assert "did not finish" not in body
+    assert not (tmp_path / selfupdate.PENDING_NAME).exists()   # archived, not left to fire again
+    assert (tmp_path / selfupdate.LAST_NAME).exists()
+
+
 def test_a_clean_start_says_nothing_about_updates(tmp_path):
     seed(tmp_path).close()
     assert "did not finish" not in app_for(tmp_path).get("/diagnostics").text
+
+
+def test_a_malformed_breadcrumb_does_not_stop_the_app_from_starting(tmp_path):
+    """`read_pending` already treats bad JSON as absent -- this proves that guarantee still
+    holds now that the resolve happens at app *startup* (`webapp.create_app`) rather than on
+    a page render: a corrupt update-pending.json must never be the reason the whole app
+    fails to boot."""
+    seed(tmp_path).close()
+    (tmp_path / selfupdate.PENDING_NAME).write_text("{not json", encoding="utf-8")
+    body = app_for(tmp_path).get("/diagnostics").text
+    assert "did not finish" not in body
