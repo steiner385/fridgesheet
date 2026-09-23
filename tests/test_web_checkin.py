@@ -457,7 +457,7 @@ def test_the_print_view_is_one_childs_agreement_and_nothing_else(tmp_path):
 def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    for path, current in (("/kids/Alex/check-in", "Check-in"), ("/kids/Alex/plan", "Plan"), ("/kids/Alex", "All work")):
+    for path, current in (("/kids/Alex/check-in", "Check-in"), ("/kids/Alex/plan", "Plan"), ("/kids/Alex", "Assignments")):
         body = c.get(path).text
         assert 'aria-label="Child workspace"' in body, path
         assert re.search(rf'aria-current="page"[^>]*>{current}<', body), (path, current)

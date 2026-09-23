@@ -218,7 +218,8 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
 def say(key: str, tier: str, values: dict | None = None) -> str:
     """The words for `key` at `tier`, with the verdict's facts filled in. The template's
     autoescaping applies to the result, so a value is never markup."""
-    return phrasing.phrase(key, tier).format(**(values or {}))
+    text = phrasing.phrase(key, tier).format(**(values or {}))
+    return text[:1].upper() + text[1:]      # a sentence may open with a value ("paper work, ...")
 
 
 def standing(item, tier: str) -> str:

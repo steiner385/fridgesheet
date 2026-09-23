@@ -21,7 +21,8 @@ from . import num, plans
 SHOW = ("open", "actionable", "all")
 SORTS = ("due", "course", "name", "status")
 DIRECTIONS = ("asc", "desc")
-FLAGGED = ("any", "marked", "handled", "none")
+FLAGGED = ("any", "marked", "handled", "none") + HANDLED_FLAGS + MARKED_FLAGS   # groups, then each answer (#52)
+VERDICTS = ("question", "decided", "waiting")     # what the app says (web/verdicts.py)
 DAYS_AHEAD = 14
 
 
@@ -277,8 +278,22 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     return out
 
 
-def _keep(v: ItemView, show: str, source, course_ids, kind, flagged, outcome=None) -> bool:
+def widens_to_all(outcome=None, flagged=None, verdict=None) -> bool:
+    """Whether a filter shows every matching row rather than only open work. Asked-the-teacher
+    work that has since been graded, a "not done" item past its credit window, an answered
+    question: each is exactly what that filter is for and exactly what "open" hides. The page
+    says so when it happens."""
+    return bool(outcome or verdict or (flagged and flagged != "none"))
+
+
+def _keep(v: ItemView, show: str, source, course_ids, kind, flagged, outcome=None, verdict=None) -> bool:
     if outcome and v.outcome != outcome:
+        return False
+    if verdict == "question" and not v.asks:
+        return False
+    if verdict in ("decided", "waiting") and v.verdict.state != verdict:
+        return False
+    if flagged in HANDLED_FLAGS + MARKED_FLAGS and v.flag != flagged:
         return False
     if show == "open" and not ((v.open_in or v.upcoming) and not v.handled):
         return False
@@ -336,11 +351,13 @@ def sorted_views(views: list[ItemView], sort: str = "due", direction: str = "asc
 def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, show: str = "open",
                source: str | None = None, course_id: int | None = None, kind: str | None = None,
                flagged: str | None = None, sort: str = "due", outcome: str | None = None,
-               days_ahead: int = DAYS_AHEAD, direction: str = "asc", prefs=None) -> list[ItemView]:
+               days_ahead: int = DAYS_AHEAD, direction: str = "asc", prefs=None, verdict: str | None = None) -> list[ItemView]:
     """`outcome` is a filter on `outcomes.classify`; when one is given, `show` is forced to
     "all", because "not done" work that is past its credit window is exactly what a parent
     filtering on "not done" wants to see and exactly what "open" hides."""
-    if outcome:
+    if verdict not in VERDICTS:
+        verdict = None
+    if widens_to_all(outcome, flagged, verdict):
         show = "all"
     if show not in SHOW:
         show = "open"
@@ -354,7 +371,7 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         if peer and peer["peer_course_id"]:
             course_ids.add(peer["peer_course_id"])
     views = [v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, prefs=prefs)
-             if _keep(v, show, source, course_ids, kind, flagged, outcome)]
+             if _keep(v, show, source, course_ids, kind, flagged, outcome, verdict)]
     return sorted_views(views, sort, direction)
 
 
