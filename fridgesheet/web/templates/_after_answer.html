@@ -7,3 +7,6 @@
 <h3 id="q-head" hx-swap-oob="true">{% if n %}{{ n }} question{{ 's' if n != 1 }} about {{ student.key | nickname }}'s work{% else %}No more questions about {{ student.key | nickname }}'s work{% endif %}</h3>
 {% set tier = student.key | tier_of %}{% set v = item %}{% set oob = true %}
 <template>{% include "_item_row.html" %}</template>
+{# After a plan answer or its undo: the plan panel, so the step appears (or disappears) without a
+   reload. Pages without a #plan element drop the swap (spec 6.5). #}
+{% if plan_panel is defined and plan_panel %}{% set oob = true %}{% include "_plan_panel.html" %}{% endif %}

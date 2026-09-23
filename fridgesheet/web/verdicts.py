@@ -7,6 +7,8 @@ means the records settle it and the app says why. `waiting` means time will sett
 `question` means the family can do something. `status` is a plain fact. The rules below
 run in order; the first that matches wins (docs/superpowers/specs/
 2026-09-23-questions-not-cases-design.md, section 4.1).
+The two grace periods (HAC catching up; paper work with no grade) are not a fixed week: they are
+what this class's history says it usually takes (web/pace.py), and the card says so.
 """
 from __future__ import annotations
 
@@ -15,17 +17,20 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS
-from . import outcomes, phrasing, reconcile
+from . import outcomes, pace as _pace, phrasing, reconcile
 
 QUESTION, DECIDED, WAITING, STATUS = "question", "decided", "waiting", "status"
-GRACE_DAYS = 7
 TOLERANCE = 0.5
 
 
 @dataclass(frozen=True)
 class Answer:
     key: str                # phrase key for the button label
-    flag: str | None        # a flag, "confirm", "clear", or None: open the plan-step form
+    action: str             # a flag, "confirm", "clear", or a plan action ("plan:today", "plan:tomorrow")
+
+
+PLAN_ACTIONS = ("plan:today", "plan:tomorrow")
+ACTIONS = HANDLED_FLAGS + MARKED_FLAGS + ("confirm", "clear") + PLAN_ACTIONS
 
 
 @dataclass(frozen=True)
@@ -35,9 +40,13 @@ class Verdict:
     facts: dict = field(default_factory=dict)      # values for the "facts.<kind>" phrase
     answers: tuple[Answer, ...] = ()
     asks_on: date | None = None                    # waiting only: the day it becomes a question
+    #: The learned pace behind a grace period, for the "pace.*" sentence (spec 4.6); None when
+    #: no grace period governs this verdict. Keys: which, days, n, scope, what, by, elapsed, passed.
+    pace: dict | None = None
 
 
 ASK = Answer("a.ask_teacher", "ask_teacher")
+TODAY, TOMORROW = Answer("a.today", "plan:today"), Answer("a.tomorrow", "plan:tomorrow")
 
 #: A family answer said back in family words, never the stored flag name ("ignore").
 FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
@@ -51,17 +60,20 @@ ANSWERS = {
     "excused_hac_zero": (ASK, Answer("a.leave_it", "ignore")),
     "hac_still_blank": (ASK, Answer("a.its_fine", "ignore")),
     "hac_lag": (ASK,),
-    "still_ungraded": (Answer("a.handed_in", "done"), Answer("a.plan_it", None), ASK),
+    "teacher_grading": (ASK,),
+    "still_ungraded": (Answer("a.handed_in", "done"), TODAY, TOMORROW, ASK),
     "awaiting_grade": (ASK,),
     "stale_answer": (Answer("a.still_done", "confirm"), Answer("a.reopen", "clear"), ASK),
     # The family asked the teacher (or chose to follow up) and a grade has since appeared:
     # "still done?" would be the wrong question, and "ask the teacher" would change nothing.
     "asked_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_asking", "confirm")),
-    "followed_up_then_graded": (Answer("a.its_done", "done"), Answer("a.keep_following", "confirm")),
+    "followed_up_then_graded": (Answer("a.keep_following", "confirm"), Answer("a.its_done", "done")),
     # Statuses that still offer a one-tap answer (#74): these are not questions and are not
     # counted, but a red row must not leave "it's handed in" behind the raw flag menu.
-    "not_done": (Answer("a.handed_in_behind", "done"), Answer("a.plan_it", None)),
-    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done")),
+    "not_done": (Answer("a.handed_in_behind", "done"), TODAY, TOMORROW),
+    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done"), TODAY),
+    # Upcoming or undated work with nothing handed in: the plan is the answer (spec 6.2).
+    "not_due_yet": (TODAY, TOMORROW, Answer("a.handed_in_behind", "done")),
 }
 
 
@@ -102,8 +114,10 @@ def _after(o, set_at: str, refresh_times) -> bool:
     return a > b
 
 
-def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> str | None:
-    """What the school recorded after the family's answer that contradicts it, or None.
+def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> tuple[str, bool] | None:
+    """What the school recorded after the family's answer that contradicts it, as (text, good),
+    or None. `good` is a grade above zero or Canvas dropping its missing mark: for a follow-up,
+    that answers the reminder (spec 5).
 
     For an ask or a follow-up, `prev` (each source's observation before its latest) tells a real
     change from a quiet one: Canvas dropping its missing mark closes the loop, and so does a grade
@@ -112,21 +126,22 @@ def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> 
     prev = prev or {}
     if flag in HANDLED_FLAGS:
         if c is not None and _after(c, set_at, refresh_times) and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
-            return "Canvas now says missing" if c["missing"] else "Canvas now shows a zero"
+            return ("Canvas now says missing" if c["missing"] else "Canvas now shows a zero"), False
         if h is not None and _after(h, set_at, refresh_times) and h["score"] == 0:
-            return "HAC now shows a zero"
+            return "HAC now shows a zero", False
     if flag in MARKED_FLAGS:
         for label, o in (("Canvas", c), ("HAC", h)):
             if o is None or not _after(o, set_at, refresh_times):
                 continue
             before = prev.get(label.lower())
             if label == "Canvas" and before is not None and before["missing"] and not o["missing"]:
-                return "Canvas no longer marks it missing"
+                # Missing replaced by a graded 0 is not good news; missing simply lifted is.
+                return "Canvas no longer marks it missing", o["score"] is None or o["score"] > 0
             if o["score"] is not None:
                 if before is None or before["score"] is None:
-                    return f"{label} has graded it: {_of(o['score'], points)}"
+                    return f"{label} has graded it: {_of(o['score'], points)}", o["score"] > 0
                 if abs(before["score"] - o["score"]) > TOLERANCE:
-                    return f"{label} changed the grade: {_n(before['score'])} → {_of(o['score'], points)}"
+                    return f"{label} changed the grade: {_n(before['score'])} → {_of(o['score'], points)}", o["score"] > 0
     return None
 
 
@@ -143,7 +158,8 @@ def _scores(c, h, points, late_credit: float | None) -> Verdict | None:
     return Verdict(QUESTION, "hac_lower", {"canvas": _of(cs, points), "hac": _of(hs, points)}, ANSWERS["hac_lower"])
 
 
-def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="canvas", prev_obs=None) -> Verdict:
+def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="canvas", prev_obs=None, pace=None) -> Verdict:
+    pace = pace or _pace.DEFAULT
     c, h = obs.get("canvas"), obs.get("hac")
     points = item["points"]
     hs = h["score"] if h is not None else None
@@ -152,9 +168,13 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if flag:
         change = _stale_change(flag, flag_set_at, c, h, refresh_times, prev_obs, points)
         if change:
+            text, good = change
             kind = {"ask_teacher": "asked_then_graded", "follow_up": "followed_up_then_graded"}.get(flag, "stale_answer")
-            return Verdict(QUESTION, kind,
-                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": change},
+            # A follow-up is the family's own reminder; good news answers it. The flag stays:
+            # the app never records a family answer on the family's behalf.
+            state = DECIDED if (flag == "follow_up" and good) else QUESTION
+            return Verdict(state, kind,
+                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": text},
                            ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered", {"when": _md(flag_set_at)} if flag_set_at else {})
@@ -183,14 +203,34 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if scored is not None:
         return scored
 
-    return _waiting_or_status(item, c, h, now=now, rules=rules, refresh_times=refresh_times, prefer=prefer, obs=obs)
+    return _waiting_or_status(item, c, h, now=now, rules=rules, refresh_times=refresh_times, prefer=prefer, obs=obs, pace=pace)
 
 
-def _days_past(due: datetime | None, now: datetime) -> int | None:
-    return None if due is None else (now.date() - due.date()).days
+#: What the count is attributed to, by scope. The subject is always Fridge Sheet's count.
+WHAT = {_pace.COURSE_KIND: "assignments in this class", _pace.COURSE: "assignments in this class",
+        _pace.TEACHER: "assignments from this teacher", _pace.DEFAULT_SCOPE: "assignments in this class"}
 
 
-def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) -> Verdict:
+def _pace_facts(est: _pace.Estimate, which: str, anchor: date, now: datetime) -> dict:
+    by = anchor + timedelta(days=est.days)
+    elapsed = (now.date() - anchor).days
+    return {"which": which, "days": est.days, "n": est.n, "scope": est.scope, "what": WHAT[est.scope],
+            "by": f"{by:%a} {by.month}/{by.day}", "elapsed": f"{elapsed} day{'' if elapsed == 1 else 's'}",
+            "passed": elapsed >= est.days}
+
+
+def pace_key(v: Verdict) -> str | None:
+    """Which "pace.*" sentence a verdict's pace calls for, or None."""
+    p = v.pace
+    if not p:
+        return None
+    prefix = "pace.hac_" if p["which"] == "hac" else "pace."
+    if p["scope"] == _pace.DEFAULT_SCOPE:
+        return prefix + "default"
+    return prefix + ("passed" if p["passed"] else "expect")
+
+
+def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs, pace) -> Verdict:
     """Rules 9-15: what time will settle, and the plain facts left over."""
     outcome = outcomes.classify(item, obs, now, prefer=prefer)
     points = item["points"]
@@ -204,27 +244,35 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
         return Verdict(STATUS, outcome)
     settled_not_done = outcome == outcomes.NOT_DONE
 
-    # 9-10: Canvas graded it and HAC, which this class has, still has nothing.
+    # 9-10: Canvas graded it and HAC, which this class has, still has nothing. How long to
+    # allow is what this class's history says HAC usually takes (spec 4.5).
     if not settled_not_done and cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
         seen = _observed_at(c, refresh_times)
         if seen is not None:
-            asks_on = seen.date() + timedelta(days=GRACE_DAYS)
+            est = pace.hac_days(item)
+            asks_on = seen.date() + timedelta(days=est.days)
+            facts_p = _pace_facts(est, "hac", seen.date(), now)
             if now.date() >= asks_on:
                 return Verdict(QUESTION, "hac_still_blank", {"canvas": _of(cs, points), "when": f"{seen.month}/{seen.day}"},
-                               ANSWERS["hac_still_blank"])
-            return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on)
+                               ANSWERS["hac_still_blank"], pace=facts_p)
+            return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on, pace=facts_p)
 
-    # 11: handed in online, no grade anywhere.
+    # 11: handed in online, no grade anywhere. Still waits without asking; the pace sentence
+    # shows so the family sees the count before the app acts on it (spec section 8).
     if not settled_not_done and c is not None and c["submitted_at"] and cs is None and hs is None:
-        return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])})
+        submitted = reconcile._parse_ts(c["submitted_at"]).date()
+        return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])}, ANSWERS["teacher_grading"],
+                       pace=_pace_facts(pace.grade_days(item), "grade", submitted, now))
 
     # 12-13: nothing to submit online, past due, no grade anywhere.
     if outcome == outcomes.UNKNOWN and due is not None:
-        asks_on = due.date() + timedelta(days=GRACE_DAYS)
+        est = pace.grade_days(item)
+        asks_on = due.date() + timedelta(days=est.days)
         facts = {"kind": item["kind"] or "HAC-only", "due": f"{due:%a} {due.month}/{due.day}"}
-        if _days_past(due, now) >= GRACE_DAYS:
-            return Verdict(QUESTION, "still_ungraded", facts, ANSWERS["still_ungraded"])
-        return Verdict(WAITING, "awaiting_grade", facts, ANSWERS["awaiting_grade"], asks_on=asks_on)
+        facts_p = _pace_facts(est, "grade", due.date(), now)
+        if now.date() >= asks_on:
+            return Verdict(QUESTION, "still_ungraded", facts, ANSWERS["still_ungraded"], pace=facts_p)
+        return Verdict(WAITING, "awaiting_grade", facts, ANSWERS["awaiting_grade"], asks_on=asks_on, pace=facts_p)
 
     # 14: not done and past the late-work window.
     if outcome == outcomes.NOT_DONE and due is not None:
@@ -232,9 +280,12 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
         if late > deadline:
             return Verdict(STATUS, "past_credit", {"school": _school_says(c, h, points)}, ANSWERS["past_credit"])
 
-    # 15: a plain outcome. Work the school recorded as not done still offers a one-tap answer.
+    # 15: a plain outcome. Work the school recorded as not done still offers a one-tap answer,
+    # and so does work not yet due: `classify` only says NOT_DUE when nothing is handed in.
     if outcome == outcomes.NOT_DONE:
         return Verdict(STATUS, outcome, {"school": _school_says(c, h, points)}, ANSWERS["not_done"])
+    if outcome == outcomes.NOT_DUE:
+        return Verdict(STATUS, outcome, {}, ANSWERS["not_due_yet"])
     return Verdict(STATUS, outcome)
 
 

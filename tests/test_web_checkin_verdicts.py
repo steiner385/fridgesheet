@@ -85,3 +85,47 @@ def test_canvas_and_hac_are_explained(tmp_path):
     assert line in c.get("/kids/Alex").text and line in c.get("/kids/Alex/check-in").text
     record = c.get(f"/items/{qid}").text
     assert line in record and "Open in Canvas (opens a new tab)" in record
+
+
+# --- the pace sentence (spec 4.6) --------------------------------------------------------------
+
+def test_a_waiting_card_says_what_fridge_sheet_expects_and_why(tmp_path):
+    """Lab notebook: paper, due 9/10, no grade, no history -> the default sentence."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    card = _groups(body)["Waiting on the school"]
+    assert "Fridge Sheet has no earlier grades from this class to go on" in card
+    assert "allows 7 days" in card
+
+
+def test_the_pace_sentence_shows_on_the_question_card_too(tmp_path):
+    """Participation: HAC-only, due 9/8, a week on -> still_ungraded, the default sentence."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex").text
+    assert "Fridge Sheet has no earlier grades from this class to go on" in body
+
+
+# --- one tap on every card (spec 6.2, 6.5) --------------------------------------------------------
+
+def _card(body, pid):
+    return re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S).group(0)
+
+
+def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
+    vid = _id(tmp_path, "Vocabulary")                      # due today, nothing handed in
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, vid)
+    assert 'value="plan:today"' in card and 'value="plan:tomorrow"' in card and 'value="done"' in card
+    assert 'class="ask"' not in card                        # a status, not a question
+
+
+def test_a_waiting_card_offers_ask_the_teacher(tmp_path):
+    eid = _id(tmp_path, "Essay draft")                      # submitted, ungraded
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, eid)
+    assert 'value="ask_teacher"' in card
+
+
+def test_the_plan_panel_is_one_partial_with_its_id(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    sections = re.findall(r'<section id="plan"[^>]*>', body)          # `id="plan-heading"` is a different id
+    assert len(sections) == 1 and "hx-swap-oob" not in sections[0]

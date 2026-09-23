@@ -113,3 +113,17 @@ def test_every_tier_of_a_sentence_uses_the_same_placeholders():
     for key, by_tier in phrasing.PHRASES.items():
         sets = {tier: _placeholders(words) for tier, words in by_tier.items()}
         assert len({frozenset(s) for s in sets.values()}) == 1, (key, sets)
+
+
+def test_the_pace_sentences_exist_and_name_fridge_sheet_not_the_teacher():
+    for key in ("pace.expect", "pace.passed", "pace.default", "pace.hac_expect", "pace.hac_passed", "pace.hac_default"):
+        assert key in phrasing.PHRASES, key
+        for tier in tiers.TIERS:
+            words = phrasing.phrase(key, tier)
+            assert "Fridge Sheet" in words, (key, tier)
+            assert "teacher will" not in words.lower() and "school will" not in words.lower(), (key, tier)
+
+
+def test_the_one_tap_words_exist_in_every_tier():
+    for key in ("a.today", "a.tomorrow", "a.add_details", "step.work_on_it", "where.planned_today", "where.planned_tomorrow", "facts.not_due_yet"):
+        assert key in phrasing.PHRASES, key

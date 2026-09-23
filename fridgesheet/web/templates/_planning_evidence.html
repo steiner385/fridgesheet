@@ -9,6 +9,7 @@
   {% if view.grade_zero %}<p class="review-note">Zero recorded. A zero can mean not graded yet, not handed in, or handed in on paper — ask before assuming.</p>{% endif %}
   {% if view.verdict.state in ('question', 'decided') %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% if view.verdict.state == 'waiting' %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
+  {% set pk = view.verdict | pace_key %}{% if pk %}<p class="review-note app-count">{{ pk | say(tier | default(''), view.verdict.pace) }}</p>{% endif %}
   {% if view.latest_note %}<p>Latest note ({{ view.latest_note.at | wd_md }}): {{ view.latest_note.body }}</p>{% endif %}
   {% if view.flag %}<p>Your answer: {{ {"done": "it's done", "excused": "excused", "ignore": "let it go", "follow_up": "following up", "ask_teacher": "asked the teacher"}.get(view.flag, view.flag) }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}
 </div>

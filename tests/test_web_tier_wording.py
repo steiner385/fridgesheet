@@ -49,7 +49,7 @@ def test_no_grade_set_renders_words_not_table_keys(tmp_path):
     of the `older` phrase. The verdict words are keys too ("where.still_ungraded")."""
     seed(tmp_path).close()
     body = client_with_grades(tmp_path).get("/kids/Alex?show=all").text
-    assert "No grade after a week" in body and "Was it handed in?" in body
+    assert "No grade, longer than usual" in body and "Was it handed in?" in body
     import re
     assert not re.search(r"\b(where|ask|facts|a)\.[a-z_]+\b", body.split("<body", 1)[1]), "a raw phrase key reached the page"
 

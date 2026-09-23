@@ -38,7 +38,7 @@ def test_hac_grade_over_automatic_missing_is_decided():
     v = run(item(), {"canvas": canvas(missing=1), "hac": hac(score=28.0)})
     assert (v.state, v.kind) == (V.DECIDED, "graded_in_hac")
     assert v.facts == {"hac": "28 of 30"}
-    assert [a.flag for a in v.answers] == ["done", "ask_teacher"]      # what "Not right?" offers
+    assert [a.action for a in v.answers] == ["done", "ask_teacher"]      # what "Not right?" offers
 
 
 def test_missing_recorded_after_the_hac_grade_is_a_question():
@@ -110,7 +110,7 @@ def test_a_done_flag_contradicted_later_is_a_stale_answer():
     v = run(item(), {"canvas": canvas(rid=3, missing=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
     assert (v.state, v.kind) == (V.QUESTION, "stale_answer")
     assert v.facts == {"flag": "it's done", "when": "9/10", "change": "Canvas now says missing"}
-    assert [a.flag for a in v.answers] == ["confirm", "clear", "ask_teacher"]
+    assert [a.action for a in v.answers] == ["confirm", "clear", "ask_teacher"]
 
 
 def test_stale_check_accepts_a_naive_flag_timestamp():
@@ -206,7 +206,7 @@ def test_a_graded_ask_teacher_is_asked_then_graded_with_its_own_answers():
     v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="ask_teacher",
             flag_set_at="2026-09-10T08:00:00-04:00")
     assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
-    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert [a.action for a in v.answers] == ["done", "confirm"]
     assert V.say("ask." + v.kind, "") != "ask." + v.kind
 
 
@@ -244,9 +244,36 @@ def test_follow_up_is_its_own_status_not_asked_the_teacher():
 def test_a_graded_follow_up_does_not_say_you_asked_the_teacher():
     v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="follow_up",
             flag_set_at="2026-09-10T08:00:00-04:00")
-    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
-    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert (v.state, v.kind) == (V.DECIDED, "followed_up_then_graded")           # spec 5: good news settles it
+    assert [a.action for a in v.answers] == ["confirm", "done"]
     assert "asked the teacher" not in V.say("facts." + v.kind, "", v.facts).lower()
+
+
+def test_a_follow_up_overtaken_by_a_zero_is_still_a_question():
+    """Review Focus 5."""
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=0.0)}, flag="follow_up",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
+
+
+def test_a_follow_up_where_missing_became_a_zero_is_still_a_question():
+    """Review Focus 5, the other road to a zero: the teacher replaces Canvas's Missing with a
+    graded 0. The missing mark going away is not good news when a zero took its place."""
+    v = _run_prev({"canvas": canvas(rid=3, missing=0, state="graded", score=0.0)}, {"canvas": canvas(rid=1, missing=1)},
+                  "follow_up", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
+
+
+def test_a_follow_up_closed_by_canvas_dropping_missing_is_decided():
+    v = _run_prev({"canvas": canvas(rid=3, missing=0)}, {"canvas": canvas(rid=1, missing=1)},
+                  "follow_up", "2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.DECIDED, "followed_up_then_graded")
+
+
+def test_an_ask_overtaken_by_good_news_is_still_a_question():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="ask_teacher",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "asked_then_graded")
 
 
 def test_under_the_hac_preference_a_later_missing_is_decided_not_asked():
@@ -309,11 +336,117 @@ def test_missing_work_offers_handed_in_and_plan_without_asking():
     """#74: a red row with no question still needs a one-tap "it's handed in"."""
     v = run(item(), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "not_done")
-    assert [a.flag for a in v.answers] == ["done", None]
+    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow"]
     assert V.say("facts.not_done", "", v.facts) == "Canvas marks it missing."
 
 
 def test_past_credit_work_offers_let_it_go():
     v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "past_credit")
-    assert [a.flag for a in v.answers] == ["ignore", "done"]
+    assert [a.action for a in v.answers] == ["ignore", "done", "plan:today"]
+
+
+# --- one-tap answers on every card (spec 6.2) ------------------------------------------------------
+
+def test_upcoming_work_offers_today_tomorrow_and_handed_in():
+    v = run(item(due="2026-09-20T23:59:00-04:00"), {"canvas": canvas()})
+    assert (v.state, v.kind) == (V.STATUS, "not_due_yet")
+    assert [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+
+
+def test_undated_work_offers_the_same():
+    v = run(item(due=None, kind="paper"), {"canvas": canvas()})
+    assert v.kind == "not_due_yet" and [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+
+
+def test_still_ungraded_offers_handed_in_today_tomorrow_and_ask():
+    v = run(item(kind="paper", due="2026-09-01T23:59:00-04:00"), {"canvas": canvas()})
+    assert v.kind == "still_ungraded"
+    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow", "ask_teacher"]
+
+
+def test_waiting_cards_offer_ask_the_teacher():
+    sub = "2026-09-14T20:00:00-04:00"
+    assert [a.action for a in run(item(), {"canvas": canvas(state="submitted", submitted_at=sub)}).answers] == ["ask_teacher"]
+
+
+def test_no_answer_opens_a_form_any_more():
+    for answers in V.ANSWERS.values():
+        for a in answers:
+            assert a.action is not None and a.action in V.ACTIONS, a
+
+
+# --- the learned pace (spec 4.5, 4.6) ------------------------------------------------------------
+
+from fridgesheet.web import pace as P
+
+
+class _Fixed:
+    """A Pace that answers one number for everything."""
+    def __init__(self, days, n=6, scope="course_kind"):
+        self.est = P.Estimate(days, n, scope)
+
+    def grade_days(self, item):
+        return self.est
+
+    def hac_days(self, item):
+        return self.est
+
+
+def _paced(it, obs, pace, now=NOW):
+    return V.verdict(it, obs, flag=None, flag_set_at="", now=now, rules=RULES, refresh_times=TIMES, pace=pace)
+
+
+def test_paper_work_waits_for_the_learned_pace_not_seven_days():
+    v = _paced(item(kind="paper", due="2026-09-05T23:59:00-04:00"), {"canvas": canvas()}, _Fixed(12))
+    assert (v.state, v.kind) == (V.WAITING, "awaiting_grade")            # 10 days on, 12 allowed
+    assert v.asks_on.isoformat() == "2026-09-17"
+    assert v.pace == {"which": "grade", "days": 12, "n": 6, "scope": "course_kind", "what": "assignments in this class",
+                      "by": "Thu 9/17", "elapsed": "10 days", "passed": False}
+    assert V.pace_key(v) == "pace.expect"
+
+
+def test_paper_work_past_the_learned_pace_is_a_question_that_says_so():
+    v = _paced(item(kind="paper", due="2026-09-01T23:59:00-04:00"), {"canvas": canvas()}, _Fixed(12))
+    assert (v.state, v.kind) == (V.QUESTION, "still_ungraded")
+    assert v.pace["elapsed"] == "14 days" and v.pace["passed"] is True and V.pace_key(v) == "pace.passed"
+
+
+def test_hac_lag_waits_for_the_learned_hac_pace():
+    v = _paced(item(), {"canvas": canvas(rid=2, state="graded", score=18.0), "hac": hac(rid=2)}, _Fixed(10))
+    assert (v.state, v.kind) == (V.WAITING, "hac_lag")                   # seen 9/8, 7 days on, 10 allowed
+    assert v.asks_on.isoformat() == "2026-09-18"
+    assert v.pace["which"] == "hac" and V.pace_key(v) == "pace.hac_expect"
+    v = _paced(item(), {"canvas": canvas(rid=1, state="graded", score=18.0), "hac": hac(rid=1)}, _Fixed(10))
+    assert v.kind == "hac_still_blank" and V.pace_key(v) == "pace.hac_passed"
+
+
+def test_submitted_ungraded_carries_the_pace_sentence_but_keeps_waiting():
+    sub = "2026-09-01T20:00:00-04:00"
+    v = _paced(item(), {"canvas": canvas(state="submitted", submitted_at=sub)}, _Fixed(4))
+    assert (v.state, v.kind) == (V.WAITING, "teacher_grading")
+    assert v.asks_on is None
+    assert v.pace["by"] == "Sat 9/5" and V.pace_key(v) == "pace.passed"
+
+
+def test_the_default_scope_is_seven_days_and_says_it_has_no_history():
+    v = run(item(kind="paper", due="2026-09-10T23:59:00-04:00"), {"canvas": canvas()})   # no pace given
+    assert v.asks_on.isoformat() == "2026-09-17"
+    assert v.pace["scope"] == "default" and V.pace_key(v) == "pace.default"
+    v = _paced(item(), {"canvas": canvas(rid=3, state="graded", score=18.0), "hac": hac(rid=3)}, P.DEFAULT)
+    assert V.pace_key(v) == "pace.hac_default"
+
+
+def test_the_teacher_scope_is_attributed_to_the_teacher():
+    v = _paced(item(kind="paper", due="2026-09-10T23:59:00-04:00"), {"canvas": canvas()}, _Fixed(9, scope="teacher"))
+    assert v.pace["what"] == "assignments from this teacher"
+
+
+def test_verdicts_without_a_grace_period_carry_no_pace():
+    assert run(item(), {"canvas": canvas(missing=1)}).pace is None
+    assert V.pace_key(V.Verdict(V.STATUS, "not_done")) is None
+
+
+def test_one_day_elapsed_is_singular():
+    v = _paced(item(kind="paper", due="2026-09-14T23:59:00-04:00"), {"canvas": canvas()}, _Fixed(5))
+    assert v.pace["elapsed"] == "1 day"

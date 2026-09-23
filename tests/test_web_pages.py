@@ -52,7 +52,7 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     # Three columns (Due, Assignment, Where it stands): Homework 4 is too late for credit (and
     # red: Canvas marked it missing), "today" hangs off the Due date, and the HAC-only
     # Participation says in words that a week has gone by with no grade.
-    assert "Canvas marks it missing · past the late-work window" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade after a week" in table
+    assert "Canvas marks it missing · past the late-work window" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade, longer than usual" in table
     assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links

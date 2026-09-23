@@ -17,6 +17,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
 from urllib.parse import unquote, urlsplit
+from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -190,7 +191,8 @@ def _filters(state: AppState) -> dict:
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
             "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
             "standing": lambda item, tier: verdicts.standing(item, tier),
-            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num}
+            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num,
+            "pace_key": verdicts.pace_key}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
@@ -199,6 +201,7 @@ def _filters(state: AppState) -> dict:
 #: recompiles every template on every page).
 ENV = jinja2.Environment(loader=jinja2.FileSystemLoader(str(HERE / "templates")), autoescape=True)
 ENV.globals["FLAG_CHOICES"] = flagstore.CHOICES          # the detail card's flag menu (#3)
+ENV.globals["request_key"] = lambda: str(uuid4())      # one token per rendered card (spec 6.3)
 
 
 def _env(request: Request) -> jinja2.Environment:

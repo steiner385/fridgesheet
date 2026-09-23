@@ -16,7 +16,7 @@ from ... import config, sources
 from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile, verdicts
-from . import num, plans
+from . import num, plans, pace as pace_store
 
 SHOW = ("open", "actionable", "all")
 SORTS = ("due", "course", "name", "status")
@@ -292,6 +292,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     flag_text = {i: r["text"] for i, r in active_flags.items()}
     refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
     checked = last_checked(conn)
+    pace = pace_store.load(conn)                  # what each class usually takes, from the history (web/pace.py)
     # The first active step per assignment, in plan order (planned_for, position).
     steps: dict[int, dict] = {}
     for s in plans.for_student(conn, student["id"]):
@@ -326,7 +327,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0),
             verdict=verdicts.verdict(r, obs, flag=r["flag"], flag_set_at=r["flag_set_at"] or "", now=now, rules=rules,
-                                     refresh_times=refresh_times, prefer=prefer, prev_obs=previous.get(r["id"], {})),
+                                     refresh_times=refresh_times, prefer=prefer, prev_obs=previous.get(r["id"], {}), pace=pace),
             canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
             hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
             canvas_checked=checked.get("canvas", "") if "canvas" in obs else "",
