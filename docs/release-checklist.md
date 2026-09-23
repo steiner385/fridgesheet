@@ -1,10 +1,19 @@
 # Release checklist — the human part
 
 This is what you (Tony, or whoever else ends up running this) do on a real Windows PC,
-with a real printer and a real phone, before pushing a tag. **CI has already proved
+with a real printer and a real phone, after a release ships. **CI has already proved
 everything it can prove on a runner with no printer, no phone and no camera; this
 checklist only covers what's left.** Nothing here can be done by an agent — there is no
 substitute for a real PC and your own eyes.
+
+**A release ships on every merge to `main`, not by hand.** `.github/workflows/release.yml`
+waits for `ci` to pass on the merge commit, then picks the version itself
+(`packaging/pick_version.py`): a deliberate bump in `pyproject.toml` wins outright, otherwise
+the latest published tag's patch number goes up by one. It tags and publishes without a
+human pushing anything. A pushed `v*` tag or `workflow_dispatch` still works for a
+deliberate, hand-chosen version — the automatic path is only the default for an ordinary
+merge. A merge commit whose message contains `[skip release]` is skipped, for a change
+that should not ship on its own (e.g. one half of a two-PR split).
 
 Work through it in order. Every box has the result you should see next to it; if you see
 something else, stop and fix it before moving on — the sections build on each other (you

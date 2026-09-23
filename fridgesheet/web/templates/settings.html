@@ -27,11 +27,8 @@
        One class or one kid can differ: set it on the class's page.</span></p>
   <p><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
   <p class="muted">Automatic printing: {{ status }}</p>
-  <p class="muted">{{ about.split('\n')[0] }}
-     {% if update is none %}· update checks are off
-     {% elif update.error %}· could not check for updates ({{ update.error }})
-     {% elif update.available %}· <strong>Fridge Sheet {{ update.latest }} is available — <a href="{{ update.url }}">download the installer</a></strong>. Run it over this one; it stops and restarts the app itself.
-     {% else %}· up to date (checked {{ update.checked_at | time12 }}){% endif %}</p>
+  <p class="muted">{{ about.split('\n')[0] }}</p>
+  {% include "_update_status.html" %}
   <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label>
      <span class="muted">(the only thing this app talks to besides the school systems; it sends nothing)</span></p>
   <p><label>Update PIN

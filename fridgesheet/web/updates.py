@@ -106,12 +106,15 @@ def latest_release(fetch: Callable[[str], bytes] | None = None) -> tuple[str, st
     return tag.lstrip("v"), str(data.get("html_url") or RELEASES_PAGE), "", 0
 
 
-def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None) -> Update | None:
-    """The cached answer if it is fresh, else a new one. None when the parent turned it off."""
+def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None, force: bool = False) -> Update | None:
+    """The cached answer if it is fresh, else a new one. None when the parent turned it off.
+    `force` skips the freshness check -- for a parent's own "check now" click -- but still
+    honours the checkbox: a click cannot re-enable the one outbound call the parent turned
+    off."""
     if not state.settings.web_check_updates:
         return None
     cached: Update | None = state.extra.get(CACHE_KEY)
-    if cached is not None and cached.checked_at is not None:
+    if not force and cached is not None and cached.checked_at is not None:
         age = now - cached.checked_at
         if age < (TTL_ERROR if cached.error else TTL_OK):
             return cached

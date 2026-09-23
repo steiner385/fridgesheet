@@ -4,13 +4,37 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  # Release on merge: `ci` already runs the full test matrix on every push to `main`
+  # (ci.yml has no branch filter), so this waits for that run rather than re-running the
+  # matrix here. A merge only reaches the build step once `ci` has said the tests pass.
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
+
+# Serializes merges to main so two quick ones cannot both compute the same "next patch"
+# version. Never cancels a build already in flight -- that would leave a half-built,
+# half-tagged release behind.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   build:
+    # A tag push or manual dispatch always runs; a `ci`-triggered run only proceeds when ci
+    # succeeded and the merge commit did not opt out.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       !contains(github.event.workflow_run.head_commit.message, '[skip release]'))
     runs-on: windows-latest
     permissions:
-      contents: write     # needed only by the publish step (Publish the GitHub release), below
+      contents: write     # needed by both the version-picking step's tag push and Publish, below
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0   # the version-picking step below needs the full tag history
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Tag must match pyproject version
@@ -21,6 +45,27 @@ jobs:
         run: |
           $v = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
           if ($env:REF_NAME -ne "v$v") { throw "tag $env:REF_NAME does not match pyproject version $v" }
+      - name: Pick and tag the version for this merge
+        # Only a `ci`-triggered run gets here without an operator having already chosen a
+        # version by hand (a pushed tag, or workflow_dispatch off a checked-out ref). The
+        # picked version is stamped into this job's own pyproject.toml so build.ps1 (which
+        # reads it) names the installer correctly; that edit is never committed back to
+        # main -- packaging/pick_version.py's docstring explains why pyproject.toml is left
+        # as the floor between deliberate bumps rather than kept in lockstep.
+        if: github.event_name == 'workflow_run'
+        id: version
+        shell: pwsh
+        run: |
+          $pyVersion = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          $latestTag = git tag --list "v*" --sort=-v:refname | Select-Object -First 1
+          if (-not $latestTag) { $latestTag = "" }
+          $next = (python packaging\pick_version.py $pyVersion $latestTag).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "pick_version.py failed" }
+          Write-Host "release: $next (pyproject $pyVersion, latest tag '$latestTag')"
+          "version=$next" >> $env:GITHUB_OUTPUT
+          (Get-Content pyproject.toml) -replace '^version = ".+"', "version = `"$next`"" | Set-Content pyproject.toml
+          git tag "v$next"
+          git push origin "v$next"
       - name: Build, smoke-test and package
         shell: pwsh
         run: .\packaging\windows\build.ps1
@@ -30,9 +75,10 @@ jobs:
           path: dist/FridgeSheet-Setup-*.exe
           if-no-files-found: error
       - name: Publish the GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_run'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
+          tag_name: ${{ steps.version.outputs.version && format('v{0}', steps.version.outputs.version) || github.ref_name }}
           files: dist/FridgeSheet-Setup-*.exe
           generate_release_notes: true
           body: |
