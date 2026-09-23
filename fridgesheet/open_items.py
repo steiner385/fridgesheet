@@ -25,7 +25,7 @@ from . import sources as _sources
 from .matching import hac_item_key, match_course, same_item, short_course
 
 OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "HAC — NO GRADE")
-HANDLED_FLAGS = ("done", "excused", "ignore")     # these remove the item from the open list
+HANDLED_FLAGS = ("done", "excused", "ignore", "too_late")     # these remove the item from the open list
 MARKED_FLAGS = ("follow_up", "ask_teacher")       # these print a marker in the status column
 ASSESSMENT_WORDS = ("quiz", "test", "assess", "exam")   # an assignment group naming one of these is graded work that counts
 

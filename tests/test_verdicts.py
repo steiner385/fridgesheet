@@ -303,6 +303,11 @@ def test_an_answered_item_says_what_was_recorded_and_when():
     assert V.standing(_view(v, flag="done"), "") == "Marked done on 9/15"
 
 
+def test_a_too_late_flag_says_marked_too_late_to_submit():
+    v = run(item(), {"canvas": canvas(missing=1)}, flag="too_late", flag_set_at="2026-09-15T08:00:00-04:00")
+    assert V.standing(_view(v, flag="too_late"), "") == "Marked too late to submit on 9/15"
+
+
 def test_asked_says_when_in_where_it_stands():
     v = run(item(), {"canvas": canvas(missing=1)}, flag="ask_teacher", flag_set_at="2026-09-15T08:00:00-04:00")
     assert V.standing(_view(v, flag="ask_teacher"), "") == "Asked the teacher on 9/15"
@@ -336,14 +341,14 @@ def test_missing_work_offers_handed_in_and_plan_without_asking():
     """#74: a red row with no question still needs a one-tap "it's handed in"."""
     v = run(item(), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "not_done")
-    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow"]
+    assert [a.action for a in v.answers] == ["done", "plan:today", "plan:tomorrow", "too_late"]
     assert V.say("facts.not_done", "", v.facts) == "Canvas marks it missing."
 
 
 def test_past_credit_work_offers_let_it_go():
     v = run(item(due="2026-08-20T23:59:00-04:00"), {"canvas": canvas(missing=1)})
     assert (v.state, v.kind) == (V.STATUS, "past_credit")
-    assert [a.action for a in v.answers] == ["ignore", "done", "plan:today"]
+    assert [a.action for a in v.answers] == ["ignore", "done", "plan:today", "too_late"]
 
 
 # --- one-tap answers on every card (spec 6.2) ------------------------------------------------------
@@ -351,12 +356,12 @@ def test_past_credit_work_offers_let_it_go():
 def test_upcoming_work_offers_today_tomorrow_and_handed_in():
     v = run(item(due="2026-09-20T23:59:00-04:00"), {"canvas": canvas()})
     assert (v.state, v.kind) == (V.STATUS, "not_due_yet")
-    assert [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+    assert [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done", "too_late"]
 
 
 def test_undated_work_offers_the_same():
     v = run(item(due=None, kind="paper"), {"canvas": canvas()})
-    assert v.kind == "not_due_yet" and [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done"]
+    assert v.kind == "not_due_yet" and [a.action for a in v.answers] == ["plan:today", "plan:tomorrow", "done", "too_late"]
 
 
 def test_still_ungraded_offers_handed_in_today_tomorrow_and_ask():

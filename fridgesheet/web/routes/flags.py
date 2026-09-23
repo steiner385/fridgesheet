@@ -12,7 +12,7 @@ from .. import db
 router = APIRouter()
 
 LABELS = {"done": "Marked done", "excused": "Marked excused", "ignore": "Ignored", "follow_up": "Marked follow up",
-          "ask_teacher": "Marked ask teacher", "clear": "No flag"}
+          "ask_teacher": "Marked ask teacher", "too_late": "Marked too late to submit", "clear": "No flag"}
 
 
 @router.post("/items/{item_id}/flag")

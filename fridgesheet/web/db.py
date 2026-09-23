@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -181,6 +181,25 @@ CREATE INDEX checkins_student ON checkins(student_id, id);
 """
 
 
+_SCHEMA_V3 = """
+-- SQLite cannot ALTER a CHECK constraint, so the flag family (#104's "too late to submit")
+-- means rebuilding the table: a new one with the wider constraint, the old rows copied over,
+-- the old one dropped, the new one renamed into its place.
+CREATE TABLE flags_v3 (
+    id INTEGER PRIMARY KEY,
+    item_id INTEGER NOT NULL REFERENCES items(id),
+    flag TEXT NOT NULL CHECK (flag IN ('done', 'excused', 'ignore', 'follow_up', 'ask_teacher', 'too_late')),
+    text TEXT NOT NULL DEFAULT '',
+    set_at TEXT NOT NULL,
+    cleared_at TEXT
+);
+INSERT INTO flags_v3 SELECT * FROM flags;
+DROP TABLE flags;
+ALTER TABLE flags_v3 RENAME TO flags;
+CREATE UNIQUE INDEX flags_one_active ON flags(item_id) WHERE cleared_at IS NULL;
+"""
+
+
 def db_path(home: Path) -> Path:
     return home / DB_NAME
 
@@ -233,6 +252,9 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 2:
         conn.executescript("BEGIN;\n" + _SCHEMA_V2 + "\nUPDATE schema_version SET version = 2;\nCOMMIT;")
         v = 2
+    if v < 3:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V3 + "\nUPDATE schema_version SET version = 3;\nCOMMIT;")
+        v = 3
     return v
 
 

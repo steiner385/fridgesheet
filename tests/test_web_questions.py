@@ -26,6 +26,15 @@ def test_answering_sets_the_flag_and_collapses_to_one_line_with_undo(tmp_path):
     assert flags.active(conn, pid)["flag"] == "done"
 
 
+def test_answering_too_late_sets_the_flag_and_leaves_the_open_list(tmp_path):
+    c, pid = _setup(tmp_path)
+    r = c.post(f"/items/{pid}/answer", data={"answer": "too_late", "prev": ""})
+    assert r.status_code == 200
+    conn = db.open_db(tmp_path)
+    assert flags.active(conn, pid)["flag"] == "too_late"
+    assert "Participation" not in c.get("/kids/Alex").text
+
+
 def test_undo_restores_the_previous_state_and_the_question(tmp_path):
     c, pid = _setup(tmp_path)
     c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""})

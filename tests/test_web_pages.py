@@ -91,7 +91,7 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     assert "Canvas" in body and "marked missing" in body and "HAC" in body and "28 of 30" in body   # the record
     assert "HAC has 28 of 30. Canvas still says missing" in body          # the verdict: decided, with its reason
     assert "Asked Mr Hoch" in body
-    for f in ("done", "excused", "ignore", "follow_up", "ask_teacher"):
+    for f in ("done", "excused", "ignore", "follow_up", "ask_teacher", "too_late"):
         assert f'value="{f}"' in body, f
     assert f'hx-post="/items/{qid}/flag"' in body and f'hx-post="/notes"' in body
 
