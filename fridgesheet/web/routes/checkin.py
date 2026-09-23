@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from .. import outcomes
-from ..app import Db, State, render, student_or_404
+from ..app import Db, State, render, safe_return, student_or_404
 from ..stores import items, plans
 
 router = APIRouter()
@@ -160,6 +160,7 @@ def _form_context(conn, student, state, item_id=None, step_id=None, default_stat
 def step_form(key: str, request: Request, item_id: str | None = None, step_id: str | None = None, conn=Db, state=State):
     ctx = _form_context(conn, student_or_404(conn, key), state, _id(item_id), _id(step_id),
                         default_state=request.query_params.get("state", "planned"))
+    ctx["return_to"] = safe_return(request.query_params.get("return_to"))
     return render(request, conn, "plan_step.html", **ctx)
 
 
@@ -193,6 +194,8 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
     ctx = _form_context(conn, student, state, item_id, step_id)
     form = await request.form()
     values = {k: str(form.get(k, "")).strip() for k in (*plans.FIELDS, "request_key", "revision")}
+    # Where the family came from (#48): saving returns there, not always to the check-in.
+    ctx["return_to"] = return_to = safe_return(str(form.get("return_to", "")))
     try:
         for k, label in (("title", "Assignment or task"), ("next_step", "Agreed next step"), ("owner", "Who will do this")):
             if not values[k] or len(values[k]) > 500:
@@ -225,7 +228,7 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
     except ValueError as exc:
         ctx.update(values=values, error=str(exc))
         return render(request, conn, "plan_step.html", status_code=422, **ctx)
-    return RedirectResponse(root(key) + "?saved=1#plan", status_code=303)
+    return RedirectResponse(return_to or root(key) + "?saved=1#plan", status_code=303)
 
 
 @router.post("/kids/{key}/check-in/step/{step_id}/delete")

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -15,7 +16,7 @@ from html import escape
 from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -188,8 +189,39 @@ def question_counts(conn: sqlite3.Connection, state) -> dict[str, int]:
     out = {}
     for s in students.visible(conn):
         views = items_store.list_items(conn, s, now=state.now(), rules=state.rules(), show="all", prefs=state.sources())
-        out[s["key"]] = sum(1 for v in views if v.verdict.state == "question")
+        out[s["key"]] = sum(1 for v in views if v.asks)
     return out
+
+
+def here(request: Request) -> str:
+    """The page the person is looking at, as a same-site path: for an htmx partial, the page
+    htmx says it was requested from; otherwise this request's own path. Links that leave for a
+    form (planning a step) carry it as `return_to`, so saving comes back here."""
+    current = request.headers.get("HX-Current-URL")
+    if current:
+        u = urlsplit(current)
+        return u.path + (f"?{u.query}" if u.query else "")
+    return request.url.path + (f"?{request.url.query}" if request.url.query else "")
+
+
+_SNEAKY = re.compile(r"[\s\x00-\x1f\x7f\\]")
+
+
+def safe_return(raw: str | None) -> str | None:
+    """`raw` if it is a path on this site, else None: never another host, a scheme, or a
+    protocol-relative `//host`. Browsers read "\\" as "/" and drop tabs and newlines from a
+    Location header, so "/\\evil" or "/<tab>/evil" would become "//evil" and leave the site:
+    raw whitespace, control characters and backslashes are refused outright, and so is
+    anything that turns into "//" once percent-decoded and normalised the way a browser would."""
+    if not raw or _SNEAKY.search(raw):
+        return None
+    u = urlsplit(raw)
+    if u.scheme or u.netloc or not u.path.startswith("/") or u.path.startswith("//"):
+        return None
+    normalised = _SNEAKY.sub(lambda m: "/" if m.group(0) == "\\" else "", unquote(raw))
+    if normalised.startswith("//"):
+        return None
+    return raw
 
 
 def page_context(request: Request, conn: sqlite3.Connection) -> dict:
@@ -207,6 +239,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "update": updates.cached(state),              # never a network call here: the last answer, or None
         "staleness": staleness.check(conn, state.now()),
         "question_counts": question_counts(conn, state),
+        "here": here(request),
     }
 
 

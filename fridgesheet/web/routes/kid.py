@@ -49,7 +49,8 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     rows = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), **f)
     # The sections above the table cover all of the kid's work, whatever the table shows.
     everything = items.list_items(conn, s, now=now, rules=rules, days_ahead=state.days_ahead(), prefs=state.sources(), show="all")
-    by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("question", "decided", "waiting")}
+    by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
+    by_state["question"] = [v for v in everything if v.asks]          # an agreed step already covers the rest
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
                   questions=by_state["question"], decided=by_state["decided"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Choose a next step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
-<p><a href="{{ base }}#plan">← {{ student.key | nickname }}’s check-in</a></p>
+{% set back = return_to if return_to is defined and return_to else base ~ '#plan' %}
+<p><a href="{{ back }}">← {{ 'Back' if return_to is defined and return_to else student.key | nickname ~ '’s check-in' }}</a></p>
 {% if step_id %}<h2>Edit a step</h2><p>Change what was agreed, mark it complete, or put it back.</p>
 {% elif item_id %}<h2>Choose a next step</h2><p>What happened, and what would help move this forward?</p>
 {% else %}<h2>Add a task</h2><p>Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment.</p>{% endif %}
@@ -16,7 +17,7 @@
 {% endif %}
 {% if view %}<div class="card"><p class="eyebrow">{{ view.course_short }}</p>{% include "_planning_evidence.html" %}</div>{% endif %}
 <form class="plan-form card" method="post" action="{{ base }}/step{% if step_id %}?step_id={{ step_id }}{% elif item_id %}?item_id={{ item_id }}{% endif %}">
-  <input type="hidden" name="request_key" value="{{ values.request_key }}"><input type="hidden" name="revision" value="{{ values.revision }}">
+  <input type="hidden" name="request_key" value="{{ values.request_key }}">{% if return_to is defined and return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}<input type="hidden" name="revision" value="{{ values.revision }}">
   <label>Assignment or task<input name="title" required maxlength="500" value="{{ values.title }}"></label>
   <label>Family account <span class="muted">(optional: your side of the story)</span><textarea name="family_account" maxlength="4000" placeholder="I handed this in on paper Tuesday. / I’m stuck on question 4.">{{ values.family_account }}</textarea></label>
   <label>Agreed next step<input name="next_step" required maxlength="500" value="{{ values.next_step }}" placeholder="Complete questions 1–4, then put the worksheet in my bag"></label>
@@ -28,7 +29,7 @@
   <div class="form-pair"><label>Order within this day <span class="muted">(lower goes first)</span><input type="number" name="position" min="1" max="999" required value="{{ values.position }}"></label>
   <label>Recorded by <span class="muted">(optional)</span><input name="recorded_by" maxlength="100" value="{{ values.recorded_by }}" placeholder="Mom, Dad, Grandma…"></label></div>
   <p class="muted">A waiting or help-needed step stays in the plan until you change it. Its date is when you’ll check again.</p>
-  <div class="actions"><button class="primary">Save step</button> <a href="{{ base }}#plan">Cancel</a></div>
+  <div class="actions"><button class="primary">Save step</button> <a href="{{ back }}">Cancel</a></div>
 </form>
 {% if step_id %}
 <form class="remove-step" method="post" action="{{ base }}/step/{{ step_id }}/delete" data-confirm="Remove this step? Agreements already saved keep their copy.">

@@ -78,7 +78,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
         views = items.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs)
         groups.append({
             "student": s,
-            "questions": [v for v in views if v.verdict.state == "question"],
+            "questions": [v for v in views if v.asks],
             "past_credit": [v for v in views if v.verdict.kind == "past_credit"],
             "twins": items.near_twins(conn, views),
         })
