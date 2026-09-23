@@ -49,11 +49,13 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # the same seam `schedules.rows` uses. Without it every /settings render shells out to the
     # real `systemctl --user`, and a page test asserts on whatever this machine's own systemd
     # says rather than on its fake.
-    lan_url = actions.lan_url(form.port) if form.allow_lan else None
+    # The port this process answers on, not the one config.toml holds for the next start (#9).
+    port = state.settings.web_port
+    lan_url = actions.lan_url(port) if form.allow_lan else None
     # The one network call the page makes that is not to a school system: once a day, cached
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
-    tailnet_url = _tailnet_url(form.port) if form.allow_lan else None
+    tailnet_url = _tailnet_url(port) if form.allow_lan else None
     # The two refusals that keep the update button from starting something it can already
     # predict will go wrong -- see `_update_button.html`. `info.installed` is only asked for
     # once the first two guards pass: on most machines and most page loads (checks off, or no

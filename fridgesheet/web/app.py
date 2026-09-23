@@ -10,7 +10,7 @@ import ipaddress
 import json
 import re
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from html import escape
 from importlib import metadata
@@ -63,14 +63,19 @@ class AppState:
 
     def reload(self) -> None:
         """Re-read config.toml after Settings saved it (env overrides stay in force when the
-        server started from load_settings, because the process environment has not changed)."""
-        from .. import config
+        server started from load_settings, because the process environment has not changed).
+
+        The address this process is bound to is kept: a new port or LAN setting takes effect at
+        the next start, and until then the Host check and the Settings QR code must describe
+        the socket uvicorn actually holds -- including a `--host`/`--port` flag, which
+        config.toml knows nothing about (#9)."""
+        bound = self.settings
         if self.home == config.DEFAULT_HOME:
-            self.settings = config.load_settings()
+            s = config.load_settings()
         else:
             s = config.Settings(home=self.home)
             config.settings_from_doc(config.load_config_doc(self.home / "config.toml"), s)
-            self.settings = s
+        self.settings = replace(s, web_host=bound.bind_host, web_host_explicit=True, web_port=bound.web_port)
         self.extra["env"].filters.update(_filters(self))
 
     def rules(self) -> late_rules.LateRules:
@@ -389,6 +394,8 @@ def _host_allowed(host_header: str | None, settings: Settings) -> bool:
     both, and `actions.lan_url`'s probe can only ever name whichever one the default route
     happens to use. #38."""
     if not host_header:
+        return False
+    if any(c in host_header for c in "/?#"):   # `urlsplit` would end the authority there (#9)
         return False
     try:
         parsed = urlsplit(f"//{host_header}")

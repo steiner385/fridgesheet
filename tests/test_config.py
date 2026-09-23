@@ -259,7 +259,7 @@ def test_a_days_value_that_is_not_a_list_of_days_falls_back_to_the_default(tmp_p
 
     Treat it the way `[web]`'s port and `[kids].nicknames` already treat a value of the wrong
     shape: keep the default and read the rest of the table."""
-    for bad in (5, "Mon", True, {"Mon": True}, None):
+    for bad in (5, True, {"Mon": True}, None):
         s = config.Settings(home=tmp_path)
         config.settings_from_doc({"reports": {"open-work": {"enabled": True, "days": bad, "days_ahead": 7}}}, s)
         rc = s.report_config("open-work")
@@ -313,7 +313,7 @@ def test_a_misshapen_every_hours_keeps_the_default(bad):
     assert s.refresh.every_hours == 3
 
 
-@pytest.mark.parametrize("bad", [5, "Mon", None, {}])
+@pytest.mark.parametrize("bad", [5, None, {}])
 def test_misshapen_days_keep_the_default(bad):
     s = config.Settings()
     config.settings_from_doc(_doc_refresh(days=bad), s)
@@ -383,3 +383,23 @@ def test_a_bad_sources_table_does_not_fail_the_load():
     config.settings_from_doc({"sources": "hac"}, s)             # no exception
     config.settings_from_doc({"sources": {"grades": 3}}, s)
     assert s.sources.default.grades == "hac"
+
+
+@pytest.mark.parametrize("raw, want", [("Mon", ["Mon"]), ("Mon, Wed", ["Mon", "Wed"]), ("Mon Wed Fri", ["Mon", "Wed", "Fri"]),
+                                       ("Monday", ["Monday"])])
+def test_a_days_string_means_the_days_it_names(raw, want):
+    """#9: `days = "Mon"` fell back to all five weekdays in silence, so a hand edit meant to print
+    on Mondays printed every school day. A string now names its days; a name that is not a day
+    ("Monday") still reaches `host.check_schedule`, which says so when the schedule is installed."""
+    s = config.Settings()
+    config.settings_from_doc({"reports": {"open-work": {"days": raw}}, "refresh": {"days": raw}}, s)
+    assert s.report_config("open-work").days == want
+    assert s.refresh.days == want
+
+
+def test_a_days_value_of_the_wrong_shape_says_so(caplog):
+    s = config.Settings()
+    with caplog.at_level("WARNING"):
+        config.settings_from_doc({"reports": {"open-work": {"days": 5}}}, s)
+    assert s.report_config("open-work").days == config.WEEKDAYS
+    assert "[reports.open-work] days" in caplog.text

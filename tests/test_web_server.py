@@ -176,3 +176,26 @@ def test_a_host_flag_reaches_the_middleware_too(tmp_path):
     assert (app.state.fridgesheet.settings.web_host, app.state.fridgesheet.settings.web_host_explicit) == ("192.168.1.50", True)
     c = TestClient(app, headers={"host": "192.168.1.50:8433"})
     assert c.get("/").status_code == 200
+
+
+def test_reloading_settings_keeps_the_address_this_process_is_bound_to(tmp_path, monkeypatch):
+    """#9: `AppState.reload()` (every Settings save) rebuilt settings from config.toml and threw
+    away a folded `--port`/`--host`, so the middleware went back to expecting 8433 while uvicorn
+    still listened on 9000, and the Settings QR code advertised the wrong port. What this process
+    answers on cannot change until it restarts, whatever config.toml now says."""
+    from fridgesheet.web import actions
+    s = config.Settings(home=tmp_path)
+    config.save_config_doc(tmp_path / "config.toml", {"web": {"allow_lan": True}})
+    config.settings_from_doc(config.load_config_doc(tmp_path / "config.toml"), s)
+    apps = []
+    server.run(s, port=9000, serve=lambda app, host, port: apps.append(app), opener=lambda u: None, answers=lambda h, p: False)
+    (app,) = apps
+    app.state.fridgesheet.reload()
+    assert app.state.fridgesheet.settings.web_port == 9000
+    c = TestClient(app, headers={"host": "127.0.0.1:9000"})
+    assert c.get("/").status_code == 200
+    asked = []
+    monkeypatch.setattr(actions, "lan_url", lambda port, **k: asked.append(port) or f"http://192.168.1.50:{port}/")
+    monkeypatch.setattr(actions, "tailnet_url", lambda port, **k: None)
+    assert "http://192.168.1.50:9000/" in c.get("/settings").text
+    assert asked == [9000]

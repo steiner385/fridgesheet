@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass, field, replace
@@ -326,6 +327,21 @@ class Settings:
         return user, pw
 
 
+def _day_list(raw, default, where: str) -> list[str]:
+    """A `days` value as a list of day names. A list is taken as written. A string names its days
+    -- `days = "Mon"` meant Mondays, and falling back to every weekday printed five days a week
+    in silence (#9); `"Mon, Wed"` and `"Mon Wed"` read the same way. Any other shape keeps the
+    default, with a warning, rather than raising: a `TypeError` here is a traceback in the
+    uninstaller's `schedule remove --all`. A name that is not a day is left for
+    `host.check_schedule`, which refuses it loudly when the schedule is installed."""
+    if isinstance(raw, (list, tuple)):
+        return [str(d) for d in raw]
+    if isinstance(raw, str):
+        return [d for d in re.split(r"[\s,]+", raw) if d]
+    log.warning("%s must be a list of day names like [\"Mon\", \"Wed\"], got %r; using %s", where, raw, ", ".join(default))
+    return list(default)
+
+
 def settings_from_doc(doc: dict, s: Settings) -> None:
     """Apply config.toml. Unknown sections and keys are ignored so a newer file works with an older app."""
     raw_acct, raw_prn, raw_kids = doc.get("account"), doc.get("print"), doc.get("kids")
@@ -373,8 +389,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         # ["M", "o", "n"] -- and a `TypeError` out of here is a traceback in `schedule remove
         # --all`, which the uninstaller runs hidden with its exit code discarded, orphaning
         # every scheduled task. Same reasoning for a `reports` key that is not a table at all.
-        raw_days = sect.get("days", WEEKDAYS)
-        days = [str(d) for d in raw_days] if isinstance(raw_days, (list, tuple)) else list(WEEKDAYS)
+        days = _day_list(sect.get("days", WEEKDAYS), WEEKDAYS, f"[reports.{key}] days")
         s.reports[key] = ReportConfig(
             enabled=bool(sect.get("enabled", False)),
             time=time_val,
@@ -392,8 +407,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         # `bool` is an `int` subclass, so `every_hours = true` would otherwise read as 1.
         raw_every = raw_refresh.get("every_hours", s.refresh.every_hours)
         every = raw_every if isinstance(raw_every, int) and not isinstance(raw_every, bool) else s.refresh.every_hours
-        raw_days = raw_refresh.get("days", host.DAY_NAMES)
-        days = [str(d) for d in raw_days] if isinstance(raw_days, (list, tuple)) else list(host.DAY_NAMES)
+        days = _day_list(raw_refresh.get("days", host.DAY_NAMES), host.DAY_NAMES, "[refresh] days")
         s.refresh = RefreshConfig(enabled=bool(raw_refresh.get("enabled", False)),
                                   every_hours=every, start=str(start), end=str(end), days=days)
     s.sources = _sources.from_doc(doc)

@@ -114,6 +114,9 @@ function drawChart(el) {
   fetch(el.dataset.chart, { headers: { Accept: "application/json" } })
     .then(function (r) { return r.json(); })
     .then(function (data) {
+      // An htmx swap during the fetch may have removed this holder (and pruned already):
+      // drawing into it now would leave a detached uPlot in CHARTS that nothing destroys.
+      if (!document.contains(el)) return;
       var opts, series, width = chartWidth(el);
       if (el.dataset.kind === "weekly") {
         // `Date.parse` on a date-only string ("2026-08-24") parses as UTC midnight per spec;
