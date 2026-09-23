@@ -119,7 +119,7 @@ def test_the_kid_table_has_the_three_columns_and_the_old_composite_words_are_gon
     # A sortable heading carries an arrow inside its link when it is the column doing the
     # sorting (#11 item 9), so the label is not always the whole of the element's text.
     for header in ("Due", "Assignment", "Where it stands"):
-        assert re.search(rf">{header}(?:<| <span class=\"arrow\">)", table), header
+        assert re.search(rf">{header}(?:<| <span class=\"arrow\")", table), header
     for gone in (">Status<", ">Handed in<", ">Grade<", ">Sources<"):
         assert gone not in table, gone
     # The composite words the old Status column used for settled or waiting work are the

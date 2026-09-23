@@ -1,5 +1,5 @@
 /* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
-:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -10,7 +10,7 @@
    is the accessibility requirement and the age requirement at the same time. */
 [data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; }
 [data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; }
-[data-tier="older"]  { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
 
 /* A tier sets its type scale by applying the token to the element that carries the attribute.
    A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
@@ -45,7 +45,7 @@ a { color: var(--accent); }
 main { padding: 16px 24px 48px; max-width: 1100px; }
 header.status { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: var(--wash); border: 1px solid var(--rule); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); }
 .badge.OK { border-color: var(--ok); color: var(--ok); } .badge.FAIL { border-color: var(--warn); color: var(--warn); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
@@ -64,7 +64,7 @@ table.items th a { text-decoration: none; }
 /* The Kid table's three fact columns. `.rel` is the second, quieter half of a cell: "today"
    after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
    grade cells a parent must not skim past; a "No" in Handed in is the third. */
-td .rel { color: var(--muted); font-size: 12px; white-space: nowrap; }
+td .rel { color: var(--muted); font-size: 13px; }
 /* The Open work page's "thru Sat 9/26": one line, like the sheet prints it. */
 td.thru { white-space: nowrap; }
 /* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
@@ -75,7 +75,7 @@ td.sources { white-space: nowrap; }
 th .arrow { color: var(--muted); font-size: 11px; }
 /* The hour an assignment is actually due. Darker than `.rel`, because "7:20am" is the fact
    that decides whether tonight is the deadline; never wrapped away from its date. */
-td .at { font-size: 12px; white-space: nowrap; }
+td .at { font-size: 13px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
 td.where.red { color: var(--warn); font-weight: 600; }
 /* "On paper" and "Unknown": the two Handed in cells that are not an answer about the child.
@@ -94,9 +94,9 @@ tr.detail td { background: var(--wash); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; align-items: center; }
 fieldset { border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px; }
 legend { padding: 0 4px; font-weight: 600; }
-.flagmenu button, .actions button { margin: 2px 4px 2px 0; }
+.flagmenu button, .actions button { margin: 2px 8px 2px 0; }
 .note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
-.note .meta { font-size: 12px; color: var(--muted); }
+.note .meta { font-size: 13px; color: var(--muted); }
 textarea { width: 100%; min-height: 60px; font: inherit; }
 .case { border-left: 3px solid var(--accent); }
 .case.disagree { border-color: var(--warn); }
@@ -104,13 +104,13 @@ textarea { width: 100%; min-height: 60px; font: inherit; }
    "Print now" -- the one that spends paper -- indistinguishable from "Preview" (#40 item 15).
    `.primary` is the page's one main action; `.danger` is the one that deletes. Both keep the
    same size and shape as the rest, so a row of buttons still reads as a row. */
-button { font: inherit; padding: 6px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
+button { font: inherit; padding: 6px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
 button:hover { background: var(--wash); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 button.primary:hover { filter: brightness(1.1); }
 button.danger { color: var(--warn); border-color: var(--warn); }
 button:disabled { opacity: .5; cursor: default; }
-select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
+select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); }
 /* On a phone the rail used to stack *above* the page: fourteen links, then a 1,450px scroll
    to reach the first kid card (#40 item 1) -- on the very device the Settings QR code exists
    to put this on. Under 800px the rail becomes one horizontal strip that scrolls sideways,
@@ -190,7 +190,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .plan-form { display: grid; gap: 16px; max-width: 760px; margin-top: 18px; }
 .plan-form label { display: grid; gap: 6px; font-weight: 550; min-width: 0; }
 .plan-form input, .plan-form select, .plan-form textarea { width: 100%; min-width: 0; }
-.plan-form textarea { min-height: 88px; border: 1px solid var(--rule); border-radius: 6px; padding: 8px; }
+.plan-form textarea { min-height: 88px; border: 1px solid var(--control); border-radius: 6px; padding: 8px; }
 .plan-form p { margin: 0; }
 .plan-form > button { justify-self: start; }
 .form-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
@@ -264,3 +264,17 @@ table.work td.due small.rel { display: block; }
 .more-filters { display: inline-block; }
 .rail .count { color: var(--accent); font-weight: 600; font-size: 12px; }
 .badge.plan { border-color: var(--ok); color: var(--ok); }
+
+/* Accessibility (#43, #53) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+form.filters.htmx-request, .table-wrap.htmx-request { opacity: .6; }
+textarea { border: 1px solid var(--control); }
+/* Close only means something in a table's expanded row; the detail also appears in place of a
+   question card, where there is no row to fold away. */
+.close-detail { display: none; }
+tr.detail .close-detail { display: inline-block; float: right; }
+.note-edit { display: inline; }
+.note-edit[open] { display: block; }
+.flagmenu fieldset { border: 0; padding: 0; margin: 0; }
+.flagmenu legend { font-weight: 600; padding: 0; margin-bottom: 4px; }

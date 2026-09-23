@@ -14,10 +14,14 @@
   {%- set active = sort == id -%}
   {%- set flip = active and direction != 'desc' -%}
   {%- set href = sort_base ~ 'sort=' ~ id ~ ('&dir=desc' if flip else '') -%}
-  <th{% if active %} aria-sort="{{ 'descending' if direction == 'desc' else 'ascending' }}"{% endif %}>
-    <a href="{{ href }}" hx-get="{{ href }}" hx-target="#items" hx-push-url="true">{{ label
-      }}{% if active %} <span class="arrow">{{ '▼' if direction == 'desc' else '▲' }}</span>{% endif %}</a></th>
+  {#- The link keeps an id so htmx can put focus back on it after the table swaps; the arrow is
+      for eyes only, because aria-sort already tells a screen reader which way it sorts. #}
+  <th aria-sort="{{ ('descending' if direction == 'desc' else 'ascending') if active else 'none' }}">
+    <a id="sort-{{ id }}" href="{{ href }}" hx-get="{{ href }}" hx-target="#items" hx-push-url="true">{{ label
+      }}{% if active %} <span class="arrow" aria-hidden="true">{{ '▼' if direction == 'desc' else '▲' }}</span>{% endif %}</a></th>
 {%- endmacro %}
+<div class="table-wrap">
+<p class="sr-only" data-announce="{{ rows | length }} assignment{{ 's' if rows | length != 1 }} shown"></p>
 <table class="items work">
   <thead><tr>
     {{ sortable('due', 'Due') }}
@@ -32,7 +36,7 @@
        `due_time`), it does not translate a word, so the no-branching-on-tier rule for
        vocabulary does not apply here. #}
     <td class="due">{{ v.due | md if v.due else '' }}{% if tier == 'early' %}{% if v.due_part %} <span class="at">{{ v.due_part }}</span>{% endif %}{% elif v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
-    <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
+    <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML" aria-expanded="false" aria-controls="detail-{{ v.id }}">{{ v.name }}</a>
         {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
         {% if v.asks %}<a class="qmark" href="{{ q_base | default('') }}#q-{{ v.id }}">question</a>{% endif %}
         {% if v.step %}<span class="badge plan">in plan</span>{% endif %}
@@ -42,9 +46,10 @@
     {% set school_no = (v.grade == 'Missing' or v.grade_zero) and v.verdict.state != 'decided' %}
     <td class="where{{ ' red' if school_no }}">{{ v | standing(tier) }}</td>
   </tr>
-  <tr class="detail"><td colspan="3" id="detail-{{ v.id }}"></td></tr>
+  <tr class="detail" hidden><td colspan="3" id="detail-{{ v.id }}"></td></tr>
   {% else %}
   <tr><td colspan="3" class="muted">Nothing matches these filters.</td></tr>
   {% endfor %}
   </tbody>
 </table>
+</div>

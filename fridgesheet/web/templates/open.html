@@ -35,7 +35,7 @@
       <td class="thru">{% if v.late_until %}thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} <span class="rel">{{ v.credit }}</span>{% endif %}{% endif %}</td>
       <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
     </tr>
-    <tr class="detail"><td colspan="7" id="detail-{{ v.id }}"></td></tr>
+    <tr class="detail" hidden><td colspan="7" id="detail-{{ v.id }}"></td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -54,7 +54,7 @@
       <td>{{ pts(v.points) }}</td>
       <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
     </tr>
-    <tr class="detail"><td colspan="5" id="detail-{{ v.id }}"></td></tr>
+    <tr class="detail" hidden><td colspan="5" id="detail-{{ v.id }}"></td></tr>
     {% endfor %}
     </tbody>
   </table>

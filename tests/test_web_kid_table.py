@@ -89,7 +89,7 @@ def test_the_sorting_column_is_marked_and_the_others_are_not(tmp_path):
     seed(tmp_path).close()
     header = _header(app_for(tmp_path).get("/kids/Alex?sort=name").text)
     assert 'aria-sort="ascending"' in header
-    assert header.count("aria-sort") == 1, "exactly one column sorts at a time"
+    assert header.count("aria-sort") - header.count('aria-sort="none"') == 1, "exactly one column sorts at a time"
     name = re.search(r"<th[^>]*>(?:(?!</th>).)*?sort=name.*?</th>", header, re.S).group(0)
     assert 'aria-sort="ascending"' in name
     assert "▲" in name

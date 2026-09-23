@@ -1,7 +1,8 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
-<div class="done-line" id="{{ qid }}" role="status" data-focus>
+{% set said = item | standing(tier) %}
+<div class="done-line" id="{{ qid }}" data-focus data-announce="{{ item.name }}: {{ said }}">
   <span class="tick" aria-hidden="true">✓</span>
-  <span tabindex="-1" data-focus-target><b>{{ item.name }}</b>: {{ item | standing(tier) }}{% if item.verdict.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}">Email the teacher</a>{% endif %}</span>
+  <span tabindex="-1" data-focus-target><b>{{ item.name }}</b>: {{ said }}{% if item.verdict.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}">Email the teacher</a>{% endif %}</span>
   <form hx-post="/items/{{ item.id }}/undo" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ prev }}"><input type="hidden" name="prev_set_at" value="{{ prev_set_at | default('') }}"><input type="hidden" name="slot" value="{{ qid }}"><button class="link">Undo</button></form>
 </div>

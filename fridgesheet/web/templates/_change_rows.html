@@ -10,7 +10,7 @@
     <td class="muted">{{ e.course_short or '' }}{% if e.source %} · {{ e.source }}{% endif %}</td>
     <td>{{ e.detail }}</td>
   </tr>
-  <tr class="detail"><td colspan="6" id="change-{{ loop.index }}"></td></tr>
+  <tr class="detail" hidden><td colspan="6" id="change-{{ loop.index }}"></td></tr>
   {% else %}
   <tr><td colspan="6" class="muted">Nothing has changed in this window.</td></tr>
   {% endfor %}
