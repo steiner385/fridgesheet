@@ -253,11 +253,21 @@ def install(key: str, times: list[str], days: list[str], exe: str, args: str, wo
             f"Turn it off first with: systemctl --user disable --now {legacy}")
     d = _unit_dir(unit_dir)
     d.mkdir(parents=True, exist_ok=True)
-    (d / service_unit(key)).write_text(service_text(key, title or key, exe, args, workdir, home), encoding="utf-8")
-    (d / timer_unit(key)).write_text(timer_text(key, title or key, times, days, timezone), encoding="utf-8")
+    service, timer = d / service_unit(key), d / timer_unit(key)
+    fresh = [f for f in (timer, service) if not f.exists()]   # a re-save keeps a working pair
+    service.write_text(service_text(key, title or key, exe, args, workdir, home), encoding="utf-8")
+    timer.write_text(timer_text(key, title or key, times, days, timezone), encoding="utf-8")
     for cmd in (["daemon-reload"], ["enable", "--now", timer_unit(key)]):
         p = _systemctl_checked(cmd, run)
         if p.returncode != 0:
+            # Leave nothing new behind: a half-installed pair is one `describe` and the next
+            # install would have to reason about (#7). Files that were here before stay.
+            for f in fresh:
+                f.unlink(missing_ok=True)
+            try:
+                _systemctl(["daemon-reload"], run)
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass                            # the error below is the one worth reporting
             raise SchedulingError(f"systemctl --user {' '.join(cmd)} failed: "
                                   f"{(p.stderr or p.stdout or '').strip()[:300]}")
 
@@ -275,20 +285,26 @@ def remove(key: str, run=subprocess.run, *, unit_dir: Path | None = None) -> Non
     """
     _check_ownership(key, unit_dir)
     legacy = _enabled_legacy(key, run)
-    if legacy:
+    d = _unit_dir(unit_dir)
+    if legacy and not (d / timer_unit(key)).exists():
         raise SchedulingError(
             f"{legacy} still schedules this report and this app did not write it, so removing "
             f"anything here would not stop it. Turn it off with: systemctl --user disable --now {legacy}")
+    # With both enabled, the app's own timer still comes off -- otherwise neither could be
+    # turned off from the app (#7) -- and the refusal below still names the one that prints.
     p = _systemctl_checked(["disable", "--now", timer_unit(key)], run)
     if p.returncode != 0:
         text = f"{p.stderr or ''}\n{p.stdout or ''}".lower()
         if not any(s in text for s in _NO_SUCH_UNIT):
             raise SchedulingError(f"systemctl --user disable --now {timer_unit(key)} failed: "
                                   f"{(p.stderr or p.stdout or '').strip()[:300]}")
-    d = _unit_dir(unit_dir)
     (d / timer_unit(key)).unlink(missing_ok=True)
     (d / service_unit(key)).unlink(missing_ok=True)
     _systemctl_checked(["daemon-reload"], run)
+    if legacy:
+        raise SchedulingError(
+            f"Removed this app's own timer, but {legacy} still schedules this report and this app "
+            f"did not write it. Turn it off with: systemctl --user disable --now {legacy}")
 
 
 def _next_elapse(unit: str, run) -> str | None:

@@ -518,14 +518,24 @@ def record_for(views: list[ItemView]) -> outcomes.Tally:
     return outcomes.tally(v.outcome for v in views)
 
 
+def _at_or_after(stamp: str, moment: datetime) -> bool:
+    try:
+        a, b = reconcile.comparable(datetime.fromisoformat(stamp), moment)
+    except (TypeError, ValueError):
+        return False
+    return a >= b
+
+
 def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules,
                      days_ahead: int = DAYS_AHEAD, overdue_days: int = OVERDUE_DAYS, prefs=None) -> Counts:
     views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, overdue_days=overdue_days, prefs=prefs)
     today = now.date()
     due_today = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today)
     due_tomorrow = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today + timedelta(days=1))
-    since = (now - timedelta(days=1)).isoformat()
-    new = conn.execute(
-        """SELECT COUNT(*) AS n FROM items i JOIN refreshes r ON r.id = i.first_seen
-           WHERE i.student_id = ? AND r.started_at >= ?""", (student["id"], since)).fetchone()["n"]
+    # Compared as times, not ISO text: across a clock change the offsets differ and text order
+    # is not time order (#3).
+    since = now - timedelta(days=1)
+    new = sum(1 for r in conn.execute(
+        """SELECT r.started_at FROM items i JOIN refreshes r ON r.id = i.first_seen WHERE i.student_id = ?""",
+        (student["id"],)) if _at_or_after(r["started_at"], since))
     return Counts(sum(1 for v in views if _fixable(v)), sum(1 for v in views if v.asks), due_today, due_tomorrow, new, record_for(views))

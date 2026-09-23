@@ -286,6 +286,6 @@ def test_csv_quotes_a_comma_keeps_non_ascii_and_never_breaks_the_filename(tmp_pa
     rows = list(csv.reader(io.StringIO(r.text)))
     assert ["Alex", "Quiz 1, café ½"] in rows            # and one cell again on the way back
     disposition = r.headers["content-disposition"]
-    filename = disposition.split('filename="', 1)[1].rstrip('"')
+    filename = disposition.split('filename="', 1)[1].split('"', 1)[0]      # the ASCII fallback; `filename*` follows
     assert filename.startswith("Bad rm -rf name ") and filename.endswith(".csv")
     assert not any(ch in filename for ch in '";/\\\r\n')

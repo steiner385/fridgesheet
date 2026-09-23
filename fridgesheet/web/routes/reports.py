@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import sqlite3
 from datetime import date as _date
+
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
@@ -119,7 +122,8 @@ def edit(report_id: int, request: Request, conn: sqlite3.Connection = Db, state=
     if row is None:
         raise HTTPException(404, "no such report")
     try:
-        d, problems = views.from_json(row["definition"]), []
+        d = views.from_json(row["definition"])
+        problems = views.validate(d)       # a stored source this version does not know (#6)
     except views.ViewError as e:
         # A definition a hand edit or an older version left unreadable: the builder is exactly
         # where it gets repaired, so open it on a fresh one and say what was wrong.
@@ -177,6 +181,28 @@ def _filename(title: str, day: _date, ext: str) -> str:
     return f"{safe_name(title)} {day.isoformat()}.{ext}"
 
 
+def _disposition(name: str) -> str:
+    """An attachment header for `name`. Headers are Latin-1, so a Cyrillic or emoji title raised
+    on export (#6): send an ASCII fallback in `filename` and the real name as RFC 5987
+    `filename*`, which every current browser prefers."""
+    ascii_name = name.encode("ascii", "ignore").decode().strip() or "report"
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"
+
+
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+_NUMBER = re.compile(r"-?\d+(\.\d+)?")
+
+
+def _cell(value) -> str:
+    """A CSV cell a spreadsheet will not run. Assignment names come from Canvas and HAC; one
+    starting with `=`, `+`, `-` or `@` opens as a formula, so it gets a leading apostrophe
+    (OWASP's advice). A plain number, negative or not, is left as it is."""
+    text = str(value)
+    if text.startswith(_FORMULA_START) and not _NUMBER.fullmatch(text):
+        return "'" + text
+    return text
+
+
 def _group_label(d, rendered) -> str | None:
     """The heading of the grouping column when it is not already one of the report's columns.
 
@@ -197,13 +223,13 @@ def export_csv(report_id: int, conn: sqlite3.Connection = Db, state=State):
     group_label = _group_label(d, rendered)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(([group_label] if group_label else []) + [c.label for c in rendered.columns])
+    w.writerow([_cell(v) for v in ([group_label] if group_label else []) + [c.label for c in rendered.columns]])
     for g in rendered.groups:
         for r in g.rows:
-            w.writerow(([g.label] if group_label else []) + [r.get(c.id, "") for c in rendered.columns])
+            w.writerow([_cell(v) for v in ([g.label] if group_label else []) + [r.get(c.id, "") for c in rendered.columns]])
     name = _filename(d.title or row["name"], state.now().date(), "csv")
     return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+                    headers={"Content-Disposition": _disposition(name)})
 
 
 @router.get("/reports/{report_id}/export.json")
@@ -223,4 +249,4 @@ def export_json(report_id: int, conn: sqlite3.Connection = Db, state=State):
                          "rows": [r for g in rendered.groups for r in g.rows],
                          "groups": [{"label": g.label, "rows": g.rows} for g in rendered.groups],
                          "truncated": rendered.truncated},
-                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+                        headers={"Content-Disposition": _disposition(name)})

@@ -21,9 +21,13 @@ def _target_exists(conn: sqlite3.Connection, target_type: str, target_id: int) -
     """A note has to hang on something: `notes` carries a loose (type, id), not a foreign key."""
     if target_type == "item":
         return students.owner_of_item(conn, target_id) is not None
+    # A hidden kid's pages are gone (`owner_of_item`); their notes cannot be added either (#3).
     if target_type == "course":
-        return students.course(conn, target_id) is not None
-    return students.by_id(conn, target_id) is not None
+        c = students.course(conn, target_id)
+        s = students.by_id(conn, c["student_id"]) if c is not None else None
+    else:
+        s = students.by_id(conn, target_id)
+    return s is not None and not s["hidden"]
 
 
 @router.post("/notes")

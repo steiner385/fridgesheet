@@ -446,3 +446,43 @@ def test_a_bad_time_among_good_ones_writes_nothing():
     with pytest.raises(SchedulingError):
         sl.timer_text("data-refresh", "Data refresh", ["06:00", "24:00"],
                       ["Mon"], "America/New_York")
+
+
+def test_remove_turns_off_the_apps_own_timer_even_while_a_legacy_one_runs(tmp_path):
+    """#7: with both the app's own timer and the household's hand-written one enabled, the
+    Schedules page showed the app's timer as manageable, and turning it off was refused because
+    of the other one -- so neither could be turned off from the app. The app's own pair is
+    removed; the refusal still names the hand-written timer, which is still printing."""
+    (tmp_path / "fridgesheet-open-work.service").write_text(sl.MARKER + "svc\n")
+    (tmp_path / "fridgesheet-open-work.timer").write_text(sl.MARKER + "tmr\n")
+    calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (0, "enabled\n")})
+    with pytest.raises(SchedulingError, match="systemctl --user disable --now fridgesheet-print-sheet.timer"):
+        sl.remove("open-work", run=run, unit_dir=tmp_path)
+    assert ["systemctl", "--user", "disable", "--now", "fridgesheet-open-work.timer"] in calls
+    assert not (tmp_path / "fridgesheet-open-work.timer").exists()
+    assert not (tmp_path / "fridgesheet-open-work.service").exists()
+
+
+def test_a_failed_install_leaves_no_unit_files_behind(tmp_path):
+    """#7: `install` wrote both units and then raised when systemctl failed, leaving a pair on
+    disk that `describe` and the next install then had to reason about."""
+    calls, run = _recorder({("enable", "--now", "fridgesheet-open-work.timer"): (1, ""),
+                            ("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n"),
+                            ("is-enabled", "lakota-print-sheet.timer"): (1, "disabled\n")})
+    with pytest.raises(SchedulingError):
+        sl.install("open-work", ["14:00"], ["Mon"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+                   run=run, unit_dir=tmp_path)
+    assert ["systemctl", "--user", "enable", "--now", "fridgesheet-open-work.timer"] in calls   # it got that far
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_failed_re_save_keeps_the_pair_that_was_already_there(tmp_path):
+    (tmp_path / "fridgesheet-open-work.service").write_text(sl.MARKER + "svc\n")
+    (tmp_path / "fridgesheet-open-work.timer").write_text(sl.MARKER + "tmr\n")
+    _, run = _recorder({("enable", "--now", "fridgesheet-open-work.timer"): (1, ""),
+                        ("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n"),
+                        ("is-enabled", "lakota-print-sheet.timer"): (1, "disabled\n")})
+    with pytest.raises(SchedulingError):
+        sl.install("open-work", ["15:00"], ["Mon"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+                   run=run, unit_dir=tmp_path)
+    assert (tmp_path / "fridgesheet-open-work.timer").exists() and (tmp_path / "fridgesheet-open-work.service").exists()

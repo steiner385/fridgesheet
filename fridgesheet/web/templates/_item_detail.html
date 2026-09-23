@@ -13,3 +13,6 @@
   {% set target_type = "item" %}{% set target_id = item.id %}
   {% include "_notes.html" %}
 </div>
+{# After a flag change, the row above the card and the question counts follow it (#3, as #72
+   did for answers); htmx lifts these out-of-band pieces off before swapping the card in. #}
+{% if refresh_row is defined and refresh_row %}{% include "_after_answer.html" %}{% endif %}
