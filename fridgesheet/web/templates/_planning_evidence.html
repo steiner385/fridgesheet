@@ -1,5 +1,5 @@
 {# The school record, stated as facts the sources actually hold. Never a verdict on the child. #}
-{% macro score(obs, points) %}{{ obs.score | round(1) | string | replace('.0', '') }}{% if points %}/{{ points | round(1) | string | replace('.0', '') }}{% endif %}{% endmacro %}
+{% macro score(obs, points) %}{{ obs.score | num }}{% if points %}/{{ points | num }}{% endif %}{% endmacro %}
 <div class="school-evidence">
   <p><strong>School record</strong>{% if view.due %} · due {{ view.due | wd_md }}{% if view.due_time %} {{ view.due_time }}{% endif %}{% else %} · no due date listed{% endif %}</p>
   {% if view.canvas %}

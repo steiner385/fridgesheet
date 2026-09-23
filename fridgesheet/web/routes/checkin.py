@@ -6,7 +6,7 @@ review queue is built from the first; everything saved is the second and third.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -68,6 +68,15 @@ def queue_for(v, covered: set[int]) -> str | None:
     return _group(v)
 
 
+def _local_day(stamp: str, tz) -> str:
+    """The calendar day a stored timestamp fell on, in the app's zone ("" if unreadable)."""
+    try:
+        d = datetime.fromisoformat(stamp)
+    except (TypeError, ValueError):
+        return ""
+    return (d.astimezone(tz) if d.tzinfo else d).date().isoformat()
+
+
 def _since(step, last_check) -> str:
     """How this step relates to the last saved agreement: part of it, edited after it, or added
     after it. Empty before the first check-in."""
@@ -111,12 +120,16 @@ def _context(conn, student, state):
     active = [s for s in steps if s["state"] != "done"]
     today_steps = [s for s in active if s["state"] in ("planned", "blocked") and s["planned_for"] == today]
     total = sum(s["minutes"] or 0 for s in today_steps)
+    # "Time available today" was agreed for the day of that check-in. Measured against a later
+    # day's plan it told a child they were "80 min over" a budget nobody agreed to tonight (#21).
+    budget_today = last_check is not None and _local_day(last_check["finished_at"], state.tz) == today
     # The next check-in starts from what was agreed while that date is still ahead.
     next_default = last_check["next_check"] if last_check and last_check["next_check"] >= today else today
     return dict(student=student, current=f"kid:{student['key']}", base=root(student["key"]), queues=queues,
                 steps=active, completed=[s for s in steps if s["state"] == "done"], completed_for=completed_for,
                 history=history, last_check=last_check, today=today, next_default=next_default,
-                total_minutes=total, over=(total - last_check["available_minutes"]) if last_check else 0,
+                total_minutes=total, budget_today=budget_today,
+                over=(total - last_check["available_minutes"]) if budget_today else 0,
                 unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
                 finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING)
 

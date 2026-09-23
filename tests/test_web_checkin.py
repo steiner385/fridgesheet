@@ -672,3 +672,28 @@ def test_an_identical_replay_is_still_one_step(tmp_path):
     assert _post_step(c, "Alex", form).status_code == 303
     assert _post_step(c, "Alex", dict(form)).status_code == 303
     assert len(_step_rows(tmp_path)) == 1
+
+
+def test_a_budget_agreed_on_an_earlier_day_does_not_warn_about_today(tmp_path):
+    """#21: "Time available today" was agreed for that day. Measured against a later day's
+    plan it told a child "80 min over" a budget nobody agreed to tonight."""
+    seed(tmp_path).close()
+    app_for(tmp_path, now=NOW - timedelta(days=1)).post(
+        "/kids/Sam/check-in/finish", data=_finish(available_minutes="10", next_check="2026-09-16"), follow_redirects=False)
+    c = app_for(tmp_path)
+    _post_step(c, "Sam", _form(title="Label the parts", owner="Sam", minutes="90", planned_for="2026-09-15"))
+    for page in (c.get("/kids/Sam/plan").text, c.get("/kids/Sam/plan/print").text):
+        assert "min over" not in page
+        assert "Last agreed time budget: 10 min" in page and "Mon 9/14" in page
+
+
+def test_planning_evidence_rounds_scores_with_the_shared_helper(tmp_path):
+    """#21: the evidence card had its own rounding macro; it now uses `stores.num`, the rule the
+    work list and Changes use, through a `num` filter."""
+    from pathlib import Path
+    from fridgesheet.web import app as webapp
+    src = (Path(webapp.__file__).parent / "templates" / "_planning_evidence.html").read_text(encoding="utf-8")
+    assert "round(" not in src and "| num" in src
+    seed(tmp_path).close()
+    env = app_for(tmp_path).app.state.fridgesheet.extra["env"]
+    assert env.from_string("{{ 12.5033 | num }}/{{ 30.0 | num }}").render() == "12.5/30"

@@ -49,7 +49,7 @@
 <section id="plan" class="plan-panel" aria-labelledby="plan-heading">
   <div class="workspace-heading"><h3 id="plan-heading">Our next steps</h3><a class="button-link" href="{{ base }}/step">Add a task</a></div>
   <p class="plan-total"><strong>{{ total_minutes }} min estimated for today</strong>{% if unestimated %} · {{ unestimated }} step{{ 's' if unestimated != 1 }} without an estimate{% endif %}</p>
-  {% if last_check %}<p class="muted">Last agreed time budget: {{ last_check.available_minutes }} min{% if over > 0 %} · <strong class="warn">{{ total_minutes }} min planned today, {{ last_check.available_minutes }} min available: {{ over }} min over. Move a step to another day.</strong>{% endif %}</p>{% endif %}
+  {% if last_check %}<p class="muted">Last agreed time budget: {{ last_check.available_minutes }} min{% if not budget_today %} (agreed {{ last_check.finished_at | wd_md }}, for that day){% endif %}{% if over > 0 %} · <strong class="warn">{{ total_minutes }} min planned today, {{ last_check.available_minutes }} min available: {{ over }} min over. Move a step to another day.</strong>{% endif %}</p>{% endif %}
   {% for label in ('planned', 'blocked', 'waiting') %}
   <h4>{{ states[label] }}</h4>
   {% for step in steps if step.state == label %}

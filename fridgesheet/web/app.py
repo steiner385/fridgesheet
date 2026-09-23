@@ -34,7 +34,7 @@ from ..dates import parse_iso as _parse
 from ..host import selfupdate
 from . import db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
-from .stores import refreshes, runs, students
+from .stores import num, refreshes, runs, students
 
 HERE = Path(__file__).parent
 APP_NAME = "fridgesheet"
@@ -161,7 +161,7 @@ def _filters(state: AppState) -> dict:
         def score(o):
             if o["score"] is None:
                 return ""
-            return f"{o['score']:g} of {item.points:g}" if item.points else f"{o['score']:g}"
+            return f"{num(o['score'])} of {num(item.points)}" if item.points else num(o["score"])
         c, h = item.canvas, item.hac
         lines = [f"Assignment: {item.name} ({item.course_short})"]
         if item.due:
@@ -179,7 +179,7 @@ def _filters(state: AppState) -> dict:
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
             "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
             "standing": lambda item, tier: verdicts.standing(item, tier),
-            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body}
+            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
