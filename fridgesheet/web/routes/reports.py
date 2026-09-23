@@ -34,6 +34,7 @@ def definition_from_form(form) -> views.Definition:
         filters=tuple(filters), group_by=group_by, sort=tuple(sort),
         orientation=form.get("orientation", "portrait"),
         per_kid_sections=bool(form.get("per_kid_sections")),
+        window=form.get("window", "all"),
     ).to_json())
 
 
@@ -64,7 +65,7 @@ def _builder(request, conn, state, *, report=None, d=None, problems=(), messages
     cols = views.COLUMNS.get(d.source) or views.COLUMNS["items"]
     return render(request, conn, "report_builder.html", current="reports", report=report,
                   d=d, cols=cols, SOURCES=views.SOURCES, OPS=views.OPS,
-                  ORIENTATIONS=views.ORIENTATIONS, problems=list(problems), messages=list(messages),
+                  ORIENTATIONS=views.ORIENTATIONS, WINDOWS=views.WINDOWS, problems=list(problems), messages=list(messages),
                   kids=students.visible(conn))
 
 
@@ -108,7 +109,7 @@ async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
         filters=tuple(f for f in d.filters if f.get("field") in known),
         group_by=d.group_by if d.group_by in known else None,
         sort=tuple(s for s in d.sort if s.get("column") in known),
-        orientation=d.orientation, per_kid_sections=d.per_kid_sections)
+        orientation=d.orientation, per_kid_sections=d.per_kid_sections, window=d.window)
     rid = form.get("report_id")
     report = store.by_id(conn, int(rid)) if rid and str(rid).isdigit() else None
     return _builder(request, conn, state, report=report, d=d)

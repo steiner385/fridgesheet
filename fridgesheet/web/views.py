@@ -13,13 +13,20 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from .. import dates
-from . import verdicts
+from ..open_items import school_year_start
+from . import reconcile, verdicts
 from .stores import changes as changes_store, items as items_store, students as students_store, trends as trends_store
 
 SOURCES = ("items", "grades", "changes")
 OPS = ("is", "is not", "contains", "≥", "≤")
 NUMERIC_OPS = ("≥", "≤")                # only a number column can answer these
 ORIENTATIONS = ("portrait", "landscape")
+#: How far back a report's rows reach (#94): (key, label, days, or None for "any time").
+#: "school_year" starts on the school year's first day. "Any time" is what every report did
+#: before this existed: every item and grade point, and for changes the year the feed keeps.
+WINDOWS = (("all", "Any time", None), ("7d", "The last 7 days", 7), ("30d", "The last 30 days", 30),
+           ("90d", "The last 90 days", 90), ("school_year", "This school year", None))
+WINDOW_KEYS = tuple(k for k, _, _ in WINDOWS)
 DIRS = ("asc", "desc")
 MAX_ROWS = 2000
 
@@ -75,6 +82,7 @@ class Definition:
     chart: None = None
     orientation: str = "portrait"
     per_kid_sections: bool = False
+    window: str = "all"
 
     def to_json(self) -> str:
         return json.dumps({
@@ -82,6 +90,7 @@ class Definition:
             "columns": list(self.columns), "filters": [dict(f) for f in self.filters],
             "group_by": self.group_by, "sort": [dict(s) for s in self.sort], "chart": None,
             "orientation": self.orientation, "per_kid_sections": self.per_kid_sections,
+            "window": self.window,
         }, indent=1)
 
 
@@ -116,6 +125,7 @@ def from_json(text: str) -> Definition:
             sort=tuple(dict(s) for s in seq("sort", ()) if isinstance(s, dict)),
             orientation=str(raw.get("orientation", d.orientation)),
             per_kid_sections=_as_bool(raw.get("per_kid_sections", False)),
+            window=str(raw.get("window", d.window)),
         )
     except (TypeError, ValueError) as e:
         raise ViewError(f"the definition has a field of the wrong shape: {e}") from None
@@ -134,6 +144,8 @@ def _as_bool(v) -> bool:
 def validate(d: Definition) -> list[str]:
     """Every problem with the definition, one sentence each. Empty means it can be built."""
     problems: list[str] = []
+    if d.window not in WINDOW_KEYS:
+        problems.append(f"Unknown window {d.window!r}; choose one of {', '.join(WINDOW_KEYS)}.")
     if not d.title.strip():
         problems.append("The title cannot be empty.")
     if d.source not in SOURCES:
@@ -184,17 +196,42 @@ class Rendered:
     columns: list[Column]
     groups: list[Group] = field(default_factory=list)
     truncated: int = 0               # rows dropped by MAX_ROWS
+    window: str = ""                 # "The last 7 days" when the report is limited to one; "" for any time
 
 
 def _num(v) -> str:
     return "" if v is None else (f"{v:g}" if isinstance(v, (int, float)) else str(v))
 
 
-def _date(v) -> str:
+def window_start(d: Definition, now: datetime) -> datetime | None:
+    """Where this report's rows begin, or None for "any time" (#94)."""
+    if d.window == "school_year":
+        return school_year_start(now)
+    days = next((n for k, _, n in WINDOWS if k == d.window), None)
+    return now - timedelta(days=days) if days else None
+
+
+def _on_or_after(v: datetime | None, start: datetime | None) -> bool:
+    if start is None:
+        return True
+    if v is None:
+        return False                     # an undated row belongs to "any time" only
+    a, b = reconcile.comparable(v, start)
+    return a >= b
+
+
+def _date(v, now: datetime | None = None, *, with_time: bool = False) -> str:
+    """"9/8", with the year when it is not `now`'s (a report can reach back past New Year,
+    and "6/2" alone does not say which June), and with the time for a change (#94)."""
     if v is None:
         return ""
     d = datetime.fromisoformat(v) if isinstance(v, str) else v
-    return dates.md(d) if isinstance(d, datetime) else str(d)
+    if not isinstance(d, datetime):
+        return str(d)
+    if now is not None and d.tzinfo is not None and now.tzinfo is not None:
+        d = d.astimezone(now.tzinfo)
+    text = dates.md(d) + (f"/{d.year}" if now is not None and d.year != now.year else "")
+    return f"{text} {dates.time12(d)}" if with_time else text
 
 
 def _yes(v) -> str:
@@ -253,13 +290,16 @@ def _keys(source: str, row: dict, raw: dict) -> dict:
 
 def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict]]:
     out = []
+    start = window_start(d, now)
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
         for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs, **(window or {})):
+            if not _on_or_after(v.due, start):
+                continue
             row = {
                 "kid": nicknames.get(s["key"], s["key"]), "course": v.course_short, "name": v.name,
-                "status": v.status, "due": _date(v.due), "points": _num(v.points), "kind": v.kind,
+                "status": v.status, "due": _date(v.due, now), "points": _num(v.points), "kind": v.kind,
                 "sources": " + ".join(v.sources), "flag": (v.flag or "").replace("_", " "),
                 "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
                 "notes": _num(v.notes), "cases": verdicts.standing(v, "") if v.verdict.state in ("question", "decided", "waiting") else "",
@@ -273,11 +313,11 @@ def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
-        for series in trends_store.grade_series(conn, student_id=s["id"], prefs=prefs):
+        for series in trends_store.grade_series(conn, student_id=s["id"], since=window_start(d, now), prefs=prefs):
             for at, value in series.points:
                 row = {"kid": nicknames.get(s["key"], s["key"]), "course": series.course_short,
                        "source": series.source, "official": "yes" if series.official else "", "label": series.label,
-                       "value": _num(value), "at": _date(at)}
+                       "value": _num(value), "at": _date(at, now)}
                 out.append((row, _keys("grades", row, {"at": at, "value": value})))
     return out
 
@@ -288,7 +328,8 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
     fewer rows than it has."""
     visible = students_store.visible(conn)
     keys = {s["key"] for s in visible}
-    start = now - timedelta(days=365)
+    # "Any time" is the year the feed keeps; a chosen window starts where it says (#94).
+    start = window_start(d, now) or now - timedelta(days=365)
     # A scoped report asks the store for each of its kids, so the cap applies to their events,
     # not to every kid's with the others dropped afterwards (#6).
     if d.scope:
@@ -303,7 +344,7 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
     for e in events:
         if e.student_key not in keys or (d.scope and e.student_key not in d.scope):
             continue
-        row = {"at": _date(e.at), "kid": nicknames.get(e.student_key, e.student_key),
+        row = {"at": _date(e.at, now, with_time=True), "kid": nicknames.get(e.student_key, e.student_key),
                "what": e.label, "item": e.item_name or "", "course": e.course_short or "",
                "source": e.source or "", "detail": e.detail}
         out.append((row, _keys("changes", row, {"at": e.at})))
@@ -369,4 +410,5 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         groups.sort(key=lambda g: order[g.label])
     elif slim:
         groups = [Group("", [{c.id: r[c.id] for c in columns} for r in slim])]
-    return Rendered(d.title, columns, groups, truncated)
+    label = next((l for k, l, _ in WINDOWS if k == d.window), "") if d.window != "all" else ""
+    return Rendered(d.title, columns, groups, truncated, label)
