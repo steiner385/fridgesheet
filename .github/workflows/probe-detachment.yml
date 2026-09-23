@@ -1,0 +1,96 @@
+# THROWAWAY probe. Delete this branch once it has answered.
+#
+# Question: does a process spawned with DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+# survive `taskkill /T` aimed at its parent?
+#
+# The in-app self-update design assumes yes: installer.iss runs
+# `taskkill /IM FridgeSheet.exe /T /F` before copying a file, so an installer inside
+# that tree would kill itself mid-upgrade. No unit test can answer this -- they all
+# assert the flags handed to a fake Popen.
+name: probe-detachment
+on:
+  push:
+    branches: ["probe/**"]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Spawn three children, tree-kill the parent, see who lives
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dir = Join-Path $env:TEMP ("probe-" + [guid]::NewGuid().ToString("N"))
+          New-Item -ItemType Directory -Force $dir | Out-Null
+
+          # Each child records its OWN pid: for the cmd/start case the Popen return
+          # value is cmd.exe's pid, not the worker's.
+          @'
+          import os, sys, time
+          open(sys.argv[1], "w").write(str(os.getpid()))
+          time.sleep(120)
+          '@ | Set-Content (Join-Path $dir "worker.py") -Encoding utf8
+
+          @'
+          import os, subprocess, sys, time
+          d = sys.argv[1]
+          w = os.path.join(d, "worker.py")
+          DETACHED_PROCESS = 0x00000008
+          CREATE_NEW_PROCESS_GROUP = 0x00000200
+          # A: exactly what host/selfupdate_windows.spawn_installer does.
+          subprocess.Popen([sys.executable, w, os.path.join(d, "a.pid")],
+                           creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                           close_fds=True, stdin=None, stdout=None, stderr=None)
+          # B: negative control. taskkill /T MUST kill this one or A proves nothing.
+          subprocess.Popen([sys.executable, w, os.path.join(d, "b.pid")])
+          # C: the reparenting fallback -- cmd exits, breaking the chain.
+          subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, w,
+                            os.path.join(d, "c.pid")])
+          open(os.path.join(d, "parent.pid"), "w").write(str(os.getpid()))
+          time.sleep(120)
+          '@ | Set-Content (Join-Path $dir "parent.py") -Encoding utf8
+
+          Start-Process -FilePath "python" -ArgumentList @((Join-Path $dir "parent.py"), $dir) -WindowStyle Hidden
+          foreach ($i in 1..40) {
+            $all = @("parent.pid","a.pid","b.pid","c.pid") | ForEach-Object { Join-Path $dir $_ }
+            if (($all | Where-Object { (Test-Path $_) -and ((Get-Content $_ -Raw).Trim() -match '^\d+$') }).Count -eq 4) { break }
+            Start-Sleep -Milliseconds 500
+          }
+          function PidOf($n) { [int](Get-Content (Join-Path $dir $n) -Raw).Trim() }
+          $parent = PidOf "parent.pid"; $a = PidOf "a.pid"; $b = PidOf "b.pid"; $c = PidOf "c.pid"
+          Write-Host "parent=$parent  A(flagged)=$a  B(control)=$b  C(cmd-start)=$c"
+
+          # Confirm A and B really are recorded descendants of the parent, or the
+          # experiment is measuring nothing.
+          foreach ($p in @($a,$b)) {
+            $ppid = (Get-CimInstance Win32_Process -Filter "ProcessId=$p").ParentProcessId
+            Write-Host "  ppid of $p = $ppid (parent is $parent)"
+          }
+
+          taskkill /PID $parent /T /F | Out-Null
+          Write-Host "taskkill exit code: $LASTEXITCODE"
+          if ($LASTEXITCODE -ne 0) { throw "taskkill failed; nothing below can be trusted" }
+          Start-Sleep -Seconds 3
+
+          function Alive($p) { [bool](Get-Process -Id $p -ErrorAction SilentlyContinue) }
+          if (Alive $parent) { throw "the parent survived its own tree kill; experiment invalid" }
+          $aliveA = Alive $a; $aliveB = Alive $b; $aliveC = Alive $c
+          Write-Host "RESULT  A flagged (DETACHED|NEW_GROUP): $(if($aliveA){'SURVIVED'}else{'KILLED'})"
+          Write-Host "RESULT  B control (no flags):          $(if($aliveB){'SURVIVED'}else{'KILLED'})"
+          Write-Host "RESULT  C cmd /c start (reparented):   $(if($aliveC){'SURVIVED'}else{'KILLED'})"
+          Write-Host ""
+          if ($aliveB) {
+            Write-Host "VERDICT: INVALID -- the unflagged control survived, so taskkill /T never reached these children."
+          } elseif ($aliveA) {
+            Write-Host "VERDICT: PREMISE HOLDS -- the flags defeat taskkill /T. The design is sound as built."
+          } else {
+            Write-Host "VERDICT: PREMISE IS FALSE -- the flags do NOT defeat taskkill /T."
+            Write-Host "         The installer would kill itself mid-upgrade."
+            if ($aliveC) { Write-Host "         The cmd /c start fallback DOES survive: that is the fix." }
+            else { Write-Host "         The cmd /c start fallback did NOT survive either -- needs another approach." }
+          }
+          Get-Process -Id @($a,$b,$c) -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
