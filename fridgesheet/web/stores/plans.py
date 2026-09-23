@@ -27,6 +27,12 @@ def one(conn, student_id, step_id):
     return dict(row) if row else None
 
 
+def by_request_key(conn, student_id, request_key):
+    """The step a form token already created, or None: how a retried POST finds its own step."""
+    row = conn.execute("SELECT * FROM plan_steps WHERE student_id = ? AND request_key = ?", (student_id, request_key)).fetchone()
+    return dict(row) if row else None
+
+
 def save(conn, student_id, values, *, now, request_key, item_id=None, step_id=None, revision=0):
     if item_id is not None and not conn.execute(
             "SELECT 1 FROM items WHERE id = ? AND student_id = ?", (item_id, student_id)).fetchone():

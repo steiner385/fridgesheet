@@ -131,3 +131,110 @@ def test_every_answer_form_carries_a_request_key(tmp_path):
     assert forms
     keys = {re.search(r'name="request_key" value="([^"]+)"', f).group(1) for f in forms}
     assert len(keys) == 1 and len(next(iter(keys))) == 36       # one uuid per card, shared by its buttons
+
+
+# --- plan answers (spec 6.3, 6.4, 6.5) ---------------------------------------------------------------
+
+from uuid import uuid4
+
+from fridgesheet.web.stores import plans
+
+
+def _steps(home):
+    conn = db.open_db(home)
+    try:
+        return [dict(r) for r in conn.execute("SELECT * FROM plan_steps ORDER BY id")]
+    finally:
+        conn.close()
+
+
+def _plan(c, pid, when="plan:today", key=None, slot=""):
+    return c.post(f"/items/{pid}/answer", data={"answer": when, "prev": "", "request_key": key or str(uuid4()), "slot": slot})
+
+
+def test_today_creates_a_step_with_the_documented_defaults(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    r = _plan(c, vid, "plan:today", slot=f"qc-{vid}")
+    assert r.status_code == 200
+    (step,) = _steps(tmp_path)
+    assert (step["title"], step["next_step"], step["owner"], step["planned_for"], step["minutes"], step["state"], step["position"]) == \
+        ("Vocabulary", "Work on it", "Alex", "2026-09-15", None, "planned", 10)
+    assert step["item_id"] == vid and step["family_account"] == "" and step["revision"] == 1
+    assert "Planned for today" in r.text and "Undo" in r.text
+    assert f'check-in/step?step_id={step["id"]}' in r.text and "Add details" in r.text
+
+
+def test_tomorrow_plans_for_the_next_day(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid, "plan:tomorrow")
+    assert _steps(tmp_path)[0]["planned_for"] == "2026-09-16"
+
+
+def test_the_same_request_key_twice_is_one_step(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    key = str(uuid4())
+    first, second = _plan(c, vid, key=key), _plan(c, vid, key=key)
+    assert first.status_code == 200 and second.status_code == 200
+    assert len(_steps(tmp_path)) == 1
+
+
+def test_a_plan_answer_on_covered_work_is_refused(tmp_path):
+    """Review Focus 3: one commitment per assignment from a tap."""
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    r = _plan(c, vid, "plan:tomorrow")
+    assert r.status_code == 409 and len(_steps(tmp_path)) == 1
+
+
+def test_a_plan_answer_without_a_request_key_is_refused(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    assert c.post(f"/items/{vid}/answer", data={"answer": "plan:today", "prev": ""}).status_code == 400
+
+
+def test_the_response_carries_the_plan_panel_out_of_band(tmp_path):
+    import re
+    c, vid = _setup(tmp_path, "Vocabulary")
+    body = _plan(c, vid).text
+    section = re.search(r'<section id="plan"[^>]*hx-swap-oob="true"[^>]*>.*?</section>', body, re.S)
+    assert section, body[:2000]
+    assert "Vocabulary" in section.group(0)                                 # the step is in the panel
+    assert "1 step without an estimate" in section.group(0)
+
+
+def test_undo_deletes_an_unedited_step_and_brings_the_card_back(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    body = _plan(c, vid, slot=f"qc-{vid}").text
+    sid = _steps(tmp_path)[0]["id"]
+    assert f'name="step_id" value="{sid}"' in body
+    r = c.post(f"/items/{vid}/undo", data={"prev": "", "step_id": str(sid), "slot": f"qc-{vid}"})
+    assert r.status_code == 200 and _steps(tmp_path) == []
+    assert 'value="plan:today"' in r.text and 'id="plan"' in r.text
+
+
+def test_undo_leaves_an_edited_step_alone(tmp_path):
+    """Review Focus 4."""
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    step = _steps(tmp_path)[0]
+    conn = db.open_db(tmp_path)
+    plans.save(conn, step["student_id"], {**{k: step[k] for k in plans.FIELDS}, "minutes": 20}, now="2026-09-15T15:00:00-04:00",
+               request_key=str(uuid4()), item_id=vid, step_id=step["id"], revision=1)
+    conn.close()
+    r = c.post(f"/items/{vid}/undo", data={"prev": "", "step_id": str(step["id"])})
+    assert r.status_code == 200 and _steps(tmp_path)[0]["minutes"] == 20
+
+
+def test_undo_with_another_kids_step_is_refused(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    sid = _steps(tmp_path)[0]["id"]
+    other = _id(db.open_db(tmp_path), "Cell diagram")                      # Sam's
+    assert c.post(f"/items/{other}/undo", data={"prev": "", "step_id": str(sid)}).status_code == 404
+    assert len(_steps(tmp_path)) == 1
+
+
+def test_a_planned_item_leaves_the_check_in_queue(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    _plan(c, vid)
+    body = c.get("/kids/Alex/check-in").text
+    assert f'id="qc-{vid}"' not in body and "Vocabulary" in body.split('<section id="plan"')[1]

@@ -3,16 +3,18 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from datetime import timedelta
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..app import Db, State, render, render_partial
-from ..stores import flags, items, students
-from .. import db
+from ..stores import flags, items, plans, students
+from .. import db, phrasing, tiers, verdicts
+from . import checkin
 
 router = APIRouter()
-ANSWERS = set(flags.FLAGS) | {"confirm", "clear"}
+ANSWERS = set(verdicts.ACTIONS)
 _SLOT = re.compile(r"q[cd]?-\d+")      # q- list card, qd- item detail, qc- check-in card
 
 
@@ -38,12 +40,50 @@ def _apply(conn, item_id, answer, now):
         flags.set_flag(conn, item_id, answer, now=now)
 
 
+def _plan_step(conn, state, student, view, action: str, request_key: str) -> int:
+    """A step from one tap, with the defaults the step form would have offered (spec 6.3)."""
+    day = state.now().date() + (timedelta(days=1) if action == "plan:tomorrow" else timedelta(0))
+    tier = tiers.for_student(state.settings, student["key"])
+    said = [t for t in (view.flag_text, view.latest_note["body"] if view.latest_note else "") if t]
+    values = dict(title=view.name, family_account="\n".join(said), next_step=phrasing.phrase("step.work_on_it", tier),
+                  owner=state.settings.nicknames.get(student["key"], student["key"]), planned_for=day.isoformat(),
+                  minutes=None, state="planned", position=10, evidence=plans.evidence(view), recorded_by="")
+    return plans.save(conn, student["id"], values, now=db.now_iso(state.tz), request_key=request_key, item_id=view.id)
+
+
+def _card(request, conn, state, item_id, slot, status_code=200, **extra) -> HTMLResponse:
+    s, v = _view(conn, state, item_id)
+    r = render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), **extra)
+    r.status_code = status_code
+    return r
+
+
 @router.post("/items/{item_id}/answer")
 def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = Form(""), prev_set_at: str = Form(""),
-           slot: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+           slot: str = Form(""), request_key: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     if answer not in ANSWERS:
         raise HTTPException(400, f"unknown answer {answer!r}")
-    _view(conn, state, item_id)
+    s, v = _view(conn, state, item_id)
+    if answer in verdicts.PLAN_ACTIONS:
+        if not 1 <= len(request_key) <= 100:
+            raise HTTPException(400, "a plan answer needs its request key")
+        # A retried POST (double-click, flaky network) carries the key of the step it already
+        # made: answer with that step again rather than refusing it as "already covered".
+        earlier = plans.by_request_key(conn, s["id"], request_key)
+        if earlier is not None and earlier["item_id"] == item_id:
+            step_id = earlier["id"]
+        elif v.step is not None:
+            return _card(request, conn, state, item_id, slot, status_code=409)
+        else:
+            try:
+                step_id = _plan_step(conn, state, s, v, answer, request_key)
+            except plans.Conflict:
+                return _card(request, conn, state, item_id, slot, status_code=409)
+        s, v = _view(conn, state, item_id)
+        ctx = checkin._context(conn, s, state)
+        ctx.update(item=v, prev=prev, prev_set_at=prev_set_at, slot=_slot(slot, item_id),
+                   step_id=step_id, planned=answer[len("plan:"):], plan_panel=True)
+        return render_partial(request, conn, "_answered.html", **ctx)
     _apply(conn, item_id, answer, db.now_iso(state.tz))
     s, v = _view(conn, state, item_id)
     return render_partial(request, conn, "_answered.html", student=s, item=v, prev=prev, prev_set_at=prev_set_at,
@@ -52,12 +92,25 @@ def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = 
 
 @router.post("/items/{item_id}/undo")
 def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str = Form(""), slot: str = Form(""),
-         conn: sqlite3.Connection = Db, state=State):
+         step_id: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     """Put the item back as it was before the answer: the earlier flag with its original date
-    (so a question the school raised comes back), or no flag at all."""
+    (so a question the school raised comes back), or no flag at all. For a plan answer, the
+    step it created is deleted if nobody has edited it since (spec 6.4)."""
     if prev and prev not in flags.FLAGS:
         raise HTTPException(400, f"unknown flag {prev!r}")
-    _view(conn, state, item_id)
+    s, v = _view(conn, state, item_id)
+    if step_id:
+        if not step_id.isdigit():
+            raise HTTPException(404, "no such step")
+        step = plans.one(conn, s["id"], int(step_id))
+        if step is None or step["item_id"] != item_id:
+            raise HTTPException(404, "no such step")
+        if step["revision"] == 1:
+            plans.delete(conn, s["id"], step["id"])
+        s, v = _view(conn, state, item_id)
+        ctx = checkin._context(conn, s, state)
+        ctx.update(item=v, slot=_slot(slot, item_id), undone=True, plan_panel=True)
+        return render_partial(request, conn, "_question.html", **ctx)
     now = db.now_iso(state.tz)
     if prev and prev_set_at:
         flags.restore(conn, item_id, prev, set_at=prev_set_at, now=now)

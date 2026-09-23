@@ -1,9 +1,9 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
-{% set said = item | standing(tier) %}
+{% set said = (('where.planned_' ~ planned) | say(tier)) if planned is defined and planned else (item | standing(tier)) %}
 <div class="done-line" id="{{ qid }}" data-focus data-announce="{{ item.name }}: {{ said }}">
   <span class="tick" aria-hidden="true">✓</span>
-  <span tabindex="-1" data-focus-target><b>{{ item.name }}</b>: {{ said }}{% if item.verdict.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}">Email the teacher</a>{% endif %}</span>
-  <form hx-post="/items/{{ item.id }}/undo" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ prev }}"><input type="hidden" name="prev_set_at" value="{{ prev_set_at | default('') }}"><input type="hidden" name="slot" value="{{ qid }}"><button class="link">Undo</button></form>
+  <span tabindex="-1" data-focus-target><b>{{ item.name }}</b>: {{ said }}{% if item.verdict.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}">Email the teacher</a>{% endif %}{% if step_id is defined and step_id %} · <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ step_id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a>{% endif %}</span>
+  <form hx-post="/items/{{ item.id }}/undo" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ prev | default('') }}"><input type="hidden" name="prev_set_at" value="{{ prev_set_at | default('') }}"><input type="hidden" name="slot" value="{{ qid }}">{% if step_id is defined and step_id %}<input type="hidden" name="step_id" value="{{ step_id }}">{% endif %}<button class="link">Undo</button></form>
 </div>
 {% include "_after_answer.html" %}
