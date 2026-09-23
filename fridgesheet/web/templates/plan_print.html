@@ -10,7 +10,7 @@
 </head>
 {# A page of its own, not the app shell: no rail (which names every child), no status bar, no
    htmx. What is here is what goes on the fridge. #}
-<body class="print-page">
+<body class="print-page"{% if student %}{% set t = student.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}{% endif %}>
 <main>
 <div class="print-controls"><a href="/kids/{{ student.key | urlencode }}/plan">← Back to plan</a> <button type="button" data-print-plan>Print / save PDF</button><p class="muted">Print this agreed plan using your browser. Family accounts stay on screen; school inventory and other children are left out.</p></div>
 <article class="print-plan">

@@ -31,7 +31,7 @@ from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
 from ..host import selfupdate
-from . import db, staleness, updates
+from . import db, phrasing, staleness, tiers, updates
 from .actions import REPORT_KEY
 from .stores import refreshes, runs, students
 from .stores.items import DAYS_AHEAD
@@ -128,15 +128,19 @@ def _filters(state: AppState) -> dict:
         d = _parse(v) if isinstance(v, str) else v
         return dates.time12(d.astimezone(state.tz)) if d else ""
 
-    def wd_md(v):
-        # "Sat 9/26": the sheet's spelling of a late-work deadline, for the Open work page.
-        d = _parse(v) if isinstance(v, str) else v
-        if isinstance(d, datetime):
-            d = d.astimezone(state.tz)
-        return dates.wd_md(d) if d else ""
-
     def nickname(key: str) -> str:
         return state.settings.nicknames.get(key, key)
+
+    def tier_of(key: str) -> str:
+        return tiers.for_student(state.settings, key)
+
+    def phrase(word, tier: str = "") -> str:
+        # Stays a plain `str` -- autoescaped like everything else. `phrasing.phrase` echoes
+        # an untranslated `word` straight back, and `v.grade` can be Canvas's own grade
+        # string (`stores/items.py::_score`, `o["grade"]`) when there is no numeric score:
+        # external text, not vocabulary. Marking this safe would let that text carry markup
+        # into the page unescaped. `tests/test_web_tier_wording.py` pins the escaped output.
+        return phrasing.phrase(str(word or ""), tier)
 
     def wd_md(v):
         """"Thu 9/17". A plain date ("2026-09-17" or a `date`) has no time of day, so nothing
@@ -148,7 +152,7 @@ def _filters(state: AppState) -> dict:
         return dates.wd_md(v) if v else ""
 
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
-            "wd_md": wd_md, "trigger_words": runs.trigger_label}
+            "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

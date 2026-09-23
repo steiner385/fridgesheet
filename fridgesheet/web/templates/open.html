@@ -5,16 +5,18 @@
    coming due. Rows expand to the same detail card as the Kid page, so a flag or a note set
    here is the same flag or note. #}
 {% macro item_cell(s, v) -%}
+{%- set tier = s.key | tier_of -%}
 <a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML">{{ v.name }}</a>
 {%- if v.notes %} <span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
-{%- for k in v.case_kinds %} <span class="badge warn">{{ k.replace('_', ' ') }}</span>{% endfor %}
+{%- for k in v.case_kinds %} <span class="badge warn">{{ k | phrase(tier) }}</span>{% endfor %}
 {%- endmacro %}
 {% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
 <h2>Open work</h2>
 <p class="muted">Past due and still inside the late-work window, then due in the next {{ days_ahead }} days. The printed sheet also drops anything more than its own <em>overdue days</em> past due, so a very old row can appear here and not on paper.</p>
 {% for s, w in groups %}
-<section class="kid" id="{{ s.key }}">
+<section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
   <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
+  {% set tier = s.key | tier_of %}
   {% if not w.fixable and not w.upcoming %}
   <p>Nothing open. Nice work.</p>
   {% else %}
@@ -28,8 +30,8 @@
       <td class="due">{{ v.due | md if v.due else '' }}{% if v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %} <span class="rel">{{ v.due_relative }}</span>{% endif %}</td>
       <td><a href="/kids/{{ s.key }}/courses/{{ v.course_id }}">{{ v.course_short }}</a></td>
       <td>{{ item_cell(s, v) }}</td>
-      <td class="handed {{ 'no' if v.handed_in == 'No' }}">{{ v.handed_in }}</td>
-      <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade }}</td>
+      <td class="handed {{ 'no' if v.handed_in == 'No' }}{{ ' quiet' if v.handed_in in ('On paper', 'Unknown') }}">{{ v.handed_in | phrase(tier) }}</td>
+      <td class="grade {{ 'zero' if v.grade_zero }} {{ 'missing' if v.grade == 'Missing' }}">{{ v.grade | phrase(tier) }}</td>
       <td class="thru">{% if v.late_until %}thru {{ v.late_until | wd_md }}{% if v.credit and v.credit != '?' %} <span class="rel">{{ v.credit }}</span>{% endif %}{% endif %}</td>
       <td>{{ v.flag.replace('_', ' ') if v.flag else '' }}</td>
     </tr>
@@ -37,6 +39,7 @@
     {% endfor %}
     </tbody>
   </table>
+  {% include "_handed_legend.html" %}
   {% else %}<p class="muted">Nothing past due that can still be fixed.</p>{% endif %}
   <h3>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h3>
   {% if w.upcoming %}

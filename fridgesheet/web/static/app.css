@@ -1,5 +1,31 @@
 /* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
-:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; }
+:root { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+
+/* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
+   :root on purpose: a page about one child carries it on <body>, and the Open work page --
+   which shows every child at once -- carries it on each kid section instead.
+
+   A tier redefines every token rather than some, so no page ever inherits a colour nobody
+   designed. Nothing conveyed by colour alone: what is red here is red *and* a word, which
+   is the accessibility requirement and the age requirement at the same time. */
+[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #6b6b6b; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+
+/* A tier sets its type scale by applying the token to the element that carries the attribute.
+   A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
+   on <body> (single-child views) or on a kid <section> (the Open work page), so we set the size here.
+   This beats body { font: 15px/1.45 ... } on specificity (0,1,0 vs 0,0,1); table.items rows
+   inherit it. Chrome with hardcoded size (.rail h1, .big, .badge, header.status, td .rel/at, th .arrow)
+   stays fixed. */
+[data-tier="early"], [data-tier="middle"], [data-tier="older"] { font-size: var(--type-root); }
+
+/* Roomier rows for the younger readers -- the same rows, with space to land a finger and
+   to tell one from the next. A tier's padding outranks @media (pointer: coarse) on
+   specificity, so every tier value must stay at or above the coarse-pointer floor: 10px
+   vertical, 8px horizontal. */
+[data-tier="early"] table.items th, [data-tier="early"] table.items td { padding: 12px 10px; }
+[data-tier="middle"] table.items th, [data-tier="middle"] table.items td { padding: 10px 9px; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
 a { color: var(--accent); }
@@ -51,6 +77,13 @@ th .arrow { color: var(--muted); font-size: 11px; }
    that decides whether tonight is the deadline; never wrapped away from its date. */
 td .at { font-size: 12px; white-space: nowrap; }
 td.grade.zero, td.grade.missing, td.handed.no { color: var(--warn); font-weight: 600; }
+/* "On paper" and "Unknown": the two Handed in cells that are not an answer about the child.
+   Quiet, so the eye still lands on the "No" three rows down, but words rather than the "—"
+   they used to share -- one glyph for two different non-answers reads as a third thing. */
+td.handed.quiet { color: var(--muted); }
+/* The line under a table that says what those two words mean. A tooltip would not survive
+   the phone or the kiosk, which is where this app is actually read. */
+p.legend { font-size: 12px; margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }

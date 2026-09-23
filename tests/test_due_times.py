@@ -53,6 +53,32 @@ def test_no_due_date_is_no_time():
     assert due_time(None, from_canvas=False) == ""
 
 
+# --- the hour, for a reader who does not yet read a clock quickly ----------------------
+
+@pytest.mark.parametrize("h,expected", [
+    (7, "morning"), (11, "morning"),
+    (12, "afternoon"), (16, "afternoon"),
+    (17, "evening"), (23, "evening"),
+])
+def test_a_canvas_hour_has_a_part_of_the_day(h, expected):
+    from fridgesheet.dates import day_part
+    assert day_part(_at(h, 20), from_canvas=True) == expected
+
+
+def test_a_hac_only_item_has_no_part_of_the_day():
+    """Same rule as the hour itself: HAC never gave one, so the app does not offer one."""
+    from fridgesheet.dates import day_part
+    assert day_part(_at(23, 59), from_canvas=False) == ""
+    assert day_part(None, from_canvas=True) == ""
+
+
+def test_the_part_of_day_is_the_hour_it_already_shows(tmp_path):
+    """Not a new fact -- the same timestamp, said in a word."""
+    from fridgesheet.dates import day_part, due_time
+    d = _at(7, 20)
+    assert due_time(d, from_canvas=True) == "7:20am" and day_part(d, from_canvas=True) == "morning"
+
+
 # --- the web pages --------------------------------------------------------------------
 
 def test_the_kid_table_shows_a_canvas_items_time(tmp_path):

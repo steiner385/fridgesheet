@@ -335,6 +335,37 @@ def test_a_time_that_is_not_a_time_is_a_config_error(field, bad):
         config.settings_from_doc(_doc_refresh(**{field: bad}), s)
 
 
+# --- [kids].grades: which grade each child is in ---------------------------------------
+
+def test_grades_default_to_empty():
+    s = config.Settings()
+    config.settings_from_doc({}, s)
+    assert s.grades == {}
+
+
+def test_grades_are_read_beside_the_nicknames():
+    s = config.Settings()
+    config.settings_from_doc({"kids": {"nicknames": {"Douglas": "Doug"},
+                                       "grades": {"Douglas": 9, "Kayla": 5}}}, s)
+    assert s.grades == {"Douglas": 9, "Kayla": 5}
+    assert s.nicknames == {"Douglas": "Doug"}          # the neighbour still works
+
+
+@pytest.mark.parametrize("bad", ["five", 5.5, None, [], True])
+def test_a_grade_that_is_not_a_whole_number_is_dropped_not_raised(bad):
+    """A child with an unreadable grade falls back to today's interface. Raising here would
+    traceback out of `schedule remove --all`, which the uninstaller runs hidden."""
+    s = config.Settings()
+    config.settings_from_doc({"kids": {"grades": {"Douglas": bad, "Kayla": 5}}}, s)
+    assert s.grades == {"Kayla": 5}
+
+
+def test_a_grades_value_that_is_not_a_table_keeps_the_default():
+    s = config.Settings()
+    config.settings_from_doc({"kids": {"grades": "ninth"}}, s)
+    assert s.grades == {}
+
+
 def test_sources_table_reaches_settings():
     from fridgesheet import sources
     s = config.Settings()
