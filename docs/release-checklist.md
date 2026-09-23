@@ -197,19 +197,27 @@ launch the installer, to actually exercise that.
 Section 3 proves the *installer* survives landing on a running app, run by a human. This
 proves the app can start that installer **on itself** — the in-app Update button and
 `fridgesheet self-update` both end up calling the same `PrepareToInstall` this checklist has
-already exercised, but by way of a Windows spawn (`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`
-in `fridgesheet/host/selfupdate_windows.py`) that has never run on real Windows before this
-section. It needs a release newer than the installed one, so do it on the release after the
-one that introduces self-update — the current install stays as-is until then.
+already exercised, but by way of a Windows spawn (`cmd /c start "" /b <installer> ...` in
+`fridgesheet/host/selfupdate_windows.py`). It needs a release newer than the installed one,
+so do it on the release after the one that introduces self-update — the current install
+stays as-is until then.
 
-⚠️ **What this section cannot prove.** `packaging/windows/smoke.ps1` checks, on a real
-Windows runner, whether `taskkill /T` actually kills a process spawned with those flags before
-it kills a plain child — but that check has not yet run on `windows-latest` CI as of this
-writing (it is new in this same change). A reviewer has argued those flags may not be enough:
-`DETACHED_PROCESS` detaches the console and `CREATE_NEW_PROCESS_GROUP` changes Ctrl+C routing,
-and neither is documented to change the `InheritedFromUniqueProcessId` that `taskkill /T`
-actually walks. The last bullet below is where that theory meets a real family PC; treat it as
-the first real evidence either way, not a formality.
+✅ **Proven false, then corrected, 2026-09-23.** This section used to carry a caveat that the
+detachment mechanism (`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`) was unproven on real
+Windows. It has since been measured (GitHub Actions runs 35844316753 and 35844539925,
+workflow `probe-detachment.yml`, branch `probe/windows-detachment`, `windows-latest`,
+2026-09-23) and the reviewer's suspicion was correct: an installer spawned with those flags
+was killed by `taskkill /T` exactly like an unflagged control spawned alongside it — both
+confirmed recorded descendants of the parent, both dead after the tree kill. The flags
+touch console/Ctrl+C behavior, not `InheritedFromUniqueProcessId`, which is what `taskkill
+/T` actually walks. `fridgesheet/host/selfupdate_windows.py`'s `spawn_installer` has been
+changed to `cmd /c start "" /b <installer> ...` instead, which the same experiment measured
+to survive (including with a space in the target's path) because cmd.exe exits immediately,
+breaking the recorded parent/child chain before `taskkill /T` snapshots it.
+`packaging/windows/smoke.ps1` step 4 now exercises this corrected mechanism (and a
+spaces-in-path case) on real Windows CI, gating rather than merely warning. The checklist
+items below still verify the end-to-end behavior on a real family-PC-shaped machine; treat
+them as confirmation, not as the first evidence anymore.
 
 - [ ] Settings → set an **Update PIN**, Save. **Expect:** `config.toml`'s `[web]` has an
   `update_pin_hash` beginning `pbkdf2_sha256$...`, and the PIN itself appears nowhere in it —
@@ -235,13 +243,14 @@ the first real evidence either way, not a formality.
   section 3's equivalent box.
 - [ ] **Do it again with a Refresh in flight**, so Chromium is live under `{app}` when the
   installer's `taskkill /T` runs. This is the case `/T` exists for, the one section 3 also
-  flagged as still-unexercised, and the one the caveat above is actually about: if the
-  detached installer is *itself* a child Windows still tracks under `FridgeSheet.exe` despite
-  the creation flags, this is where a Refresh's Chromium — or the installer itself — would die
-  mid-update instead of surviving it. **Expect:** the installer completes and the page reloads
-  on the new version, same as the idle-server run above. If the update instead stalls, the
-  page never reloads, or Task Manager shows no `FridgeSheet.exe` at all afterward, that is the
-  reviewer's concern made real — file it, don't assume it was a fluke.
+  flagged as still-unexercised: if the spawned installer is *itself* a process Windows still
+  tracks as a descendant of `FridgeSheet.exe` — which is exactly what the corrected `cmd /c
+  start` mechanism above is measured to avoid, and what the old flags-based one did not —
+  this is where a Refresh's Chromium, or the installer itself, would die mid-update instead
+  of surviving it. **Expect:** the installer completes and the page reloads on the new
+  version, same as the idle-server run above. If the update instead stalls, the page never
+  reloads, or Task Manager shows no `FridgeSheet.exe` at all afterward, that is a real
+  regression from the measured behavior above — file it, don't assume it was a fluke.
 
 ## 4. First run, the way your friend will do it
 

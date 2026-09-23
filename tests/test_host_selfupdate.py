@@ -201,8 +201,13 @@ def test_the_dispatcher_routes_to_windows_when_on_windows(monkeypatch):
     monkeypatch.setattr(host, "IS_WINDOWS", True)
     selfupdate.spawn_installer(Path("C:/u/Setup.exe"), Path("C:/u/i.log"),
                                popen=lambda cmd, **kw: seen.update(cmd=cmd, kw=kw))
-    assert seen["cmd"][0] == "C:/u/Setup.exe"
-    assert seen["kw"]["creationflags"]          # the flags reached the real call
+    # cmd.exe is the real child now (see selfupdate_windows.py's docstring for why); the
+    # installer path is an argument to `start`, not argv[0].
+    assert seen["cmd"][:5] == ["cmd", "/c", "start", "", "/b"]
+    assert seen["cmd"][5] == "C:/u/Setup.exe"
+    # CREATE_NO_WINDOW is 0 on this (non-Windows) test host, so assert the key reached the
+    # real call rather than that it's truthy.
+    assert "creationflags" in seen["kw"]
 
 
 def test_the_dispatcher_refuses_on_linux(monkeypatch):

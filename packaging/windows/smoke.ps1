@@ -8,10 +8,11 @@
 #   3b. no-args launch  finds the running server and exits 0 (a crash here is the one failure
 #                       the friend would otherwise be first to see)
 #   3c. logon task      service install/remove round-trips through schtasks
-#   4. detached spawn   a python child spawned with the exact flags host/selfupdate_windows.py
-#                       uses survives `taskkill /T` aimed at its parent, an unflagged sibling
-#                       does not, and a reparented one is recorded for reference -- the one
-#                       claim no unit test (a fake Popen) can actually prove
+#   4. detached spawn   a python child spawned the exact way host/selfupdate_windows.py's
+#                       spawn_installer spawns (`cmd /c start "" /b ...`) survives
+#                       `taskkill /T` aimed at its parent, an unflagged sibling does not, and
+#                       the same mechanism through a path containing a space also survives --
+#                       the one claim no unit test (a fake Popen) can actually prove
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $exe = Join-Path $root "dist\FridgeSheet\FridgeSheet.exe"
@@ -87,47 +88,57 @@ try {
     #
     # installer.iss:117 runs `taskkill /IM FridgeSheet.exe /T /F` before [Files] copies a
     # single file, and /T also kills every process Windows still has recorded as a
-    # descendant of the one it targets. fridgesheet/host/selfupdate_windows.py spawns the
-    # installer with creationflags = DETACHED_PROCESS (0x8) | CREATE_NEW_PROCESS_GROUP
-    # (0x200) specifically so the installer is NOT recorded as FridgeSheet.exe's descendant,
-    # and so is not caught by that /T. Unit tests only assert those flags are handed to a
-    # fake `Popen`; none of them proves Windows actually honors them. This spawns through the
-    # REAL mechanism instead of a PowerShell stand-in for it -- a python parent calling
-    # `subprocess.Popen` with the exact same flags -- so the thing under test is the thing we
-    # ship. (A temp .py file, not `python -c`, to keep two layers of quoting -- PowerShell's
-    # -ArgumentList and Python's own -- out of the same string.)
+    # descendant of the one it targets.
+    #
+    # An earlier version of this step spawned with `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`
+    # and asserted that survives. Measured on real Windows (windows-latest,
+    # 2026-09-23, GitHub Actions runs 35844316753 / 35844539925, workflow
+    # `probe-detachment.yml`): that assertion is FALSE. A process spawned with those flags is
+    # killed by `taskkill /T` exactly like an unflagged control -- both were confirmed
+    # recorded descendants of the parent, and both died. What DOES survive is `cmd /c start
+    # "" /b <exe> ...`, because cmd.exe exits immediately after launching its target,
+    # breaking the recorded parent/child chain before taskkill /T ever walks it -- and that
+    # is what `fridgesheet/host/selfupdate_windows.py`'s `spawn_installer` now does. Unit
+    # tests only assert that argv is handed to a fake `Popen`; none of them proves Windows
+    # actually honors it. This spawns through the REAL mechanism instead of a PowerShell
+    # stand-in for it -- a python parent calling `subprocess.Popen` with the exact same argv
+    # -- so the thing under test is the thing we ship. (A temp .py file, not `python -c`, to
+    # keep two layers of quoting -- PowerShell's -ArgumentList and Python's own -- out of the
+    # same string.)
     #
     # One run answers three questions, one grandchild process each:
-    #   A. flagged     the real mechanism above. Expected to SURVIVE the tree kill. If it
-    #                  dies, that is a real defect -- self-update would kill its own
-    #                  installer mid-upgrade on a family PC -- so this step FAILS loudly
-    #                  rather than merely warning.
-    #   B. plain       an ordinary child, no special flags -- the negative control. Expected
-    #                  to DIE with the parent. If it survives instead, taskkill /T never
-    #                  reached the children on this runner at all, which means A surviving
-    #                  would prove nothing, so that also fails loudly.
-    #   C. reparented  spawned via the classic `cmd /c start` reparenting trick, recorded but
-    #                  never gating: DETACHED_PROCESS detaches the console and
-    #                  CREATE_NEW_PROCESS_GROUP changes Ctrl+C routing, and neither is
-    #                  documented to change the InheritedFromUniqueProcessId that taskkill /T
-    #                  actually walks. If A ever fails, this says whether reparenting would
-    #                  have worked instead.
+    #   A. mechanism   the production mechanism above (`cmd /c start "" /b ...`). Expected to
+    #                  SURVIVE the tree kill. If it dies, that is a real defect -- self-update
+    #                  would kill its own installer mid-upgrade on a family PC -- so this step
+    #                  FAILS loudly rather than merely warning.
+    #   B. plain       an ordinary child, no special handling -- the negative control.
+    #                  Expected to DIE with the parent. If it survives instead, taskkill /T
+    #                  never reached the children on this runner at all, which means A
+    #                  surviving would prove nothing, so that also fails loudly.
+    #   C. spaced      the same production mechanism, but the worker it launches lives under
+    #                  a directory whose name contains a space. `start` reads a lone quoted
+    #                  argument as the window title, so the empty "" title right after
+    #                  `start` is what keeps a real path like
+    #                  `C:\Users\John Smith\...\Setup.exe` from being swallowed as a title
+    #                  instead of run -- this is the case that would bite a household whose
+    #                  Windows username has a space in it. Expected to SURVIVE, exactly like
+    #                  A: a household with a spaced username is not a lesser case.
     Write-Host "smoke: detached spawn survives a tree kill (installer.iss:117's taskkill /T)"
 
     # This step drives the real mechanism through a *python* parent/worker pair (see the
     # comment above), not through the shipped FridgeSheet.exe -- so unlike every other step
     # in this script, it depends on something outside the built bundle. A CI runner with no
     # Python on PATH would otherwise fail deep inside Start-Process below with a bare "the
-    # flagged grandchild never reported its PID" (Wait-ForPidFile timing out because nothing
-    # ever started), which sends whoever reads the log looking at the detachment mechanism
-    # itself rather than at what actually broke. Fail here, immediately, naming what is
-    # missing and why this one step -- and only this step -- needs it.
+    # mechanism grandchild never reported its PID" (Wait-ForPidFile timing out because
+    # nothing ever started), which sends whoever reads the log looking at the detachment
+    # mechanism itself rather than at what actually broke. Fail here, immediately, naming
+    # what is missing and why this one step -- and only this step -- needs it.
     if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
         throw "step 4 (detached spawn survives a tree kill) needs 'python' on PATH: it drives " +
-              "the real DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP mechanism through a " +
-              "throwaway python parent/worker pair rather than the shipped exe, and none was " +
-              "found. Install Python and ensure 'python' resolves, or run this smoke test on " +
-              "a runner that already has it."
+              "the real 'cmd /c start' mechanism through a throwaway python parent/worker " +
+              "pair rather than the shipped exe, and none was found. Install Python and " +
+              "ensure 'python' resolves, or run this smoke test on a runner that already " +
+              "has it."
     }
 
     # Waits (bounded: 250ms x 40 = 10s max) for a PID file to hold an actual number. The
@@ -159,19 +170,24 @@ try {
     $tag = "fridgesheet-smoke-" + [guid]::NewGuid().ToString("N")
     $workerScript = Join-Path $env:TEMP "$tag-worker.py"
     $parentScript = Join-Path $env:TEMP "$tag-parent.py"
-    $pidFlagged = Join-Path $env:TEMP "$tag-flagged.pid"
+    $pidMechanism = Join-Path $env:TEMP "$tag-mechanism.pid"
     $pidPlain = Join-Path $env:TEMP "$tag-plain.pid"
-    $pidReparented = Join-Path $env:TEMP "$tag-reparented.pid"
-    $tempFiles = @($workerScript, $parentScript, $pidFlagged, $pidPlain, $pidReparented)
+    $pidSpaced = Join-Path $env:TEMP "$tag-spaced.pid"
+    # C's worker lives under a directory whose name contains a space, and is itself copied
+    # to a filename with a space -- the case that would bite a household whose Windows
+    # username has a space in it (%LOCALAPPDATA% is under C:\Users\<username>\...).
+    $spacedDir = Join-Path $env:TEMP "$tag dir with space"
+    $spacedWorker = Join-Path $spacedDir "$tag worker copy.py"
+    $tempFiles = @($workerScript, $parentScript, $pidMechanism, $pidPlain, $pidSpaced)
     $parentProc = $null
-    $flaggedId = $null; $flaggedStart = $null
+    $mechanismId = $null; $mechanismStart = $null
     $plainId = $null; $plainStart = $null
-    $reparentedId = $null; $reparentedStart = $null
+    $spacedId = $null; $spacedStart = $null
     try {
         # The worker just proves it is alive: write its own PID, then sleep. Writing its OWN
         # pid (rather than trusting whatever Popen/Start-Process handed back) is what makes
-        # the reparenting case (C) work at all -- `cmd /c start` returns cmd.exe's PID, not
-        # the real worker's.
+        # the production mechanism (A, C) provable at all -- `cmd /c start` returns cmd.exe's
+        # PID, not the real worker's.
         Set-Content -Path $workerScript -Value @'
 import os
 import sys
@@ -181,6 +197,9 @@ with open(sys.argv[1], "w", encoding="ascii") as f:
     f.write(str(os.getpid()))
 time.sleep(120)
 '@
+        New-Item -ItemType Directory -Force $spacedDir | Out-Null
+        Copy-Item -Path $workerScript -Destination $spacedWorker
+
         # The parent stands in for FridgeSheet.exe: it spawns all three grandchildren the
         # moment it starts, then stays alive itself so there is something for
         # `taskkill /PID ... /T` to actually kill.
@@ -189,46 +208,50 @@ import subprocess
 import sys
 import time
 
-DETACHED_PROCESS = 0x00000008
-CREATE_NEW_PROCESS_GROUP = 0x00000200
+CREATE_NO_WINDOW = 0x08000000
 
-worker, pid_flagged, pid_plain, pid_reparented = sys.argv[1:5]
+worker, spaced_worker, pid_mechanism, pid_plain, pid_spaced = sys.argv[1:6]
 
-# A: the real mechanism -- exactly the flags selfupdate_windows.py hands to Popen.
-subprocess.Popen([sys.executable, worker, pid_flagged],
-                  creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+# A: the production mechanism -- exactly what host/selfupdate_windows.py's spawn_installer
+# hands to Popen. cmd.exe exits immediately after launching its target, which is what
+# breaks the recorded parent/child chain before taskkill /T ever walks it -- not the
+# DETACHED_PROCESS/CREATE_NEW_PROCESS_GROUP flags this used to carry, which were measured
+# on real Windows to do nothing here.
+subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, worker, pid_mechanism],
+                  creationflags=CREATE_NO_WINDOW,
                   close_fds=True, stdin=None, stdout=None, stderr=None)
 
-# B: negative control -- an ordinary child, none of those flags.
+# B: negative control -- an ordinary child, no special handling at all.
 subprocess.Popen([sys.executable, worker, pid_plain])
 
-# C: the classic reparenting trick, recorded for information only.
-subprocess.Popen(["cmd", "/c", "start", "", "/B", sys.executable, worker, pid_reparented])
+# C: the same production mechanism, but the target lives under a path with a space in it.
+# The empty "" right after `start` is what keeps a quoted, spaced path from being read as
+# the window title instead of run.
+subprocess.Popen(["cmd", "/c", "start", "", "/b", sys.executable, spaced_worker, pid_spaced],
+                  creationflags=CREATE_NO_WINDOW,
+                  close_fds=True, stdin=None, stdout=None, stderr=None)
 
 time.sleep(120)
 '@
-        $parentProc = Start-Process -FilePath python -ArgumentList $parentScript,$workerScript,$pidFlagged,$pidPlain,$pidReparented -WindowStyle Hidden -PassThru
+        $parentProc = Start-Process -FilePath python -ArgumentList $parentScript,$workerScript,$spacedWorker,$pidMechanism,$pidPlain,$pidSpaced -WindowStyle Hidden -PassThru
         $parentStart = $parentProc.StartTime
 
-        $flaggedId = Wait-ForPidFile $pidFlagged
+        $mechanismId = Wait-ForPidFile $pidMechanism
         $plainId = Wait-ForPidFile $pidPlain
-        $reparentedId = Wait-ForPidFile $pidReparented
-        if (-not $flaggedId) { throw "the flagged grandchild never reported its PID" }
+        $spacedId = Wait-ForPidFile $pidSpaced
+        if (-not $mechanismId) { throw "the mechanism grandchild (A, cmd /c start) never reported its PID" }
         if (-not $plainId) { throw "the negative-control grandchild never reported its PID" }
-        # A missing reparented PID is not an abort: a fast-exiting `cmd /c start` racing this
-        # script's patience on a loaded runner just means "not observed", and C is
-        # informational only -- it never gates pass/fail.
+        if (-not $spacedId) { throw "the spaced-path grandchild (C, cmd /c start under a path with a space) never reported its PID -- that IS the finding: the empty title quoting failed" }
 
-        $flaggedProc = Get-Process -Id $flaggedId -ErrorAction SilentlyContinue
+        $mechanismProc = Get-Process -Id $mechanismId -ErrorAction SilentlyContinue
         $plainProc = Get-Process -Id $plainId -ErrorAction SilentlyContinue
-        if (-not $flaggedProc) { throw "the flagged grandchild exited before the tree kill could even be attempted" }
+        $spacedProc = Get-Process -Id $spacedId -ErrorAction SilentlyContinue
+        if (-not $mechanismProc) { throw "the mechanism grandchild exited before the tree kill could even be attempted" }
         if (-not $plainProc) { throw "the negative-control grandchild exited before the tree kill could even be attempted" }
-        $flaggedStart = $flaggedProc.StartTime
+        if (-not $spacedProc) { throw "the spaced-path grandchild exited before the tree kill could even be attempted" }
+        $mechanismStart = $mechanismProc.StartTime
         $plainStart = $plainProc.StartTime
-        if ($reparentedId) {
-            $reparentedProc = Get-Process -Id $reparentedId -ErrorAction SilentlyContinue
-            if ($reparentedProc) { $reparentedStart = $reparentedProc.StartTime }
-        }
+        $spacedStart = $spacedProc.StartTime
 
         taskkill /PID $parentProc.Id /T /F 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -250,30 +273,34 @@ time.sleep(120)
         Start-Sleep -Seconds 1
 
         $plainSurvived = [bool](Get-KnownProcess $plainId $plainStart)
-        $flaggedSurvived = [bool](Get-KnownProcess $flaggedId $flaggedStart)
-        $reparentedSurvived = [bool]($reparentedStart -and (Get-KnownProcess $reparentedId $reparentedStart))
+        $mechanismSurvived = [bool](Get-KnownProcess $mechanismId $mechanismStart)
+        $spacedSurvived = [bool](Get-KnownProcess $spacedId $spacedStart)
 
         Write-Host "  B. negative control (unflagged, pid $plainId): $(if ($plainSurvived) { 'SURVIVED (unexpected)' } else { 'died (expected)' })"
-        Write-Host "  A. flagged (DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, pid $flaggedId): $(if ($flaggedSurvived) { 'survived (expected)' } else { 'DIED (unexpected)' })"
-        Write-Host "  C. reparented (cmd /c start, informational only): $(if ($reparentedSurvived) { 'survived' } else { 'died' })"
+        Write-Host "  A. mechanism (cmd /c start, pid $mechanismId): $(if ($mechanismSurvived) { 'survived (expected)' } else { 'DIED (unexpected)' })"
+        Write-Host "  C. mechanism, path with a space (pid $spacedId): $(if ($spacedSurvived) { 'survived (expected)' } else { 'DIED (unexpected)' })"
 
         if ($plainSurvived) {
-            throw "the unflagged negative control survived taskkill /T -- it never reached child processes on this runner at all, so the flagged result above proves nothing"
+            throw "the unflagged negative control survived taskkill /T -- it never reached child processes on this runner at all, so the results above prove nothing"
         }
-        if (-not $flaggedSurvived) {
-            throw "detached spawn (DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP) did NOT survive taskkill /T -- self-update would kill its own installer mid-upgrade on a family PC"
+        if (-not $mechanismSurvived) {
+            throw "the production spawn mechanism (cmd /c start) did NOT survive taskkill /T -- self-update would kill its own installer mid-upgrade on a family PC"
         }
-        Write-Host "  ok: the flagged grandchild survived the tree kill and the negative control did not"
+        if (-not $spacedSurvived) {
+            throw "the production spawn mechanism did NOT survive taskkill /T when its target's path contained a space -- self-update would kill its own installer mid-upgrade on any family PC whose Windows username has a space in it"
+        }
+        Write-Host "  ok: both mechanism grandchildren survived the tree kill and the negative control did not"
     } finally {
         # Clean up exactly the processes this check spawned, guarded by PID *and* start time
         # (Windows recycles PIDs) -- never a name-based sweep like `Get-Process python |
         # Stop-Process`, which would also take out any other python process this CI runner
         # happens to have going.
         if (Get-KnownProcess $parentProc.Id $parentProc.StartTime) { Stop-Process -Id $parentProc.Id -Force -ErrorAction SilentlyContinue }
-        if (Get-KnownProcess $flaggedId $flaggedStart) { Stop-Process -Id $flaggedId -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $mechanismId $mechanismStart) { Stop-Process -Id $mechanismId -Force -ErrorAction SilentlyContinue }
         if (Get-KnownProcess $plainId $plainStart) { Stop-Process -Id $plainId -Force -ErrorAction SilentlyContinue }
-        if (Get-KnownProcess $reparentedId $reparentedStart) { Stop-Process -Id $reparentedId -Force -ErrorAction SilentlyContinue }
+        if (Get-KnownProcess $spacedId $spacedStart) { Stop-Process -Id $spacedId -Force -ErrorAction SilentlyContinue }
         Remove-Item $tempFiles -ErrorAction SilentlyContinue
+        Remove-Item $spacedDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     Write-Host "smoke OK"
