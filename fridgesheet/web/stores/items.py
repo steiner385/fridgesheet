@@ -75,7 +75,9 @@ class ItemView:
     #: `verdicts.verdict`: what the app concluded about this item and whether the family has
     #: anything to do (question / decided / waiting / status).
     verdict: verdicts.Verdict = field(default_factory=lambda: verdicts.Verdict("status", ""))
-    canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation
+    canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation (last change)
+    canvas_checked: str = ""        # started_at of the latest refresh in which Canvas answered (last check, #75)
+    hac_checked: str = ""
     hac_as_of: str = ""
     teacher_email: str = ""         # the class's teacher, from Canvas (the HAC twin borrows it)
     teacher: str = ""
@@ -231,6 +233,35 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
     return "", False
 
 
+def last_checked(conn: sqlite3.Connection) -> dict[str, str]:
+    """source -> started_at of the latest refresh in which that source answered "ok". Ingest
+    stores an observation only when something changed, so an observation's own refresh says
+    when the source last *changed*; this says when it was last *looked at* (#75)."""
+    import json
+    out: dict[str, str] = {}
+    for r in conn.execute("SELECT started_at, sources FROM refreshes ORDER BY id DESC"):
+        try:
+            status = json.loads(r["sources"] or "{}")
+        except ValueError:
+            continue
+        for src in ("canvas", "hac"):
+            if src not in out and status.get(src) == "ok":
+                out[src] = r["started_at"]
+        if len(out) == 2:
+            break
+    return out
+
+
+def changed_since(v: "ItemView", since: datetime) -> bool:
+    """Whether either source's record of this item changed after `since`."""
+    for ts in (v.canvas_as_of, v.hac_as_of):
+        if ts:
+            a, b = reconcile.comparable(datetime.fromisoformat(ts), since)
+            if a >= b:
+                return True
+    return False
+
+
 def grade_source(obs: dict[str, sqlite3.Row], prefer: str = "canvas") -> str:
     """Which gradebook `grade_text` took the Grade cell from: the same branches, naming the
     source instead of the words. "" when the cell is not a grade (excused, unpublished, waiting)."""
@@ -260,6 +291,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
     active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
     flag_text = {i: r["text"] for i, r in active_flags.items()}
     refresh_times = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
+    checked = last_checked(conn)
     # The first active step per assignment, in plan order (planned_for, position).
     steps: dict[int, dict] = {}
     for s in plans.for_student(conn, student["id"]):
@@ -297,6 +329,8 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
                                      refresh_times=refresh_times, prefer=prefer, prev_obs=previous.get(r["id"], {})),
             canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
             hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
+            canvas_checked=checked.get("canvas", "") if "canvas" in obs else "",
+            hac_checked=checked.get("hac", "") if "hac" in obs else "",
             teacher_email=r["teacher_email"] or "",
             teacher=r["teacher"] or "",
             step=steps.get(r["id"]),

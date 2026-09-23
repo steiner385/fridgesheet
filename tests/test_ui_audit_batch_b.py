@@ -86,5 +86,8 @@ def test_the_items_table_scrolls_sideways_on_a_phone_instead_of_clipping():
     """Seen on the live app at 390px: Handed in, Grade, Sources and Flag fell off the right
     edge with nothing to scroll. A block-level table scrolls on its own."""
     narrow = _block("max-width: 800px")
-    assert re.search(r"table\.items\s*\{[^}]*display: block", narrow)
-    assert re.search(r"table\.items\s*\{[^}]*overflow-x: auto", narrow)
+    # Open work's wide tables scroll as blocks; the three-column work list scrolls inside its
+    # own .table-wrap at every width (#53), so it keeps its background to the edge (#78).
+    assert re.search(r"table\.items:not\(\.work\)\s*\{[^}]*display: block", narrow)
+    assert re.search(r"table\.items:not\(\.work\)\s*\{[^}]*overflow-x: auto", narrow)
+    assert re.search(r"\.table-wrap\s*\{[^}]*overflow-x:\s*auto", CSS)

@@ -15,7 +15,7 @@ def test_alex_has_one_question_one_decided_and_two_waiting(tmp_path):
     body = _page(tmp_path)
     assert "1 question about" in body
     assert re.search(r'id="q-\d+"[^>]*>.*?Participation', body, re.S)
-    decided = body[body.index("Decided for you"):body.index("Waiting")]
+    decided = body[body.index("Settled by the records"):body.index("Waiting")]
     assert "Quiz 1" in decided and "Not right?" in decided
     waiting = body[body.index("Waiting"):body.index('id="items"')]
     assert "Essay draft" in waiting and "Lab notebook" in waiting and "Ask now" in waiting

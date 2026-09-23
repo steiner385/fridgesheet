@@ -52,7 +52,7 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     # Three columns (Due, Assignment, Where it stands): Homework 4 is too late for credit (and
     # red: Canvas marked it missing), "today" hangs off the Due date, and the HAC-only
     # Participation says in words that a week has gone by with no grade.
-    assert "Too late for credit" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade after a week" in table
+    assert "Canvas marks it missing · past the late-work window" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade after a week" in table
     assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
@@ -89,7 +89,7 @@ def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
     assert "Canvas" in body and "marked missing" in body and "HAC" in body and "28 of 30" in body   # the record
-    assert "HAC has 28 of 30. Canvas still shows its automatic" in body   # the verdict: decided, with its reason
+    assert "HAC has 28 of 30. Canvas still says missing" in body          # the verdict: decided, with its reason
     assert "Asked Mr Hoch" in body
     for f in ("done", "excused", "ignore", "follow_up", "ask_teacher"):
         assert f'value="{f}"' in body, f

@@ -23,7 +23,7 @@ DEFAULT_WINDOW = "1d"
 
 LABELS = {
     "new_item": "New", "grade_posted": "Grade posted", "grade_changed": "Grade changed",
-    "now_missing": "Now missing", "cleared": "Cleared", "flag_set": "You flagged",
+    "now_missing": "Now missing", "cleared": "Cleared", "flag_set": "You answered",
     "flag_cleared": "You cleared a flag", "course_grade": "Class average",
 }
 
@@ -31,6 +31,10 @@ LABELS = {
 #: `new_item`-shaped event per item -- on the order of a thousand rows, all at one timestamp --
 #: and a page that prints all of them is not a feed, it is a database dump.
 DEFAULT_LIMIT = 500
+
+#: How a family answer reads in the change log: the family's words, not the stored flag name.
+_FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
+               "follow_up": "follow up", "ask_teacher": "ask the teacher"}
 
 
 @dataclass(frozen=True)
@@ -243,7 +247,7 @@ def _flag_events(conn: sqlite3.Connection, student_id: int | None) -> list[Event
     for r in conn.execute(sql, args):
         common = dict(student_key=r["student_key"], student_id=r["student_id"], item_id=r["item_id"],
                       item_name=r["item_name"], course_short=r["course_short"], flag=r["flag"])
-        word = r["flag"].replace("_", " ")
+        word = _FLAG_WORDS.get(r["flag"], r["flag"].replace("_", " "))
         out.append(Event("flag_set", _dt(r["set_at"]), detail=f"{word}: {r['text']}" if r["text"] else word, **common))
         if r["cleared_at"]:
             out.append(Event("flag_cleared", _dt(r["cleared_at"]), detail=f"was {word}", **common))

@@ -38,6 +38,10 @@ class Verdict:
 
 
 ASK = Answer("a.ask_teacher", "ask_teacher")
+
+#: A family answer said back in family words, never the stored flag name ("ignore").
+FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
+              "follow_up": "follow up", "ask_teacher": "ask the teacher"}
 ANSWERS = {
     "missing_after_grade": (Answer("a.hac_right_done", "done"), ASK),
     "graded_in_hac": (Answer("a.hac_right_done", "done"), ASK),
@@ -150,7 +154,7 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
         if change:
             kind = {"ask_teacher": "asked_then_graded", "follow_up": "followed_up_then_graded"}.get(flag, "stale_answer")
             return Verdict(QUESTION, kind,
-                           {"flag": flag.replace("_", " "), "when": _md(flag_set_at), "change": change},
+                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": change},
                            ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered", {"when": _md(flag_set_at)} if flag_set_at else {})
@@ -269,3 +273,11 @@ def standing(item, tier: str) -> str:
 
 def has_phrase(key: str) -> bool:
     return key in phrasing.PHRASES
+
+
+def family_facts(v: Verdict) -> dict:
+    """A verdict's facts with any stored flag name turned into family words."""
+    facts = dict(v.facts)
+    if "flag" in facts:
+        facts["flag"] = FLAG_WORDS.get(facts["flag"], facts["flag"])
+    return facts

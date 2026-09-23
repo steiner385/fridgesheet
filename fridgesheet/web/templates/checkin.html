@@ -15,7 +15,7 @@
   <p class="muted">Last check-in {{ last_check.finished_at | wd_md_time }}{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in {{ last_check.next_check | wd_md }}{% if last_check.next_check <= today %} · <strong>time to check in</strong>{% endif %}</p>
   <p class="family-account"><strong>What we agreed:</strong> {{ last_check.summary }}</p>
   {% else %}<p class="muted">Start with what’s already been handed in, then decide what fits today.</p>{% endif %}
-  {% if not plan_only %}<p class="muted">School records can lag behind. Check the source status above before relying on a missing flag or grade.</p>{% endif %}
+  {% if not plan_only %}<p class="muted">School records can lag behind. Check the school record on each card before relying on a “missing” mark or a grade.</p>{% endif %}
 </div>
 <div class="checkin-layout {{ 'plan-only' if plan_only }}">
 {% if not plan_only %}
