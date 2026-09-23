@@ -175,11 +175,20 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid #b7cdc5; border-radius: 6px; background: #edf5f1; color: #214f43; text-decoration: none; }
 .notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; }
 .checkin-intro { max-width: 760px; margin-bottom: 24px; }
-.checkin-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+/* Wider than the 1100px default: on a full check-in the review queue and the plan both need
+   room, and 1100px left the review cards narrow while a big share of a desktop screen sat
+   empty on either side. */
+main.wide { max-width: 1600px; }
+.checkin-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
 .checkin-layout h3 { margin-top: 0; }
+/* The plan and the wrap-up form stick beside the review queue while it scrolls, so "Choose a
+   next step" on the last card and "Finish check-in" are both still in view. It scrolls on its
+   own past viewport height rather than pushing off the bottom. */
+.checkin-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
 .queue-group { margin: 16px 0; }
 .queue-group > summary { padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 650; cursor: pointer; }
+.review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
 .review-card, .plan-card { margin-top: 12px; overflow-wrap: anywhere; }
 .review-card h4, .plan-card h4 { font-size: 17px; margin: 0 0 8px; }
 .school-evidence { font-size: 13px; color: #4f5754; }
@@ -202,6 +211,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 800px) {
   .checkin-layout { grid-template-columns: minmax(0, 1fr); }
+  .checkin-side { position: static; max-height: none; overflow-y: visible; }
   .plan-panel { padding: 12px; }
   .form-pair { grid-template-columns: minmax(0, 1fr); }
   .workspace-heading h2 { font-size: 24px; }
