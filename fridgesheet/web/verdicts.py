@@ -15,10 +15,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS
-from . import outcomes, phrasing, reconcile
+from . import outcomes, pace as _pace, phrasing, reconcile
 
 QUESTION, DECIDED, WAITING, STATUS = "question", "decided", "waiting", "status"
-GRACE_DAYS = 7
 TOLERANCE = 0.5
 
 
@@ -35,6 +34,9 @@ class Verdict:
     facts: dict = field(default_factory=dict)      # values for the "facts.<kind>" phrase
     answers: tuple[Answer, ...] = ()
     asks_on: date | None = None                    # waiting only: the day it becomes a question
+    #: The learned pace behind a grace period, for the "pace.*" sentence (spec 4.6); None when
+    #: no grace period governs this verdict. Keys: which, days, n, scope, what, by, elapsed, passed.
+    pace: dict | None = None
 
 
 ASK = Answer("a.ask_teacher", "ask_teacher")
@@ -51,6 +53,7 @@ ANSWERS = {
     "excused_hac_zero": (ASK, Answer("a.leave_it", "ignore")),
     "hac_still_blank": (ASK, Answer("a.its_fine", "ignore")),
     "hac_lag": (ASK,),
+    "teacher_grading": (ASK,),
     "still_ungraded": (Answer("a.handed_in", "done"), Answer("a.plan_it", None), ASK),
     "awaiting_grade": (ASK,),
     "stale_answer": (Answer("a.still_done", "confirm"), Answer("a.reopen", "clear"), ASK),
@@ -143,7 +146,8 @@ def _scores(c, h, points, late_credit: float | None) -> Verdict | None:
     return Verdict(QUESTION, "hac_lower", {"canvas": _of(cs, points), "hac": _of(hs, points)}, ANSWERS["hac_lower"])
 
 
-def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="canvas", prev_obs=None) -> Verdict:
+def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="canvas", prev_obs=None, pace=None) -> Verdict:
+    pace = pace or _pace.DEFAULT
     c, h = obs.get("canvas"), obs.get("hac")
     points = item["points"]
     hs = h["score"] if h is not None else None
@@ -183,14 +187,34 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if scored is not None:
         return scored
 
-    return _waiting_or_status(item, c, h, now=now, rules=rules, refresh_times=refresh_times, prefer=prefer, obs=obs)
+    return _waiting_or_status(item, c, h, now=now, rules=rules, refresh_times=refresh_times, prefer=prefer, obs=obs, pace=pace)
 
 
-def _days_past(due: datetime | None, now: datetime) -> int | None:
-    return None if due is None else (now.date() - due.date()).days
+#: What the count is attributed to, by scope. The subject is always Fridge Sheet's count.
+WHAT = {_pace.COURSE_KIND: "assignments in this class", _pace.COURSE: "assignments in this class",
+        _pace.TEACHER: "assignments from this teacher", _pace.DEFAULT_SCOPE: "assignments in this class"}
 
 
-def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) -> Verdict:
+def _pace_facts(est: _pace.Estimate, which: str, anchor: date, now: datetime) -> dict:
+    by = anchor + timedelta(days=est.days)
+    elapsed = (now.date() - anchor).days
+    return {"which": which, "days": est.days, "n": est.n, "scope": est.scope, "what": WHAT[est.scope],
+            "by": f"{by:%a} {by.month}/{by.day}", "elapsed": f"{elapsed} day{'' if elapsed == 1 else 's'}",
+            "passed": elapsed >= est.days}
+
+
+def pace_key(v: Verdict) -> str | None:
+    """Which "pace.*" sentence a verdict's pace calls for, or None."""
+    p = v.pace
+    if not p:
+        return None
+    prefix = "pace.hac_" if p["which"] == "hac" else "pace."
+    if p["scope"] == _pace.DEFAULT_SCOPE:
+        return prefix + "default"
+    return prefix + ("passed" if p["passed"] else "expect")
+
+
+def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs, pace) -> Verdict:
     """Rules 9-15: what time will settle, and the plain facts left over."""
     outcome = outcomes.classify(item, obs, now, prefer=prefer)
     points = item["points"]
@@ -204,27 +228,35 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs) ->
         return Verdict(STATUS, outcome)
     settled_not_done = outcome == outcomes.NOT_DONE
 
-    # 9-10: Canvas graded it and HAC, which this class has, still has nothing.
+    # 9-10: Canvas graded it and HAC, which this class has, still has nothing. How long to
+    # allow is what this class's history says HAC usually takes (spec 4.5).
     if not settled_not_done and cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
         seen = _observed_at(c, refresh_times)
         if seen is not None:
-            asks_on = seen.date() + timedelta(days=GRACE_DAYS)
+            est = pace.hac_days(item)
+            asks_on = seen.date() + timedelta(days=est.days)
+            facts_p = _pace_facts(est, "hac", seen.date(), now)
             if now.date() >= asks_on:
                 return Verdict(QUESTION, "hac_still_blank", {"canvas": _of(cs, points), "when": f"{seen.month}/{seen.day}"},
-                               ANSWERS["hac_still_blank"])
-            return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on)
+                               ANSWERS["hac_still_blank"], pace=facts_p)
+            return Verdict(WAITING, "hac_lag", {"canvas": _of(cs, points)}, ANSWERS["hac_lag"], asks_on=asks_on, pace=facts_p)
 
-    # 11: handed in online, no grade anywhere.
+    # 11: handed in online, no grade anywhere. Still waits without asking; the pace sentence
+    # shows so the family sees the count before the app acts on it (spec section 8).
     if not settled_not_done and c is not None and c["submitted_at"] and cs is None and hs is None:
-        return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])})
+        submitted = reconcile._parse_ts(c["submitted_at"]).date()
+        return Verdict(WAITING, "teacher_grading", {"when": _md(c["submitted_at"])}, ANSWERS["teacher_grading"],
+                       pace=_pace_facts(pace.grade_days(item), "grade", submitted, now))
 
     # 12-13: nothing to submit online, past due, no grade anywhere.
     if outcome == outcomes.UNKNOWN and due is not None:
-        asks_on = due.date() + timedelta(days=GRACE_DAYS)
+        est = pace.grade_days(item)
+        asks_on = due.date() + timedelta(days=est.days)
         facts = {"kind": item["kind"] or "HAC-only", "due": f"{due:%a} {due.month}/{due.day}"}
-        if _days_past(due, now) >= GRACE_DAYS:
-            return Verdict(QUESTION, "still_ungraded", facts, ANSWERS["still_ungraded"])
-        return Verdict(WAITING, "awaiting_grade", facts, ANSWERS["awaiting_grade"], asks_on=asks_on)
+        facts_p = _pace_facts(est, "grade", due.date(), now)
+        if now.date() >= asks_on:
+            return Verdict(QUESTION, "still_ungraded", facts, ANSWERS["still_ungraded"], pace=facts_p)
+        return Verdict(WAITING, "awaiting_grade", facts, ANSWERS["awaiting_grade"], asks_on=asks_on, pace=facts_p)
 
     # 14: not done and past the late-work window.
     if outcome == outcomes.NOT_DONE and due is not None:
