@@ -230,3 +230,29 @@ def test_a_zero_both_gradebooks_agree_on_is_not_a_question():
     """Review 6: Canvas graded the submission 0 and HAC has 0; nothing to tell the teacher."""
     v = run(item(), {"canvas": canvas(state="graded", score=0.0, submitted_at="2026-09-12T20:00:00-04:00"), "hac": hac(score=0.0)})
     assert v.state == V.STATUS
+
+
+# --- deferred review findings --------------------------------------------------------------
+
+def test_follow_up_is_its_own_status_not_asked_the_teacher():
+    """Finding 12: "follow up" is the family's own reminder; nobody asked the teacher."""
+    v = run(item(), {"canvas": canvas(missing=1)}, flag="follow_up", flag_set_at="2026-09-15T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.STATUS, "following_up")
+    assert "teacher" not in V.say("where.following_up", "").lower()
+
+
+def test_a_graded_follow_up_does_not_say_you_asked_the_teacher():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=28.0)}, flag="follow_up",
+            flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "followed_up_then_graded")
+    assert [a.flag for a in v.answers] == ["done", "confirm"]
+    assert "asked the teacher" not in V.say("facts." + v.kind, "", v.facts).lower()
+
+
+def test_under_the_hac_preference_a_later_missing_is_decided_not_asked():
+    """Finding 7: a class set to trust HAC already counts it done; asking which is right
+    contradicts the family's own setting."""
+    obs = {"canvas": canvas(rid=3, missing=1), "hac": hac(rid=2, score=28.0)}
+    v = V.verdict(item(), obs, flag=None, flag_set_at="", now=NOW, rules=RULES, refresh_times=TIMES, prefer="hac")
+    assert (v.state, v.kind) == (V.DECIDED, "graded_in_hac")
+    assert run(item(), obs).kind == "missing_after_grade"          # the default preference still asks

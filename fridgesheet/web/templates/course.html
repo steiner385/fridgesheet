@@ -44,6 +44,8 @@
 <h3>Items</h3>
 <div id="items">
 {% block partial %}
+{# This page has no question cards; the tag on a row with a question opens the kid page's. #}
+{% set q_base = "/kids/" ~ (student.key | urlencode) %}
 {% include "_item_rows.html" %}
 {% endblock %}
 </div>

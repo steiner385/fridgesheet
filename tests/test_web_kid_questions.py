@@ -44,3 +44,15 @@ def test_more_filters_keeps_the_old_selects_behind_a_disclosure(tmp_path):
     more = body[body.index("<details class=\"more-filters\""):]
     for name in ("source", "kind", "flagged", "outcome"):
         assert f'name="{name}"' in more
+
+
+def test_the_course_pages_question_tag_links_to_the_kid_pages_card(tmp_path):
+    """Finding 10: the course page has no question cards, so its tag must point at the kid page."""
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
+    pid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
+    conn.close()
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    assert f'href="/kids/Alex#q-{pid}"' in body
+    assert f'href="#q-{pid}"' not in body
+

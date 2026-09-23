@@ -57,9 +57,8 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, 
     "Concert Contract Due" sat on *Open the longest* for 27 days at 10/10, and the sheet would
     have printed PAPER — CHECK for it. Done on paper is done.
 
-    The set names the sources that have not settled it, for the Reconcile page's "only one
-    source" reasoning: Canvas whenever it lists the item, HAC when it lists the item without
-    a grade a day past due."""
+    The set names the sources that have not settled it: Canvas whenever it lists the item,
+    HAC when it lists the item without a grade a day past due."""
     from . import outcomes                      # outcomes imports this module's helpers
     outcome = outcomes.classify(item, obs, now, prefer=prefer)
     c, h = obs.get("canvas"), obs.get("hac")
