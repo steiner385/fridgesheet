@@ -3,7 +3,7 @@
   <button type="button" class="link close-detail" data-close-detail>Close</button>
   <h2 tabindex="-1" data-focus-target>{{ item.name }} <span class="muted">· {{ item.course_short }}{% if item.kind %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}</span></h2>
   {% if message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
-  {% if item.verdict.state in ('question', 'decided', 'waiting') %}{% set slot = 'qd-' ~ item.id %}{% include "_question.html" %}{% else %}{% include "_record.html" %}{% endif %}
+  {% if ('facts.' ~ item.verdict.kind) | has_phrase or item.verdict.answers %}{% set slot = 'qd-' ~ item.id %}{% include "_question.html" %}{% else %}{% include "_record.html" %}{% endif %}
   {% if item.step %}<p class="family-account"><strong>Our step:</strong> {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
   <p><a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">{{ 'Plan another step' if item.step else 'Plan a step' }}</a></p>
   {% if item_history %}<details class="history"><summary>History ({{ item_history | length }})</summary>

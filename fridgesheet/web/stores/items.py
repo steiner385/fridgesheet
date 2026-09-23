@@ -78,6 +78,7 @@ class ItemView:
     canvas_as_of: str = ""          # started_at of the refresh that recorded Canvas's latest observation
     hac_as_of: str = ""
     teacher_email: str = ""         # the class's teacher, from Canvas (the HAC twin borrows it)
+    teacher: str = ""
     #: The family's active plan step on this assignment (a `plan_steps` row), or None. A step
     #: already agreed means the question is being handled: it is not asked again.
     step: dict | None = None
@@ -250,6 +251,7 @@ def grade_source(obs: dict[str, sqlite3.Row], prefer: str = "canvas") -> str:
 def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
            prefs=None) -> list[ItemView]:
     latest = db.latest_observations(conn, student["id"])
+    previous = db.previous_observations(conn, student["id"])
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
     latest_notes: dict[int, dict] = {}
@@ -292,10 +294,11 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0),
             verdict=verdicts.verdict(r, obs, flag=r["flag"], flag_set_at=r["flag_set_at"] or "", now=now, rules=rules,
-                                     refresh_times=refresh_times, prefer=prefer),
+                                     refresh_times=refresh_times, prefer=prefer, prev_obs=previous.get(r["id"], {})),
             canvas_as_of=refresh_times.get(obs["canvas"]["refresh_id"], "") if "canvas" in obs else "",
             hac_as_of=refresh_times.get(obs["hac"]["refresh_id"], "") if "hac" in obs else "",
             teacher_email=r["teacher_email"] or "",
+            teacher=r["teacher"] or "",
             step=steps.get(r["id"]),
             grade_source=grade_source(obs, prefer),
             canvas_path=(f"/courses/{r['course_external_id']}/assignments/{r['key'][len('canvas:'):]}"

@@ -14,6 +14,10 @@
   </form>
   {% endif %}
   {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
+  {% if g.asked %}
+  <h4 class="quiet-head">Waiting on the teacher</h4>
+  <div class="lines">{% for item in g.asked %}<div class="line"><span><b>{{ item.name }}</b> <span class="muted">{{ item | standing(tier) }}</span></span>{% if item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</div>{% endfor %}</div>
+  {% endif %}
   {% if g.twins %}
   <details class="quiet"><summary>Can't pair these ({{ g.twins | length }})</summary>
     <p class="muted">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>

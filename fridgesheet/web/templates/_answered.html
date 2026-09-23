@@ -6,3 +6,4 @@
   <span tabindex="-1" data-focus-target><b>{{ item.name }}</b>: {{ said }}{% if item.verdict.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}">Email the teacher</a>{% endif %}</span>
   <form hx-post="/items/{{ item.id }}/undo" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ prev }}"><input type="hidden" name="prev_set_at" value="{{ prev_set_at | default('') }}"><input type="hidden" name="slot" value="{{ qid }}"><button class="link">Undo</button></form>
 </div>
+{% include "_after_answer.html" %}

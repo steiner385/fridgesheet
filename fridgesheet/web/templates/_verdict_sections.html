@@ -19,7 +19,7 @@
 {% if waiting %}
 <details class="quiet"><summary>Waiting, nothing to do yet ({{ waiting | length }})</summary>
   <div class="lines">{% for item in waiting %}
-    <div class="line" id="q-{{ item.id }}"><span class="clock" aria-hidden="true">◷</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}{% if item.verdict.asks_on %} Asks you after {{ item.verdict.asks_on | wd_md }}.{% endif %}</span></span>
+    <div class="line" id="q-{{ item.id }}"><span class="clock" aria-hidden="true">◷</span><span><b>{{ item.name }}</b> <span class="muted">{% if item.verdict.state == 'waiting' %}{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if item.verdict.asks_on %} Asks you after {{ item.verdict.asks_on | wd_md }}.{% endif %}</span>{% if item.verdict.kind == 'asked' and item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>
       {% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher">Ask now</button></form>{% endif %}</div>
   {% endfor %}</div>
 </details>

@@ -258,3 +258,23 @@ def latest_observations(conn: sqlite3.Connection, student_id: int) -> dict[int, 
     for r in rows:
         out.setdefault(r["item_id"], {}).setdefault(r["source"], r)   # first seen per (item, source) is the newest
     return out
+
+
+def previous_observations(conn: sqlite3.Connection, student_id: int) -> dict[int, dict[str, sqlite3.Row]]:
+    """item id -> source -> the observation before the latest one. Ingest writes a row only
+    when something changed, so this is what the source said before its latest change."""
+    rows = conn.execute(
+        """SELECT o.* FROM item_observations o
+           JOIN items i ON i.id = o.item_id
+           WHERE i.student_id = ?
+           ORDER BY o.item_id, o.source, o.refresh_id DESC, o.id DESC""",
+        (student_id,),
+    ).fetchall()
+    seen: dict[tuple[int, str], int] = {}
+    out: dict[int, dict[str, sqlite3.Row]] = {}
+    for r in rows:
+        k = (r["item_id"], r["source"])
+        seen[k] = seen.get(k, 0) + 1
+        if seen[k] == 2:
+            out.setdefault(r["item_id"], {})[r["source"]] = r
+    return out
