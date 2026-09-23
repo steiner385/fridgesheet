@@ -34,7 +34,7 @@ from ..dates import parse_iso as _parse
 from ..host import selfupdate
 from . import db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
-from .stores import num, refreshes, runs, students
+from .stores import flags as flagstore, num, refreshes, runs, students
 
 HERE = Path(__file__).parent
 APP_NAME = "fridgesheet"
@@ -198,6 +198,7 @@ def _filters(state: AppState) -> dict:
 #: process -- and so the template cache survives between requests (an overlay per request
 #: recompiles every template on every page).
 ENV = jinja2.Environment(loader=jinja2.FileSystemLoader(str(HERE / "templates")), autoescape=True)
+ENV.globals["FLAG_CHOICES"] = flagstore.CHOICES          # the detail card's flag menu (#3)
 
 
 def _env(request: Request) -> jinja2.Environment:
@@ -514,9 +515,14 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
         return await call_next(request)
 
     @app.get("/health")
-    def health() -> JSONResponse:
-        # No home path here: /health answers the LAN when allow_lan is on.
-        return JSONResponse({"app": APP_NAME, "version": version(), "started_at": state.started_at.isoformat()})
+    def health(request: Request) -> JSONResponse:
+        # No home path here: /health answers the LAN when allow_lan is on. The version is for
+        # this machine only (the launcher and the updater ask from loopback): on the network
+        # it would say which known bugs this copy has (#3).
+        body = {"app": APP_NAME, "started_at": state.started_at.isoformat()}
+        if loopback(request):
+            body["version"] = version()
+        return JSONResponse(body)
 
     def not_found(request: Request) -> HTMLResponse:
         conn = db.open_db(home)

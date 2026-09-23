@@ -7,6 +7,10 @@ import sqlite3
 from ...open_items import HANDLED_FLAGS as HANDLED, MARKED_FLAGS as MARKED
 
 FLAGS = HANDLED + MARKED
+#: Every flag with the words the detail card's menu shows, in the store's order; the menu is
+#: drawn from this, so a flag added here appears there (#3).
+CHOICES = (("done", "It's done"), ("excused", "Excused"), ("ignore", "Let it go"),
+           ("follow_up", "Follow up"), ("ask_teacher", "Ask the teacher"))
 
 
 def active(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:

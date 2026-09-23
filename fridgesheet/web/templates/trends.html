@@ -6,10 +6,10 @@
 <h2>Trends</h2>
 <div class="filters">
   <span>Kid:</span>
-  <a class="badge {{ 'current' if not kid }}" href="/trends?weeks={{ weeks }}">all</a>
-  {% for s in students %}<a class="badge {{ 'current' if kid == s.key }}" href="/trends?kid={{ s.key }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}
+  <a class="badge{{ ' current' if not kid else '' }}" href="/trends?weeks={{ weeks }}">all</a>
+  {% for s in students %}<a class="badge{{ ' current' if kid == s.key else '' }}" href="/trends?kid={{ s.key }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}
   <span>Weeks:</span>
-  {% for n in (4, 8, 16) %}<a class="badge {{ 'current' if weeks == n }}" href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
+  {% for n in (4, 8, 16) %}<a class="badge{{ ' current' if weeks == n else '' }}" href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
 </div>
 {# With nothing at all yet, one sentence says so; the cards, the charts and the table each had
    their own way of saying the same thing (#5). #}

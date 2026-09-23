@@ -80,8 +80,9 @@ def test_stores_read_the_seeded_database(home):
 
 
 def test_health_names_the_app_and_keeps_the_home_path_to_itself(client):
-    r = client.get("/health")
-    assert r.status_code == 200 and r.json()["app"] == "fridgesheet" and "version" in r.json()
+    from starlette.testclient import TestClient
+    r = TestClient(client.app, headers={"host": "127.0.0.1"}, client=("127.0.0.1", 50000)).get("/health")
+    assert r.status_code == 200 and r.json()["app"] == "fridgesheet" and "version" in r.json()   # loopback: see #3
     assert "started_at" in r.json() and "home" not in r.json()     # /health can answer the LAN
 
 

@@ -9,17 +9,17 @@
   {# Plain links, like the Kid and Kind chips: `.filters` sits outside #changes, so an hx-get
      that swapped only the table would leave every other chip carrying the old window. #}
   {% for key, label, days in WINDOWS %}
-  <a class="badge {{ 'current' if window == key }}" href="{{ base }}window={{ key }}">{{ label }}</a>
+  <a class="badge{{ ' current' if window == key else '' }}" href="{{ base }}window={{ key }}">{{ label }}</a>
   {% endfor %}
   <span>Kid:</span>
-  <a class="badge {{ 'current' if not kid }}" href="/changes?window={{ window }}{{ ('&kind=' ~ kind) if kind else '' }}">all</a>
+  <a class="badge{{ ' current' if not kid else '' }}" href="/changes?window={{ window }}{{ ('&kind=' ~ kind) if kind else '' }}">all</a>
   {% for s in students %}
-  <a class="badge {{ 'current' if kid == s.key }}" href="/changes?window={{ window }}&kid={{ s.key }}{{ ('&kind=' ~ kind) if kind else '' }}">{{ s.key | nickname }}</a>
+  <a class="badge{{ ' current' if kid == s.key else '' }}" href="/changes?window={{ window }}&kid={{ s.key }}{{ ('&kind=' ~ kind) if kind else '' }}">{{ s.key | nickname }}</a>
   {% endfor %}
   <span>Kind:</span>
-  <a class="badge {{ 'current' if not kind }}" href="/changes?window={{ window }}{{ ('&kid=' ~ kid) if kid else '' }}">all</a>
+  <a class="badge{{ ' current' if not kind else '' }}" href="/changes?window={{ window }}{{ ('&kid=' ~ kid) if kid else '' }}">all</a>
   {% for k in KINDS %}
-  <a class="badge {{ 'current' if kind == k }}" href="/changes?window={{ window }}{{ ('&kid=' ~ kid) if kid else '' }}&kind={{ k }}">{{ LABELS[k] }}</a>
+  <a class="badge{{ ' current' if kind == k else '' }}" href="/changes?window={{ window }}{{ ('&kid=' ~ kid) if kid else '' }}&kind={{ k }}">{{ LABELS[k] }}</a>
   {% endfor %}
 </div>
 <div id="changes">
