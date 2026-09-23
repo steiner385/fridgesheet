@@ -45,10 +45,11 @@ class ItemView:
     canvas: sqlite3.Row | None
     hac: sqlite3.Row | None
     notes: int = 0
+    flag_set_at: str = ""           # when the active flag was set (ISO), "" when unflagged
     case_kinds: list[str] = field(default_factory=list)
     # `status` above is one word -- the sheet's word -- and it was the whole Status column.
     # It folds three facts into one label: when it is due, whether it was handed in, and
-    # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "Due Sun" and
+    # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "In class, check", "Due Sun" and
     # "HAC, no grade" are answers to three different questions. These are the three facts
     # kept apart, for a table with a column each; `status` stays for the sort, the detail
     # card's "Says" and everything that already reads it.
@@ -110,7 +111,13 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
         if c["score"] is not None:
             return _score(c, item["points"])
         if past:
-            return "Paper, check" if item["kind"] == "paper" else "Missing"
+            # Paper and in-class work have nothing to submit online, so "not submitted" says
+            # nothing about them: HAC holds their grade, and without one the honest word is "check".
+            if item["kind"] in _NOTHING_TO_SUBMIT:
+                if h is not None and h["score"] is not None:
+                    return _score(h, item["points"])
+                return "Paper, check" if item["kind"] == "paper" else "In class, check"
+            return "Missing"
         if due is not None:
             days = (due.date() - now.date()).days
             return "Due today" if days == 0 else "Due tomorrow" if days == 1 else "Due " + due.strftime("%a")
@@ -204,7 +211,8 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         kinds.setdefault(case.item_id, []).append(case.kind)
     note_counts = {r["target_id"]: r["n"] for r in conn.execute(
         "SELECT target_id, COUNT(*) AS n FROM notes WHERE target_type = 'item' GROUP BY target_id")}
-    flag_text = {r["item_id"]: r["text"] for r in conn.execute("SELECT item_id, text FROM flags WHERE cleared_at IS NULL")}
+    active_flags = {r["item_id"]: r for r in conn.execute("SELECT item_id, text, set_at FROM flags WHERE cleared_at IS NULL")}
+    flag_text = {i: r["text"] for i, r in active_flags.items()}
     out: list[ItemView] = []
     for r in reconcile.live_items(conn, student["id"], now):
         obs = latest.get(r["id"], {})
@@ -227,7 +235,9 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             open_in=open_in,
             actionable=reconcile.is_actionable(r, obs, r["flag"], rules, r["kid"], now, prefer=prefer),
             upcoming=reconcile.upcoming(r, obs, now, days_ahead),
-            flag=r["flag"], flag_text=flag_text.get(r["id"], ""), status=status_text(r, obs, now, prefer),
+            flag=r["flag"], flag_text=flag_text.get(r["id"], ""),
+            flag_set_at=active_flags[r["id"]]["set_at"] if r["id"] in active_flags else "",
+            status=status_text(r, obs, now, prefer),
             canvas=obs.get("canvas"), hac=obs.get("hac"),
             notes=note_counts.get(r["id"], 0), case_kinds=kinds.get(r["id"], []),
         ))
@@ -324,7 +334,8 @@ def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
                kind: str | None = None, prefs=None) -> list[tuple[ItemView, list[reconcile.Case]]]:
     """Every live item that carries at least one reconciliation case, with its cases, for the
     Reconcile page. Items the parent has already handled (done / excused / ignore) are left out:
-    the page is for open questions, and the Kid page's `show=all` still lists them.
+    the page is for open questions, and the Kid page's `show=all` still lists them. The exception
+    is a handled flag the school has since contradicted (`stale_flag`): that is an open question.
 
     `kind` selects which *groups* appear, not which reasons: an item is kept when at least one
     of its cases has that kind, and a kept item still lists all of its cases, so a multi-kind
@@ -335,7 +346,8 @@ def with_cases(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         by_item.setdefault(case.item_id, []).append(case)
     if kind is not None:
         by_item = {i: cs for i, cs in by_item.items() if any(c.kind == kind for c in cs)}
-    views = {v.id: v for v in _views(conn, student, now=now, rules=rules, prefs=prefs) if v.id in by_item and not v.handled}
+    views = {v.id: v for v in _views(conn, student, now=now, rules=rules, prefs=prefs) if v.id in by_item
+             and (not v.handled or any(c.kind == "stale_flag" for c in by_item[v.id]))}
     out = [(views[i], cs) for i, cs in by_item.items() if i in views]
     return sorted(out, key=lambda pair: _sort_key("due")(pair[0]))
 

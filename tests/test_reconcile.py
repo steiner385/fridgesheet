@@ -181,3 +181,84 @@ def test_cases_are_sorted_and_carry_context(conn):
     cs = reconcile.cases(conn, 1, rules=RULES, now=NOW)
     assert [c.key for c in cs] == ["canvas:2", "canvas:1"]
     assert cs[1].course == "Honors Biology" and cs[1].name == "B item" and cs[1].due is not None
+
+
+@pytest.mark.parametrize("kind", ["paper", "in class"])
+def test_paper_no_grade_is_not_raised_when_hac_has_a_score(conn, kind):
+    """Issue #33: work with nothing to submit online, past due, no Canvas grade -- but HAC
+    graded it. "No grade: ask" beside an 18/25 is the app contradicting its own evidence."""
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind=kind)
+    _obs(conn, 1, "canvas", state="unsubmitted")
+    _obs(conn, 1, "hac", state="graded", score=18.0)
+    assert ("paper_no_grade", "canvas:1") not in _kinds(conn)
+
+
+def test_paper_no_grade_is_still_raised_when_hac_lists_it_ungraded(conn):
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _obs(conn, 1, "canvas", state="unsubmitted")
+    _obs(conn, 1, "hac", state="ungraded", score=None)
+    assert ("paper_no_grade", "canvas:1") in _kinds(conn)
+
+
+def test_in_class_work_hac_graded_is_not_actionable(conn):
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _obs(conn, 1, "canvas", state="unsubmitted")
+    _obs(conn, 1, "hac", state="graded", score=18.0)
+    assert reconcile.actionable_items(conn, 1, rules=RULES, now=NOW) == []
+
+
+def _stale_reasons(conn):
+    return [c.reason for c in reconcile.cases(conn, 1, rules=RULES, now=NOW) if c.kind == "stale_flag"]
+
+
+def test_a_hac_grade_posted_after_ask_teacher_makes_the_flag_stale(conn):
+    """Issue #36: for in-class and paper work the teacher fixes HAC, not Canvas. Canvas has
+    nothing newer than the flag here; HAC does."""
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _obs(conn, 1, "canvas", refresh_id=1, state="unsubmitted")
+    _obs(conn, 1, "hac", refresh_id=1, state="ungraded")
+    flagstore.set_flag(conn, 1, "ask_teacher", now="2026-09-12T08:00:00-04:00")
+    _obs(conn, 1, "hac", refresh_id=2, state="graded", score=18.0)
+    assert ("stale_flag", "canvas:1") in _kinds(conn)
+
+
+def test_a_hac_zero_posted_after_done_makes_the_flag_stale(conn):
+    _item(conn, 1, "canvas:1", "Worksheet", -3, kind="paper")
+    _obs(conn, 1, "canvas", refresh_id=1, state="unsubmitted")
+    _obs(conn, 1, "hac", refresh_id=1, state="ungraded")
+    flagstore.set_flag(conn, 1, "done", now="2026-09-12T08:00:00-04:00")
+    _obs(conn, 1, "hac", refresh_id=2, state="graded", score=0.0)
+    assert ("stale_flag", "canvas:1") in _kinds(conn)
+
+
+def test_a_hac_observation_older_than_the_flag_does_not_make_it_stale(conn):
+    _item(conn, 1, "canvas:1", "Worksheet", -3, kind="paper")
+    _obs(conn, 1, "canvas", refresh_id=1, state="unsubmitted")
+    _obs(conn, 1, "hac", refresh_id=1, state="graded", score=18.0)
+    flagstore.set_flag(conn, 1, "ask_teacher", now="2026-09-12T08:00:00-04:00")
+    assert ("stale_flag", "canvas:1") not in _kinds(conn)
+
+
+def test_stale_flag_reasons_name_the_flag_in_words(conn):
+    _item(conn, 1, "canvas:1", "Lab", -3)
+    _obs(conn, 1, "canvas", refresh_id=1, state="submitted")
+    flagstore.set_flag(conn, 1, "ask_teacher", now="2026-09-12T08:00:00-04:00")
+    _obs(conn, 1, "canvas", refresh_id=2, state="graded", score=8.0)
+    (reason,) = _stale_reasons(conn)
+    assert "ask teacher" in reason and "_" not in reason
+
+
+def test_reconcile_page_keeps_a_handled_item_whose_flag_went_stale(conn):
+    """A `done` flag the school now contradicts is exactly the open question Reconcile is for;
+    hiding every handled item hid this one too."""
+    from fridgesheet.web.stores import items
+    student = conn.execute("SELECT * FROM students WHERE id = 1").fetchone()
+    _item(conn, 1, "canvas:1", "WS 1", -3)
+    _obs(conn, 1, "canvas", refresh_id=1, state="unsubmitted")
+    flagstore.set_flag(conn, 1, "done", now="2026-09-12T08:00:00-04:00")
+    _obs(conn, 1, "canvas", refresh_id=2, state="unsubmitted", missing=1)
+    _item(conn, 2, "canvas:2", "WS 2", -3)
+    _obs(conn, 2, "canvas", refresh_id=2, state="unsubmitted", missing=1)
+    flagstore.set_flag(conn, 2, "done", now=NOW.isoformat())            # handled, not stale
+    kept = [v.key for v, _ in items.with_cases(conn, student, now=NOW, rules=RULES)]
+    assert kept == ["canvas:1"]
