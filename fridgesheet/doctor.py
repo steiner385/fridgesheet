@@ -38,6 +38,10 @@ def _home(s: Settings, home: Path) -> str:
 
 
 def _database(s: Settings, home: Path) -> str:
+    """Open the database the way the app does. That runs any pending migration, on purpose:
+    a doctor run on a machine that has not started the app since an upgrade reports the
+    schema the app will actually use, and a migration that fails shows up here, where it can
+    be read, rather than as a 500 on the first page (#2)."""
     from .web import db as webdb
     conn = webdb.open_db(home)
     try:

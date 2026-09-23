@@ -253,6 +253,7 @@ def test_lock_file_prevents_overlap_and_a_stale_lock_is_ignored(env):
     lock.write_text(str(os.getpid()))
     assert _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     assert calls["print"] == [] and "already running" in (s.home / runner.LOG_NAME).read_text()
+    assert calls.get("toast", []) == []                  # the run holding the lock toasts its own result (#2)
     os.utime(lock, (time.time() - 3600, time.time() - 3600))
     assert _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
     assert len(calls["print"]) == 1 and not lock.exists()

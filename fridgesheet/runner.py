@@ -360,7 +360,7 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
     recorded = False                # a run gets exactly one `runs` row, whatever goes wrong
     try:
         def finish(level: str, msg: str, rc: int, toast_msg: str | None = None, pdf_path=None,
-                   job_ref=None, printed: bool = True) -> int:
+                   job_ref=None, printed: bool = True, quiet: bool = False) -> int:
             """Log the line, record the run, and toast a shorter form of it (the OK toast
             carries the summary, not the job id).
 
@@ -371,13 +371,16 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
             An exception raised inside finish -- a toast backend that dies, say -- lands in
             the catch-all below, which calls finish again to report it. The line is logged
             both times, but the run is recorded once.
+
+            `quiet` records and logs without a toast: another run holds the lock, and that run
+            will say how it went.
             """
             nonlocal recorded
             log(level, msg)
             if not recorded:
                 recorded = True
                 _record_run(db_conn, report_key, started, datetime.now(tz), opts.trigger, level, msg, pdf_path, job_ref, log)
-            if opts.notify and not opts.dry_run:
+            if opts.notify and not opts.dry_run and not quiet:
                 toast(report.title, _toast_body(level, toast_msg or msg, day, printed))
             return rc
 
@@ -403,10 +406,9 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
 
         lock = Lock(home / LOCK_NAME)
         if not lock.acquire():
-            log("SKIP", "already running (run.lock present); nothing done")
-            _record_run(db_conn, report_key, started, datetime.now(tz), opts.trigger, "SKIP",
-                        "already running (run.lock present); nothing done", None, None, log)
-            return 0
+            # Through `finish` like every other outcome (#2), so the one-row-per-run rule has
+            # one owner; `quiet`, because the run holding the lock toasts its own result.
+            return finish("SKIP", "already running (run.lock present); nothing done", 0, quiet=True)
         try:
             # --- data -----------------------------------------------------------------
             refresh_error: str | None = None
