@@ -27,7 +27,7 @@ the Reconcile page becomes **Questions**, the same cards for every kid.
 | HAC score above zero vs Canvas's automatic "missing" | HAC wins, except when Canvas's missing mark is newer than HAC's grade: then ask |
 | Grace before asking about ungraded paper, in-class or HAC-only work | 7 days past due |
 | A "Not now" answer | Dropped. An unanswered question already means "not now" |
-| When the kid or parent must act | Only the four cases in section 3 |
+| When the kid or parent must act | Only the causes marked "ask" in section 3, plus a family answer a newer record contradicts. Section 4 turns these into seven question kinds |
 | PR #27 | Land it first; this work uses its tier-aware phrasing |
 | Grading-period end dates | Not available: the HAC scraper reads marking-period averages, not dates. Not used |
 
