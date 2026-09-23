@@ -18,6 +18,7 @@ from typing import Callable
 from zoneinfo import ZoneInfo
 
 from .. import config, late_rules, runner
+from . import updatepin
 
 REPORT_KEY = "open-work"
 LOGIN_STAMP = "login-ok.txt"
@@ -64,6 +65,7 @@ class FormValues:
     port: int = 8433
     allow_lan: bool = False
     check_updates: bool = True
+    update_pin: str = ""        # write-only, like `password`: blank = keep the stored hash
 
 
 def _settings_for(home: Path) -> config.Settings:
@@ -171,6 +173,11 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     web = _table(doc, "web")
     web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)
     web["check_updates"] = bool(form.check_updates)
+    # Write-only, like the password below: a typed PIN is hashed and only the hash is ever
+    # written to config.toml; a blank field leaves whatever hash is already stored alone, so
+    # saving any other setting can never silently erase the household's update PIN.
+    if form.update_pin.strip():
+        web["update_pin_hash"] = updatepin.hash_pin(form.update_pin.strip())
     restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]
 
     messages: list[str] = []
@@ -181,6 +188,9 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
         msg = "The server address changed; restart Fridge Sheet (or the service) for it to take effect."
         log(msg)
         messages.append(msg)
+    if form.update_pin.strip():
+        log("Update PIN stored.")
+        messages.append("Update PIN stored.")
 
     if form.password:
         try:

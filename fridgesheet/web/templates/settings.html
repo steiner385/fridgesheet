@@ -28,6 +28,12 @@
      {% else %}· up to date (checked {{ update.checked_at | time12 }}){% endif %}</p>
   <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label>
      <span class="muted">(the only thing this app talks to besides the school systems; it sends nothing)</span></p>
+  <p><label>Update PIN
+     <input type="password" name="update_pin" autocomplete="new-password"
+            placeholder="leave blank to keep the stored one"></label>
+     <span class="muted">Needed to update Fridge Sheet from this page. It is stored as a
+     hash, never read back, and it crosses your network in the clear -- this page has no
+     HTTPS.</span></p>
   <p><label>Port <input name="port" value="{{ form.port }}" size="5"></label>
      <label><input type="checkbox" name="allow_lan" {{ 'checked' if form.allow_lan }}> Allow other devices on this network</label>
      {% if lan_url %}<span class="muted">Other devices: <a href="{{ lan_url }}">{{ lan_url }}</a></span>

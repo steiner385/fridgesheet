@@ -6,8 +6,8 @@ import tomllib
 from fastapi.testclient import TestClient
 
 from fridgesheet import config
-from fridgesheet.web import app as webapp
-from tests.web_fixtures import LOCAL_HOST_HEADERS, seed
+from fridgesheet.web import app as webapp, updatepin
+from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 
 
 class FakeCred:
@@ -47,6 +47,14 @@ def _client(home, host="127.0.0.1"):
 
 FORM = {"username": "parent@example.org", "password": "", "printer": "Canon", "days_ahead": "10",
         "overdue_days": "21", "nicknames": "Alex=Al", "archive": "", "port": "8433"}
+
+
+def _form(**over):
+    """FORM's shape with a password filled in -- `app_for`'s home has no `[account] username`
+    yet, so `actions.validate` treats the very first save like any other new account and
+    requires one (the same rule `test_web_updates.py::test_saving_settings_round_trips_the_checkbox`
+    exercises). Callers only need to override what the test is actually about."""
+    return {**FORM, "password": "hunter2", **over}
 
 
 def test_a_host_header_this_app_does_not_answer_to_is_refused(tmp_path):
@@ -494,3 +502,30 @@ def test_no_print_days_editor_validates_and_saves(tmp_path):
     r = c.post("/settings/no-print-days", data={"start": ["2026-12-25"], "end": ["2026-12-20"], "note": [""]})
     assert r.status_code == 200 and "before the start" in r.text
     assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()        # unchanged
+
+
+def test_setting_an_update_pin_stores_a_hash_and_never_the_pin(tmp_path):
+    seed(tmp_path)
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["credstore"] = FakeCred()
+    c.post("/settings", data=_form(update_pin="2468"))
+    text = (tmp_path / "config.toml").read_text(encoding="utf-8")
+    assert "2468" not in text
+    assert "pbkdf2_sha256$" in text
+
+
+def test_the_pin_never_reads_back_into_the_form(tmp_path):
+    """Same rule as the OneLogin password: settable from a phone, never readable."""
+    seed(tmp_path, update_pin_hash=updatepin.hash_pin("2468"))
+    body = app_for(tmp_path).get("/settings").text
+    assert "pbkdf2_sha256$" not in body
+    assert 'name="update_pin"' in body and "2468" not in body
+
+
+def test_a_blank_pin_field_keeps_the_stored_one(tmp_path):
+    stored = updatepin.hash_pin("2468")
+    seed(tmp_path, update_pin_hash=stored)
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["credstore"] = FakeCred()
+    c.post("/settings", data=_form(update_pin=""))
+    assert stored in (tmp_path / "config.toml").read_text(encoding="utf-8")

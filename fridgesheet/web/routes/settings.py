@@ -69,7 +69,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 def save(request: Request, username: str = Form(""), password: str = Form(""), printer: str = Form(""),
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
-         conn: sqlite3.Connection = Db, state=State):
+         update_pin: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
     # LAN -- but it is unsatisfiable on a headless host, where the account running the server
@@ -90,7 +90,8 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     # form, never returned by any route, and a blank field keeps whatever is stored.
     form = actions.FormValues(username=username, password=password, printer=printer, days_ahead=days_ahead,
                               overdue_days=overdue_days, nicknames=nicknames, archive=archive,
-                              port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates))
+                              port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
+                              update_pin=update_pin)
     lines: list[str] = []
     result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
     if result.ok:
