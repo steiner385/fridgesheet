@@ -154,14 +154,16 @@ find **"Fridge Sheet - web"**, click **End**, confirm no `FridgeSheet.exe` remai
   its trigger is "At log on", and its status is "Running" (or "Ready" if it hasn't
   actually needed to (re)start since you logged in).
 
-  ⚠️ **Known to fail for a standard user — see #39.** Installed by a genuine non-admin
-  account (Inno logs `User privileges: None`), `[Run]`'s `service install` exits 1 with
-  `schtasks /Create failed: ERROR: Access is denied`, and because Inno does not check a
-  `[Run]` entry's exit code the wizard still reports success. The files and shortcuts are
-  all there; only the task is missing, so the app never starts itself. If this box is the
-  one that fails, that is #39 and not a surprise — record which Windows edition and
-  whether the account was an administrator, because the open question on #39 is whether
-  this is stock Windows 11 behaviour or specific to the machine it was found on.
+  **Or, if Windows would not let this account create the task** (a standard user can be
+  refused outright, #10): **Expect** no "Fridge Sheet - web" task, but a **Fridge Sheet**
+  shortcut in the Startup folder (Win+R, `shell:startup`), the app already answering at
+  `http://127.0.0.1:8433/`, and `FridgeSheet.exe service show` saying it "starts at
+  sign-in from …\Startup\Fridge Sheet.lnk". Sign out and back in: **expect** it answers
+  again without being opened by hand. Record which case this machine was, the Windows
+  edition, and whether the account is an administrator.
+- [ ] **Expect** no error dialog at the end of setup. If one says Fridge Sheet "could not
+  set itself up to start when you sign in", that is a failure to report with the text from
+  the app's Diagnostics page; the wizard no longer reports success over it (#10).
 
 ## 3. Upgrade over a running install — prove issue #33's fix
 

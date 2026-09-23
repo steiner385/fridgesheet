@@ -7,12 +7,17 @@ import re
 import subprocess
 import tempfile
 from importlib import resources
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 from . import CREATE_NO_WINDOW, ServiceError, ServiceInfo
 from . import current_user as _current_user
 
 NAME = "Fridge Sheet - web"
+SHORTCUT = "Fridge Sheet.lnk"
+#: DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW: the server started by
+#: `service install` outlives the installer that ran it, with no console of its own.
+_DETACHED = 0x00000008 | 0x00000200 | CREATE_NO_WINDOW
 _NOT_FOUND = "cannot find the file"
 _WHITESPACE = re.compile(r"\s+")
 
@@ -42,7 +47,7 @@ def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
     return run(["schtasks", *cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW, timeout=60)
 
 
-def _fallback_note_or_raise(exe: str, args: str, create_err: str, run) -> str:
+def _fallback_note_or_raise(exe: str, args: str, create_err: str, run, info: ServiceInfo | None = None) -> str:
     """`install()`'s `/Create` just failed. Decide whether the task Task Scheduler already
     has is safe to just start, or whether this must still be a hard error.
 
@@ -65,7 +70,7 @@ def _fallback_note_or_raise(exe: str, args: str, create_err: str, run) -> str:
     across locales and Windows versions, so the exe/account match is what has to carry the
     safety here, not the wording of the error.
     """
-    info = describe(run=run)
+    info = info or describe(run=run)
     if not info.installed:
         raise ServiceError(f"schtasks /Create failed: {create_err} (and no existing "
                             f"'{NAME}' task to fall back to)")
@@ -87,7 +92,55 @@ def _fallback_note_or_raise(exe: str, args: str, create_err: str, run) -> str:
             f"runs {exe} {args} as {me!r}, so it was started instead of being re-registered")
 
 
-def install(exe: str, args: str, workdir: str, run=subprocess.run) -> str:
+def startup_shortcut() -> Path | None:
+    """This user's Startup-folder shortcut for the server, or None with no %APPDATA%."""
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return None
+    return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / SHORTCUT
+
+
+def _ps_quote(text: str) -> str:
+    """A PowerShell single-quoted string: nothing inside expands, and ' is written ''."""
+    return "'" + text.replace("'", "''") + "'"
+
+
+def _start_detached(exe: str, args: str, workdir: str) -> None:
+    subprocess.Popen([exe, *args.split()], cwd=workdir, creationflags=_DETACHED, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _startup_fallback(exe: str, args: str, workdir: str, create_err: str, run, start) -> str:
+    """#10: a standard Windows user could not create the logon task at all -- `schtasks
+    /Create` and the Task Scheduler COM API both answer "Access is denied" -- so a first
+    install as that user left an app that never started itself. Every user can write their
+    own Startup folder, and the shipped task is a LogonTrigger with an InteractiveToken
+    anyway: a shortcut there starts the server at each sign-in, the same moment, minus the
+    task's RestartOnFailure. The server is started once now, as `/Run` would have.
+
+    Written through PowerShell's WScript.Shell, which every supported Windows has; a .lnk
+    rather than a .cmd so no console window flashes at sign-in (WindowStyle 7, minimized, and
+    the exe itself opens none). Anything that stops the shortcut is still a hard error."""
+    lnk = startup_shortcut()
+    if lnk is None:
+        raise ServiceError(f"schtasks /Create failed: {create_err} (and no existing '{NAME}' task "
+                            "to fall back to, and no %APPDATA% for a Startup-folder shortcut)")
+    script = (f"New-Item -ItemType Directory -Force -Path {_ps_quote(str(lnk.parent))} | Out-Null; "
+              f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(str(lnk))}); "
+              f"$s.TargetPath = {_ps_quote(exe)}; $s.Arguments = {_ps_quote(args)}; "
+              f"$s.WorkingDirectory = {_ps_quote(workdir)}; $s.WindowStyle = 7; "
+              f"$s.Description = {_ps_quote('Fridge Sheet: the browser app server')}; $s.Save()")
+    p = run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+            capture_output=True, text=True, creationflags=CREATE_NO_WINDOW, timeout=60)
+    if p.returncode != 0:
+        raise ServiceError(f"schtasks /Create failed: {create_err} (and the Startup-folder shortcut "
+                            f"could not be written either: {(p.stderr or p.stdout or '').strip()[:300]})")
+    start(exe, args, workdir)
+    return (f"schtasks /Create failed ({create_err}), so it starts from this user's Startup folder "
+            f"instead ({lnk}); it does not restart itself if it stops, as the task would")
+
+
+def install(exe: str, args: str, workdir: str, run=subprocess.run, start=None) -> str:
     """Register the logon task and start it. Returns "" when `/Create` succeeded (today's
     path, unchanged); returns a non-empty note when `/Create` failed but the task already
     registered turned out to be the one this install would have created, so `/Run` alone
@@ -107,7 +160,12 @@ def install(exe: str, args: str, workdir: str, run=subprocess.run) -> str:
     note = ""
     if p.returncode != 0:
         create_err = (p.stderr or p.stdout or "").strip()[:300]
-        note = _fallback_note_or_raise(exe, args, create_err, run)
+        info = describe(run=run, include_shortcut=False)
+        if not info.installed:
+            return _startup_fallback(exe, args, workdir, create_err, run, start or _start_detached)
+        note = _fallback_note_or_raise(exe, args, create_err, run, info)
+    else:
+        _remove_shortcut()          # the task now starts it; a shortcut too would start it twice
     r = _schtasks(["/Run", "/TN", NAME], run)                   # start it now; the trigger covers the next logon
     if note and r.returncode != 0:
         # Deliberately asymmetric, and only on the fallback path: after an ordinary
@@ -124,14 +182,24 @@ def install(exe: str, args: str, workdir: str, run=subprocess.run) -> str:
     return note
 
 
+def _remove_shortcut() -> None:
+    lnk = startup_shortcut()
+    if lnk is not None:
+        try:
+            lnk.unlink(missing_ok=True)
+        except OSError:
+            pass                        # a shortcut we cannot delete is not worth failing over
+
+
 def remove(run=subprocess.run) -> None:
+    _remove_shortcut()
     _schtasks(["/End", "/TN", NAME], run)                       # stop a running server; absent is fine
     p = _schtasks(["/Delete", "/TN", NAME, "/F"], run)
     if p.returncode != 0 and _NOT_FOUND not in (p.stderr or ""):
         raise ServiceError(f"schtasks /Delete failed: {(p.stderr or p.stdout or '').strip()[:300]}")
 
 
-def describe(run=subprocess.run) -> ServiceInfo:
+def describe(run=subprocess.run, include_shortcut: bool = True) -> ServiceInfo:
     # `schtasks /Query /V`'s field labels -- "Status", "Run As User", "Task To Run" -- are
     # English, and schtasks localizes them on a non-English Windows. This is NOT locale-proof:
     # on such a machine every field below comes back "", `owner`/`command` are "" too, and
@@ -142,6 +210,11 @@ def describe(run=subprocess.run) -> ServiceInfo:
     # not a general fix for that case.
     p = _schtasks(["/Query", "/TN", NAME, "/FO", "LIST", "/V"], run)
     if p.returncode != 0:
+        lnk = startup_shortcut() if include_shortcut else None
+        if lnk is not None and lnk.exists():
+            # #10's fallback: whether the server is up right now is not something a shortcut
+            # can say, so `active` stays False and the detail says where it starts from.
+            return ServiceInfo("startup-folder", True, False, f"starts at sign-in from {lnk}")
         return ServiceInfo("task-scheduler", False, False, "not installed")
     fields = {}
     for line in (p.stdout or "").splitlines():

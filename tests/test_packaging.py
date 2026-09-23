@@ -94,7 +94,13 @@ def test_installer_script_matches_the_spec():
     assert "DefaultDirName={localappdata}\\Programs\\Fridge Sheet" in iss
     assert 'AppUserModelID: "Cairnea.FridgeSheet"' in iss
     assert 'Parameters: "schedule remove --all"' in iss and "[UninstallRun]" in iss
-    assert 'Parameters: "service install"' in iss and 'Parameters: "service remove"' in iss
+    assert 'Parameters: "service remove"' in iss
+    # `service install` runs from [Code], where its exit code is seen (#10), not from [Run].
+    assert 'Parameters: "service install"' not in iss
+    post = iss[iss.index("procedure CurStepChanged"):]
+    post = post[:post.index("\nend;\n") + 6]
+    assert "ssPostInstall" in post and "'service install'" in post and "ResultCode <> 0" in post
+    assert "SuppressibleMsgBox(" in post                              # a silent self-update never blocks on it
     assert "postinstall" in iss and "desktopicon" in iss
     assert "fridgesheet" in iss and "usPostUninstall" in iss          # the "your data was kept" message
     assert "fridgesheet.db" in iss                                          # ... and it names the database

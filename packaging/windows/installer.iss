@@ -55,9 +55,10 @@ Name: "{autoprograms}\Fridge Sheet"; Filename: "{app}\FridgeSheet.exe"; AppUserM
 Name: "{autodesktop}\Fridge Sheet"; Filename: "{app}\FridgeSheet.exe"; AppUserModelID: "Cairnea.FridgeSheet"; Tasks: desktopicon
 
 [Run]
-; Register the logon task first, so the server is already running (or will be at next logon)
-; before the shortcut below opens the browser at it.
-Filename: "{app}\FridgeSheet.exe"; Parameters: "service install"; Flags: runhidden waituntilterminated
+; `service install` (the logon task, or the Startup-folder shortcut a standard user gets
+; instead) runs from CurStepChanged(ssPostInstall) in [Code], not here: Inno ignores a [Run]
+; entry's exit code, so a failure there reported success (#10). ssPostInstall comes before
+; this page's postinstall entry, so the server is already starting when the browser opens.
 Filename: "{app}\FridgeSheet.exe"; Description: "Open Fridge Sheet"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
@@ -75,6 +76,26 @@ const
   // this install as its upgrade: both would end up installed, two logon tasks fighting over
   // one port, two Start-menu entries. Setup removes the old one first (RemoveOldLakotaSheet).
   OldAppId = '{B7E1C0E2-5C1D-4E8B-9C2A-7D3F0A1B2C3D}';
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep <> ssPostInstall then
+    exit;
+  // Register how the server starts at sign-in, and start it now. A non-zero exit used to be
+  // invisible (a [Run] entry): the app installed, looked fine, and never started itself (#10).
+  // SuppressibleMsgBox, so the silent self-update installer never stops on a dialog; the log
+  // records the exit code either way.
+  if not Exec(ExpandConstant('{app}\FridgeSheet.exe'), 'service install', ExpandConstant('{app}'),
+              SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+  begin
+    Log(Format('service install failed (exit code %d)', [ResultCode]));
+    SuppressibleMsgBox('Fridge Sheet is installed, but it could not set itself up to start when you sign in.' + #13#10 + #13#10 +
+           'Start it from the Fridge Sheet shortcut for now. Its Diagnostics page says what went wrong.',
+           mbError, MB_OK, IDOK);
+  end;
+end;
 
 procedure RemoveOldLakotaSheet();
 var

@@ -137,22 +137,84 @@ def test_create_denied_existing_task_runs_as_a_different_user_raises(monkeypatch
     assert "/Run" not in [c[1] for c in calls]
 
 
-def test_create_denied_no_existing_task_raises_the_genuine_first_install_case(monkeypatch):
-    """The genuine first-install shape of #39: /Create failed and there is nothing
-    registered to fall back to -- this must stay a hard error exactly as before."""
+def test_create_denied_no_existing_task_falls_back_to_a_startup_shortcut(monkeypatch, tmp_path):
+    """#10: a standard Windows user cannot create a task at all ("Access is denied" from
+    schtasks and from the COM API alike), so a first install as that user used to end with an
+    app that never starts itself -- and an installer that reported success. A standard user can
+    always write their own Startup folder: the shortcut starts the server at every sign-in (the
+    task's LogonTrigger, minus RestartOnFailure), and the server is started once now."""
+    monkeypatch.setenv("APPDATA", str(tmp_path))
     responses = {"/Create": (1, "", "ERROR: Access is denied."),
-                "/Query": (1, "", "ERROR: The system cannot find the file specified."),
-                "/Run": (0, "", "")}
+                 "/Query": (1, "", "ERROR: The system cannot find the file specified."),
+                 "/Run": (0, "", ""), "-NoProfile": (0, "", "")}
     calls, run = _run_sequence(responses)
-    monkeypatch.setattr(service_windows, "_current_user", lambda: "svc_fridgesheet")
+    started = []
+    note = service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run,
+                                   start=lambda exe, args, wd: started.append((exe, args, wd)))
+    assert "/Run" not in [c[1] for c in calls]                 # there is no task to run
+    (ps,) = [c for c in calls if c[0] == "powershell"]
+    script = ps[-1]
+    lnk = service_windows.startup_shortcut()
+    assert str(lnk) in script and "CreateShortcut" in script and "C:\\App\\FridgeSheet.exe" in script
+    assert "'web --no-browser'" in script and "WindowStyle = 7" in script
+    assert started == [(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App")]
+    assert "Startup folder" in note and "Access is denied" in note
+
+
+def test_a_startup_shortcut_that_cannot_be_written_is_still_a_hard_error(monkeypatch, tmp_path):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    responses = {"/Create": (1, "", "ERROR: Access is denied."),
+                 "/Query": (1, "", "ERROR: The system cannot find the file specified."),
+                 "/Run": (0, "", ""), "-NoProfile": (1, "", "CreateShortcut failed")}
+    calls, run = _run_sequence(responses)
+    with pytest.raises(ServiceError) as e:
+        service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run,
+                                start=lambda *a: pytest.fail("must not start"))
+    assert "Access is denied" in str(e.value) and "CreateShortcut failed" in str(e.value)
+
+
+def test_with_no_appdata_there_is_no_fallback(monkeypatch):
+    monkeypatch.delenv("APPDATA", raising=False)
+    responses = {"/Create": (1, "", "ERROR: Access is denied."),
+                 "/Query": (1, "", "ERROR: The system cannot find the file specified."),
+                 "/Run": (0, "", "")}
+    calls, run = _run_sequence(responses)
     with pytest.raises(ServiceError) as e:
         service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
-    msg = str(e.value)
-    assert "Access is denied" in msg
-    assert "no existing" in msg and service_windows.NAME in msg  # pins the "nothing to fall back to" branch
-    # itself, not just the outcome the command-mismatch branch below would also produce
-    assert "/Run" not in [c[1] for c in calls]
+    assert "no existing" in str(e.value)
 
+
+def test_a_quote_in_a_path_cannot_break_out_of_the_powershell_string(monkeypatch, tmp_path):
+    monkeypatch.setenv("APPDATA", str(tmp_path / "O'Brien"))
+    responses = {"/Create": (1, "", "denied"), "/Query": (1, "", "not found"), "/Run": (0, "", ""), "-NoProfile": (0, "", "")}
+    calls, run = _run_sequence(responses)
+    service_windows.install(r"C:\Users\O'Brien\FridgeSheet.exe", "web --no-browser", r"C:\x", run=run, start=lambda *a: None)
+    script = [c for c in calls if c[0] == "powershell"][0][-1]
+    assert "O''Brien" in script and "O'Brien" not in script.replace("O''Brien", "")
+
+
+def test_describe_and_remove_know_the_startup_shortcut(monkeypatch, tmp_path):
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    lnk = service_windows.startup_shortcut()
+    lnk.parent.mkdir(parents=True)
+    lnk.write_bytes(b"lnk")
+    info = service_windows.describe(run=_run_returning("", code=1))
+    assert info.installed and info.managed_by == "startup-folder"
+    _, run = _run_sequence({"/End": (1, "", ""), "/Delete": (1, "", "ERROR: The system cannot find the file specified.")})
+    service_windows.remove(run=run)
+    assert not lnk.exists()
+
+
+def test_a_task_created_later_replaces_the_startup_shortcut(monkeypatch, tmp_path):
+    """Once the task can be created (an admin ran the installer), the shortcut would start a
+    second copy at sign-in; it goes."""
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    lnk = service_windows.startup_shortcut()
+    lnk.parent.mkdir(parents=True)
+    lnk.write_bytes(b"lnk")
+    calls, run = _run_sequence({"/Create": (0, "", ""), "/Run": (0, "", "")})
+    service_windows.install(r"C:\App\FridgeSheet.exe", "web --no-browser", r"C:\App", run=run)
+    assert not lnk.exists()
 
 def test_create_fails_for_an_unrelated_reason_with_a_matching_task_still_falls_through(monkeypatch):
     """Decision, and why: the fallback does not gate on *why* /Create failed, only on
