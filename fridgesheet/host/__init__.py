@@ -86,6 +86,15 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
+def systemd_quote(word: str) -> str:
+    """One word of a systemd `ExecStart=` line. systemd splits on whitespace and honours double
+    quotes with backslash escapes (not shell rules), so a venv path with a space was cut in two
+    (#7). A word with nothing to protect is returned as it is."""
+    if word and not any(c.isspace() or c in '"\\\'' for c in word):
+        return word
+    return '"' + word.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def safe_key(key: str) -> str:
     """A report key reduced to what a systemd unit name and a Task Scheduler task name both take.
 
@@ -146,7 +155,11 @@ def is_reserved(key: str) -> bool:
 def task_name(key: str) -> str:
     """The Windows task's display name. `safe_key`'s hyphens read badly in a title, so they
     become spaces here; this is a label, not a file name."""
-    return f"Fridge Sheet - {safe_key(key).replace('-', ' ') if ':' in key else key}"
+    # Always `safe_key` (#7): a hand-edited key must not put a path separator in a task name.
+    # The hyphen-to-space is still only for `view:N`, so `open-work`'s installed task keeps
+    # its name.
+    safe = safe_key(key)
+    return f"Fridge Sheet - {safe.replace('-', ' ') if ':' in key else safe}"
 
 
 class ServiceError(RuntimeError):

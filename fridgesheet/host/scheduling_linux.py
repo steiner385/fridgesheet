@@ -17,7 +17,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from . import ScheduleInfo, SchedulingError, check_schedule_times, safe_key
+from . import ScheduleInfo, SchedulingError, check_schedule_times, safe_key, systemd_quote
 from .service_linux import UNIT_FILE as _WEB_UNIT
 
 #: Units this app did not write. Reported read-only; never installed over, never removed.
@@ -167,7 +167,7 @@ def service_text(key: str, title: str, exe: str, args: str, workdir: str, home: 
         f"[Unit]\nDescription=Fridge Sheet: {title}\n\n"
         f"[Service]\nType=oneshot\n"
         f"Environment=FRIDGESHEET_HOME={home}\n"
-        f"ExecStart={exe} {args}\n"
+        f"ExecStart={systemd_quote(exe)} {args}\n"
         f"WorkingDirectory={workdir}\n"
         f"TimeoutStartSec={TIMEOUT_START_SEC}\n"
     )

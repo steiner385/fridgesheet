@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from . import ServiceError, ServiceInfo
+from . import ServiceError, ServiceInfo, systemd_quote
 
 UNIT_FILE = "fridgesheet-web.service"
 #: What systemctl says when the unit is simply not there ("Failed to disable unit: Unit file
@@ -26,7 +26,7 @@ def unit_text(exe: str, args: str, workdir: str) -> str:
     # RestartSec=5 already covers a server that starts before the network is up.
     return (
         "[Unit]\nDescription=Fridge Sheet web app\n\n"
-        f"[Service]\nExecStart={exe} {args}\nWorkingDirectory={workdir}\nRestart=on-failure\nRestartSec=5\n\n"
+        f"[Service]\nExecStart={systemd_quote(exe)} {args}\nWorkingDirectory={workdir}\nRestart=on-failure\nRestartSec=5\n\n"
         "[Install]\nWantedBy=default.target\n"
     )
 

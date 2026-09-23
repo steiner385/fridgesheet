@@ -557,7 +557,9 @@ def main(argv=None) -> None:
     sc2.add_argument("action", choices=["install", "remove", "show"])
     sc2.add_argument("report", nargs="?", default="open-work", help="ignored with --all")
     sc2.add_argument("--all", action="store_true",
-                     help="with `remove`: every report's schedule, not just `report` -- what the uninstaller runs")
+                     help="with `remove`: every report's schedule, not just `report` -- what the uninstaller runs, "
+                          "and the only way to remove a schedule left behind by a saved report that "
+                          "no longer exists (`remove view:N` refuses a key that does not resolve)")
     sc2.set_defaults(fn=cmd_schedule)
     w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser")
     w.add_argument("--host", default=None, help="bind address (default: config.toml [web], 127.0.0.1)")

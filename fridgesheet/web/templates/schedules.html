@@ -33,22 +33,23 @@
       {% if not r.info.manageable %}<br>This one was written outside this app, so it is shown here but never changed here.{% endif %}
     {% else %}not scheduled{% endif %}
   </p>
-  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }}
-         {{ "disabled" if r.info and not r.info.manageable }}> Run this on a schedule</label>
-  <label>Time <input type="time" name="time" value="{{ r.time }}" required></label>
+  {# A schedule this app did not write is shown, never changed: every control is off (#7). #}
+  {% set locked = "disabled" if r.info and not r.info.manageable else "" %}
+  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }} {{ locked }}> Run this on a schedule</label>
+  <label>Time <input type="time" name="time" value="{{ r.time }}" required {{ locked }}></label>
   <fieldset><legend>Days</legend>
     {% for d in days %}
-    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }}> {{ d }}</label>
+    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }} {{ locked }}> {{ d }}</label>
     {% endfor %}
   </fieldset>
   <label>Printer
-    <select name="printer">
+    <select name="printer" {{ locked }}>
       <option value="">(the printer on the Settings page)</option>
       {% for value, label, sel in printer_options[r.key] %}<option value="{{ value }}" {{ "selected" if sel }}>{{ label }}</option>{% endfor %}
     </select>
   </label>
-  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }}> Print it (off: keep the PDF only)</label>
-  <button class="primary" {{ "disabled" if r.info and not r.info.manageable }}>Save</button>
+  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }} {{ locked }}> Print it (off: keep the PDF only)</label>
+  <button class="primary" {{ locked }}>Save</button>
 </form>
 {% endfor %}
 {% endblock %}
