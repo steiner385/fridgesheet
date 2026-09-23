@@ -2,7 +2,7 @@
 {% block title %}Reconcile · Fridge Sheet{% endblock %}
 {% block content %}
 <h2>Reconcile</h2>
-<p class="muted">Where Canvas, Home Access Center and your own flags do not agree. Flag an item and it leaves this page.</p>
+<p class="muted">Where Canvas, Home Access Center and your own flags do not agree. Mark an item done, excused or ignore and it leaves this page; follow up and ask teacher keep it here, with your note.</p>
 <div class="filters">
   <span>Kid:</span> <a href="/reconcile{{ ('?kind=' ~ kind) if kind else '' }}" class="badge">all</a>
   {% for s in students %}<a href="/reconcile?kid={{ s.key }}{{ ('&kind=' ~ kind) if kind else '' }}" class="badge">{{ s.key | nickname }}</a>{% endfor %}
