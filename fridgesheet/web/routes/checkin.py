@@ -55,6 +55,18 @@ def _group(v) -> str | None:
     return QUEUES[1] if uncertain else QUEUES[2] if ungraded else QUEUES[0]
 
 
+def queue_for(v, covered: set[int]) -> str | None:
+    """The review group for one item at a check-in, or None to leave it out.
+
+    Work with an agreed step is already in the plan. Handled work stays out -- unless the
+    school has since contradicted the flag, which is the disagreement a check-in is for."""
+    if v.id in covered:
+        return None
+    if v.handled:
+        return QUEUES[1] if "stale_flag" in v.case_kinds else None
+    return _group(v)
+
+
 def _since(step, last_check) -> str:
     """How this step relates to the last saved agreement: part of it, edited after it, or added
     after it. Empty before the first check-in."""
@@ -87,9 +99,7 @@ def _context(conn, student, state):
             completed_for.setdefault(s["item_id"], []).append(s)
     queues = {label: [] for label in QUEUES}
     for v in views:
-        if v.handled or v.id in covered:
-            continue
-        group = _group(v)
+        group = queue_for(v, covered)
         if group:
             queues[group].append(v)
     # Due date order, except that work past its late-credit window goes after work that can
