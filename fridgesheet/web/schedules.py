@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Callable
 
 from .. import config, host, refresh_schedule, reports as registry
+from .actions import _settings_for, _table          # one copy of each (#7)
 
 log = logging.getLogger("fridgesheet.web.schedules")
 
@@ -42,12 +43,6 @@ class Outcome:
     errors: list[str] = field(default_factory=list)
 
 
-def _settings_for(home: Path) -> config.Settings:
-    s = config.Settings(home=home)
-    config.settings_from_doc(config.load_config_doc(home / CONFIG_NAME), s)
-    return s
-
-
 def rows(home: Path, *, scheduling=None) -> list[Row]:
     if scheduling is None:
         from ..host import scheduling
@@ -72,12 +67,6 @@ def rows(home: Path, *, scheduling=None) -> list[Row]:
         out.append(Row(key=report.key, title=report.title, enabled=rc.enabled, time=rc.time or report.default_time,
                        days=list(rc.days), printer=rc.printer, prints=rc.prints, info=info, unsupported=unsupported))
     return out
-
-
-def _table(doc: dict, key: str) -> dict:
-    if not isinstance(doc.get(key), dict):
-        doc[key] = {}
-    return doc[key]
 
 
 def _describe_once(key: str, scheduling):
