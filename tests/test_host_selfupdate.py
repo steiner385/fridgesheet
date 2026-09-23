@@ -86,3 +86,40 @@ def test_a_download_that_dies_partway_leaves_nothing_behind(tmp_path):
                                      opener=lambda u: Dying(), log=_log, free_bytes=10**9)
     assert not dest.exists()
     assert list(tmp_path.iterdir()) == []
+
+
+def _pending():
+    return selfupdate.Pending(from_version="0.4.1", to_version="0.5.0",
+                              started_at="2026-09-22T15:00:00-04:00",
+                              installer=r"C:\u\updates\Setup.exe", log=r"C:\u\updates\install.log")
+
+
+def test_a_breadcrumb_round_trips(tmp_path):
+    selfupdate.write_pending(tmp_path, _pending())
+    assert selfupdate.read_pending(tmp_path) == _pending()
+
+
+def test_the_new_version_running_means_it_worked(tmp_path):
+    selfupdate.write_pending(tmp_path, _pending())
+    verdict, pending = selfupdate.resolve_pending(tmp_path, "0.5.0")
+    assert verdict == "ok" and pending.to_version == "0.5.0"
+    assert selfupdate.read_pending(tmp_path) is None          # archived, not left to fire again
+    assert (tmp_path / selfupdate.LAST_NAME).exists()
+
+
+def test_the_old_version_still_running_means_it_did_not_take(tmp_path):
+    selfupdate.write_pending(tmp_path, _pending())
+    verdict, pending = selfupdate.resolve_pending(tmp_path, "0.4.1")
+    assert verdict == "failed" and pending.log.endswith("install.log")
+    assert selfupdate.read_pending(tmp_path) is not None       # kept, so Diagnostics can show it
+
+
+def test_no_breadcrumb_is_a_normal_start(tmp_path):
+    assert selfupdate.read_pending(tmp_path) is None
+    assert selfupdate.resolve_pending(tmp_path, "0.4.1") is None
+
+
+def test_a_malformed_breadcrumb_is_treated_as_absent_and_never_fatal(tmp_path):
+    (tmp_path / selfupdate.PENDING_NAME).write_text("{not json", encoding="utf-8")
+    assert selfupdate.read_pending(tmp_path) is None
+    assert selfupdate.resolve_pending(tmp_path, "0.4.1") is None

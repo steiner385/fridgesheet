@@ -7,8 +7,10 @@ execution on a family PC and is not.
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import urllib.request
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -86,3 +88,48 @@ def download_verified(url: str, digest: str, dest: Path, *, opener: Callable | N
     part.replace(dest)
     log(f"verified {got // 10**6} MB")
     return dest
+
+
+PENDING_NAME = "update-pending.json"
+LAST_NAME = "update-last.json"
+
+
+@dataclass(frozen=True)
+class Pending:
+    """What was started, so whatever starts next can say whether it worked."""
+    from_version: str
+    to_version: str
+    started_at: str          # ISO 8601, local
+    installer: str
+    log: str
+
+
+def write_pending(home: Path, pending: Pending) -> Path:
+    home.mkdir(parents=True, exist_ok=True)
+    path = home / PENDING_NAME
+    path.write_text(json.dumps(asdict(pending), indent=2), encoding="utf-8")
+    return path
+
+
+def read_pending(home: Path) -> Pending | None:
+    """The breadcrumb, or None. A malformed file is absent: a bad JSON file must never stop
+    the app starting, which is the one thing that would turn a failed update into a dead one."""
+    try:
+        data = json.loads((home / PENDING_NAME).read_text(encoding="utf-8"))
+        return Pending(**{f: str(data[f]) for f in ("from_version", "to_version", "started_at",
+                                                    "installer", "log")})
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | None:
+    """Did the update this breadcrumb describes take? ("ok"|"failed", pending), or None when
+    there was no update in flight. On success, the breadcrumb is archived (renames to
+    update-last.json); on failure, it is kept so Diagnostics can report it."""
+    pending = read_pending(home)
+    if pending is None:
+        return None
+    if running_version == pending.to_version:
+        (home / PENDING_NAME).replace(home / LAST_NAME)
+        return "ok", pending
+    return "failed", pending
