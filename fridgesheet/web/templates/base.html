@@ -18,10 +18,22 @@
 <div class="shell">
   <aside class="rail">
     <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    {# One navigation on a child's page (kids' UX audit F5). A page that carries a tier shows
+       Today, this child, and one "App" fold holding everything else -- the siblings, the Work,
+       Time and App groups -- so a 5th grader is not one tap from Settings or a sibling's page,
+       and the child's own tabs below are the page's only other navigation. Nothing is removed:
+       every link and every question-count id is still in the page, folded. A page with no
+       grade set, and every parent tool, keeps the full rail. #}
+    {% set kid_page = (student.key | tier_of) if student is defined and student else '' %}
+    {% macro kid_link(s) %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }} <span id="qcount-{{ s.key }}" class="count">{{ question_counts.get(s.key) or '' }}</span></a>{% endmacro %}
     <nav>
       <a href="/" class="{{ 'current' if current == 'dashboard' }}">Today</a>
-      <div class="group">Kids</div>
-      {% for s in students %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }} <span id="qcount-{{ s.key }}" class="count">{{ question_counts.get(s.key) or '' }}</span></a>{% endfor %}
+      {% if kid_page %}{% for s in students if s.key == student.key %}{{ kid_link(s) }}{% endfor %}
+      <details class="rail-more"><summary>App</summary><div class="rail-rest">
+      {% for s in students if s.key != student.key %}{{ kid_link(s) }}{% endfor %}
+      {% else %}
+      {% for s in students %}{{ kid_link(s) }}{% endfor %}
+      {% endif %}
       <div class="group">Work</div>
       <a href="/open" class="{{ 'current' if current == 'open' }}">Open work</a>
       {% set asked = question_counts.values() | sum %}<a href="/questions" class="{{ 'current' if current == 'questions' }}">Questions <span id="qcount-all" class="count">{{ asked or '' }}</span></a>
@@ -35,6 +47,7 @@
       <a href="/settings" class="{{ 'current' if current == 'settings' }}">Settings</a>
       <a href="/diagnostics" class="{{ 'current' if current == 'diagnostics' }}">Diagnostics</a>
       {% block rail_extra %}{% endblock %}
+      {% if kid_page %}</div></details>{% endif %}
     </nav>
   </aside>
   <main{% block main_attrs %}{% endblock %}>

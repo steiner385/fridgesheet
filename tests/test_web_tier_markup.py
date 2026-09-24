@@ -51,3 +51,37 @@ def test_a_parent_tool_never_carries_a_tier(tmp_path):
     c = client_with_grades(tmp_path, Alex=5)
     for path in ("/settings", "/runs", "/reports"):
         assert "data-tier" not in c.get(path).text, path
+
+
+# --- kids' UX audit F5: one navigation on a child's page ------------------------------------------
+
+def _rail(body):
+    return re.search(r'<aside class="rail">(.*?)</aside>', body, re.S).group(1)
+
+
+def test_a_tiered_page_folds_the_parent_tools_behind_app(tmp_path):
+    """Thirteen links, two of them a sibling's pages and three of them Settings, Runs and
+    Diagnostics, sat one tap from the child, above the child's own three tabs. On a page that
+    carries a tier the rail is Today, this child, and one "App" fold holding the rest. Nothing
+    is removed: the sibling's question count keeps its id, which an answer swaps out of band."""
+    seed(tmp_path).close()
+    rail = _rail(client_with_grades(tmp_path, Alex=9, Sam=5).get("/kids/Alex").text)
+    fold = rail.index('<details class="rail-more"')
+    front = rail[:fold]
+    assert 'href="/"' in front and 'href="/kids/Alex/check-in"' in front
+    for parent_only in ('href="/kids/Sam/check-in"', 'href="/settings"', 'href="/diagnostics"', 'href="/open"'):
+        assert parent_only not in front and parent_only in rail[fold:], parent_only
+    assert re.search(r'<details class="rail-more"[^>]*>\s*<summary>App', rail)
+    assert 'id="qcount-Sam"' in rail
+    assert ">Kids<" not in rail
+
+
+def test_a_page_with_no_grade_keeps_the_full_rail(tmp_path):
+    seed(tmp_path).close()
+    rail = _rail(client_with_grades(tmp_path).get("/kids/Alex").text)
+    assert "rail-more" not in rail and 'href="/settings"' in rail
+
+
+def test_a_parent_tool_keeps_the_full_rail_even_when_grades_are_set(tmp_path):
+    seed(tmp_path).close()
+    assert "rail-more" not in _rail(client_with_grades(tmp_path, Alex=9).get("/settings").text)
