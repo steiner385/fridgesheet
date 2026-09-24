@@ -198,3 +198,41 @@ def test_an_older_reader_sees_the_clock_on_every_surface(tmp_path):
     older = client_with_grades(home, Sam=9)
     for body in (older.get("/kids/Sam/check-in").text, older.get(f"/items/{sid}").text):
         assert "11:59pm" in body and "evening" not in body
+
+
+# --- kids' UX audit F7: one addressee per surface ---------------------------------------------------
+
+def test_assignments_speaks_to_the_child(tmp_path):
+    """One page said "Nothing to answer for Sam" (about the child, to a parent), "You handed it in"
+    (to the child) and "Mom, Dad, Grandma…" (to the parent). Assignments is the child's page:
+    it says "you" to the child, at every tier and with no grade set."""
+    home = tmp_path / "home"
+    home.mkdir()
+    seed(home).close()
+    alex = client_with_grades(home).get("/kids/Alex").text
+    assert "1 question about your work" in alex and "about Alex's work" not in alex
+    sam = client_with_grades(home).get("/kids/Sam").text
+    assert "Nothing to answer." in sam and "for Sam" not in sam
+
+
+def test_the_heading_swapped_in_after_an_answer_speaks_to_the_child_too(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    conn = seed(home)
+    pid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
+    conn.close()
+    body = client_with_grades(home).post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""}).text
+    assert 'id="q-head" hx-swap-oob="true">No more questions about your work' in body
+
+
+def test_the_caregiver_fields_say_who_they_are_for(tmp_path):
+    """The check-in and the plan are "we" pages; the two fields only a helping adult fills in say
+    so, instead of leaving a 9th grader to read "Mom, Dad, Grandma…" as the placeholder in
+    their own plan."""
+    home = tmp_path / "home"
+    home.mkdir()
+    seed(home).close()
+    c = client_with_grades(home, Alex=9)
+    for path in ("/kids/Alex/check-in", "/kids/Alex/check-in/step"):
+        page = c.get(path).text
+        assert re.search(r"Recorded by\s*<span class=\"muted\">\(a grown-up helping", page), path

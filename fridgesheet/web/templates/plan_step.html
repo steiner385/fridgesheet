@@ -34,7 +34,7 @@
     <label>Estimated minutes <span class="muted">(optional)</span><input type="number" name="minutes" min="1" max="1440" value="{{ values.minutes if values.minutes is not none else '' }}"></label></div>
     <p class="muted">“Step complete” records this small commitment, not a school submission or grade. A waiting or help-needed step stays in the plan until you change it; its date is when you’ll check again.</p>
     <div class="form-pair"><label>Order within this day <span class="muted">(optional: lower goes first; blank goes last)</span><input type="number" name="position" min="1" max="999" value="{{ values.position if values.position is not none else '' }}"></label>
-    <label>Recorded by <span class="muted">(optional)</span><input name="recorded_by" maxlength="100" value="{{ values.recorded_by }}" placeholder="Mom, Dad, Grandma…"></label></div>
+    <label>Recorded by <span class="muted">(a grown-up helping · optional)</span><input name="recorded_by" maxlength="100" value="{{ values.recorded_by }}" placeholder="Mom, Dad, Grandma…"></label></div>
   </details>
   <div class="actions"><button class="primary">Save step</button> <a href="{{ back }}">Cancel</a></div>
 </form>

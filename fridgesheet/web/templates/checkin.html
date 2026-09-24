@@ -58,7 +58,7 @@
     <div class="form-pair"><label>Time available today (minutes)<input type="number" name="available_minutes" min="1" max="1440" required value="{{ fv.get('available_minutes', last_check.available_minutes if last_check else 40) }}"></label>
     <label>Next check-in<input type="date" name="next_check" required value="{{ fv.get('next_check', next_default) }}"></label></div>
     <label>What we agreed<textarea name="summary" maxlength="4000" required placeholder="What will we do first? What help do we need?">{{ fv.get('summary', '') }}</textarea></label>
-    <label>Recorded by <span class="muted">(optional)</span><input name="recorded_by" maxlength="100" value="{{ fv.get('recorded_by', last_check.recorded_by if last_check else '') }}" placeholder="Mom, Dad, Grandma…"></label>
+    <label>Recorded by <span class="muted">(a grown-up helping · optional)</span><input name="recorded_by" maxlength="100" value="{{ fv.get('recorded_by', last_check.recorded_by if last_check else '') }}" placeholder="Mom, Dad, Grandma…"></label>
     <button class="primary">Finish check-in</button>
   </form>
 </section>

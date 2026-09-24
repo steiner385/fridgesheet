@@ -3,11 +3,11 @@
 {% set tier = student.key | tier_of %}
 {% if questions %}
 <section class="questions" aria-labelledby="q-head">
-  <div class="section-head"><h3 id="q-head">{{ questions | length }} question{{ 's' if questions | length != 1 }} about {{ student.key | nickname }}'s work</h3><span class="muted">Answering one takes it off this list</span></div>
+  <div class="section-head"><h3 id="q-head">{{ 'copy.questions_head' | say(tier, {'n': questions | length, 's': 's' if questions | length != 1 else ''}) }}</h3><span class="muted">{{ 'copy.answering_hint' | say(tier) }}</span></div>
   {% for item in questions %}{% include "_question.html" %}{% endfor %}
 </section>
 {% else %}
-<h3 id="q-head" class="quiet-head">Nothing to answer for {{ student.key | nickname }}.</h3>
+<h3 id="q-head" class="quiet-head">{{ 'copy.no_questions' | say(tier) }}</h3>
 {% endif %}
 {% macro decided_line(item, tier) %}
     <div class="line" id="q-{{ item.id }}"><span class="tick" aria-hidden="true">✓</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}</span></span>
