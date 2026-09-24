@@ -163,7 +163,7 @@ def _form_context(conn, student, state, item_id=None, step_id=None, default_stat
         said = [t for t in ((view.flag_text if view else ""), (view.latest_note["body"] if view and view.latest_note else "")) if t]
         values = dict(title=view.name if view else "", family_account="\n".join(said), next_step="", owner=state.settings.nicknames.get(student["key"], student["key"]),
                       planned_for=state.now().date().isoformat(), minutes="",
-                      state=default_state if default_state in plans.STATES else "planned", position=10,
+                      state=default_state if default_state in plans.STATES else "planned", position="",
                       recorded_by="", revision=0, request_key=str(uuid4()))
     return dict(student=student, current=f"kid:{student['key']}", base=root(student["key"]),
                 values=values, view=view, item_id=item_id, step_id=step_id, states=plans.STATES, error=None, latest=None)
@@ -219,7 +219,9 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
             raise ValueError("Recorded by: a name, up to 100 characters.")
         values["planned_for"] = _date(values["planned_for"], "Planned date")
         values["minutes"] = _number(values["minutes"], "Estimated minutes", 1, 1440, blank=None) if values["minutes"] else None
-        values["position"] = _number(values["position"], "Order within this day", 1, 999)
+        # A blank order goes last for that day (kids' UX audit F6); a typed one is checked as before.
+        values["position"] = (_number(values["position"], "Order within this day", 1, 999) if values["position"]
+                              else plans.next_position(conn, student["id"], values["planned_for"]))
         if values["state"] not in plans.STATES:
             raise ValueError("State: choose one of the listed states.")
         if not 1 <= len(values["request_key"]) <= 100 or not values["revision"].isdigit():

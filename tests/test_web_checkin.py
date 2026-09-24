@@ -697,3 +697,30 @@ def test_planning_evidence_rounds_scores_with_the_shared_helper(tmp_path):
     seed(tmp_path).close()
     env = app_for(tmp_path).app.state.fridgesheet.extra["env"]
     assert env.from_string("{{ 12.5033 | num }}/{{ 30.0 | num }}").render() == "12.5/30"
+
+
+# --- kids' UX audit F6: the step form asks three things first ---------------------------------------
+
+def test_the_step_form_asks_three_things_first_and_folds_the_rest(tmp_path):
+    """Nine fields to write down one step, including a required "Order within this day". Title,
+    next step and day come first; State, Minutes, Order and Recorded-by fold under one "More",
+    the same at every tier -- every field is still on the form."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in/step").text
+    fold = body.index('<details class="step-more"')
+    for name in ("title", "next_step", "planned_for"):
+        assert body.index(f'name="{name}"') < fold, f"{name} should be above the fold"
+    for name in ("state", "minutes", "position", "recorded_by"):
+        assert body.index(f'name="{name}"') > fold, f"{name} should be under More"
+    assert re.search(r'<details class="step-more"[^>]*>\s*<summary>More', body)
+
+
+def test_order_is_optional_and_a_blank_one_goes_last(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    assert _post_step(c, "Alex", _form(position="", planned_for="2026-09-16")).status_code == 303
+    assert _post_step(c, "Alex", _form(title="Vocabulary", position="", planned_for="2026-09-16")).status_code == 303
+    assert _post_step(c, "Alex", _form(title="Reading log", position="", planned_for="2026-09-17")).status_code == 303
+    rows = {(r["title"], r["planned_for"]): r["position"] for r in _step_rows(tmp_path)}
+    assert rows[("Quiz 1", "2026-09-16")] < rows[("Vocabulary", "2026-09-16")]      # second that day sorts after the first
+    assert rows[("Reading log", "2026-09-17")] == rows[("Quiz 1", "2026-09-16")]     # a new day starts over
