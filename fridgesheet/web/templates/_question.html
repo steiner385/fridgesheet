@@ -8,10 +8,12 @@
   <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}{% set at = item | due_at(tier) %}<span>due {{ item.due | wd_md }}{% if at %} {{ at }}{% endif %}</span>{% endif %}</div>
   {% if ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>
   {% else %}<p class="facts">{{ item | standing(tier) }}</p>{% endif %}
-  {% set pk = vd | pace_key %}{% if pk %}<p class="facts app-count">{{ pk | say(tier, vd.pace) }}</p>{% endif %}
+  {% set pk = vd | pace_key %}
   {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   {% include "_answers.html" %}
-  <details class="more"><summary>See the record</summary>{% include "_record.html" %}</details>
+  {# Fridge Sheet's own count behind a grace period (spec 4.6) stays on the card, inside the
+     record: seventeen words of app reasoning on every card of a fresh install (kids' UX audit F12). #}
+  <details class="more"><summary>See the record</summary>{% if pk %}<p class="facts app-count">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% include "_record.html" %}</details>
   {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a> · <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">Plan a step</a></p>{% endif %}
 </div>
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}
