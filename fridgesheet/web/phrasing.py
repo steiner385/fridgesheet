@@ -133,6 +133,12 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.tab_all":        {"early": "Everything the school lists. What needs your answer is at the top.",
                             "middle": "Everything the school lists, with what needs your answer at the top.",
                             "older": "Everything the school lists, with what needs your answer at the top."},
+    # --- what has been done so far, above a child's questions (kids' UX audit F8): the same
+    # five outcomes the dashboard's record counts, said once as the work that got done.
+    # Rendered only when something has (`kid.html`). ------------------------------------------
+    "copy.done_so_far":    {"early": "Done so far: {done} of {total} due. {on_time} on time.",
+                            "middle": "Done so far: {done} of {total} due · {on_time} on time.",
+                            "older": "Done so far: {done} of {total} due · {on_time} on time."},
     # --- the learned pace: Fridge Sheet's own count, never the school's word (spec 4.6) ----
     "pace.expect":      {"early": "Fridge Sheet counted {n} earlier {what}: a grade usually shows up within about {days} days, so look for it by {by}.",
                          "middle": "Fridge Sheet's count from {n} earlier {what}: a grade usually shows up within about {days} days, so look for it by {by}.",
