@@ -3,5 +3,6 @@
   <a href="/kids/{{ student.key | urlencode }}/plan" {{ 'aria-current="page"' | safe if workspace == 'plan' }}>Plan</a>
   <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>Assignments</a>
 </nav>
-<p class="tab-hint muted">{% if workspace == 'checkin' %}Talk it through together and agree a few next steps.{% elif workspace == 'plan' %}What you agreed to do, day by day.{% else %}Everything the school lists, with what needs your answer at the top.{% endif %}</p>
+{# The one-line hint under the tabs follows the reader (kids' UX audit F3). #}
+<p class="tab-hint muted">{{ ('copy.tab_' ~ ('checkin' if workspace == 'checkin' else 'plan' if workspace == 'plan' else 'all')) | say(student.key | tier_of) }}</p>
 {% include "_sources_hint.html" %}

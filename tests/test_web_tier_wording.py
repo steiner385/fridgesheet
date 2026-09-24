@@ -7,6 +7,7 @@ its card carries the question and answer words (web/verdicts.py).
 from __future__ import annotations
 
 import html
+import re
 
 from tests.web_fixtures import client_with_grades, seed
 
@@ -130,3 +131,40 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
     # has had no grade for a week, which the early tier hears as "No grade yet".
     assert "No grade yet" in alex_section
     assert "No grade after a week" not in alex_section
+
+
+# --- kids' UX audit F3: one instruction sentence per section, and it follows the reader ------------
+
+def _intro(body):
+    return re.search(r'<div class="checkin-intro">(.*?)</div>', body, re.S).group(1)
+
+
+def _client(tmp_path, **grades):
+    """One seeded home per client: `client_with_grades` appends a `[kids]` table to config.toml,
+    so two grades in one home would be two tables."""
+    home = tmp_path / ("g" + "".join(f"{k}{v}" for k, v in grades.items()) or "none")
+    home.mkdir()
+    seed(home).close()
+    return client_with_grades(home, **grades)
+
+
+def test_the_check_in_says_one_thing_before_the_cards(tmp_path):
+    """Eighty words of framing stood before the first card, identical at every tier; children
+    skip instruction paragraphs and teens leave. One short instruction, then the cards."""
+    for grade in (5, 9):
+        body = _client(tmp_path, Sam=grade).get("/kids/Sam/check-in").text
+        text = re.sub(r"<[^>]+>", " ", _intro(body))
+        assert len(text.split()) <= 40, f"grade {grade}: {text.split()}"
+        assert "lag behind" not in body
+
+
+def test_the_check_in_copy_follows_the_reader(tmp_path):
+    young = html.unescape(_client(tmp_path, Sam=5).get("/kids/Sam/check-in").text)
+    assert "You could do these" in young and "Ask before you assume" in young        # queue hint; Safety quiz's zero
+    older = html.unescape(_client(tmp_path, Sam=9).get("/kids/Sam/check-in").text)
+    assert "possibilities, not tonight" in older and "ask before assuming" in older
+
+
+def test_the_sources_line_follows_the_reader(tmp_path):
+    assert "Canvas is where teachers post work." in _client(tmp_path, Sam=5).get("/kids/Sam").text
+    assert "HAC (Home Access Center) is the official gradebook" in _client(tmp_path).get("/kids/Sam").text

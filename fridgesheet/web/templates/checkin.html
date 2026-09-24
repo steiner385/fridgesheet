@@ -9,19 +9,21 @@
 {% set workspace = 'plan' if plan_only else 'checkin' %}{% include "_child_nav.html" %}
 {% if saved %}<p class="notice" role="status">Saved. Your family plan is separate from the school record.</p>{% endif %}
 {% if error %}<p class="notice warn" role="alert" tabindex="-1" autofocus>{{ error }}</p>{% endif %}
+{# One sentence of instruction, then the cards; the words follow the reader (kids' UX audit F3).
+   "School records can lag" is not repeated here: each waiting card already says so of itself. #}
+{% set tier = student.key | tier_of %}
 <div class="checkin-intro">
-  {% if not plan_only %}<p>What went well? What does the school record get wrong? Choose a few next steps together.</p>{% endif %}
+  {% if not plan_only %}<p>{{ 'copy.checkin_intro' | say(tier) }}</p>{% endif %}
   {% if last_check %}
   <p class="muted">Last check-in {{ last_check.finished_at | wd_md_time }}{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in {{ last_check.next_check | wd_md }}{% if last_check.next_check <= today %} · <strong>time to check in</strong>{% endif %}</p>
   <p class="family-account"><strong>What we agreed:</strong> {{ last_check.summary }}</p>
-  {% else %}<p class="muted">Start with what’s already been handed in, then decide what fits today.</p>{% endif %}
-  {% if not plan_only %}<p class="muted">School records can lag behind. Check the school record on each card before relying on a “missing” mark or a grade.</p>{% endif %}
+  {% else %}<p class="muted">{{ 'copy.checkin_first' | say(tier) }}</p>{% endif %}
 </div>
 <div class="checkin-layout {{ 'plan-only' if plan_only }}">
 {% if not plan_only %}
 <section class="review-queue" aria-labelledby="review-heading">
   <h3 id="review-heading">Review together</h3>
-  <p class="muted">These are possibilities, not tonight’s obligations. Existing commitments are in your plan.</p>
+  <p class="muted">{{ 'copy.queue_hint' | say(tier) }}</p>
   {% for label, rows in queues.items() %}
   <details class="queue-group" {{ 'open' if rows }}>
     <summary>{{ label }} <span class="badge">{{ rows | length }}</span></summary>

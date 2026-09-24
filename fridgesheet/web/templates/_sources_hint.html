@@ -1,1 +1,3 @@
-<p class="sources-hint muted">Canvas is where teachers post and collect work; HAC (Home Access Center) is the official gradebook.</p>
+{# What the two systems are, in the reader's words (kids' UX audit F3). Included under the child
+   nav and inside a record, where `student` may or may not be in scope. #}
+<p class="sources-hint muted">{{ 'copy.sources_hint' | say((student.key | tier_of) if student is defined and student else '') }}</p>

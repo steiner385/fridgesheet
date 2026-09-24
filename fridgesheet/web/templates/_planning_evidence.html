@@ -6,7 +6,7 @@
   <p>Canvas: {% if view.canvas.missing %}<strong>marked missing</strong> · {% endif %}{% if view.canvas.submitted_at %}submitted {{ view.canvas.submitted_at | wd_md_time }}{% if view.canvas.late %} (late){% endif %}{% elif view.kind in ('paper', 'in class') %}paper / in-class work; no online submission expected{% else %}no submission recorded{% endif %} · {% if view.canvas.score is not none %}{{ score(view.canvas, view.points) }}{% elif view.canvas.grade %}grade {{ view.canvas.grade }}{% else %}no grade posted{% endif %}</p>
   {% endif %}
   {% if view.hac %}<p>HAC: {% if view.hac.score is not none %}{{ score(view.hac, view.points) }}{% else %}no grade posted{% endif %}</p>{% endif %}
-  {% if view.grade_zero %}<p class="review-note">Zero recorded. A zero can mean not graded yet, not handed in, or handed in on paper — ask before assuming.</p>{% endif %}
+  {% if view.grade_zero %}<p class="review-note">{{ 'copy.zero_note' | say(tier | default('')) }}</p>{% endif %}
   {% if view.verdict.state in ('question', 'decided') %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% if view.verdict.state == 'waiting' %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% set pk = view.verdict | pace_key %}{% if pk %}<p class="review-note app-count">{{ pk | say(tier | default(''), view.verdict.pace) }}</p>{% endif %}
