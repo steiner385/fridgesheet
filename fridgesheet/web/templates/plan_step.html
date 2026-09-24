@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Plan a step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
+{% set tier = student.key | tier_of %}
 {% set back = return_to if return_to is defined and return_to else base ~ '#plan' %}
 <p><a href="{{ back }}">← {{ 'Back' if return_to is defined and return_to else student.key | nickname ~ '’s check-in' }}</a></p>
 {% if step_id %}<h2>Edit a step</h2><p>Change what was agreed, mark it complete, or put it back.</p>

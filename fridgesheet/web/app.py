@@ -168,6 +168,14 @@ def _filters(state: AppState) -> dict:
             v = v.astimezone(state.tz)
         return dates.wd_md(v) if v else ""
 
+    def due_at(item, tier: str = "") -> str:
+        """The hour an item is due, as this reader meets it: "morning" / "evening" for the
+        early tier, "7:20am" / "11:59pm" otherwise, "" when nobody gave an hour. One choice
+        for the work list, the check-in card, the question card and the step form, so the
+        same item cannot say "evening" on one and "11:59pm" on the next (kids' UX audit F10).
+        Both are facts the item already holds (`stores/items.py`); this only picks."""
+        return (item.due_part if tier == "early" else item.due_time) or ""
+
     def mailto_body(item) -> str:
         """The facts a parent cites when writing to a teacher, as plain text (#73)."""
         def score(o):
@@ -191,7 +199,7 @@ def _filters(state: AppState) -> dict:
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
             "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
             "standing": lambda item, tier: verdicts.standing(item, tier),
-            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num,
+            "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
             "pace_key": verdicts.pace_key}
 
 
