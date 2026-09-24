@@ -131,6 +131,15 @@ def test_a_waiting_card_offers_ask_the_teacher(tmp_path):
     assert 'value="ask_teacher"' in card
 
 
+def test_a_waiting_card_has_no_default_button(tmp_path):
+    """Waiting means time will settle it: the card says so, so "Ask the teacher" must not be the
+    filled default beside it (kids' UX audit F9). A question card keeps its filled first answer."""
+    eid, pid = _id(tmp_path, "Essay draft"), _id(tmp_path, "Participation")
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    assert 'class="primary"' not in _card(body, eid)
+    assert 'class="primary"' in _card(body, pid)
+
+
 def test_the_plan_panel_is_one_partial_with_its_id(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
