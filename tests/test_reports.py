@@ -139,6 +139,6 @@ def test_open_work_speaks_each_kids_tier(tmp_path):
     from fridgesheet import sheet
     import re
     text = re.sub(r"\s+", " ", sheet.pdf_text(built.pdf, raw=True))      # one cell's words stay together
-    al, sam = text.split("Sam — open work")
+    al, sam = re.split(r"Sam \W{1,3} open work", text)     # the em dash does not survive Windows' pdftotext encoding
     assert "Teacher hasn't got it" in al and "Due Sun" in al             # WS 1 is due in two days
     assert "MISSING" in sam and "Teacher hasn't got it" not in sam

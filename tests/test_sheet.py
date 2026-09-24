@@ -1,6 +1,7 @@
 """The PDF builder: one document, one section per kid, letter portrait."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -73,7 +74,6 @@ def test_marked_flag_and_handled_trailer_render(tmp_path):
 def _text(tmp_path, sheets):
     out = tmp_path / "sheet.pdf"
     sheet.build_pdf(sheets, out, data_as_of=NOW, days_ahead=14, overdue_days=14)
-    import re
     return re.sub(r"\s+", " ", sheet.pdf_text(out, raw=True))      # one cell's words stay together
 
 
@@ -87,7 +87,7 @@ def test_a_young_kids_section_uses_the_childs_words(tmp_path):
         sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%")])),
         sheet.KidSheet("Sam", _work("Sam", [_item("canvas:2", "MISSING", True, -2, late_until=NOW, credit="50%", kid="Sam")]), tier="early"),
     ])
-    al, sam = text.split("Sam — open work")
+    al, sam = re.split(r"Sam \W{1,3} open work", text)     # the em dash does not survive Windows' pdftotext encoding
     assert "MISSING" in al and "Teacher hasn't got it" not in al
     assert "Teacher hasn't got it" in sam and "MISSING" not in sam.split("MISSING / ZERO")[0]   # the legend keeps the key words
 
