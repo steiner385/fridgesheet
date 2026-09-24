@@ -83,13 +83,12 @@ def test_a_young_kids_section_uses_the_childs_words(tmp_path):
     whose grade puts them in the early or middle tier takes the phrase table's word for that
     status -- the same fact the web page shows them -- while an untiered kid's section, and the
     colour, stay as they were."""
-    text = _text(tmp_path, [
-        sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%")])),
-        sheet.KidSheet("Sam", _work("Sam", [_item("canvas:2", "MISSING", True, -2, late_until=NOW, credit="50%", kid="Sam")]), tier="early"),
-    ])
-    al, sam = re.split(r"Sam \W{1,3} open work", text)     # the em dash does not survive Windows' pdftotext encoding
-    assert "MISSING" in al and "Teacher hasn't got it" not in al
-    assert "Teacher hasn't got it" in sam and "MISSING" not in sam.split("MISSING / ZERO")[0]   # the legend keeps the key words
+    # One kid per PDF: poppler's text order for a two-section page differs between platforms,
+    # so a section cannot be cut out of one document's text portably.
+    al = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%")]))])
+    assert al.count("MISSING") == 2 and "Teacher hasn't got it" not in al             # the row and the legend
+    sam = _text(tmp_path, [sheet.KidSheet("Sam", _work("Sam", [_item("canvas:2", "MISSING", True, -2, late_until=NOW, credit="50%", kid="Sam")]), tier="early")])
+    assert "Teacher hasn't got it" in sam and sam.count("MISSING") == 1             # the legend keeps the key word
 
 
 @needs_pdftotext

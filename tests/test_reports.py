@@ -135,10 +135,12 @@ def test_open_work_speaks_each_kids_tier(tmp_path):
     snap["students"]["Sam"]["canvas"]["courses"] = [{"id": 6, "name": "Science 7", "assignments": [dict(a, id=3)]}]
     settings = Settings(home=tmp_path)
     settings.grades = {"Alex": 5}
-    built = reports.get("open-work").build(snap, _ctx(tmp_path, settings=settings))
     from fridgesheet import sheet
     import re
-    text = re.sub(r"\s+", " ", sheet.pdf_text(built.pdf, raw=True))      # one cell's words stay together
-    al, sam = re.split(r"Sam \W{1,3} open work", text)     # the em dash does not survive Windows' pdftotext encoding
+    # One kid per build (the --kid filter): poppler's text order for a two-section page differs
+    # between platforms, so a section cannot be cut out of one document's text portably.
+    r = reports.get("open-work")
+    al = re.sub(r"\s+", " ", sheet.pdf_text(r.build(snap, _ctx(tmp_path, settings=settings, kid="al")).pdf, raw=True))
     assert "Teacher hasn't got it" in al and "Due Sun" in al             # WS 1 is due in two days
-    assert "MISSING" in sam and "Teacher hasn't got it" not in sam
+    sam = re.sub(r"\s+", " ", sheet.pdf_text(r.build(snap, _ctx(tmp_path, settings=settings, kid="sam")).pdf, raw=True))
+    assert sam.count("MISSING") == 2 and "Teacher hasn't got it" not in sam    # the row and the legend
