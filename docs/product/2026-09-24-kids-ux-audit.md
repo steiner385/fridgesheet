@@ -341,3 +341,44 @@ neighbourhood (`docs/outcomes.md` "The printed sheet" row) and should carry its 
 - *Students' self-regulation of homework behavior: do autonomy support and effort matter?*, Social Psychology of Education (2025) — https://link.springer.com/article/10.1007/s11218-025-10127-4
 - *Teacher involvement and self-regulation in homework*, Metacognition and Learning (2025) — https://link.springer.com/article/10.1007/s11409-025-09431-3
 - *Influence of parental structure and chaos on homework anxiety in elementary school students* (2024) — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11491404/
+
+## 8. Status, end of 2026-09-24
+
+The maintainer took the three decisions in section 7 as recommended: parity covers rows and
+actions, not navigation or field layout; the sheet is tiered by vocabulary only; Assignments
+is the child's page. Every finding except F1 then landed as its own PR, each with a failing
+test first and a Playwright render at 390 px.
+
+| finding | PR | what changed |
+|---|---|---|
+| F9 | #106 | waiting cards have no filled default |
+| F2 | #107 | `--type-small` / `--type-tiny` tokens; secondary text follows the tier |
+| F4 | #108 | row links, headers and disclosures reach 44 px under touch |
+| F3 | #109 | one instruction sentence per section, through the phrase table |
+| F10 | #110 | one `due_at` filter for every surface |
+| F8 | #111 | "Done so far: 2 of 5 due · 1 on time." above the questions |
+| F6 | #112 | step form asks three things first; the rest folds under More; Order optional |
+| F5 | #113 | a tiered page's rail is Today, this child, and an App fold; "Kids" label gone |
+| F7 | #114 | Assignments says "you"; Recorded-by says "a grown-up helping" |
+| F11 | #115 | the sheet takes each kid's tier for status words, 10 pt, ink headings, "given" / "until" |
+| F12 | #116 | short filter options, bold sorted column, pace sentence folded, printer note off the page |
+| F1 | — | **still open, and the maintainer's to run**: five tasks per child, section 5 |
+
+Re-measured with `scripts/kids_ui_measure.py` on the same fixture, phone (390×844, touch):
+
+| page | targets under 24 px, before → after | smallest text inside `main`, early tier |
+|---|---|---|
+| Assignments, older | 23 → 2 (the two radios; their labels are 44 px) | 12 px → 14 px |
+| Assignments, early | 4 → 2 | 12 px → 14 px |
+| Open work | 12 → 0 | |
+| Today | 22 → 3 (the two kid-name headings and a checkbox) | |
+| Check-in, early | 0 → 0 | 13 px → 14 px |
+
+Words before the first check-in card: 80 → 27 (early) and 29 (older). The step form shows
+five fields and a More line where it showed nine fields. The printed sheet's smallest text
+went from 7 pt to 8 pt and its body from 8.5 pt to 10 pt; two kids still fit one page.
+
+What did not change, on purpose: the parity test still holds every row and every action at
+every tier; a household with no grade set renders byte-for-byte what it rendered before,
+apart from the tap-target padding under touch and the rail's dropped "Kids" label, which
+apply to everyone.
