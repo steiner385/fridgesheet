@@ -27,6 +27,14 @@ def one(conn, student_id, step_id):
     return dict(row) if row else None
 
 
+def next_position(conn, student_id, planned_for) -> int:
+    """Where a step with no stated order goes: after the last one already planned for that day,
+    in the same steps of ten the form used to require typing (kids' UX audit F6)."""
+    row = conn.execute("SELECT COALESCE(MAX(position), 0) FROM plan_steps WHERE student_id = ? AND planned_for = ?",
+                       (student_id, planned_for)).fetchone()
+    return int(row[0]) + 10
+
+
 def by_request_key(conn, student_id, request_key):
     """The step a form token already created, or None: how a retried POST finds its own step."""
     row = conn.execute("SELECT * FROM plan_steps WHERE student_id = ? AND request_key = ?", (student_id, request_key)).fetchone()
