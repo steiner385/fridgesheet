@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from .. import config, late_rules, open_items, sheet
+from ..web import tiers
 from .base import Built, BuildContext, ReportError
 
 
@@ -37,7 +38,8 @@ class OpenWorkReport:
             label = ctx.nicknames.get(key, key)
             work = open_items.open_items(entry, label, ctx.now, days_ahead=days_ahead, overdue_days=overdue_days, rules=rules, flags=ctx.flags.get(key, {}), prefs=ctx.settings.sources)
             diff = open_items.compare(ctx.prev_rows.get(key, []), work.items, work.handled) if ctx.prev_rows is not None else None
-            sheets.append(sheet.KidSheet(label, work, diff, ctx.prev_label))
+            # Each kid's section speaks in that kid's tier, as their pages do (kids' UX audit F11).
+            sheets.append(sheet.KidSheet(label, work, diff, ctx.prev_label, tier=tiers.for_student(ctx.settings, key)))
             rows[key] = [i.to_dict() for i in work.items]
             counts.append(f"{label}={len(work.items)}")
         if not sheets:

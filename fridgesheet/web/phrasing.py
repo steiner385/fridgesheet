@@ -27,6 +27,9 @@ PHRASES: dict[str, dict[str, str]] = {
     "Late, ungraded":      {"early": "Handed in late, no grade yet", "middle": "Late, not graded", "older": "Late, ungraded"},
     "Submitted, ungraded": {"early": "Handed in - waiting", "middle": "Submitted, not graded", "older": "Submitted, ungraded"},
     "Unpublished":         {"early": "Not open yet", "middle": "Not published", "older": "Unpublished"},
+    # The printed sheet's HAC-only row with no grade (sheet.py `status_word`); the web says this
+    # with a verdict sentence instead, so only the sheet reads this key.
+    "HAC, no grade":       {"early": "HAC lists it, no grade yet - ask", "middle": "HAC lists it, no grade yet", "older": "HAC, no grade"},
     # --- the two "Handed in" cells that are neither yes nor no -------------------------
     # Neither may imply the work was done. "On paper" says only that the assignment is not
     # an online one; "Done on paper" would assert a fact no source gave us.

@@ -122,3 +122,23 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
     assert e.value.code == 0
     assert installed["key"] == "view:1" and installed["title"] == "Weekly summary"
     assert installed["times"] == ["16:00"]          # the view report's own default_time
+
+
+@needs_pdftotext
+def test_open_work_speaks_each_kids_tier(tmp_path):
+    """A kid whose grade sets the early tier gets the phrase table's words in their section of
+    the sheet (kids' UX audit F11); a kid with no grade set keeps the capitals."""
+    snap = _snapshot()
+    a = dict(snap["students"]["Alex"]["canvas"]["courses"][0]["assignments"][0], id=2, name="WS 0", missing=True,
+             due_at=(NOW - timedelta(days=2)).isoformat())
+    snap["students"]["Alex"]["canvas"]["courses"][0]["assignments"].append(a)
+    snap["students"]["Sam"]["canvas"]["courses"] = [{"id": 6, "name": "Science 7", "assignments": [dict(a, id=3)]}]
+    settings = Settings(home=tmp_path)
+    settings.grades = {"Alex": 5}
+    built = reports.get("open-work").build(snap, _ctx(tmp_path, settings=settings))
+    from fridgesheet import sheet
+    import re
+    text = re.sub(r"\s+", " ", sheet.pdf_text(built.pdf, raw=True))      # one cell's words stay together
+    al, sam = text.split("Sam — open work")
+    assert "Teacher hasn't got it" in al and "Due Sun" in al             # WS 1 is due in two days
+    assert "MISSING" in sam and "Teacher hasn't got it" not in sam
