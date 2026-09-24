@@ -43,6 +43,24 @@ def _next_link(link_header: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+def _lock_reason(info: dict | None) -> str:
+    """Why Canvas says an assignment is locked, from the shape of `lock_info` rather than the
+    clock, so a snapshot read later still agrees with what Canvas said at the time.
+
+    `no_permission` is the observer-account artefact: the parent cannot *take* a quiz, so
+    Canvas reports it locked even though the student can open it."""
+    info = info or {}
+    if info.get("context_module"):
+        return "module"
+    if info.get("missing_permission"):
+        return "no_permission"
+    if info.get("unlock_at"):
+        return "not_yet"
+    if info.get("lock_at"):
+        return "closed"
+    return "other"
+
+
 class Canvas:
     def __init__(self, ctx: BrowserContext, settings: Settings):
         self.ctx = ctx
@@ -126,6 +144,9 @@ class Canvas:
                 # closest when a teacher sets it; created_at is when the item appeared
                 # (which for a course copied from last year is the copy date).
                 "unlock_at": self.local(a.get("unlock_at")),
+                "lock_at": self.local(a.get("lock_at")),
+                "locked": a.get("locked_for_user"),
+                "lock_reason": _lock_reason(a.get("lock_info")) if a.get("locked_for_user") else None,
                 "created_at": self.local(a.get("created_at")),
                 "points_possible": a.get("points_possible"),
                 "submission_types": a.get("submission_types") or [],

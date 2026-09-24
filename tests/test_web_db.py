@@ -19,6 +19,14 @@ def test_open_db_creates_file_and_schema(tmp_path):
             "notes", "flags", "reports", "schedules", "runs", "schema_version"} <= names
 
 
+def test_schema_carries_canvas_lock_fields(tmp_path):
+    conn = db.open_db(tmp_path)
+    items = {r["name"] for r in conn.execute("PRAGMA table_info(items)")}
+    obs = {r["name"] for r in conn.execute("PRAGMA table_info(item_observations)")}
+    assert {"lock_at", "unlock_at"} <= items
+    assert {"locked", "lock_reason"} <= obs
+
+
 def test_migrate_is_idempotent(tmp_path):
     conn = db.open_db(tmp_path)
     assert db.migrate(conn) == db.SCHEMA_VERSION
@@ -106,16 +114,29 @@ def test_latest_observations_picks_the_newest_per_source(tmp_path):
 
 # --- schema 1 -> 2: the check-in tables arrive; nothing already recorded moves ---------------
 
+def _seed_old_household(conn) -> int:
+    """One refresh of a small household written with the columns an old build knew. Today's
+    ingest writes columns later schemas added, so it cannot fill an old-schema file; these
+    rows are what a 0.4.x/0.5.x build actually left behind. Returns the Quiz 1 item id."""
+    with conn:
+        conn.execute("INSERT INTO refreshes(id, started_at, finished_at, sources, ok) VALUES (1, 't0', 't1', '{}', 1)")
+        conn.execute("INSERT INTO students(id, key, name) VALUES (1, 'Alex', 'Alex Example')")
+        conn.execute("INSERT INTO courses(id, student_id, source, external_id, name, short_name) VALUES (1, 1, 'canvas', '5', 'Honors English 9 S1', 'Honors English 9')")
+        conn.execute("INSERT INTO items(id, student_id, course_id, key, name, points, due, first_seen, last_seen) "
+                     "VALUES (1, 1, 1, 'canvas:77', 'Quiz 1', 10, '2026-09-12T23:59:00-04:00', 1, 1)")
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, missing, published) VALUES (1, 1, 'canvas', 'unsubmitted', 1, 1)")
+        conn.execute("INSERT INTO grade_observations(refresh_id, course_id, letter, current) VALUES (1, 1, 'A-', 91.2)")
+    return 1
+
+
 def _populated_v1(path):
     """A file exactly as a 0.4.x build left it: schema 1, one refresh of the standard household,
     a note, a flag and a printed run."""
     from fridgesheet.web.stores import flags, notes
-    from tests.web_fixtures import NOW, TZ, snapshot
-    from fridgesheet.web import ingest
+    from tests.web_fixtures import NOW
     conn = db.connect(path)
     conn.executescript("BEGIN;\n" + db._SCHEMA_V1 + "\nINSERT INTO schema_version(version) VALUES (1);\nCOMMIT;")
-    ingest.record(conn, snapshot(), tz=TZ, now=NOW)
-    qid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()[0]
+    qid = _seed_old_household(conn)
     notes.add(conn, "item", qid, "teacher said she would regrade", now=NOW.isoformat())
     flags.set_flag(conn, qid, "follow_up", now=NOW.isoformat(), text="ask Monday")
     conn.execute("INSERT INTO runs(report_key, started_at, finished_at, trigger, outcome, message) VALUES (?,?,?,?,?,?)",
@@ -140,6 +161,8 @@ def test_a_populated_schema_1_file_migrates_to_2_with_everything_still_in_it(tmp
     assert (flag["flag"], flag["text"], flag["cleared_at"]) == ("follow_up", "ask Monday", None)
     assert conn.execute("SELECT message FROM runs").fetchone()[0] == "2p Al=3 Sam=2"
     assert conn.execute("SELECT COUNT(*) FROM plan_steps").fetchone()[0] == 0
+    # Observations from before the lock columns existed say nothing about locks (schema 4).
+    assert tuple(conn.execute("SELECT locked, lock_reason FROM item_observations").fetchone()) == (None, None)
     # Running the migration again is a no-op, and the version row stays single.
     assert db.migrate(conn) == db.SCHEMA_VERSION
     assert [tuple(r) for r in conn.execute("SELECT version FROM schema_version")] == [(db.SCHEMA_VERSION,)]
@@ -170,13 +193,11 @@ def _populated_v2(path):
     """A file exactly as a 0.5.x build left it: schema 2, one refresh of the standard
     household, and an active flag that must survive the CHECK constraint's table rebuild."""
     from fridgesheet.web.stores import flags
-    from tests.web_fixtures import NOW, TZ, snapshot
-    from fridgesheet.web import ingest
+    from tests.web_fixtures import NOW
     conn = db.connect(path)
     conn.executescript("BEGIN;\n" + db._SCHEMA_V1 + "\nINSERT INTO schema_version(version) VALUES (1);\nCOMMIT;")
     conn.executescript("BEGIN;\n" + db._SCHEMA_V2 + "\nUPDATE schema_version SET version = 2;\nCOMMIT;")
-    ingest.record(conn, snapshot(), tz=TZ, now=NOW)
-    qid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()[0]
+    qid = _seed_old_household(conn)
     flags.set_flag(conn, qid, "excused", now=NOW.isoformat(), text="teacher excused it")
     assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == 2
     conn.close()
@@ -186,15 +207,15 @@ def _populated_v2(path):
 def test_a_populated_schema_2_file_migrates_to_3_and_too_late_becomes_a_legal_flag(tmp_path):
     qid = _populated_v2(db.db_path(tmp_path))
     conn = db.open_db(tmp_path)
-    assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == 3
+    assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION
     flag = conn.execute("SELECT flag, text, cleared_at FROM flags WHERE item_id = ?", (qid,)).fetchone()
     assert (flag["flag"], flag["text"], flag["cleared_at"]) == ("excused", "teacher excused it", None)
     with conn:
         conn.execute("UPDATE flags SET cleared_at = 't2' WHERE item_id = ?", (qid,))
         conn.execute("INSERT INTO flags(item_id, flag, set_at) VALUES (?, 'too_late', 't3')", (qid,))
     assert conn.execute("SELECT flag FROM flags WHERE item_id = ? AND cleared_at IS NULL", (qid,)).fetchone()[0] == "too_late"
-    assert db.migrate(conn) == 3
-    assert [tuple(r) for r in conn.execute("SELECT version FROM schema_version")] == [(3,)]
+    assert db.migrate(conn) == db.SCHEMA_VERSION
+    assert [tuple(r) for r in conn.execute("SELECT version FROM schema_version")] == [(db.SCHEMA_VERSION,)]
     conn.close()
 
 

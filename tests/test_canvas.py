@@ -50,3 +50,39 @@ def test_assignment_rows_include_unlock_and_created_in_local_time():
     assert row["unlock_at"] == "2026-09-03T09:00:00-04:00"
     assert row["created_at"] == "2026-08-18T11:22:00-04:00"
     assert row["due_at"] == "2026-09-09T23:59:00-04:00"
+
+
+def _with_lock(**fields):
+    ctx = _Ctx()
+    ctx.request = _Request()
+    a = dict(ctx.request.routes["/assignments"][0], **fields)
+    ctx.request.routes["/assignments"] = [a]
+    return ctx
+
+
+def test_an_open_assignment_carries_lock_at_in_local_time_and_no_reason():
+    cv = Canvas(_with_lock(locked_for_user=False, lock_at="2026-09-12T03:59:59Z"), Settings())
+    (row,) = cv.assignments(1, 99)
+    assert row["lock_at"] == "2026-09-11T23:59:59-04:00"
+    assert row["locked"] is False and row["lock_reason"] is None
+
+
+def test_lock_reason_is_derived_from_the_shape_of_lock_info():
+    # The four shapes an observer account actually sees, captured from a real payload.
+    shapes = {
+        "closed": {"lock_at": "2026-09-05T03:59:59Z", "can_view": True, "asset_string": "assignment_1"},
+        "not_yet": {"unlock_at": "2026-09-30T04:00:00Z", "can_view": True, "asset_string": "assignment_1"},
+        "module": {"context_module": {"id": 5, "name": "Unit 2"}, "asset_string": "assignment_1"},
+        "no_permission": {"missing_permission": "participate_as_student", "asset_string": "quizzes:quiz_1"},
+        "other": {"asset_string": "assignment_1"},
+    }
+    for want, info in shapes.items():
+        cv = Canvas(_with_lock(locked_for_user=True, lock_info=info), Settings())
+        (row,) = cv.assignments(1, 99)
+        assert (row["locked"], row["lock_reason"]) == (True, want), want
+
+
+def test_a_payload_without_lock_fields_reports_nothing_rather_than_unlocked():
+    cv = Canvas(_Ctx(), Settings())
+    (row,) = cv.assignments(1, 99)
+    assert row["lock_at"] is None and row["locked"] is None and row["lock_reason"] is None
