@@ -47,6 +47,11 @@ a { color: var(--accent); }
 .rail nav a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); }
 .rail nav a.current, .rail nav a:hover { background: var(--wash); }
 .rail nav .group { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+/* The "App" fold on a child's page (kids' UX audit F5): styled as one more rail link; open,
+   the rest of the rail unfolds beneath it. On the phone strip it and its contents lie flat
+   in the strip, so opening it lengthens the scroll rather than breaking the row. */
+.rail nav .rail-more > summary { padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-top: 12px; color: var(--muted); }
+.rail nav .rail-more > summary:hover { background: var(--wash); }
 main { padding: 16px 24px 48px; max-width: 1100px; }
 header.status { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
@@ -134,6 +139,8 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   .rail nav::-webkit-scrollbar { display: none; }
   .rail nav a { white-space: nowrap; padding: 8px 10px; }
   .rail nav .group { display: none; }
+  .rail nav .rail-more, .rail nav .rail-rest { display: flex; gap: 2px; }
+  .rail nav .rail-more > summary { white-space: nowrap; padding: 8px 10px; margin: 0; list-style: none; }
   main { padding: 12px; }
   /* Seven columns do not fit 390px. Seen on a phone against the live app: Handed in, Grade,
      Sources and Flag simply fell off the right edge, with nothing to scroll -- the table is
@@ -147,9 +154,9 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
    the kiosk (#40 item 2); Reconcile alone puts 47 x 5 of them under a finger. Scoped to a
    coarse pointer so a mouse keeps the compact desktop layout. */
 @media (pointer: coarse) {
-  button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .badge[href], .filters label { min-height: 44px; }
+  button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .rail nav .rail-more > summary, .badge[href], .filters label { min-height: 44px; }
   button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
-  .rail nav a { display: inline-flex; align-items: center; }
+  .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; }
   .badge[href] { display: inline-flex; align-items: center; padding: 0 12px; }
   input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
   table.items th, table.items td { padding: 10px 8px; }
