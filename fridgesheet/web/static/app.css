@@ -82,7 +82,10 @@ td .rel { color: var(--muted); font-size: var(--type-small); }
 td.sources { white-space: nowrap; }
 /* The parent's own verdict on a row, where the Flag column used to be a column. */
 .badge.flag { background: var(--wash); border: 1px solid var(--rule); color: var(--ink); }
-th .arrow { color: var(--muted); font-size: 11px; }
+th .arrow { color: var(--muted); font-size: var(--type-small); }
+/* The column doing the sorting is the bold one (kids' UX audit F12): the arrow alone was a
+   small glyph a 5th grader's phone made invisible. */
+th[aria-sort="ascending"] a, th[aria-sort="descending"] a { font-weight: 700; }
 /* The hour an assignment is actually due. Darker than `.rel`, because "7:20am" is the fact
    that decides whether tonight is the deadline; never wrapped away from its date. */
 td .at { font-size: var(--type-small); white-space: nowrap; }
@@ -341,7 +344,7 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 .record .sources-hint { margin: 0 0 6px; }
 .count:empty { display: none; }
 .record .src small { font-size: inherit; }
-th .arrow { font-size: 13px; }
+th .arrow { font-size: var(--type-small); }
 @media (pointer: coarse) {
   .lines .line > button, .lines .line > form button, .qmark, .q details.more > summary, .q .more a, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }
   /* The links inside a row and a card (kids' UX audit F4). Measured at 390px: the assignment

@@ -10,7 +10,7 @@
   {% if view.grade_zero %}<p class="review-note">{{ 'copy.zero_note' | say(tier | default('')) }}</p>{% endif %}
   {% if view.verdict.state in ('question', 'decided') %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% if view.verdict.state == 'waiting' %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
-  {% set pk = view.verdict | pace_key %}{% if pk %}<p class="review-note app-count">{{ pk | say(tier | default(''), view.verdict.pace) }}</p>{% endif %}
+  {% set pk = view.verdict | pace_key %}{% if pk %}<details class="quiet"><summary>How long Fridge Sheet waits</summary><p class="review-note app-count">{{ pk | say(tier | default(''), view.verdict.pace) }}</p></details>{% endif %}
   {% if view.latest_note %}<p>Latest note ({{ view.latest_note.at | wd_md }}): {{ view.latest_note.body }}</p>{% endif %}
   {% if view.flag %}<p>Your answer: {{ {"done": "it's done", "excused": "excused", "ignore": "let it go", "follow_up": "following up", "ask_teacher": "asked the teacher", "too_late": "too late to submit"}.get(view.flag, view.flag) }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}
 </div>
