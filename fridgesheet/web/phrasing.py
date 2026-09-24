@@ -133,6 +133,14 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.tab_all":        {"early": "Everything the school lists. What needs your answer is at the top.",
                             "middle": "Everything the school lists, with what needs your answer at the top.",
                             "older": "Everything the school lists, with what needs your answer at the top."},
+    # --- who each surface speaks to (kids' UX audit F7). Assignments is the child's page and says
+    # "you" to the child; the check-in and the plan are "we"; the two fields only a helping adult
+    # fills in say so beside their label. The questions heading is swapped out of band after an
+    # answer (`_after_answer.html`), so both renderings come from here. `{s}` is the plural. ----
+    "copy.questions_head":  {"early": "{n} question{s} about your work", "middle": "{n} question{s} about your work", "older": "{n} question{s} about your work"},
+    "copy.no_questions":    {"early": "Nothing to answer.", "middle": "Nothing to answer.", "older": "Nothing to answer."},
+    "copy.no_more_questions": {"early": "No more questions about your work", "middle": "No more questions about your work", "older": "No more questions about your work"},
+    "copy.answering_hint":  {"early": "Answer one and it leaves this list", "middle": "Answering one takes it off this list", "older": "Answering one takes it off this list"},
     # --- what has been done so far, above a child's questions (kids' UX audit F8): the same
     # five outcomes the dashboard's record counts, said once as the work that got done.
     # Rendered only when something has (`kid.html`). ------------------------------------------

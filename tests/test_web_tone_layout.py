@@ -40,7 +40,7 @@ def test_old_decided_lines_fold_under_earlier(tmp_path):
 
 def test_a_kid_with_nothing_to_answer_is_told_so(tmp_path):
     seed(tmp_path).close()
-    assert "Nothing to answer for Sam" in app_for(tmp_path).get("/kids/Sam").text
+    assert "Nothing to answer." in app_for(tmp_path).get("/kids/Sam").text     # said to the child (kids' UX audit F7)
 
 
 # --- #77 ----------------------------------------------------------------------------------------
