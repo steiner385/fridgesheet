@@ -1,6 +1,7 @@
 """The PDF builder: one document, one section per kid, letter portrait."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -44,7 +45,7 @@ def test_builds_a_letter_pdf_with_a_section_per_kid(tmp_path):
     assert "Nothing open" in text                      # Sam still gets a section
     assert "NEW" in text and "Cleared since last sheet" in text
     assert "Not shown" in text and "1 item" in text    # Jo's dropped row is counted, not listed
-    assert "50% thru" in text                          # deadline + credit printed on the overdue row
+    assert "50% until" in text                         # deadline + credit printed on the overdue row (spelled out, kids' UX audit F11)
 
 
 @needs_pdftotext
@@ -66,3 +67,45 @@ def test_marked_flag_and_handled_trailer_render(tmp_path):
     assert "FOLLOW UP" in text
     assert "Handled: 1 item marked done, excused or ignored in the app" in text
     assert "Item canvas:2 HANDLED" not in text
+
+
+# --- kids' UX audit F11: the sheet on the fridge takes the kid's words and a readable size ----------
+
+def _text(tmp_path, sheets):
+    out = tmp_path / "sheet.pdf"
+    sheet.build_pdf(sheets, out, data_as_of=NOW, days_ahead=14, overdue_days=14)
+    return re.sub(r"\s+", " ", sheet.pdf_text(out, raw=True))      # one cell's words stay together
+
+
+@needs_pdftotext
+def test_a_young_kids_section_uses_the_childs_words(tmp_path):
+    """The sheet printed the adult status words in capitals for every kid. A section for a kid
+    whose grade puts them in the early or middle tier takes the phrase table's word for that
+    status -- the same fact the web page shows them -- while an untiered kid's section, and the
+    colour, stay as they were."""
+    # One kid per PDF: poppler's text order for a two-section page differs between platforms,
+    # so a section cannot be cut out of one document's text portably.
+    al = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%")]))])
+    assert al.count("MISSING") == 2 and "Teacher hasn't got it" not in al             # the row and the legend
+    sam = _text(tmp_path, [sheet.KidSheet("Sam", _work("Sam", [_item("canvas:2", "MISSING", True, -2, late_until=NOW, credit="50%", kid="Sam")]), tier="early")])
+    assert "Teacher hasn't got it" in sam and sam.count("MISSING") == 1             # the legend keeps the key word
+
+
+@needs_pdftotext
+def test_given_and_credit_until_are_spelled_out(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%", assigned=NOW)]))])
+    assert "given" in text and "50% until" in text
+    assert "asg " not in text and " thru " not in text
+
+
+def test_body_type_clears_ten_points():
+    """8.5pt cells and 7pt sub-lines, for a reader NN/g puts at a 12pt floor on screen. Ten
+    points is the smallest the two-kid page still fits on one sheet."""
+    assert sheet.CELL.fontSize >= 10 and sheet.CELLB.fontSize >= 10
+    assert sheet.TINY.fontSize >= 8 and sheet.SM.fontSize >= 8.5 and sheet.NOTE.fontSize >= 8.5
+
+
+def test_kid_headings_are_not_coloured_like_statuses():
+    """Alex's heading blue was DUE TODAY blue and Sam's purple was PAPER — CHECK purple: one
+    colour, two meanings on one page. Colour is for status; a kid's name is ink."""
+    assert not hasattr(sheet, "KID_COLORS")

@@ -1,7 +1,13 @@
 """The printed sheet: one letter-portrait PDF, one section per kid, built with reportlab.
 
-Colour is carried by text only (status words, kid names, NEW tags); there are no fills,
-so a page costs about as much ink as plain black text and still reads when photocopied.
+Colour is carried by text only (status words, NEW tags); there are no fills, so a page costs
+about as much ink as plain black text and still reads when photocopied. Colour means status
+and nothing else: a kid's name is ink, so blue cannot be both Alex and DUE TODAY.
+
+The sheet is the surface a kid reads without a screen, so each kid's section takes that
+kid's tier (web/tiers.py): the status column says "Teacher hasn't got it" to a 5th grader
+where it says MISSING to a parent, in the same colour. Layout, columns and the legend do not
+change with the tier (kids' UX audit F11).
 """
 from __future__ import annotations
 
@@ -19,6 +25,7 @@ from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemp
 
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
 from .open_items import MARKED_FLAGS, Diff, Item, OpenWork
+from .web import phrasing
 
 RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
 STATUS_COLOR = {
@@ -26,18 +33,20 @@ STATUS_COLOR = {
     "PAPER — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
     "DUE TODAY": BLUE, "DUE TOMORROW": BLUE,
 }
-KID_COLORS = (BLUE, PURPLE, GREEN, RED, AMBER)
 
-H1 = ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=15, leading=18)
-SM = ParagraphStyle("sm", fontName="Helvetica", fontSize=7.5, leading=9.5)
-CELL = ParagraphStyle("cell", fontName="Helvetica", fontSize=8.5, leading=10.5)
-CELLB = ParagraphStyle("cellb", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)
-TINY = ParagraphStyle("tiny", fontName="Helvetica", fontSize=7, leading=8.5)
-NEWTAG = ParagraphStyle("new", fontName="Helvetica-Bold", fontSize=7.5, leading=9, textColor=GREEN)
-WAS = ParagraphStyle("was", fontName="Helvetica-Oblique", fontSize=7, leading=8.5, textColor=GREY)
-NOTE = ParagraphStyle("note", fontName="Helvetica", fontSize=7.5, leading=9.5, textColor=GREY)
+# 10pt cells and 8pt sub-lines: the kid reading the fridge is the reader NN/g puts at a 12pt
+# floor on screen, and 8.5/7 was the smallest text in the whole product. Two kids still fit
+# one page.
+H1 = ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=16, leading=19)
+SM = ParagraphStyle("sm", fontName="Helvetica", fontSize=8.5, leading=10.5)
+CELL = ParagraphStyle("cell", fontName="Helvetica", fontSize=10, leading=12)
+CELLB = ParagraphStyle("cellb", fontName="Helvetica-Bold", fontSize=10, leading=12)
+TINY = ParagraphStyle("tiny", fontName="Helvetica", fontSize=8, leading=9.5)
+NEWTAG = ParagraphStyle("new", fontName="Helvetica-Bold", fontSize=8.5, leading=10, textColor=GREEN)
+WAS = ParagraphStyle("was", fontName="Helvetica-Oblique", fontSize=8, leading=9.5, textColor=GREY)
+NOTE = ParagraphStyle("note", fontName="Helvetica", fontSize=8.5, leading=10.5, textColor=GREY)
 
-COL_WIDTHS = [0.28, 0.42, 1.12, 1.15, 2.28, 0.35, 0.72, 1.18]   # inches; sums to 7.5
+COL_WIDTHS = [0.28, 0.42, 1.12, 1.10, 2.03, 0.35, 0.72, 1.48]   # inches; sums to 7.5
 MARGIN = 0.5 * inch
 
 
@@ -47,6 +56,25 @@ class KidSheet:
     work: OpenWork
     diff: Diff | None = None
     prev_label: str | None = None
+    tier: str = ""                   # web/tiers.py: "early", "middle", "older" or "" (no grade set)
+
+
+#: The sheet's status word -> the web page's, so the phrase table can say it for the kid's tier.
+#: Older and no-tier sections keep the capitals the parent knows from the legend.
+_STATUS_KEY = {"MISSING": "Missing", "ZERO": "Zero", "LATE": "Late, ungraded", "PAPER — CHECK": "Paper, check", "HAC — NO GRADE": "HAC, no grade"}
+
+
+def status_word(status: str, tier: str) -> str:
+    """"MISSING" for a parent; "Teacher hasn't got it" for a 5th grader; "Due today" rather than
+    DUE TODAY for either young tier. Same fact, same colour, the kid's words."""
+    if tier not in ("early", "middle"):
+        return status
+    key = _STATUS_KEY.get(status)
+    if key:
+        return phrasing.phrase(key, tier)
+    head, _, rest = status.partition(" ")       # DUE TODAY / DUE TOMORROW / DUE TUE
+    rest = rest.lower() if rest.lower() in ("today", "tomorrow") else rest.title()
+    return f"{head.title()} {rest}".strip()
 
 
 def _esc(s: str) -> str:
@@ -76,14 +104,14 @@ def _checkbox() -> Table:
     return Table([[""]], colWidths=[11], rowHeights=[11], style=[("BOX", (0, 0), (-1, -1), 0.75, colors.black)])
 
 
-def _status_cell(it: Item) -> Paragraph:
+def _status_cell(it: Item, tier: str = "") -> Paragraph:
     style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, colors.black))
-    text = _esc(it.status)
+    text = _esc(status_word(it.status, tier))
     if it.flag in MARKED_FLAGS:
-        text += f'<br/><font name="Helvetica-Bold" size="7" color="#6C3FA0">{"FOLLOW UP" if it.flag == "follow_up" else "ASK TEACHER"}</font>'
+        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{"FOLLOW UP" if it.flag == "follow_up" else "ASK TEACHER"}</font>'
     if it.overdue and it.late_until:
         credit = f"{it.credit} " if it.credit and it.credit != "?" else ""
-        text += f'<br/><font name="Helvetica" size="7" color="#555555">{_esc(credit)}thru {wd_md(it.late_until)}</font>'
+        text += f'<br/><font name="Helvetica" size="8" color="#555555">{_esc(credit)}until {wd_md(it.late_until)}</font>'
     return Paragraph(text, style)
 
 
@@ -97,7 +125,7 @@ def _delta_cell(it: Item, diff: Diff | None):
     return ""
 
 
-def _section(ks: KidSheet, color, date_line: str, days_ahead: int, overdue_days: int) -> list:
+def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -> list:
     work, diff = ks.work, ks.diff
     n_new = len(diff.new) if diff else 0
     n_cleared = len(diff.cleared) if diff else 0
@@ -105,7 +133,7 @@ def _section(ks: KidSheet, color, date_line: str, days_ahead: int, overdue_days:
     if diff is not None:
         since += f", {n_new} new, {n_cleared} cleared since last sheet ({_esc(ks.prev_label or '?')})"
     head = [
-        Paragraph(f"{_esc(ks.label)} — open work", ParagraphStyle("h1k", parent=H1, textColor=color)),
+        Paragraph(f"{_esc(ks.label)} — open work", H1),
         Paragraph(f"{date_line} &nbsp;·&nbsp; next {days_ahead} days plus overdue within {overdue_days}{since}", SM),
         Spacer(1, 5),
     ]
@@ -119,13 +147,13 @@ def _section(ks: KidSheet, color, date_line: str, days_ahead: int, overdue_days:
         asg = wd_md(it.assigned) if it.assigned else "—"
         # `source` is "canvas", "hac" or "both"; only the ones Canvas knows carry a real time.
         due_cell = Paragraph(f'{_esc(fmt_due(it.due, from_canvas=it.source != "hac"))}'
-                             f'<br/><font size="7">asg {asg}</font>', CELL)
+                             f'<br/><font size="8">given {asg}</font>', CELL)
         via = it.source.capitalize() + (f" · {it.kind}" if it.kind else " · —")
         data.append([_checkbox(), _delta_cell(it, diff), due_cell, Paragraph(_esc(it.course), CELL), Paragraph(_esc(it.name), CELL),
-                     fmt_pts(it.points), Paragraph(_esc(via), TINY), _status_cell(it)])
+                     fmt_pts(it.points), Paragraph(_esc(via), TINY), _status_cell(it, ks.tier)])
     style = [
-        ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 8.5),
-        ("FONT", (0, 1), (-1, -1), "Helvetica", 8.5),
+        ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 10),
+        ("FONT", (0, 1), (-1, -1), "Helvetica", 10),
         ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black),
         ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.black),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -172,7 +200,7 @@ def _legend(data_as_of: datetime, stale_note: str | None) -> list:
         Spacer(1, 4),
         Paragraph(sw("MISSING / ZERO", "#B3261E") + " past due or scored 0 &nbsp; " + sw("LATE", "#B26A00") + " turned in late, not graded &nbsp; "
                   + sw("PAPER — CHECK / HAC — NO GRADE", "#6C3FA0") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "#1A5FB4")
-                  + " &nbsp; later due dates in black &nbsp; <i>credit thru date</i> = last day the teacher still takes it", SM),
+                  + " &nbsp; later due dates in black &nbsp; <i>credit until date</i> = last day the teacher still takes it", SM),
         Spacer(1, 2),
         Paragraph("<b>Via</b> where it was read (Canvas, HAC, Both) · how it is turned in (online, paper, in class) &nbsp; "
                   + sw("NEW", "#1E7A3E") + " not on the last sheet &nbsp; <i>was …</i> status changed since the last sheet &nbsp; "
@@ -189,8 +217,8 @@ def build_pdf(sheets: list[KidSheet], out_path: Path, *, data_as_of: datetime, d
     printed_at = printed_at or data_as_of
     date_line = long_date(printed_at)
     story = []
-    for i, ks in enumerate(sheets):
-        story.extend(f for f in _section(ks, KID_COLORS[i % len(KID_COLORS)], date_line, days_ahead, overdue_days) if f is not None)
+    for ks in sheets:
+        story.extend(f for f in _section(ks, date_line, days_ahead, overdue_days) if f is not None)
     story.extend(_legend(data_as_of, stale_note))
     pages = {"n": 0}
 
@@ -209,11 +237,14 @@ def build_pdf(sheets: list[KidSheet], out_path: Path, *, data_as_of: datetime, d
     return pages["n"]
 
 
-def pdf_text(path: Path) -> str:
-    """Plain text of a PDF via poppler's pdftotext (for tests and spot checks)."""
+def pdf_text(path: Path, *, raw: bool = False) -> str:
+    """Plain text of a PDF via poppler's pdftotext (for tests and spot checks). `-layout` keeps
+    the columns, which is what a spot check wants; it also interleaves a wrapped cell with its
+    neighbours line by line, so a test that reads one cell's whole phrase asks for `raw`."""
     if not shutil.which("pdftotext"):
         raise RuntimeError("pdftotext (poppler-utils) is not installed")
-    return subprocess.run(["pdftotext", "-layout", str(path), "-"], capture_output=True, text=True, check=True).stdout
+    args = ["pdftotext", *([] if raw else ["-layout"]), str(path), "-"]
+    return subprocess.run(args, capture_output=True, text=True, check=True).stdout
 
 
 TABLE_HEAD = ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)
