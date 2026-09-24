@@ -124,9 +124,15 @@ def test_the_table_scrolls_inside_its_own_box_at_any_width(tmp_path):
 def test_controls_and_small_text_are_readable():
     assert _contrast(_root_var("control")) >= 3.0                          # button, select and input borders
     assert _contrast(_root_var("muted")) >= 7.0                            # small muted text
+    # A size is a pixel literal or a tier token (`var(--type-small)`), which resolves at the
+    # root, no grade set, to the 13px that shipped (test_web_tier_css.py holds the tiers).
+    root = re.search(r":root\s*\{([^}]*)\}", CSS).group(1)
+    tokens = {f"var(--{k})": int(v) for k, v in re.findall(r"--(type-[a-z]+):\s*(\d+)px", root)}
     for sel in (r"td \.rel", r"td \.at", r"\.badge", r"\.note \.meta"):
-        size = re.search(sel + r"\s*\{[^}]*font-size:\s*(\d+)px", CSS)
-        assert size and int(size.group(1)) >= 13, sel
+        size = re.search(sel + r"\s*\{[^}]*font-size:\s*([^;]+);", CSS)
+        assert size, sel
+        px = tokens.get(size.group(1).strip()) or int(re.match(r"(\d+)px", size.group(1)).group(1))
+        assert px >= 13, sel
     assert re.search(r"button[^{]*\{[^}]*border:\s*1px solid var\(--control\)", CSS)
 
 

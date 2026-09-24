@@ -1,5 +1,5 @@
 /* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
-:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -7,10 +7,15 @@
 
    A tier redefines every token rather than some, so no page ever inherits a colour nobody
    designed. Nothing conveyed by colour alone: what is red here is red *and* a word, which
-   is the accessibility requirement and the age requirement at the same time. */
-[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; }
-[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; }
-[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; }
+   is the accessibility requirement and the age requirement at the same time.
+
+   `--type-small` and `--type-tiny` are the two secondary sizes (13px and 12px at the root) the
+   school evidence, dates, eyebrows and stamps are set in. A tier moves them with the body size,
+   so the lines a child is asked to judge are never the smallest text on their page: the 20px
+   early page used to render "Canvas: no submission recorded · 0/10" at 13px (kids' UX audit F2). */
+[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
 
 /* A tier sets its type scale by applying the token to the element that carries the attribute.
    A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
@@ -56,7 +61,7 @@ header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn);
 /* The kid card's record line: five outcomes for the work that was due, each a link to the
    rows behind the number. The two a parent must not skim past are warn-coloured only when
    they are non-zero (the template decides). */
-.record { font-size: 13px; line-height: 1.7; }
+.record { font-size: var(--type-small); line-height: 1.7; }
 .record a { text-decoration: none; }
 .record a.warn { font-weight: 600; }
 table.items { width: 100%; border-collapse: collapse; background: var(--paper); }
@@ -66,7 +71,7 @@ table.items th a { text-decoration: none; }
 /* The Kid table's three fact columns. `.rel` is the second, quieter half of a cell: "today"
    after a due date, the date after "Yes". A real zero and a teacher's "Missing" are the two
    grade cells a parent must not skim past; a "No" in Handed in is the third. */
-td .rel { color: var(--muted); font-size: 13px; }
+td .rel { color: var(--muted); font-size: var(--type-small); }
 /* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
    taller than its neighbours all the way down the page (#11 item 9). */
 td.sources { white-space: nowrap; }
@@ -75,7 +80,7 @@ td.sources { white-space: nowrap; }
 th .arrow { color: var(--muted); font-size: 11px; }
 /* The hour an assignment is actually due. Darker than `.rel`, because "7:20am" is the fact
    that decides whether tonight is the deadline; never wrapped away from its date. */
-td .at { font-size: 13px; white-space: nowrap; }
+td .at { font-size: var(--type-small); white-space: nowrap; }
 td.grade.zero, td.grade.missing { color: var(--warn); font-weight: 600; }
 /* "No" under Handed in is the app's inference, not a teacher's mark (#34): bold, not red. */
 td.handed.no { font-weight: 600; }
@@ -86,7 +91,7 @@ td.where.red { color: var(--warn); font-weight: 600; }
 td.handed.quiet { color: var(--muted); }
 /* The line under a table that says what those two words mean. A tooltip would not survive
    the phone or the kiosk, which is where this app is actually read. */
-p.legend { font-size: 12px; margin: 4px 0 16px; }
+p.legend { font-size: var(--type-tiny); margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
@@ -98,7 +103,7 @@ fieldset { border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 12px; 
 legend { padding: 0 4px; font-weight: 600; }
 .flagmenu button, .actions button { margin: 2px 8px 2px 0; }
 .note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
-.note .meta { font-size: 13px; color: var(--muted); }
+.note .meta { font-size: var(--type-small); color: var(--muted); }
 textarea { width: 100%; min-height: 60px; font: inherit; }
 .case { border-left: 3px solid var(--accent); }
 .case.disagree { border-color: var(--warn); }
@@ -170,7 +175,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .workspace-heading h2 { margin: 0 0 12px; font-size: 27px; letter-spacing: -.5px; }
 .heading-actions { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
+.eyebrow { font-size: var(--type-tiny); text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
 .child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 12px 0 20px; }
 .child-nav a { padding: 10px 14px; text-decoration: none; }
 .child-nav a[aria-current] { border-bottom: 3px solid #286454; color: #214f43; font-weight: 650; }
@@ -193,7 +198,7 @@ main.wide { max-width: 1600px; }
 .review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
 .review-card, .plan-card { margin-top: 12px; overflow-wrap: anywhere; }
 .review-card h4, .plan-card h4 { font-size: 17px; margin: 0 0 8px; }
-.school-evidence { font-size: 13px; color: #4f5754; }
+.school-evidence { font-size: var(--type-small); color: #4f5754; }
 .school-evidence p { margin: 6px 0; }
 .review-note { border-left: 3px solid #aa7c32; padding-left: 10px; color: #725017; }
 .plan-panel { background: #eef3ef; padding: 18px; border-radius: 12px; }
@@ -225,7 +230,7 @@ main.wide { max-width: 1600px; }
 .print-controls p { flex-basis: 100%; margin: 0; }
 .print-plan h2 { margin: 0 0 4px; }
 .conflict { border-left: 4px solid var(--warn); }
-.stamp { font-size: 12px; }
+.stamp { font-size: var(--type-tiny); }
 .stamp .badge { margin-right: 6px; }
 .family-plan { margin: 4px 0 8px; }
 .remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: 760px; }
@@ -248,14 +253,14 @@ main.wide { max-width: 1600px; }
 
 /* Questions (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md) */
 .q { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px 12px; margin-bottom: 10px; }
-.q .what { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); }
+.q .what { display: flex; justify-content: space-between; gap: 12px; font-size: var(--type-small); color: var(--muted); }
 .q .what b { color: var(--ink); font-size: 15px; }
 .q .facts { margin: 6px 0 2px; }
 .q .ask, .review-card .ask { font-weight: 600; margin: 8px 0 10px; }
 .q .answers, .review-card .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .q .answers form, .review-card .answers form { display: inline; margin: 0; }
-.q .more { margin-top: 10px; font-size: 13px; }
-.record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: 13px; }
+.q .more { margin-top: 10px; font-size: var(--type-small); }
+.record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: var(--type-small); }
 .record div { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }
 .record .src { color: var(--muted); }
 .record .src small { color: var(--muted); }
@@ -264,21 +269,21 @@ main.wide { max-width: 1600px; }
 .done-line form { margin-left: auto; }
 button.link { border: none; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; }
 
-table.work td.item small { display: block; color: var(--muted); font-size: 13px; }
+table.work td.item small { display: block; color: var(--muted); font-size: var(--type-small); }
 table.work td.item small a { color: inherit; }
 table.work td.due small.rel { display: block; }
 /* Open work stacks several short tables; fixed columns line them up under each other. */
 table.work.open-list { table-layout: fixed; }
 table.work.open-list th:nth-child(1) { width: 22%; }
 table.work.open-list th:nth-child(2) { width: 43%; }
-table.work td.where small.thru { display: block; color: var(--muted); font-size: 13px; font-weight: normal; }
-.qmark { font-size: 13px; color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
+table.work td.where small.thru { display: block; color: var(--muted); font-size: var(--type-small); font-weight: normal; }
+.qmark { font-size: var(--type-small); color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
 .section-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
 .quiet-head { font-size: 14px; color: var(--muted); }
 .lines { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 4px 16px; margin-bottom: 10px; }
 .lines .line { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .lines .line:last-child { border-bottom: none; }
-.lines .line > a, .lines .line > form { margin-left: auto; font-size: 13px; }
+.lines .line > a, .lines .line > form { margin-left: auto; font-size: var(--type-small); }
 .seg label { margin-right: 8px; }
 .more-filters { display: inline-block; }
 .rail .count { color: var(--accent); font-weight: 600; font-size: 13px; }
@@ -300,7 +305,7 @@ tr.detail .close-detail { display: inline-block; float: right; }
 .tab-hint { margin: -12px 0 16px; font-size: 14px; }
 .note .body { white-space: pre-wrap; }
 .add-note > summary { cursor: pointer; color: var(--accent); }
-td.grade .src, .src { color: var(--muted); font-size: 13px; }
+td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 
 /* Settings: one card per topic, fields stacked label-over-input in a grid, help text underneath
    rather than run on beside the control. Scoped to .settings-grid so no other page's labels change. */
@@ -322,7 +327,7 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 @media (max-width: 800px) {
   .settings-grid { grid-template-columns: minmax(0, 1fr); }
 }
-.sources-hint { font-size: 13px; margin: -8px 0 16px; }
+.sources-hint { font-size: var(--type-small); margin: -8px 0 16px; }
 .record .sources-hint { margin: 0 0 6px; }
 .count:empty { display: none; }
 .record .src small { font-size: inherit; }
