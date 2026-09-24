@@ -1,11 +1,10 @@
 {# One work-list row. `_item_rows.html` loops over it; an answer re-renders it out of band
    (`oob`), so the row never contradicts the card above it (#72). #}
   <tr id="row-{{ v.id }}"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
-    {# The one place a template reads `tier` as a value rather than through the `phrase`
-       filter: this picks between two facts the row already holds (`due_part` vs.
-       `due_time`), it does not translate a word, so the no-branching-on-tier rule for
-       vocabulary does not apply here. #}
-    <td class="due">{{ v.due | md if v.due else '' }}{% if tier == 'early' %}{% if v.due_part %} <span class="at">{{ v.due_part }}</span>{% endif %}{% elif v.due_time %} <span class="at">{{ v.due_time }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
+    {# The due hour as this reader meets it ("evening" or "11:59pm"): the `due_at` filter makes
+       that choice for every surface, so the row and the card never disagree. #}
+    {% set at = v | due_at(tier) %}
+    <td class="due">{{ v.due | md if v.due else '' }}{% if at %} <span class="at">{{ at }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
     <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML" aria-expanded="false" aria-controls="detail-{{ v.id }}">{{ v.name }}</a>
         {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
         {% if v.asks %}<a class="qmark" href="{{ q_base | default('') }}#q-{{ v.id }}" aria-label="Question about {{ v.name }}">question</a>{% endif %}

@@ -168,3 +168,33 @@ def test_the_check_in_copy_follows_the_reader(tmp_path):
 def test_the_sources_line_follows_the_reader(tmp_path):
     assert "Canvas is where teachers post work." in _client(tmp_path, Sam=5).get("/kids/Sam").text
     assert "HAC (Home Access Center) is the official gradebook" in _client(tmp_path).get("/kids/Sam").text
+
+
+# --- kids' UX audit F10: the same due hour reads the same on every surface -------------------------
+
+def test_the_same_due_hour_reads_the_same_on_every_surface(tmp_path):
+    """The work list said "9/20 evening" to a 5th grader while the check-in card and the item
+    detail said "due Sun 9/20 11:59pm" for the same item. One filter makes the choice."""
+    home = tmp_path / "home"
+    home.mkdir()
+    conn = seed(home)
+    sid = conn.execute("SELECT id FROM items WHERE name = 'Safety quiz'").fetchone()["id"]   # Canvas, 23:59
+    conn.close()
+    young = client_with_grades(home, Sam=5)
+    card = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % sid, young.get("/kids/Sam/check-in").text, re.S).group(0)
+    assert "evening" in card and "11:59pm" not in card
+    detail = young.get(f"/items/{sid}").text
+    assert "evening" in detail and "11:59pm" not in detail
+    step = young.get(f"/kids/Sam/check-in/step?item_id={sid}").text
+    assert "evening" in step and "11:59pm" not in step
+
+
+def test_an_older_reader_sees_the_clock_on_every_surface(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    conn = seed(home)
+    sid = conn.execute("SELECT id FROM items WHERE name = 'Safety quiz'").fetchone()["id"]
+    conn.close()
+    older = client_with_grades(home, Sam=9)
+    for body in (older.get("/kids/Sam/check-in").text, older.get(f"/items/{sid}").text):
+        assert "11:59pm" in body and "evening" not in body
