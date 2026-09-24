@@ -334,4 +334,13 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 th .arrow { font-size: 13px; }
 @media (pointer: coarse) {
   .lines .line > button, .lines .line > form button, .qmark, .q details.more > summary, .q .more a, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }
+  /* The links inside a row and a card (kids' UX audit F4). Measured at 390px: the assignment
+     link was 22px stacked on an 18px course link with no gap, sortable headers 22px, the
+     Today card's record links 18px -- all under WCAG 2.5.8's 24px, on the pages a child taps
+     most. The main link in a row and a column header take the 44px every button has; the
+     secondary links beneath or beside them take padding, so a row grows by one line, not two.
+     Disclosures keep their marker (no flex), so they grow by padding as well. */
+  table.items td.item > a, table.items th a { min-height: 44px; display: inline-flex; align-items: center; }
+  table.work td.item small a, .record a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
+  main details > summary { min-height: 44px; padding-block: 10px; }
 }
