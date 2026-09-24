@@ -280,6 +280,9 @@ table.work td.where small.thru { display: block; color: var(--muted); font-size:
 .qmark { font-size: var(--type-small); color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
 .section-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
 .quiet-head { font-size: 14px; color: var(--muted); }
+/* "Done so far: 2 of 5 due · 1 on time." above a child's questions (kids' UX audit F8): body
+   type, ink colour, no badge and no green -- a fact stated once, not a reward. */
+.done-so-far { margin: 0 0 12px; font-weight: 550; }
 .lines { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 4px 16px; margin-bottom: 10px; }
 .lines .line { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .lines .line:last-child { border-bottom: none; }

@@ -3,6 +3,9 @@
 {% block content %}
 <h2>{{ student.key | nickname }}</h2>
 {% set workspace = "all" %}{% include "_child_nav.html" %}
+{# The one sentence about what went right (kids' UX audit F8), only once something has: a line
+   that exists to say what was done does not appear to say nothing was. #}
+{% if done_so_far.done %}<p class="done-so-far">{{ 'copy.done_so_far' | say(student.key | tier_of, done_so_far) }}</p>{% endif %}
 {% include "_verdict_sections.html" %}
 <form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
   <span class="seg" role="group" aria-label="Show">
