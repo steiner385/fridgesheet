@@ -463,3 +463,36 @@ def test_a_chapter_prefix_on_one_side_does_not_block_the_pair(tmp_path):
                       [_hac_row("Ch. 1 - Community Health", points=20.0, score=20.0)])
     ingest.record(conn, snap, tz=TZ, now=T1)
     assert conn.execute("SELECT COUNT(*) FROM items WHERE key LIKE 'hac:%'").fetchone()[0] == 0
+
+
+def test_lock_dates_live_on_the_item_and_lock_state_on_the_observation(tmp_path):
+    conn = db.open_db(tmp_path)
+    snap = _snap_with([_assignment(601, "Locked quiz", unlock_at="2026-09-01T00:00:00-04:00", lock_at="2026-09-05T23:59:59-04:00",
+                                   locked=True, lock_reason="closed")], [])
+    ingest.record(conn, snap, tz=TZ, now=T1)
+    item = conn.execute("SELECT * FROM items WHERE key='canvas:601'").fetchone()
+    assert (item["unlock_at"], item["lock_at"]) == ("2026-09-01T00:00:00-04:00", "2026-09-05T23:59:59-04:00")
+    obs = conn.execute("SELECT * FROM item_observations WHERE item_id=?", (item["id"],)).fetchone()
+    assert (obs["locked"], obs["lock_reason"]) == (1, "closed")
+
+
+def test_closing_an_assignment_is_a_new_observation(tmp_path):
+    conn = db.open_db(tmp_path)
+    open_ = _snap_with([_assignment(602, "Quiz", locked=False, lock_reason=None)], [])
+    ingest.record(conn, open_, tz=TZ, now=T1)
+    closed = _snap_with([_assignment(602, "Quiz", locked=True, lock_reason="closed")], [])
+    closed["fetched_at"], closed["fetched_at_epoch"] = T2.isoformat(), T2.timestamp()
+    r = ingest.record(conn, closed, tz=TZ, now=T2)
+    assert r.observations == 1
+    rows = conn.execute("SELECT locked, lock_reason FROM item_observations ORDER BY id").fetchall()
+    assert [tuple(x) for x in rows] == [(0, None), (1, "closed")]
+
+
+def test_a_snapshot_from_before_lock_fields_existed_and_a_hac_row_both_say_nothing(tmp_path):
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, snapshot(T1), tz=TZ, now=T1)
+    quiz = conn.execute("SELECT id FROM items WHERE key='canvas:77'").fetchone()[0]
+    for src in ("canvas", "hac"):
+        obs = conn.execute("SELECT locked, lock_reason FROM item_observations WHERE item_id=? AND source=?", (quiz, src)).fetchone()
+        assert tuple(obs) == (None, None), src
+    assert conn.execute("SELECT lock_at FROM items WHERE id=?", (quiz,)).fetchone()[0] is None

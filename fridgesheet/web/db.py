@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -200,6 +200,18 @@ CREATE UNIQUE INDEX flags_one_active ON flags(item_id) WHERE cleared_at IS NULL;
 """
 
 
+_SCHEMA_V4 = """
+-- Canvas's availability window and its "Locked" state. The dates are assignment attributes
+-- like `due`; whether the kid can open it right now changes as those dates pass, so that
+-- lives with the other per-refresh observations. lock_reason is one of closed | not_yet |
+-- module | no_permission | other (see canvas._lock_reason); NULL when not locked or unknown.
+ALTER TABLE items ADD COLUMN unlock_at TEXT;
+ALTER TABLE items ADD COLUMN lock_at TEXT;
+ALTER TABLE item_observations ADD COLUMN locked INTEGER;
+ALTER TABLE item_observations ADD COLUMN lock_reason TEXT;
+"""
+
+
 def db_path(home: Path) -> Path:
     return home / DB_NAME
 
@@ -255,6 +267,9 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 3:
         conn.executescript("BEGIN;\n" + _SCHEMA_V3 + "\nUPDATE schema_version SET version = 3;\nCOMMIT;")
         v = 3
+    if v < 4:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V4 + "\nUPDATE schema_version SET version = 4;\nCOMMIT;")
+        v = 4
     return v
 
 

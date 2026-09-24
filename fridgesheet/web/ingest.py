@@ -95,7 +95,7 @@ def _twin_by_date_and_points(row: dict, name: str, twins: list, attached: set[in
 
 def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kind: str, points, due: str | None,
                  assigned: str | None, is_assessment: bool, refresh_id: int,
-                 present: frozenset[str] = frozenset()) -> tuple[int, bool]:
+                 present: frozenset[str] = frozenset(), *, unlock_at: str | None = None, lock_at: str | None = None) -> tuple[int, bool]:
     """Find or create one item; returns its id and whether this call created it.
 
     An item is identified by student, course and key together, never by key alone: two kids
@@ -126,16 +126,18 @@ def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kin
                WHERE i.student_id = ? AND i.key = ? AND i.last_seen < ? ORDER BY i.last_seen DESC, i.id DESC""",
             (student_id, key, refresh_id)) if r["course"] not in present), None)
     if row:
-        conn.execute("UPDATE items SET course_id = ?, name = ?, kind = ?, points = ?, due = ?, assigned = COALESCE(?, assigned), is_assessment = ?, last_seen = ? WHERE id = ?",
-                     (course_id, name, kind, points, due, assigned, int(is_assessment), refresh_id, row[0]))
+        conn.execute("UPDATE items SET course_id = ?, name = ?, kind = ?, points = ?, due = ?, assigned = COALESCE(?, assigned), is_assessment = ?, "
+                     "unlock_at = ?, lock_at = ?, last_seen = ? WHERE id = ?",
+                     (course_id, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, refresh_id, row[0]))
         return row[0], False
     cur = conn.execute(
-        "INSERT INTO items(student_id, course_id, key, name, kind, points, due, assigned, is_assessment, first_seen, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-        (student_id, course_id, key, name, kind, points, due, assigned, int(is_assessment), refresh_id, refresh_id))
+        "INSERT INTO items(student_id, course_id, key, name, kind, points, due, assigned, is_assessment, unlock_at, lock_at, first_seen, last_seen) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (student_id, course_id, key, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, refresh_id, refresh_id))
     return cur.lastrowid, True
 
 
-_OBS_FIELDS = ("state", "score", "grade", "submitted_at", "late", "missing", "excused", "published")
+_OBS_FIELDS = ("state", "score", "grade", "submitted_at", "late", "missing", "excused", "published", "locked", "lock_reason")
 
 
 def _observe(conn, refresh_id: int, item_id: int, source: str, values: dict) -> bool:
@@ -145,7 +147,8 @@ def _observe(conn, refresh_id: int, item_id: int, source: str, values: dict) -> 
     if last is not None and all(last[f] == values.get(f) for f in _OBS_FIELDS):
         return False
     conn.execute(
-        "INSERT INTO item_observations(refresh_id, item_id, source, state, score, grade, submitted_at, late, missing, excused, published) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO item_observations(refresh_id, item_id, source, state, score, grade, submitted_at, late, missing, excused, published, locked, lock_reason) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (refresh_id, item_id, source, *(values.get(f) for f in _OBS_FIELDS)))
     return True
 
@@ -171,13 +174,14 @@ def _canvas_values(a: dict) -> dict:
     published = a.get("published")
     return {"state": a.get("state"), "score": a.get("score"), "grade": a.get("grade"), "submitted_at": a.get("submitted_at"),
             "late": _flag(a.get("late")), "missing": _flag(a.get("missing")), "excused": _flag(a.get("excused")),
-            "published": 1 if published is None else _flag(published)}
+            "published": 1 if published is None else _flag(published),
+            "locked": _flag(a.get("locked")), "lock_reason": a.get("lock_reason") if a.get("locked") else None}
 
 
 def _hac_values(row: dict) -> dict:
     graded = row.get("score") is not None
     return {"state": "graded" if graded else "ungraded", "score": row.get("score"), "grade": (row.get("percent") or None) if graded else None,
-            "submitted_at": None, "late": None, "missing": None, "excused": None, "published": None}
+            "submitted_at": None, "late": None, "missing": None, "excused": None, "published": None, "locked": None, "lock_reason": None}
 
 
 def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None = None) -> IngestResult:
@@ -224,7 +228,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     item_id, created = _upsert_item(conn, student_id, cid, item_key_canvas(a["id"]), a.get("name") or "", kind_of(a.get("submission_types")),
                                                     a.get("points_possible"), a.get("due_at"), assigned,
                                                     bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)), refresh_id,
-                                                    present)
+                                                    present, unlock_at=a.get("unlock_at"), lock_at=a.get("lock_at"))
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "canvas", _canvas_values(a))
                     canvas_items_by_course.setdefault(cid, []).append(
