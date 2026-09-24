@@ -142,3 +142,26 @@ def test_a_detail_row_is_shown_before_focus_moves_into_it():
     unhide = JS.index("row.hidden = false")
     focus = JS.index('querySelector("[data-focus-target]")')
     assert unhide < focus
+
+
+# --- kids' UX audit F4: the links inside a row and a card reach a finger ---------------------------
+
+def _coarse() -> str:
+    """Every `@media (pointer: coarse)` block, joined. Each closes with a `}` alone on a line."""
+    return "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
+
+
+def test_row_links_and_disclosures_are_44px_under_a_finger():
+    """Measured at 390px touch: assignment links 22px stacked on 18px course links with no gap,
+    sortable headers 22px, "See the record" 19px -- all under WCAG 2.5.8's 24px, on the pages
+    a child taps most. The controls already had 44px; the links in the rows did not."""
+    coarse = _coarse()
+    for sel in ("table.items td.item > a", "table.items th a", "main details > summary"):
+        assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-height: 44px", coarse), f"{sel} has no 44px rule for touch"
+    for sel in ("table.work td.item small a", ".record a", ".tally a"):
+        assert re.search(re.escape(sel) + r"[^{]*\{[^}]*padding-block: 8px", coarse), f"{sel} has no touch padding"
+
+
+def test_a_mouse_keeps_the_compact_rows():
+    head = CSS.split("@media")[0]
+    assert "td.item > a" not in head and "padding-block: 8px" not in head
