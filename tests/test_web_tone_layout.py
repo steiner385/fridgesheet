@@ -77,9 +77,14 @@ def test_a_stale_answer_quotes_the_answer_in_family_words():
 
 def test_layout_and_names(tmp_path):
     assert re.search(r"\.section-head\s*\{[^}]*flex-wrap:\s*wrap", CSS)
+    # `.qmark` is sized by the tier token, which resolves at the root to the 13px that shipped.
+    root = re.search(r":root\s*\{([^}]*)\}", CSS).group(1)
+    tokens = {f"var(--{k})": int(v) for k, v in re.findall(r"--(type-[a-z]+):\s*(\d+)px", root)}
     for sel in (r"\.qmark", r"\.rail \.count"):
-        size = re.search(sel + r"\s*\{[^}]*font-size:\s*(\d+)px", CSS)
-        assert size and int(size.group(1)) >= 13, sel
+        size = re.search(sel + r"\s*\{[^}]*font-size:\s*([^;]+);", CSS)
+        assert size, sel
+        px = tokens.get(size.group(1).strip()) or int(re.match(r"(\d+)px", size.group(1)).group(1))
+        assert px >= 13, sel
     seed(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/kids/Alex").text
