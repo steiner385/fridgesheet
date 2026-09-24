@@ -2,8 +2,11 @@
    question card and the check-in's review cards, so both offer the same answers. Every button is a
    one-tap POST; a plan action creates a step with defaults (spec 6.3). One request key per card, so
    a double-click or a retried POST lands on one step. Work that already has an active step is not
-   offered a second one-tap plan: the item detail's "Plan another step" link is the way to that. #}
+   offered a second one-tap plan: the item detail's "Plan another step" link is the way to that.
+   The first answer is the filled default, except on a waiting card: its own sentence says time
+   will settle it, and a filled "Ask the teacher" there told a child to chase a teacher the day
+   after handing in (docs/product/2026-09-24-kids-ux-audit.md, F9). #}
   {% set token = request_key() %}
   <div class="answers">
-    {% for a in vd.answers if not (a.action.startswith('plan:') and item.step) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'primary' if loop.first }}">{{ a.key | say(tier) }}</button></form>{% endfor %}
+    {% for a in vd.answers if not (a.action.startswith('plan:') and item.step) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'primary' if loop.first and vd.state != 'waiting' }}">{{ a.key | say(tier) }}</button></form>{% endfor %}
   </div>
