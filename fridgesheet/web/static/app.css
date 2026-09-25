@@ -176,6 +176,10 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .chart { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; min-height: 120px; }
 .chart .muted { padding: 8px; }
 .u-legend { font-size: 12px; }
+/* Chart.js sizes its canvas to this holder (`responsive`, no aspect ratio), so the holder's
+   inline height from `_chart_canvas.html` is the chart's height; `position: relative` is
+   what Chart.js's own resize detection asks of a chart's parent. */
+.chart-holder { position: relative; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; }
 
 /* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
 .rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }

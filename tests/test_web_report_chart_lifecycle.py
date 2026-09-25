@@ -1,11 +1,11 @@
-"""A report chart that htmx swaps away must be destroyed, not kept.
+"""A chart that htmx swaps away must be destroyed, not kept.
 
 Chart.js holds every live instance in `Chart.instances` (and, being responsive, a
 ResizeObserver on the canvas's parent) until `destroy()` is called. The builder's Preview
 button replaces `#preview` wholesale on every click, so each preview drew a new chart on a new
 canvas and left the previous one behind: one leaked chart per click for the life of the page.
-The uPlot path (`pruneCharts`) already destroys what a swap removed; this pins the same
-guarantee for the Chart.js path, in a real browser, against Chart.js's own registry.
+This pins the destroy-on-swap guarantee for every inlined chart, in a real browser, against
+Chart.js's own registry.
 
 Gated on the same bundled Chromium `doctor.py` health-checks, like tests/test_chart_render.py.
 """
@@ -20,7 +20,7 @@ from playwright.sync_api import sync_playwright
 import fridgesheet.web as webapp
 from fridgesheet import doctor
 from fridgesheet.config import Settings
-from fridgesheet.web import views
+from fridgesheet.web import charts
 
 STATIC = Path(webapp.__file__).parent / "static"
 
@@ -44,11 +44,11 @@ def _page_html() -> str:
 
 
 def _preview_partial() -> str:
-    """What `_report_preview.html` renders for a report with a chart."""
-    return ('<div class="card"><div class="chart-holder">'
-            '<canvas data-report-chart width="300" height="100"></canvas>'
-            f'<script type="application/json" data-chart-config>{views.escape_for_script_tag(json.dumps(CONFIG))}</script>'
-            '</div></div>')
+    """What `_chart_canvas.html` renders."""
+    return ('<div class="chart-holder" style="height: 260px">'
+            '<canvas data-chart-canvas role="img" aria-label="probe, as a chart"></canvas>'
+            f'<script type="application/json" data-chart-config>{charts.escape_for_script_tag(json.dumps(CONFIG))}</script>'
+            '</div>')
 
 
 SWAP = """(html) => {
@@ -69,8 +69,8 @@ def test_a_preview_swapped_three_times_leaves_one_live_chart(tmp_path):
             for _ in range(3):
                 page.evaluate(SWAP, _preview_partial())
             # The chart on the page now is drawn, and it is the only one Chart.js still holds.
-            assert page.evaluate("document.querySelector('[data-report-chart]').dataset.drawn") == "1"
-            assert page.evaluate("Chart.getChart(document.querySelector('[data-report-chart]')) !== undefined")
+            assert page.evaluate("document.querySelector('[data-chart-canvas]').dataset.drawn") == "1"
+            assert page.evaluate("Chart.getChart(document.querySelector('[data-chart-canvas]')) !== undefined")
             assert page.evaluate("Object.keys(Chart.instances).length") == 1
         finally:
             browser.close()

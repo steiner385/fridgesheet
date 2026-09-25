@@ -247,11 +247,11 @@ function attachCharts(root, tries) {
 document.addEventListener("DOMContentLoaded", function () { attachCharts(document); });
 document.addEventListener("htmx:afterSwap", function (e) { attachCharts(e.detail.target); });
 
-// Report charts: `views.chart_config()`'s output, inlined as JSON next to a `<canvas>`.
-// Unlike Trends' uPlot charts, a report's chart has no URL of its own -- a builder preview is
-// an unsaved definition with no report id to fetch by -- so the config travels with the page
-// rather than being fetched. Both `report_builder.html` and `report_view.html` load
-// chart.umd.min.js on their own initial page load, before any htmx swap can bring in a
+// Config charts: `charts.chart_config()`'s output, inlined as JSON next to a `<canvas>` by
+// `_chart_canvas.html`. Unlike Trends' uPlot charts, such a chart has no URL of its own -- a
+// builder preview is an unsaved definition with no report id to fetch by -- so the config
+// travels with the page rather than being fetched. Every page that draws one includes
+// `_chart_scripts.html` on its own initial page load, before any htmx swap can bring in a
 // chart-bearing partial, so there is no "library not loaded yet" race to poll for here (unlike
 // attachCharts' wait loop, which exists for the first draw on page load itself).
 //
@@ -271,7 +271,7 @@ function pruneReportCharts() {
 
 function attachReportCharts(root) {
   pruneReportCharts();                    // whatever this swap replaced, before anything new
-  var els = root.querySelectorAll ? root.querySelectorAll("[data-report-chart]") : [];
+  var els = root.querySelectorAll ? root.querySelectorAll("[data-chart-canvas]") : [];
   Array.prototype.forEach.call(els, function (canvas) {
     if (canvas.dataset.drawn) return;
     var script = canvas.parentNode.querySelector("[data-chart-config]");

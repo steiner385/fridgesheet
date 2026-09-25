@@ -316,7 +316,7 @@ def test_a_saved_chart_report_shows_a_canvas_and_its_config(tmp_path):
     rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
                chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
     body = c.get(f"/reports/{rid}/view").text
-    assert "data-report-chart" in body and "data-chart-config" in body
+    assert "data-chart-canvas" in body and "data-chart-config" in body
     assert '"type": "bar"' in body or '"type":"bar"' in body
 
 
@@ -325,7 +325,17 @@ def test_a_table_only_report_shows_no_chart_markup(tmp_path):
     c = _client(tmp_path)
     rid = _save(tmp_path, source="items", columns=["kid", "name"])
     body = c.get(f"/reports/{rid}/view").text
-    assert "data-report-chart" not in body
+    assert "data-chart-canvas" not in body
+
+
+def test_the_report_view_draws_its_chart_through_the_shared_canvas_partial(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
+               chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    body = c.get(f"/reports/{rid}/view").text
+    assert '<div class="chart-holder" style="height: 260px">' in body
+    assert '<canvas data-chart-canvas role="img" aria-label="Mine, as a chart"></canvas>' in body
 
 
 def test_chart_json_escapes_a_label_that_would_close_the_script_tag():
