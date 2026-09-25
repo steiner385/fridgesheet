@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import sqlite3
 from datetime import date as _date
@@ -117,6 +118,10 @@ async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
     return _builder(request, conn, state, report=report, d=d)
 
 
+def _chart_json(rendered) -> str | None:
+    return json.dumps(views.chart_config(rendered.chart)) if rendered and rendered.chart else None
+
+
 @router.post("/reports/preview")
 async def preview(request: Request, conn: sqlite3.Connection = Db, state=State):
     form = await request.form()
@@ -128,7 +133,8 @@ async def preview(request: Request, conn: sqlite3.Connection = Db, state=State):
             rendered = views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources(), window=state.window())
         except views.ViewError as e:
             problems = [str(e)]
-    return render_partial(request, conn, "_report_preview.html", rendered=rendered, problems=problems)
+    return render_partial(request, conn, "_report_preview.html", rendered=rendered, problems=problems,
+                          chart_json=_chart_json(rendered))
 
 
 @router.get("/reports/{report_id}/view")
@@ -136,7 +142,8 @@ def view(report_id: int, request: Request, conn: sqlite3.Connection = Db, state=
     """A standalone, browser-printable rendering of the report -- what a parent clicking its
     name from the list wants to read, not the builder that produced it."""
     row, d, rendered = _rendered_or_400(conn, state, report_id)
-    return render(request, conn, "report_view.html", report=row, rendered=rendered, now=state.now())
+    return render(request, conn, "report_view.html", report=row, rendered=rendered, now=state.now(),
+                  chart_json=_chart_json(rendered))
 
 
 @router.get("/reports/{report_id}")

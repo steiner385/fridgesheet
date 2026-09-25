@@ -5,6 +5,13 @@
   {% if rendered.window %}<p class="muted">Rows from: {{ rendered.window | lower }}</p>{% endif %}
   {% set n = rendered.groups | map(attribute="rows") | map("length") | sum %}
   <p class="muted">{{ n }} row{{ 's' if n != 1 }}{% if rendered.truncated %} shown, {{ rendered.truncated }} more left out{% endif %} · check this before printing a long one.</p>
+  {% if rendered.chart %}
+  <div class="chart-holder">
+    <canvas data-report-chart width="700" height="260"></canvas>
+    <script type="application/json" data-chart-config>{{ chart_json | safe }}</script>
+  </div>
+  {% if rendered.chart_note %}<p class="muted">{{ rendered.chart_note }}</p>{% endif %}
+  {% endif %}
   {% for g in rendered.groups %}
     {% if g.label %}<h3>{{ g.label }}</h3>{% endif %}
     <table class="items">

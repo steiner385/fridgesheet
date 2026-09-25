@@ -307,3 +307,21 @@ def test_the_builder_shows_the_custom_range_problem(tmp_path):
     r = c.post("/reports/new", data={"title": "Recap", "source": "items", "columns": ["kid", "name"],
                                      "window": "custom", "date_from": "2026-09-15", "date_to": "2026-09-01"})
     assert "on or before" in r.text
+
+
+def test_a_saved_chart_report_shows_a_canvas_and_its_config(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
+               chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    body = c.get(f"/reports/{rid}/view").text
+    assert "data-report-chart" in body and "data-chart-config" in body
+    assert '"type": "bar"' in body or '"type":"bar"' in body
+
+
+def test_a_table_only_report_shows_no_chart_markup(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name"])
+    body = c.get(f"/reports/{rid}/view").text
+    assert "data-report-chart" not in body
