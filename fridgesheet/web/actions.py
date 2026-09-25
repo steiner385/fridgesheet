@@ -400,6 +400,21 @@ def print_now(*, home: Path, log: Callable[[str], None], settings: config.Settin
                                                  trigger="web", no_refresh=not refresh), settings, echo=log)
 
 
+def scheduled_run(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
+                  report_key: str, run=None) -> int:
+    """A report's scheduled run, fired by the server's own clock (web/clock.py).
+
+    Exactly the command the OS task used to run -- `run <key> --no-refresh --trigger
+    schedule` -- so every guard the runner has still decides: no-print days, already printed
+    today, the print window (a catch-up the next morning is a SKIP, not yesterday's sheet),
+    the stale-snapshot refusal, the report's own printer and its PDF-only switch. Not
+    `print_now`, which forces past all of those because a person asked for paper."""
+    settings = settings or config.load_settings()
+    run = run or runner.run
+    with forward_logs(log):
+        return run(report_key, runner.RunOptions(no_refresh=True, trigger="schedule"), settings, echo=log)
+
+
 def reprint(*, home: Path, log: Callable[[str], None], settings: config.Settings, run_id: int, pdf: str,
             report_key: str, print_pdf=None, now: datetime | None = None) -> int:
     """The Runs page's Reprint: the PDF that run stored, to the printer, as it is.

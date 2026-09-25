@@ -17,17 +17,21 @@ from typing import Iterator
 
 from . import actions as _actions
 
-KINDS = ("refresh", "preview", "print", "reprint", "doctor", "login", "update")
+KINDS = ("refresh", "preview", "print", "reprint", "doctor", "login", "update",
+         "scheduled-refresh", "scheduled-report")
 LABELS = {"refresh": "Refreshing", "preview": "Building today's sheet", "print": "Printing",
           "reprint": "Printing again", "doctor": "Running diagnostics", "login": "Testing the login",
-          "update": "Updating Fridge Sheet"}
+          "update": "Updating Fridge Sheet",
+          "scheduled-refresh": "Refreshing on schedule", "scheduled-report": "Running a scheduled report"}
 #: Kinds `POST /jobs/{kind}` (the open, unauthenticated route) may start on its own authority.
 #: `update` downloads a release asset and executes it as an installer -- the one job kind that
 #: is code execution on the family PC, not a read of Canvas/HAC -- so it is started only by the
 #: PIN-gated `POST /settings/update` (routes/settings.py). `OPEN_KINDS` is derived from `KINDS`
 #: minus `GATED`, not listed on its own, so a kind added to `KINDS` later is never accidentally
 #: made public here by someone forgetting to add it to a separate allowlist.
-GATED = ("update",)
+#: `scheduled-*` are the server's own clock's (web/clock.py): started by nothing a request can
+#: reach, so the Runs page's "On a schedule" always means the clock, never a POST.
+GATED = ("update", "scheduled-refresh", "scheduled-report")
 OPEN_KINDS = tuple(k for k in KINDS if k not in GATED)
 MAX_LINE = 300
 KEEP = 20                                     # finished jobs kept for /jobs/{id}
@@ -193,6 +197,13 @@ class Worker:
                 job.pdf = Path(job.params["pdf"])
                 rc = self.actions.reprint(home=home, log=log, settings=settings, run_id=job.params["run_id"],
                                           pdf=job.params["pdf"], report_key=job.params.get("report", "open-work"))
+                outcome, message = ("OK" if rc == 0 else "FAIL"), (job.lines[-1] if job.lines else "")
+            elif job.kind == "scheduled-refresh":
+                r = self.actions.refresh(home=home, log=log, settings=settings, trigger="schedule")
+                outcome, message = ("OK" if r.ok else "FAIL"), r.message
+            elif job.kind == "scheduled-report":
+                rc = self.actions.scheduled_run(home=home, log=log, settings=settings,
+                                                report_key=job.params["report"])
                 outcome, message = ("OK" if rc == 0 else "FAIL"), (job.lines[-1] if job.lines else "")
             elif job.kind == "doctor":
                 ok = self.actions.run_doctor(home=home, log=log, settings=settings)
