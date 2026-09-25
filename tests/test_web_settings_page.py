@@ -744,3 +744,38 @@ def test_the_host_refusal_echoes_a_name_only_when_it_is_plainly_a_name(tmp_path)
     app.state.fridgesheet.settings.web_allow_lan = False
     r = c.get("/", headers={"Host": "dobby:8433"})
     assert "Allow other devices" in r.text and "dobby" not in r.text
+
+
+def test_save_needs_no_password_when_the_environment_supplies_the_login(monkeypatch, tmp_path):
+    """#154: on a headless box the login lives in `.env` (`FRIDGESHEET_ONELOGIN_*`), and the
+    keyring is locked. Save used to demand a password anyway, so changing the printer meant
+    typing one that then failed to store. The card says where the login comes from, and Save
+    writes the rest without touching the store."""
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "s3cret")
+    c, app = _client(tmp_path)
+    card = c.get("/settings").text.split("School login", 1)[1].split("</section>", 1)[0]
+    assert "Username and password are supplied by the environment (FRIDGESHEET_ONELOGIN_USERNAME)" in card
+    assert "the boxes here are ignored" in card and "s3cret" not in card and "env@x.com" not in card
+    r = c.post("/settings", data={**FORM, "username": "", "password": "", "printer": "Canon"})
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert "Enter the OneLogin password" not in r.text and "username is required" not in r.text
+    assert app.state.fridgesheet.extra["credstore"].written == []
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["print"]["printer"] == "Canon" and doc["account"]["username"] == "parent@example.org"
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_PASSWORD")
+    assert "supplied by the environment" not in c.get("/settings").text
+
+
+def test_a_password_typed_anyway_against_a_locked_keyring_is_a_message_not_a_500(monkeypatch, tmp_path):
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "s3cret")
+    c, app = _client(tmp_path)
+
+    class Locked:
+        def write(self, username, password):
+            raise RuntimeError("secret-tool: Cannot autolaunch D-Bus without X11 $DISPLAY")
+    app.state.fridgesheet.extra["credstore"] = Locked()
+    r = c.post("/settings", data={**FORM, "password": "typed-anyway"})
+    assert r.status_code == 200
+    assert "could not be stored" in r.text and "D-Bus" in r.text and "typed-anyway" not in r.text

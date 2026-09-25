@@ -130,6 +130,7 @@ def test_an_enabled_schedule_still_needs_a_day(tmp_path):
 @pytest.fixture
 def cli_home(tmp_path, monkeypatch):
     sched = FakeScheduling()
+    (tmp_path / "login-ok.txt").write_text("ok")       # `schedule install` gates on it, like the page (#154)
     monkeypatch.setattr(cli, "load_settings", lambda: config.Settings(home=tmp_path)
                         if not (tmp_path / "config.toml").exists() else _settings(tmp_path))
     monkeypatch.setattr("fridgesheet.host.scheduling", sched)

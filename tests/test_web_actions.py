@@ -710,3 +710,69 @@ def test_env_overrides_names_the_variable_that_wins_over_each_field(monkeypatch)
     monkeypatch.setenv("FRIDGESHEET_WEB_HOST", "127.0.0.1")
     notes = actions.env_overrides()
     assert "wins" in notes["nicknames"] and "FRIDGESHEET_WEB_HOST=127.0.0.1" in notes["allow_lan"]
+
+
+# --- #154: a login the environment supplies needs no password typed --------------------------
+
+def _env_login(monkeypatch, user="env@x.com", pw="s3cret"):
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", user)
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", pw)
+
+
+def test_env_overrides_notes_a_login_supplied_by_the_environment(monkeypatch):
+    """#154: with the OneLogin pair (or the 1Password references to it) in the environment,
+    `Settings.credentials` never reads the store, so the School login boxes are ignored --
+    and the page has to say so the same way it says so for the printer (#148)."""
+    assert "password" not in actions.env_overrides()
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    assert "password" not in actions.env_overrides()       # half a pair resolves nothing on its own
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "s3cret")
+    note = actions.env_overrides()["password"]
+    assert note == ("Username and password are supplied by the environment (FRIDGESHEET_ONELOGIN_USERNAME); "
+                    "the boxes here are ignored.")
+    assert "s3cret" not in note and "env@x.com" not in note
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_USERNAME")
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_PASSWORD")
+    monkeypatch.setenv("FRIDGESHEET_OP_USERNAME_REF", "op://Vault/item/username")
+    assert "password" not in actions.env_overrides()
+    monkeypatch.setenv("FRIDGESHEET_OP_PASSWORD_REF", "op://Vault/item/password")
+    assert "(FRIDGESHEET_OP_USERNAME_REF)" in actions.env_overrides()["password"]
+
+
+def test_validate_needs_no_password_when_the_environment_supplies_the_login(monkeypatch):
+    assert any("password" in e.lower() for e in actions.validate(_form(password=""), stored=""))
+    _env_login(monkeypatch)
+    assert actions.validate(_form(password=""), stored="") == []
+    assert actions.validate(_form(username="", password=""), stored="") == []     # the boxes are ignored
+    # ... but nothing else is
+    assert any("days ahead" in e.lower() for e in actions.validate(_form(password="", days_ahead=0), stored=""))
+
+
+def test_save_skips_the_store_when_the_environment_supplies_the_login(monkeypatch, tmp_path):
+    """Changing the printer on a headless box must not need a password, and must not touch a
+    keyring that is locked there anyway."""
+    _env_login(monkeypatch)
+    config.save_config_doc(tmp_path / "config.toml", {"account": {"username": "old@x.com"}})
+    r, lines, cred = _save(tmp_path, _form(username="", password="", printer="Office"))
+    assert r.ok, r.messages
+    assert cred.written == []
+    doc = config.load_config_doc(tmp_path / "config.toml")
+    assert doc["print"]["printer"] == "Office"
+    assert doc["account"]["username"] == "old@x.com"      # an ignored, empty box writes nothing over it
+    assert not any("Password stored" in m for m in r.messages)
+
+
+def test_a_password_typed_anyway_against_a_locked_store_is_the_existing_message(monkeypatch, tmp_path):
+    """Typing one is allowed (it is what takes over once the variable is gone), and a keyring
+    that cannot take it is the same sentence as ever -- never a traceback."""
+    _env_login(monkeypatch)
+
+    class Locked:
+        def write(self, username, password):
+            raise RuntimeError("secret-tool: Cannot autolaunch D-Bus without X11 $DISPLAY")
+
+    r, lines, _ = _save(tmp_path, _form(password="typed-anyway"), cred=Locked())
+    assert not r.ok
+    assert any("could not be stored" in m and "D-Bus" in m for m in r.messages)
+    assert "typed-anyway" not in " ".join(lines + r.messages)
+    assert config.load_config_doc(tmp_path / "config.toml")["account"]["username"] == "p@x.com"

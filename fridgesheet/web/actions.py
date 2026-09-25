@@ -121,6 +121,29 @@ ENV_OVERRIDES: tuple[tuple[str, str], ...] = (
 )
 
 
+#: The variable pairs that supply the OneLogin login without the credential store, in the
+#: order `config.Settings.credentials` tries them: the pair itself, then 1Password references
+#: to it. Either pair, complete, means the store is never read -- and so never written here.
+CREDENTIAL_ENV: tuple[tuple[str, str], ...] = (
+    ("FRIDGESHEET_ONELOGIN_USERNAME", "FRIDGESHEET_ONELOGIN_PASSWORD"),
+    ("FRIDGESHEET_OP_USERNAME_REF", "FRIDGESHEET_OP_PASSWORD_REF"),
+)
+
+
+def credentials_from_env(environ: dict | None = None) -> str | None:
+    """The username variable of the pair that supplies the login from the environment (or the
+    `.env` `load_settings` reads into it), or None when the credential store is the source.
+
+    Half a pair earns nothing: `Settings.credentials` fills the missing half from config.toml
+    and the store, so the boxes on the Settings page still matter then (#154)."""
+    import os
+    env = os.environ if environ is None else environ
+    for user_var, pw_var in CREDENTIAL_ENV:
+        if env.get(user_var) and env.get(pw_var):
+            return user_var
+    return None
+
+
 def env_overrides(environ: dict | None = None) -> dict[str, str]:
     """One sentence per form field the environment overrides, keyed by field name, for the
     Settings page to print beside the box (#148). `load_form` shows config.toml, which is what
@@ -130,10 +153,18 @@ def env_overrides(environ: dict | None = None) -> dict[str, str]:
     Only a variable that actually changes something earns a note, by the same rules
     `load_settings` applies: a `FRIDGESHEET_WEB_PORT` that is not a number is ignored there,
     an empty `FRIDGESHEET_NICKNAMES` parses to nothing, an empty `FRIDGESHEET_WEB_HOST` is not
-    a pin -- while an empty `FRIDGESHEET_PRINTER` *does* override (it means "system default")."""
+    a pin -- while an empty `FRIDGESHEET_PRINTER` *does* override (it means "system default").
+
+    The `password` key is the School login card's note (#154): a login the environment
+    supplies never reaches the store, so both boxes are ignored and Save asks for neither.
+    The note names the variable, never its value -- that is the password's own."""
     import os
     env = os.environ if environ is None else environ
     out: dict[str, str] = {}
+    login_var = credentials_from_env(env)
+    if login_var:
+        out["password"] = (f"Username and password are supplied by the environment ({login_var}); "
+                           "the boxes here are ignored.")
     for field_name, var in ENV_OVERRIDES:
         if var not in env:
             continue
@@ -169,14 +200,24 @@ def format_nicknames(d: dict[str, str]) -> str:
     return "\n".join(f"{k}={v}" for k, v in d.items())
 
 
-def validate(form: FormValues, stored: str) -> list[str]:
-    """Every problem with the form, as one sentence each. Empty means save is allowed."""
+def validate(form: FormValues, stored: str, *, environ: dict | None = None) -> list[str]:
+    """Every problem with the form, as one sentence each. Empty means save is allowed.
+
+    The login boxes are only required when the credential store is where the login comes
+    from. With `FRIDGESHEET_ONELOGIN_*` (or the 1Password references) in the environment --
+    the headless setup, where the keyring is locked -- the store is never read, so demanding
+    a password here only to fail storing it kept a parent from saving a printer (#154). A
+    password typed anyway still needs a username to be stored under."""
     errors: list[str] = []
     user = form.username.strip()
-    if not user:
-        errors.append("OneLogin username is required.")
-    if not form.password and (not stored or user != stored):
-        errors.append("Enter the OneLogin password (it is stored in the OS credential store, never in a file).")
+    if credentials_from_env(environ) is not None:
+        if form.password and not user:
+            errors.append("OneLogin username is required to store the password under.")
+    else:
+        if not user:
+            errors.append("OneLogin username is required.")
+        if not form.password and (not stored or user != stored):
+            errors.append("Enter the OneLogin password (it is stored in the OS credential store, never in a file).")
     for label, value in (("Days ahead", form.days_ahead), ("Overdue days", form.overdue_days)):
         n = _whole_number(value)
         if n is None or not 1 <= n <= MAX_DAYS:
@@ -213,19 +254,25 @@ def _table(doc: dict, key: str) -> dict:
     return doc[key]
 
 
-def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=None) -> SaveResult:
+def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=None,
+         environ: dict | None = None) -> SaveResult:
     """Validate, write config.toml, and store the password if one was typed. The schedule
-    itself -- enabled, time, days -- is the Schedules page's alone; this never touches it."""
+    itself -- enabled, time, days -- is the Schedules page's alone; this never touches it.
+
+    The store is only written when a password was typed: with the login supplied by the
+    environment (`validate`, #154) both boxes may be blank, and then nothing here goes near
+    a keyring that, on the box this matters on, is locked."""
     if credstore is None:
         from ..host import credentials as credstore
     path = home / CONFIG_NAME
     doc = config.load_config_doc(path)
-    errors = validate(form, stored=str(_table(doc, "account").get("username", "")))
+    errors = validate(form, stored=str(_table(doc, "account").get("username", "")), environ=environ)
     if errors:
         return SaveResult(False, errors)
 
     user = form.username.strip()
-    _table(doc, "account")["username"] = user
+    if user:                     # blank only when the environment supplies the login: leave the file's alone
+        _table(doc, "account")["username"] = user
     prn = _table(doc, "print")
     prn["printer"], prn["archive"] = form.printer.strip(), form.archive.strip()
     _table(doc, "kids")["nicknames"] = parse_nickname_lines(form.nicknames)
@@ -327,13 +374,31 @@ def test_login(*, home: Path, log: Callable[[str], None], settings: config.Setti
         results = {"Login": str(e)[:300]}
     for site, err in results.items():
         log(f"  {site}: {'OK' if err is None else 'FAILED - ' + err}")
-    stamp = home / LOGIN_STAMP
-    if all(v is None for v in results.values()):
-        stamp.write_text(now.isoformat())
+    ok = all(v is None for v in results.values())
+    record_login(home, ok, now=now)
+    if ok:
         return LoginResult(True, results, "Login OK for " + " and ".join(results) + ".")
-    stamp.unlink(missing_ok=True)
     bad = "; ".join(f"{k}: {v}" for k, v in results.items() if v is not None)
     return LoginResult(False, results, f"Login failed ({bad}). Check the username and password, then try again.")
+
+
+def record_login(home: Path, ok: bool, *, now: datetime | None = None) -> None:
+    """Leave `login-ok.txt` after a passing login check, and take it away after a failing
+    one. The one place the stamp is written or removed, for both callers that check the
+    login -- the web Test login above and `fridgesheet check` (#154): the Schedules page and
+    `schedule install` gate on it (`login_passed`), and a terminal-only setup could never
+    satisfy that gate while only the button wrote it."""
+    stamp = home / LOGIN_STAMP
+    if ok:
+        stamp.write_text((now or datetime.now().astimezone()).isoformat())
+    else:
+        stamp.unlink(missing_ok=True)
+
+
+def login_passed(home: Path) -> bool:
+    """Whether a login check has passed since it last failed -- the gate on installing any
+    schedule, on the page and at the command line alike."""
+    return (home / LOGIN_STAMP).exists()
 
 
 def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,

@@ -136,9 +136,9 @@ Fridge Sheet runs fine on a home server, with three things to arrange:
   `http://127.0.0.1:8433/` on the laptop; or
 - put `[web]` / `allow_lan = true` in `~/.fridgesheet/config.toml` and restart the service.
 
-Settings' **Save** currently insists on a password even when it comes from `.env`
-([#154](https://github.com/steiner385/fridgesheet/issues/154)); edit `config.toml` for
-one-off changes on a server set up this way.
+When the login comes from `.env` this way, the School login card on Settings says so
+(*Username and password are supplied by the environment*) and **Save** does not ask for a
+password — changing the printer or the network settings needs nothing typed in those boxes.
 
 ### 2.4 Another school district
 
@@ -183,14 +183,16 @@ Do these once, in this order. Each takes a minute or two.
 **Setting up from a terminal (Linux)** — the same steps without a browser:
 
 ```bash
-fridgesheet set-credentials      # asks for the password, never echoes it
-fridgesheet check                # "Canvas: OK", "HAC: OK"
-fridgesheet refresh --record     # --record is what fills the web app; plain `refresh` doesn't
+fridgesheet set-credentials                 # step 1: asks for the password, never echoes it
+fridgesheet check                           # step 2: "Canvas: OK", "HAC: OK" — counts as a passed Test login
+fridgesheet refresh --record                # step 3: --record is what fills the web app; plain `refresh` doesn't
+fridgesheet schedule install data-refresh   # step 5: every 3 hours, 06:00–21:00, every day, unless [refresh] in config.toml says otherwise
+fridgesheet schedule install open-work      # step 6: 14:00 Mon–Fri, unless [reports.open-work] says otherwise
 ```
 
-`check` does not yet count as a passed **Test login**, so the Schedules page will still
-refuse to install schedules until you press Test login there once
-([#154](https://github.com/steiner385/fridgesheet/issues/154)). For a server with no desktop,
+`check` counts as a passed **Test login**: it leaves the same `login-ok.txt` the button does,
+so the Schedules page and `schedule install` go ahead afterwards. (`schedule install` refuses
+until one of the two has passed; `--force` overrides that.) For a server with no desktop,
 read [§2.3 Headless server](#23-a-server-with-no-desktop-linux) first.
 
 ---
@@ -579,7 +581,7 @@ On Windows the computer must be **on and signed in** (a locked screen is fine).
 
 **Things to know**
 
-- Nothing is installed until **Test login** has passed once.
+- Nothing is installed until **Test login** (or `fridgesheet check`) has passed once.
 - To stop a schedule: untick **Run this on a schedule** and Save — this removes the task,
   not just the tick. (Leave at least one day ticked when you do.)
 - Weekends print if you tick Sat or Sun.
@@ -818,7 +820,7 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | Command | Does |
 |---|---|
 | `fridgesheet set-credentials` | Stores the username and password. |
-| `fridgesheet check` | Test login. |
+| `fridgesheet check` | Test login; a pass counts the same as the button's. |
 | `fridgesheet login` | Opens a visible browser to sign in by hand — for diagnosing a changed login form. |
 | `fridgesheet refresh [--record]` | Pulls the data. `--record` also updates the app's database — what the refresh schedule runs. |
 | `fridgesheet status` | Data age and each source's health, as JSON. |
@@ -826,9 +828,9 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | `fridgesheet run view:<id>` | The same for a saved report. |
 | `fridgesheet print-sheet` | The original name for `run open-work`; always uses 14/14 days. |
 | `fridgesheet reports` | Every report and its schedule. |
-| `fridgesheet schedule install\|remove\|show <key>` | Install/remove/show a report's OS schedule. `remove --all` removes every one. The refresh schedule is installed from the Schedules page. |
+| `fridgesheet schedule install\|remove\|show <key>` | Install/remove/show a report's OS schedule; `install data-refresh` is the refresh schedule. `install` refuses until a login has passed (`check` or Test login) unless `--force`. `remove --all` removes every one. |
 | `fridgesheet printers` | Lists printers; `*` = default. |
-| `fridgesheet web` | Runs the web app in the foreground. |
+| `fridgesheet web` | Runs the web app in the foreground; `--no-browser` on a machine with no desktop. |
 | `fridgesheet service install\|remove\|show` | Keeps the web app running in the background. |
 | `fridgesheet doctor` | Diagnostics (same as the Diagnostics page). |
 | `fridgesheet self-update [--check]` | Windows only: install the newest release. |
