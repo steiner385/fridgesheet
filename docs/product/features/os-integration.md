@@ -16,13 +16,13 @@ Both supported platforms' end users, indirectly; directly, every other capabilit
 
 ## Desired outcome
 
-Every OS-facing concern is a small adapter module in `fridgesheet/host/`, selected by `sys.platform` at import time, with nothing outside `host/` ever checking the OS directly: `printing` (list printers, default printer, print a PDF — CUPS `lp`/`lpstat` on Linux, bundled `SumatraPDF.exe` on Windows), `scheduling` (install/remove/describe a report's OS-level trigger — systemd user timer pair on Linux, a Task Scheduler task on Windows), `notify` (a toast/desktop notification after a scheduled run — `notify-send` on Linux, a `Windows.UI.Notifications` toast attributed to the app's Start-menu shortcut on Windows), `credentials` (covered by [[credential-security]]), `opener` (open a built PDF — Evince/`xdg-open` on Linux, `os.startfile` on Windows), and `service` (the always-on web server itself — a systemd user unit with `Restart=on-failure` on Linux, a logon task on Windows). Every adapter takes its `subprocess.run` as an injectable argument specifically so tests can assert on the exact command line built, without ever running a real OS scheduler or printer in CI.
+Every OS-facing concern is a small adapter module in `fridgesheet/host/`, selected by `sys.platform` at import time, with nothing outside `host/` ever checking the OS directly: `printing` (list printers, default printer, print a PDF — CUPS `lp`/`lpstat` on Linux, bundled `SumatraPDF.exe` on Windows), `scheduling` (remove the Task Scheduler tasks and systemd timers earlier versions registered), `notify` (a toast/desktop notification after a scheduled run — `notify-send` on Linux, a `Windows.UI.Notifications` toast attributed to the app's Start-menu shortcut on Windows), `credentials` (covered by [[credential-security]]), `opener` (open a built PDF — Evince/`xdg-open` on Linux, `os.startfile` on Windows), and `service` (the always-on web server itself — a systemd user unit with `Restart=on-failure` on Linux, a logon task on Windows). Every adapter takes its `subprocess.run` as an injectable argument specifically so tests can assert on the exact command line built, without ever running a real OS scheduler or printer in CI.
 
 ## Success metrics
 
 - CI (`ci.yml`) runs the full suite on both `ubuntu-latest` and `windows-latest` for every push/PR, so a glibc-only format code or a POSIX-only path assumption cannot ship unnoticed.
 - Adapter tests assert exact command lines (the `lp`/`lpstat` invocation, the `schtasks` XML, the SumatraPDF flags) against golden values, not just "did not raise."
-- A managed unit/task always carries the `# Written by Fridge Sheet` marker; an unmarked (hand-written) one is never modified by `install`/`remove` (see [[report-scheduling]]).
+- The startup cleanup and `schedule remove --all` only ever remove a leftover unit/task an earlier version of this app itself registered — a marked `fridgesheet-*.timer` on Linux, a task literally named `Fridge Sheet - *` (other than the web server's own) on Windows — and never a hand-written unit (see [[report-scheduling]]).
 
 ## Non-goals
 
@@ -38,9 +38,9 @@ Every OS-facing concern is a small adapter module in `fridgesheet/host/`, select
 ## Evidence
 
 - `fridgesheet/host/__init__.py`, `printing.py`/`printing_linux.py`/`printing_windows.py`, `scheduling.py`/`scheduling_linux.py`/`scheduling_windows.py`, `notify.py`/`notify_linux.py`/`notify_windows.py`, `opener.py`, `service.py`/`service_linux.py`/`service_windows.py`
-- `fridgesheet/host/task.xml` (Task Scheduler template)
+- `fridgesheet/host/logon-task.xml` (Task Scheduler template for the web server's own logon task)
 - CLI: `fridgesheet printers`, `fridgesheet service install|remove|show`
 - `desktop/fridgesheet-{pdf,print}.desktop`, `scripts/fridgesheet-desktop.sh`, `systemd/fridgesheet-{print-sheet,refresh}.{service,timer}`
 - `.github/workflows/ci.yml` (Ubuntu + Windows matrix)
 - GitHub issue #4
-- `tests/test_host_printing.py`, `tests/test_host_notify.py`, `tests/test_host_service.py`, `tests/test_host_scheduling.py`, `tests/test_host_scheduling_linux.py`
+- `tests/test_host_printing.py`, `tests/test_host_notify.py`, `tests/test_host_service.py`, `tests/test_os_leftovers.py`

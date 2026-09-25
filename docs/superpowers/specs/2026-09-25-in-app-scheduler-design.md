@@ -55,7 +55,7 @@ exists). `dobby` does not run it today.
 |---|---|---|
 | `fridgesheet/schedule_plan.py` (new) | Pure functions: which schedules are due at `now`, and each one's next run. No I/O, no threads, no clock of its own. | `config`, `refresh_schedule`, `host` (day names, key constants) |
 | `fridgesheet/web/clock.py` (new) | A daemon thread in the server. Every 60 s it reads settings, asks `schedule_plan` what is due, submits jobs to the existing `jobs.Worker`, and records what fired. Holds a heartbeat. | `schedule_plan`, `jobs.Worker`, `web/db.py` |
-| `schedule_fires` table (schema 5, new) | `key TEXT PRIMARY KEY, slot TEXT NOT NULL` — the last slot fired, per schedule key, as an ISO datetime with offset. | `web/db.py` migration |
+| `schedule_fires` table (schema 6, new) | `key TEXT PRIMARY KEY, slot TEXT NOT NULL` — the last slot fired, per schedule key, as an ISO datetime with offset. | `web/db.py` migration |
 | `host/scheduling.py` (shrinks) | `remove_os_leftovers()` only: delete what earlier versions of this app registered with the OS. | `scheduling_windows.py` / `scheduling_linux.py`, both reduced to that one job |
 
 Schedule keys are unchanged: a report's key (`open-work`, `view:3`) and
