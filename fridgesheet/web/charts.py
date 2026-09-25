@@ -78,7 +78,11 @@ def chart_config(data: ChartData) -> dict:
         if s.emphasis:
             ds["borderWidth"] = 3
         if data.stepped:
-            ds["stepped"] = "after"     # hold the value until the next observation
+            # Hold the value until the next observation. Chart.js names the shapes by where
+            # the vertical goes: "before" runs the *previous* value across to the next x and
+            # steps there; "after" carries the next value back to the previous x, which drew
+            # a grade as if it had changed the moment it was first seen.
+            ds["stepped"] = "before"
         datasets.append(ds)
     stacked = data.type == "stacked_bar" and data.y_label == COUNT_LABEL
     x: dict = {"stacked": stacked, "title": {"display": True, "text": data.x_label}}

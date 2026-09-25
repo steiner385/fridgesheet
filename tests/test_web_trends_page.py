@@ -35,7 +35,7 @@ def test_the_grade_chart_has_one_stepped_series_per_course_and_source_on_a_time_
     hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
     assert [p["y"] for p in hac["data"]] == [85.0, 88.0]
     assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
-    assert hac["stepped"] == "after" and hac["borderWidth"] == 3
+    assert hac["stepped"] == "before" and hac["borderWidth"] == 3      # hold until the next point
     assert cfgs[0]["options"]["plugins"]["title"]["text"] == "Grade per class"
 
 

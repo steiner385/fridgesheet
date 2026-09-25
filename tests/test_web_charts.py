@@ -19,7 +19,10 @@ def test_a_time_scale_chart_carries_points_as_x_y_and_no_labels():
     assert "labels" not in cfg["data"]
     ds = cfg["data"]["datasets"][0]
     assert ds["data"] == [{"x": 1757937600000, "y": 88.0}, {"x": 1758542400000, "y": 91.0}]
-    assert ds["stepped"] == "after" and ds["borderWidth"] == 3
+    # Chart.js's "before" is the hold-until-the-next-point shape: the horizontal run carries the
+    # *previous* value to the next x. "after" carries the next value back, which drew a grade as
+    # if it had changed the moment it was first seen (caught in the Task 8 screenshot).
+    assert ds["stepped"] == "before" and ds["borderWidth"] == 3
     assert cfg["options"]["scales"]["x"]["type"] == "time"
     assert cfg["options"]["scales"]["x"]["time"]["minUnit"] == "day"
     assert cfg["options"]["plugins"]["title"] == {"display": True, "text": "Grade per class"}
