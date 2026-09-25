@@ -1,8 +1,8 @@
 """#144: a config.toml that does not read is a message, never a 500 or a traceback.
 #146: a schedule can always be turned off, and the CLI keeps config.toml in step with the host.
 
-Every scheduler here is `FakeScheduling` (on `state.extra` for the pages, monkeypatched over
-`fridgesheet.host.scheduling` for the CLI), so nothing reaches systemctl or schtasks."""
+The pages call no OS scheduler at all; the CLI's scheduler is `FakeScheduling`, monkeypatched
+over `fridgesheet.host.scheduling`, so nothing reaches systemctl or schtasks."""
 from __future__ import annotations
 
 import tomllib
@@ -18,12 +18,10 @@ from tests.web_fixtures import LOCAL_HOST_HEADERS, FakeScheduling, seed
 BAD_TIME = '[reports.open-work]\ntime = "25:99"\n'
 
 
-def _client(home, sched=None):
+def _client(home):
     seed(home).close()
-    (home / "login-ok.txt").write_text("ok")
     application = webapp.create_app(config.Settings(home=home), worker=False)
     extra = application.state.fridgesheet.extra
-    extra["scheduling"] = sched or FakeScheduling()
     extra["printers"] = ["Brother"]
     extra["credstore"] = object()           # never reached: nothing here stores a password
     extra["describe_service"] = lambda: host.ServiceInfo("systemd", installed=True, active=True, detail="stub")
@@ -60,14 +58,13 @@ def test_the_settings_page_offers_no_form_that_could_save_defaults_over_the_file
 
 
 def test_posting_a_schedule_with_a_broken_file_is_a_message_not_a_500(tmp_path):
-    sched = FakeScheduling()
-    c = _client(tmp_path, sched)
+    c = _client(tmp_path)
     (tmp_path / "config.toml").write_text("[reports.open-work\n", encoding="utf-8")
     r = c.post("/schedules", data={"key": "open-work", "enabled": "on", "time": "14:00", "days": ["Mon"], "prints": "on"})
     assert r.status_code == 200 and "cannot parse" in r.text
     r = c.post("/schedules/refresh", data={"enabled": "on", "every_hours": "3", "start": "06:00", "end": "21:00", "days": ["Mon"]})
     assert r.status_code == 200 and "cannot parse" in r.text
-    assert not sched.installed
+    assert (tmp_path / "config.toml").read_text(encoding="utf-8") == "[reports.open-work\n"   # never written over
 
 
 # --- #144: the CLI ----------------------------------------------------------------------
@@ -94,34 +91,29 @@ def test_a_cache_ttl_that_is_not_a_number_keeps_the_default(tmp_path, monkeypatc
 # --- #146: turning a schedule off -------------------------------------------------------
 
 def test_unticking_the_schedule_and_every_day_still_turns_it_off(tmp_path):
-    sched = FakeScheduling({"open-work": host.ScheduleInfo("systemd", True, "Mon 14:00", None)})
     out = schedules.save("open-work", enabled=False, time="14:00", days=[], printer="", prints=True,
-                         home=tmp_path, log=lambda _m: None, scheduling=sched)
+                         home=tmp_path, log=lambda _m: None)
     assert out.ok, out.errors
-    assert sched.removed == ["open-work"]
     assert tomllib.loads((tmp_path / "config.toml").read_text())["reports"]["open-work"]["enabled"] is False
 
 
 def test_turning_off_still_refuses_a_time_that_would_break_the_file(tmp_path):
-    sched = FakeScheduling()
     out = schedules.save("open-work", enabled=False, time="half four", days=[], printer="", prints=True,
-                         home=tmp_path, log=lambda _m: None, scheduling=sched)
+                         home=tmp_path, log=lambda _m: None)
     assert not out.ok and "HH:MM" in out.errors[0]
     assert not (tmp_path / "config.toml").exists()
 
 
 def test_unticking_the_refresh_schedule_and_every_day_still_turns_it_off(tmp_path):
-    sched = FakeScheduling()
     out = schedules.save_refresh(enabled=False, every_hours=3, start="06:00", end="21:00", days=[],
-                                 home=tmp_path, log=lambda _m: None, scheduling=sched)
+                                 home=tmp_path, log=lambda _m: None)
     assert out.ok, out.errors
-    assert sched.removed == [host.DATA_REFRESH_KEY]
     assert tomllib.loads((tmp_path / "config.toml").read_text())["refresh"]["enabled"] is False
 
 
 def test_an_enabled_schedule_still_needs_a_day(tmp_path):
     out = schedules.save("open-work", enabled=True, time="14:00", days=[], printer="", prints=True,
-                         home=tmp_path, log=lambda _m: None, scheduling=FakeScheduling())
+                         home=tmp_path, log=lambda _m: None)
     assert not out.ok and "no days" in out.errors[0]
 
 

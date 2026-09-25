@@ -7,13 +7,11 @@ from datetime import datetime
 
 from fridgesheet.web import db, views
 from fridgesheet.web.stores import reports as store
-from tests.web_fixtures import NOW, TZ, FakeScheduling, app_for, seed
+from tests.web_fixtures import NOW, TZ, app_for, seed
 
 
 def _client(home):
-    c = app_for(home)
-    c.app.state.fridgesheet.extra["scheduling"] = FakeScheduling()
-    return c
+    return app_for(home)
 
 
 def _save(home, **d):

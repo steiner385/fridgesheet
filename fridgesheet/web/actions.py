@@ -21,7 +21,7 @@ from typing import Callable
 from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
-from .. import config, late_rules, runner, sources
+from .. import config, dates, late_rules, runner, sources
 from . import updatepin
 
 REPORT_KEY = "open-work"
@@ -462,9 +462,11 @@ def reprint(*, home: Path, log: Callable[[str], None], settings: config.Settings
     return 0 if outcome == "OK" else 1
 
 
-def status_line(home: Path, describe=None) -> str:
-    if describe is None:
-        from ..host.scheduling import describe
+def status_line(home: Path, *, now: datetime) -> str:
+    """The Settings page's one line: the last run, and when the default report's schedule
+    fires next -- from the plan, not from an OS scheduler."""
+    from .. import schedule_plan
+    from . import clock
     log_path = home / runner.LOG_NAME
     last = "No runs yet"
     if log_path.is_file():
@@ -472,15 +474,12 @@ def status_line(home: Path, describe=None) -> str:
         if lines:
             last = lines[-1]
     try:
-        info = describe(REPORT_KEY)
-    except Exception:
+        schedules, _ = clock.configured(home)
+    except Exception:                                      # noqa: BLE001  a status line never fails a page
         return f"{last} · schedule unknown"
-    if not info.installed:
-        return f"{last} · not scheduled"
-    if not info.next_run:
-        return f"{last} · scheduled (next run unknown)"
-    suffix = "" if info.managed_by == "task-scheduler" else f" ({info.managed_by})"
-    return f"{last} · next run {info.next_run}{suffix}"
+    mine = [s for s in schedules if s.key == REPORT_KEY]
+    nxt = schedule_plan.next_run(mine[0], now) if mine else None
+    return f"{last} · next run {dates.wd_md_time(nxt)}" if nxt else f"{last} · not scheduled"
 
 
 def late_rules_settings(home: Path) -> late_rules.LateRules:

@@ -126,9 +126,8 @@ def app_for(home: Path, now: datetime = NOW, worker: bool = False, *, service_in
     non-default home, so a test that seeds a PIN before building its client sees it without
     a separate reload() call.
 
-    `service_installed` stubs `describe_service()` through `state.extra["describe_service"]`
-    -- the same seam `extra["scheduling"]` is for `host.scheduling.describe` -- so a page
-    test never shells out to the real `systemctl --user`/`schtasks` on whatever machine runs
+    `service_installed` stubs `describe_service()` through `state.extra["describe_service"]`,
+    so a page test never shells out to the real `systemctl --user`/`schtasks` on whatever machine runs
     the suite. Defaults to True (a healthy install); pass False for the issue #39 case, where
     the logon task never got registered.
     """
@@ -228,9 +227,10 @@ class FakeScheduling:
     `not_supported` makes them raise `NotSupported` instead -- whichever of the two the
     caller's `save()` actually reaches (only one of `install`/`remove` runs per call).
     `describe_error`, if given, is an exception instance `describe()` raises instead of
-    answering from `info` -- the fake never failed `describe` before this, which meant
-    `web/schedules.py`'s two exception-handling branches around a `describe()` call
-    (`_installed_or_unknown`'s `NotSupported`/`Exception` split) had nothing to exercise them.
+    answering from `info`.
+
+    Only the CLI's `schedule install/remove` tests still use it: the web pages call no OS
+    scheduler at all since the server's own clock replaced it.
     """
     SchedulingError = host.SchedulingError
     NotSupported = host.NotSupported

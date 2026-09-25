@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import tomllib
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 
@@ -20,20 +22,6 @@ class FakeCred:
         return self.written[-1][0] if self.written else None
 
 
-class StubScheduling:
-    """The status line's read-only `describe`; Settings no longer installs or removes anything.
-
-    It answers with a next run no machine would report by accident. A fake that says "not
-    scheduled" is indistinguishable from the page shelling out to the real `systemctl --user`
-    and failing -- which is what happened here, and which is why the assertion passed under
-    pytest (no D-Bus session) and would have failed in the owner's own desktop session, where
-    fridgesheet-print-sheet.timer is enabled.
-    """
-    def describe(self, key):
-        from fridgesheet.host import ScheduleInfo
-        return ScheduleInfo("systemd", True, "Fri 2026-09-18 16:30:00 EDT", None)
-
-
 def _client(home, host="127.0.0.1"):
     seed(home).close()
     (home / "config.toml").write_text('[account]\nusername = "parent@example.org"\n[print]\nprinter = "Brother"\n[kids]\nnicknames = { Alex = "Al" }\n')
@@ -41,7 +29,6 @@ def _client(home, host="127.0.0.1"):
     config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
     application = webapp.create_app(s, worker=False)
     application.state.fridgesheet.extra["credstore"] = FakeCred()
-    application.state.fridgesheet.extra["scheduling"] = StubScheduling()
     application.state.fridgesheet.extra["printers"] = ["Brother", "Canon"]
     return TestClient(application, client=(host, 12345), headers=LOCAL_HOST_HEADERS), application
 
@@ -458,26 +445,17 @@ def test_no_qr_code_when_the_app_is_loopback_only(tmp_path):
 def test_settings_no_longer_edits_the_schedule(tmp_path):
     """Two pages writing `[reports.open-work].enabled` is how a page ends up showing a
     schedule the scheduler does not have. Schedules owns it; Settings links to it."""
-    c, _ = _client(tmp_path)
+    c, app = _client(tmp_path)
+    with (tmp_path / "config.toml").open("a") as f:
+        f.write('[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Fri"]\n')
+    app.state.fridgesheet.clock = lambda: datetime(2026, 9, 25, 9, 0, tzinfo=ZoneInfo("America/New_York"))
     body = c.get("/settings").text
     assert 'name="scheduled"' not in body and 'name="time"' not in body
     assert 'href="/schedules"' in body
     assert 'name="days_ahead"' in body and 'name="overdue_days"' in body     # still the report's options
-    # The read-only status line, moved but not dropped -- and read from the injected scheduler,
-    # not from whatever this machine's own systemd happens to say.
-    assert "Automatic printing: No runs yet · next run Fri 2026-09-18 16:30:00 EDT (systemd)" in body
-
-
-def test_saving_settings_never_touches_the_scheduler(tmp_path):
-    class Exploding:
-        def install(self, *a, **k):
-            raise AssertionError("Settings must not install a schedule")
-        def remove(self, *a, **k):
-            raise AssertionError("Settings must not remove a schedule")
-    c, app = _client(tmp_path)
-    app.state.fridgesheet.extra["scheduling"] = Exploding()
-    r = c.post("/settings", data={**FORM, "password": "pw"})
-    assert r.status_code == 200 and "Settings saved" in r.text
+    # The read-only status line, moved but not dropped -- and read from the plan over
+    # config.toml, not from whatever this machine's own systemd happens to say.
+    assert "Automatic printing: No runs yet · next run Fri 9/25 2:00 PM" in body
 
 
 def test_a_schedule_set_on_the_schedules_page_survives_a_settings_save(tmp_path):

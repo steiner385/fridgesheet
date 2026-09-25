@@ -57,10 +57,6 @@ def config_problem(state, e: config.ConfigError) -> str:
 
 
 def _page(request, conn, state, form, messages=(), errors=()):
-    # The status line's `describe` comes from `state.extra["scheduling"]` when one is there --
-    # the same seam `schedules.rows` uses. Without it every /settings render shells out to the
-    # real `systemctl --user`, and a page test asserts on whatever this machine's own systemd
-    # says rather than on its fake.
     # The port this process answers on, not the one config.toml holds for the next start (#9).
     port = state.settings.web_port
     # `form` is None when config.toml does not read (#144): the page still renders, with the
@@ -102,7 +98,7 @@ def _page(request, conn, state, form, messages=(), errors=()):
     entries = actions.no_print_days_view(actions.no_print_days_settings(state.home, skip_problems))
     return render(request, conn, "settings.html", current="settings", form=form, messages=list(messages), errors=list(errors),
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
-                  status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
+                  status=actions.status_line(state.home, now=state.now()),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
                   update_ready=update_ready, update_blocked_reason=reason, is_windows=host.IS_WINDOWS,
                   releases_page=updates.RELEASES_PAGE, linux_update_how=LINUX_UPDATE_HOW,
