@@ -161,3 +161,95 @@ def test_the_header_still_says_when_the_data_was_refreshed(tmp_path):
     body = c.get("/schedules").text
     assert "Refreshed Tue 9/15 1:50 PM" in body
     assert "Refresh on a schedule" in body                    # the schedule editor still renders
+
+
+# --- #120: a scheduled report prints from the last refresh, so scheduling one keeps the refresh on ----
+
+def _refresh_installs(sched):
+    return [i for i in sched.installed if i["key"] == host.DATA_REFRESH_KEY]
+
+
+def test_saving_an_enabled_report_turns_on_the_data_refresh_with_defaults(tmp_path):
+    """A scheduled report runs `--no-refresh` and refuses a snapshot older than a day, so a
+    household that schedules a report without the refresh gets one sheet and then a daily
+    FAIL (#120). Saving an enabled report with the refresh off turns the refresh on, with
+    the defaults, and says so."""
+    sched = FakeScheduling()
+    c, _ = _client(tmp_path, sched)
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Mon", "Fri"], "printer": "", "prints": "on"})
+    assert r.status_code == 200
+    assert "Scheduled: Mon, Fri at 16:30" in r.text
+    assert "Turned on the data refresh too" in r.text
+    assert "every 3 hours" in r.text
+    installs = _refresh_installs(sched)
+    assert len(installs) == 1
+    assert installs[0]["times"] == ["06:00", "09:00", "12:00", "15:00", "18:00", "21:00"]
+    assert installs[0]["days"] == list(host.DAY_NAMES)
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"]["enabled"] is True
+    assert doc["reports"]["view:1"]["enabled"] is True
+    assert "data refresh is off" not in c.get("/schedules").text        # nothing left to warn about
+
+
+def test_saving_a_report_leaves_an_already_on_refresh_alone(tmp_path):
+    """The parent's own refresh settings (every 2 hours, weekdays) are never overwritten with
+    the defaults, and the refresh task is not reinstalled on every report save."""
+    sched = FakeScheduling()
+    c, _ = _client(tmp_path, sched)
+    c.post("/schedules/refresh", data={"enabled": "on", "every_hours": "2", "start": "07:00",
+                                       "end": "19:00", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"]})
+    assert len(_refresh_installs(sched)) == 1
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "Turned on the data refresh" not in r.text
+    assert len(_refresh_installs(sched)) == 1                            # still the one from the parent's save
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"]["every_hours"] == 2 and doc["refresh"]["days"] == ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+
+def test_turning_a_report_off_never_touches_the_refresh(tmp_path):
+    sched = FakeScheduling()
+    c, _ = _client(tmp_path, sched)
+    r = c.post("/schedules", data={"key": "view:1", "time": "16:30", "days": ["Fri"],
+                                   "printer": "", "prints": "on"})
+    assert r.status_code == 200 and "not scheduled" in r.text
+    assert _refresh_installs(sched) == []
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert "refresh" not in doc
+
+
+def test_a_refresh_that_will_not_install_is_an_error_beside_the_saved_report(tmp_path):
+    """The report's own schedule is in; the refresh could not be. Both facts on the page."""
+    class _RefreshFails(FakeScheduling):
+        def install(self, key, times, days, exe, args, workdir, **kw):
+            if key == host.DATA_REFRESH_KEY:
+                raise host.SchedulingError("no bus")
+            super().install(key, times, days, exe, args, workdir, **kw)
+
+    sched = _RefreshFails()
+    c, _ = _client(tmp_path, sched)
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert r.status_code == 200
+    assert "Scheduled: Fri at 16:30" in r.text
+    assert "no bus" in r.text and "data refresh" in r.text
+    assert sched.installed[0]["key"] == "view:1"
+
+
+def test_the_page_warns_when_a_report_is_scheduled_and_the_refresh_is_off(tmp_path):
+    c, _ = _client(tmp_path)
+    assert "data refresh is off" not in c.get("/schedules").text          # nothing scheduled: no warning
+    (tmp_path / "config.toml").write_text('[reports."view:1"]\nenabled = true\ntime = "16:30"\ndays = ["Fri"]\n')
+    body = c.get("/schedules").text
+    assert "data refresh is off" in body
+    assert "Weekly summary" in body.split("data refresh is off")[0]       # names the report(s) affected
+    (tmp_path / "config.toml").write_text('[refresh]\nenabled = true\n[reports."view:1"]\nenabled = true\ntime = "16:30"\ndays = ["Fri"]\n')
+    assert "data refresh is off" not in c.get("/schedules").text
+
+
+def test_the_page_no_longer_claims_a_scheduled_report_refreshes(tmp_path):
+    """schedules.html said "it refreshes, builds, and prints"; it never refreshed (#120)."""
+    body = app_for(tmp_path).get("/schedules").text
+    assert "it refreshes, builds, and prints" not in body
+    assert "does not refresh first" in body

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .. import config, host, refresh_schedule, reports as registry
+from .. import config, host, refresh_schedule, reports as registry, runner
 from .actions import _settings_for, _table          # one copy of each (#7)
 
 log = logging.getLogger("fridgesheet.web.schedules")
@@ -247,7 +247,57 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
         return Outcome(False, messages, [f"Saved, but the schedule could not be installed: {e}"])
     messages.append(f"Scheduled: {', '.join(days)} at {time}" + ("" if prints else ", PDF only") + ".")
     log(messages[-1])
+    # A scheduled report runs `--no-refresh` (host/scheduling.command_for) and refuses a
+    # snapshot older than a day, so with the refresh off it prints once and then FAILs every
+    # day (#120). Turning a report on turns the refresh on with it; the report is already
+    # installed, so a refresh that will not install is an error beside the success, not
+    # instead of it.
+    if not s.refresh.enabled:
+        turned_on = ensure_refresh(home=home, log=log, scheduling=scheduling)
+        messages += turned_on.messages
+        return Outcome(True, messages, turned_on.errors)
     return Outcome(True, messages)
+
+
+def ensure_refresh(*, home: Path, log: Callable[[str], None], scheduling=None) -> Outcome:
+    """Turn the data refresh on if it is off, keeping whatever `[refresh]` already says about
+    the interval, window and days (the defaults for a household that never saved it; the
+    parent's own values if they saved it and later switched it off).
+
+    Called after a report schedule is installed, so the login stamp is known to exist and
+    `save_refresh`'s "nothing is installed yet" branch cannot be reached from here.
+    """
+    if scheduling is None:
+        from ..host import scheduling
+    rc = _settings_for(home).refresh
+    if rc.enabled:
+        return Outcome(True)
+    out = save_refresh(enabled=True, every_hours=rc.every_hours, start=rc.start, end=rc.end,
+                       days=list(rc.days), home=home, log=log, scheduling=scheduling)
+    if not out.ok:
+        return Outcome(False, errors=[
+            "The data refresh, which a scheduled report needs, is on in config.toml but its task "
+            f"could not be installed ({'; '.join(out.errors)}). Save Refresh the data again."])
+    days = "every day" if set(rc.days) >= set(host.DAY_NAMES) else ", ".join(rc.days)
+    every = "hour" if rc.every_hours == 1 else f"{rc.every_hours} hours"
+    message = (f"Turned on the data refresh too (every {every}, {rc.start}–{rc.end}, {days}): "
+               "a scheduled report prints from the last refresh, and refuses one older than "
+               f"{runner.MAX_DATA_AGE_HOURS} hours.")
+    log(message)
+    return Outcome(True, [message] + [m for m in out.messages if not m.startswith(("Saved", "Refreshing at"))])
+
+
+def refresh_warning(rows: list[Row], refresh: "RefreshRow | None") -> str:
+    """The banner for a page that has a report scheduled and the refresh off (#120): the
+    state that prints once and then fails every day. Empty when there is nothing to say."""
+    if refresh is None or refresh.enabled:
+        return ""
+    on = [r.title for r in rows if r.enabled]
+    if not on:
+        return ""
+    return (f"{', '.join(on)} {'is' if len(on) == 1 else 'are'} scheduled but the data refresh is off. "
+            "A scheduled report prints from the last refresh and refuses once that is more than "
+            f"{runner.MAX_DATA_AGE_HOURS} hours old, so tick Refresh on a schedule below and Save.")
 
 
 @dataclass(frozen=True)

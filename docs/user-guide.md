@@ -176,9 +176,9 @@ Do these once, in this order. Each takes a minute or two.
 > **Why step 5 matters.** A scheduled print does **not** refresh the data itself; it prints
 > from whatever the last refresh left behind. If nothing has refreshed in 24 hours, the
 > print refuses to run ("snapshot is stale … nothing printed"). The Refresh schedule is what
-> keeps a scheduled sheet current. The Schedules page itself currently says a scheduled
-> report "refreshes, builds, and prints" — it does not
-> ([#120](https://github.com/steiner385/fridgesheet/issues/120)).
+> keeps a scheduled sheet current. If you skip step 5, step 6 turns the refresh on for you
+> with the defaults and says so; the Schedules page warns, and Diagnostics fails, whenever
+> a report is scheduled and the refresh is off.
 
 **Setting up from a terminal (Linux)** — the same steps without a browser:
 
@@ -552,7 +552,7 @@ sheet does not print* is skipped.
 
 ### Each report (the built-in *Open Work Sheet*, then any you saved)
 
-> A report schedule prints from the last refresh; it does not refresh first. Keep **Refresh the data** (above) turned on, or the sheet stops printing after a day ([#120](https://github.com/steiner385/fridgesheet/issues/120)).
+> A report schedule prints from the last refresh; it does not refresh first. Keep **Refresh the data** (above) turned on, or the sheet stops printing after a day. Saving a report schedule while the refresh is off turns the refresh on with its current settings (the defaults, unless you changed them) and says so in the saved message; the page shows a warning, and Diagnostics fails, while any report is scheduled with the refresh off.
 
 - **Run this on a schedule**, **Time** (24-hour), **Days**.
 - **Printer** — *(the printer on the Settings page)*, or a different one for this report.

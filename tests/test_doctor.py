@@ -148,7 +148,27 @@ def test_scheduler_probe_flags_a_saved_report_that_is_on_but_not_installed(monke
     with pytest.raises(RuntimeError, match=r"\[reports\.view:3\] is on in config.toml but no task is installed"):
         doctor._scheduler(s, tmp_path)
     installed.add("view:3")
+    s.refresh = RefreshConfig(enabled=True)                       # a scheduled report needs it (#120)
+    installed.add(host.DATA_REFRESH_KEY)
     assert "1 saved report scheduled" in doctor._scheduler(s, tmp_path)
+
+
+def test_scheduler_probe_fails_when_a_report_is_scheduled_and_the_refresh_is_off(monkeypatch, tmp_path):
+    """#120: a scheduled report runs `--no-refresh` and refuses a snapshot older than a day, so
+    with the refresh off it prints once and then fails every day. Report-on-refresh-off is
+    the broken state, whichever report it is; refresh-off with nothing scheduled is fine."""
+    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("systemd", True, "Wed 14:00", None))
+    s = Settings(home=tmp_path)
+    assert "data refresh" not in doctor._scheduler(s, tmp_path)         # nothing scheduled, refresh off: OK
+    s.reports["open-work"] = ReportConfig(enabled=True)
+    with pytest.raises(RuntimeError, match=r"open-work is scheduled but the data refresh is off"):
+        doctor._scheduler(s, tmp_path)
+    s.reports["open-work"] = ReportConfig(enabled=False)
+    s.reports["view:3"] = ReportConfig(enabled=True)
+    with pytest.raises(RuntimeError, match=r"view:3 is scheduled but the data refresh is off"):
+        doctor._scheduler(s, tmp_path)
+    s.refresh = RefreshConfig(enabled=True)
+    assert "data refresh scheduled" in doctor._scheduler(s, tmp_path)
 
 
 def test_credential_probe_round_trips_on_windows(monkeypatch, tmp_path):

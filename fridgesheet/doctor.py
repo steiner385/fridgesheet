@@ -172,6 +172,15 @@ def _scheduler(s: Settings, home: Path) -> str:
                                "Save it again on the Schedules page")
     if saved:
         detail += f"; {len(saved)} saved report{'s' if len(saved) != 1 else ''} scheduled"
+    # A scheduled report with the refresh off prints once and then fails every day (#120):
+    # it runs `--no-refresh` and refuses a snapshot older than MAX_DATA_AGE_HOURS.
+    scheduled = ([REPORT_KEY] if s.report_config(REPORT_KEY).enabled else []) + saved
+    if scheduled and not s.refresh.enabled:
+        from .runner import MAX_DATA_AGE_HOURS
+        raise RuntimeError(
+            f"{', '.join(scheduled)} {'is' if len(scheduled) == 1 else 'are'} scheduled but the data refresh "
+            f"is off; a scheduled report prints from the last refresh and refuses one older than "
+            f"{MAX_DATA_AGE_HOURS} h. Tick Refresh on a schedule on the Schedules page and Save")
     return detail
 
 
