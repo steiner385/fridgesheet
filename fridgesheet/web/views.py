@@ -252,12 +252,28 @@ class Group:
 
 
 @dataclass
+class ChartSeries:
+    label: str
+    points: list[tuple[str, float]] = field(default_factory=list)   # (bucket label, value)
+
+
+@dataclass
+class ChartData:
+    type: str
+    x_label: str
+    y_label: str
+    series: list[ChartSeries] = field(default_factory=list)
+
+
+@dataclass
 class Rendered:
     title: str
     columns: list[Column]
     groups: list[Group] = field(default_factory=list)
     truncated: int = 0               # rows dropped by MAX_ROWS
     window: str = ""                 # "The last 7 days" when the report is limited to one; "" for any time
+    chart: ChartData | None = None
+    chart_note: str = ""
 
 
 def _num(v) -> str:
@@ -453,6 +469,74 @@ def _keep(row: dict, f: dict) -> bool:
     return b in a
 
 
+def _bucket_start(dt: datetime, bucket: str):
+    d = dt.date()
+    if bucket == "day":
+        return d
+    if bucket == "month":
+        return dates.month_start(d)
+    return dates.week_start(d)
+
+
+def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict]]) -> tuple[ChartData | None, str]:
+    """The chart half of `build()`'s output, from the exact rows the table already kept -- a
+    chart can never show a point the table doesn't. `spec.x`/`spec.y`/`spec.series` need not be
+    among the report's displayed columns; `row` always carries every column of the source.
+
+    A row with no `x` value cannot be plotted and is dropped from the chart only. A row whose
+    `y` column is blank is excluded from its bucket's average, not treated as a zero -- a
+    missing grade observation must not pull a trend line down. `bar`/`stacked_bar` buckets are
+    zero-filled so the x-axis is even (`weekly_counts`' convention); `line` buckets are left
+    absent when nothing landed in them (`grade_series`' convention) -- a flat stretch is the
+    absence of points, not a plotted dip to zero.
+    """
+    known = COLUMNS[source]
+    dropped = 0
+    buckets: dict = {}
+    for row, keys in kept:
+        x_iso = keys.get(spec.x, "")
+        if not x_iso:
+            dropped += 1
+            continue
+        if spec.y and row.get(spec.y, "") == "":
+            continue
+        y = float(row[spec.y]) if spec.y else 1.0
+        label = row.get(spec.series, "") if spec.series else (known[spec.y].label if spec.y else "Count")
+        bstart = _bucket_start(datetime.fromisoformat(x_iso), spec.bucket)
+        buckets.setdefault(bstart, {}).setdefault(label, []).append(y)
+    if not buckets:
+        return None, ""
+    starts = sorted(buckets)
+    overflow = max(0, len(starts) - MAX_CHART_POINTS)
+    starts = starts[-MAX_CHART_POINTS:]
+    labels_seen: list[str] = []
+    for s in starts:
+        for label in buckets[s]:
+            if label not in labels_seen:
+                labels_seen.append(label)
+    zero_fill = spec.type in ("bar", "stacked_bar")
+    series_out = []
+    for label in labels_seen:
+        points = []
+        for s in starts:
+            values = buckets[s].get(label)
+            if values is None:
+                if zero_fill:
+                    points.append((dates.md(s), 0.0))
+                continue
+            value = (sum(values) / len(values)) if spec.y else float(len(values))
+            points.append((dates.md(s), value))
+        series_out.append(ChartSeries(label=label, points=points))
+    notes = []
+    if dropped:
+        notes.append(f"{dropped} row(s) with no date are not charted")
+    if overflow:
+        notes.append(f"Chart shows the most recent {MAX_CHART_POINTS} of {MAX_CHART_POINTS + overflow}; "
+                     "choose a coarser bucket or a shorter range to see the rest")
+    y_label = known[spec.y].label if spec.y else "Count"
+    return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out), "; ".join(notes)
+
+
 def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nicknames: dict, prefs=None,
           window: dict | None = None) -> Rendered:
     """Definition to rows. Raises `ViewError` when the definition does not validate."""
@@ -503,4 +587,5 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         label = next((l for k, l, _ in WINDOWS if k == d.window), "")
     else:
         label = ""
-    return Rendered(d.title, columns, groups, truncated, label)
+    chart, chart_note = _chart_data(d.source, d.chart, kept) if d.chart else (None, "")
+    return Rendered(d.title, columns, groups, truncated, label, chart=chart, chart_note=chart_note)
