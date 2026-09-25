@@ -8,6 +8,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from ..app import Db, State, render_partial
 from ..stores import changes, flags, items, notes, students
 from .. import db
+from .kid import card_for
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ LABELS = {"done": "Marked done", "excused": "Marked excused", "ignore": "Ignored
 
 
 @router.post("/items/{item_id}/flag")
-def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: str = Form(""),
+def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: str = Form(""), card: str = Form(""),
                   conn: sqlite3.Connection = Db, state=State):
     s = students.owner_of_item(conn, item_id)
     if s is None:
@@ -32,4 +33,5 @@ def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: s
     v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources(), **state.window())
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=LABELS[flag],
-                          notes=notes.for_target(conn, "item", item_id), refresh_row=True)
+                          notes=notes.for_target(conn, "item", item_id), refresh_row=True,
+                          card=card_for(card, item_id))

@@ -1,4 +1,5 @@
 <form class="flagmenu" hx-post="/items/{{ item.id }}/flag" hx-target="closest .card" hx-swap="outerHTML">
+  {% if card is defined and card %}<input type="hidden" name="card" value="{{ card }}">{% endif %}
   {% include "_flag_default.html" %}
   <fieldset>
     <legend>Correct the school record</legend>

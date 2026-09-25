@@ -1,7 +1,10 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
-<div class="card" data-focus>
+{# Opened from a question card (`card`, #126), the detail takes that card's id and Close fetches
+   the card back into it; in a table row it has no id and app.js closes it by hiding the row. #}
+{% set card = card if card is defined and card else '' %}
+<div class="card"{% if card %} id="{{ card }}"{% endif %} data-focus>
   <h2 tabindex="-1" data-focus-target>{{ item.name }} <span class="muted">· {{ item.course_short }}{% if item.kind %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}</span></h2>
-  <button type="button" class="link close-detail" data-close-detail aria-label="Close {{ item.name }}">Close</button>
+  <button type="button" class="link close-detail" data-close-detail{% if card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>
   {% if message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
   {% if ('facts.' ~ item.verdict.kind) | has_phrase or item.verdict.answers %}{% set slot = 'qd-' ~ item.id %}{% include "_question.html" %}{% else %}{% include "_record.html" %}{% endif %}
   {% if item.step %}<p class="family-account"><strong>Our step:</strong> {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
