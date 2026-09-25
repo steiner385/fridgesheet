@@ -132,6 +132,31 @@ neither and stays a HAC-only row. An ambiguous match is left visible rather than
 Pinned by `test_two_canvas_assignments_with_the_same_title_stay_two_items` and
 `test_a_hac_row_will_not_guess_between_two_identical_canvas_assignments`.
 
+### Two assignments with nearly the same title
+
+Titles are paired by their words, not letter for letter, because the two gradebooks rarely
+agree on wording — but "Unit 3 Test Retake" shares three words of four with "Unit 3 Test",
+and the first title over that bar used to win. The retake took the test's HAC row, and its own
+HAC grade, finding its twin taken, was dropped. The rule now (`matching.pair_titles`, the one
+function the app and the printed sheet both call): within a course, **the same title wins
+outright**; otherwise **the closest wording**; and **each row is paired at most once**, best
+pairs first, so the answer does not depend on which order either gradebook lists its rows
+in. A HAC row that finds no free twin is **never discarded**: it stays a HAC-only row, which
+is what the second of two same-titled HAC rows against one Canvas assignment now becomes. A
+dead tie between two equally close candidates goes to the one listed first.
+
+A HAC-only row's key is its title **and its due date** (`hac:<short course>:<norm
+name>:<YYYY-MM-DD>`, `matching.hac_only_key`), whether or not another row shares the title.
+Keyed by title alone, a lone weekly "Participation" was re-keyed the day the second one
+appeared, and its answer, notes and history stayed behind on the old item. Upgrading re-keys
+the existing rows once (schema v7) and folds any twin that re-key already made back onto the
+item the parent answered. What still re-keys a HAC-only row is the teacher editing its title
+or its due date: HAC identifies an assignment by nothing else.
+
+Pinned by `test_a_retake_keeps_its_own_hac_grade_on_screen`,
+`test_a_retake_graded_in_hac_does_not_print_missing` and
+`test_a_second_same_named_hac_row_does_not_orphan_the_first`.
+
 ## What the sources actually provide
 
 | signal | Canvas | HAC |

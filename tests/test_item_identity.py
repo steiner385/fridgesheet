@@ -3,10 +3,10 @@ new section appearing beside it."""
 from __future__ import annotations
 
 import copy
-from datetime import timedelta
+from datetime import date, timedelta
 
 from fridgesheet import open_items
-from fridgesheet.matching import hac_item_key
+from fridgesheet.matching import hac_only_key
 from fridgesheet.web import db, ingest
 from fridgesheet.web.stores import flags as flagstore
 from tests.web_fixtures import NOW, TZ, _h, seed, snapshot
@@ -23,11 +23,11 @@ def _two_sections():
 
 
 def test_a_flag_on_one_section_does_not_strike_the_other_off_the_sheet(tmp_path):
-    """Both sections' homework has the key `hac:Algebra I:homework 5`; the sheet looked flags
-    up by key alone, so marking one done removed both."""
+    """Both sections' homework has the key `hac:Algebra I:homework 5:2026-09-10`; the sheet
+    looked flags up by key alone, so marking one done removed both."""
     snap = _two_sections()
     conn = seed(tmp_path, snap)
-    key = hac_item_key("Algebra I - 2", "Homework 5")
+    key = hac_only_key("Algebra I - 2", "Homework 5", date(2026, 9, 10))
     iid = conn.execute("""SELECT i.id FROM items i JOIN courses c ON c.id = i.course_id
                           WHERE i.key = ? AND c.name = 'Algebra I - 2'""", (key,)).fetchone()["id"]
     flagstore.set_flag(conn, iid, "done", now="2026-09-15T13:00:00-04:00")
@@ -43,7 +43,7 @@ def test_a_plain_key_flag_still_applies(tmp_path):
     """Callers that hand `open_items` a flat {key: flag} (the MCP server, older tests) keep
     working; only the store's own map is course-qualified."""
     snap = snapshot()
-    key = hac_item_key("Honors English 9 S1", "Participation")
+    key = hac_only_key("Honors English 9 S1", "Participation", date(2026, 9, 8))
     work = open_items.open_items(snap["students"]["Alex"], "Alex", NOW, flags={key: "done"})
     assert any(i.name == "Participation" for i in work.handled)
 
@@ -56,7 +56,7 @@ def test_a_new_section_listed_first_does_not_take_the_old_sections_history(tmp_p
     classes = snap["students"]["Alex"]["hac"]["classes"]
     classes[:] = [c for c in classes if c["name"] != "Algebra I - 3"]     # first refresh: one section
     conn = seed(tmp_path, snap)
-    key = hac_item_key("Algebra I - 2", "Homework 5")
+    key = hac_only_key("Algebra I - 2", "Homework 5", date(2026, 9, 10))
     before = conn.execute("SELECT i.id, i.first_seen FROM items i WHERE i.key = ?", (key,)).fetchone()
 
     later = copy.deepcopy(snap)
@@ -77,7 +77,7 @@ def test_a_renamed_class_still_carries_its_items_over(tmp_path):
     classes = snap["students"]["Alex"]["hac"]["classes"]
     classes[:] = [c for c in classes if c["name"] != "Algebra I - 3"]
     conn = seed(tmp_path, snap)
-    key = hac_item_key("Algebra I - 2", "Homework 5")
+    key = hac_only_key("Algebra I - 2", "Homework 5", date(2026, 9, 10))
     before = conn.execute("SELECT id FROM items WHERE key = ?", (key,)).fetchone()["id"]
     later = copy.deepcopy(snap)
     later["fetched_at"] = "2026-09-16T13:50:00-04:00"

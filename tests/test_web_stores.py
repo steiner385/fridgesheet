@@ -12,7 +12,7 @@ from fridgesheet.web.stores import flags, notes
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
-KEY = "hac:Honors Biology:lab safety contract"
+KEY = "hac:Honors Biology:lab safety contract:2026-09-10"
 
 
 @pytest.fixture

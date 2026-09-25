@@ -83,7 +83,7 @@ def active_by_student(conn: sqlite3.Connection) -> dict[str, dict[tuple[str, str
     open_items, one dict per kid.
 
     Item keys are only unique within a student *and course*: two kids in like-named classes
-    share `hac:<short course>:<norm name>`, siblings in one section share `canvas:<id>`, and
+    share `hac:<short course>:<norm name>:<due>`, siblings in one section share `canvas:<id>`, and
     one kid in two sections of a class ("Algebra I - 2" and "- 3") shares a HAC key between
     them. Keyed by less, one `done` struck the other kid's, or the other section's, work off
     the sheet (#97). The course is its full name as the gradebook gives it, which is what

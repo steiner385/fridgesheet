@@ -23,7 +23,7 @@ from typing import Iterable
 from . import late_rules as _late_rules
 from . import sources as _sources
 from .dates import deadline_date
-from .matching import hac_item_key, match_course, same_item, short_course
+from .matching import hac_item_key, hac_only_key, match_course, pair_titles, same_item, short_course
 
 OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "HAC — NO GRADE")
 HANDLED_FLAGS = ("done", "excused", "ignore", "too_late")     # these remove the item from the open list
@@ -134,18 +134,15 @@ def parse_hac_date(s: str | None, tz) -> datetime | None:
         return None
 
 
-def _item_key_hac_dated(base_key: str, due: datetime) -> str:
-    """Disambiguate two HAC-only rows that share a base key by appending the row's due date."""
-    return f"{base_key}:{due.date().isoformat()}"
-
-
-def _item_key_hac_undated(base_key: str, ordinal: int) -> str:
-    """Disambiguate colliding HAC-only rows with no parseable due date.
+def _item_key_hac_undated(course_name: str, name: str, ordinal: int) -> str:
+    """The key for a HAC-only row with no parseable due date: `:unknown`, and an ordinal for
+    the second and later rows with one title.
 
     A missing date can't prove two same-named rows are one row scraped twice, so unlike the
     dated case they are never merged: each gets its own ordinal suffix.
     """
-    return f"{base_key}:unknown" if ordinal == 1 else f"{base_key}:unknown-{ordinal}"
+    key = hac_only_key(course_name, name, None)
+    return key if ordinal == 1 else f"{key}-{ordinal}"
 
 
 def _assigned_key(raw, tz) -> str:
@@ -154,25 +151,25 @@ def _assigned_key(raw, tz) -> str:
 
 
 def hac_only_keys(rows: list[dict], course_name: str, tz) -> list[tuple[dict, str]]:
-    """HAC rows with no Canvas twin, paired with the item key each should be stored under.
+    """HAC rows with no Canvas twin, paired with the item key each should be stored under:
+    `matching.hac_only_key`, the title and the due date, for every row.
 
-    Rows sharing a base key (same course, same normalised name) collide: per the Task 1 spike,
-    that can mean two genuinely different assignments, so every colliding row -- not only the
-    second, so the key never depends on row order -- gets its own due date appended. Two
-    colliding rows that also share a due date are the same row scraped twice; only the first is
-    kept, and the rest are skipped entirely (no item, no observation, not counted). The same-due
-    dedup only applies when both dates actually parsed -- a missing due date proves nothing, so
-    undated colliding rows each keep a distinct (ordinal-suffixed) key instead of merging.
+    The date is always in the key, not only when two rows share a title: keyed by title alone,
+    a lone row was re-keyed the day a second same-titled row appeared, and its flag, notes and
+    history stayed behind on the old item (#136). Two rows with one title (per the Task 1 spike,
+    genuinely different assignments) therefore tell apart by their dates, whatever order they
+    arrive in. Two rows that also share a due date are the same row scraped twice; only the
+    first is kept, and the rest are skipped entirely (no item, no observation, not counted).
+    That dedup only applies when both dates actually parsed -- a missing due date proves
+    nothing, so undated rows with one title each keep a distinct (ordinal-suffixed) key
+    instead of merging.
     """
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         groups[hac_item_key(course_name, row.get("name") or "")].append(row)
 
     keyed: list[tuple[dict, str]] = []
-    for base_key, group_rows in groups.items():
-        if len(group_rows) == 1:
-            keyed.append((group_rows[0], base_key))
-            continue
+    for group_rows in groups.values():
         seen_dated_keys: set[str] = set()
         undated_ordinal = 0
         # Undated rows are numbered in an order read from the rows themselves, not the scrape's
@@ -182,12 +179,13 @@ def hac_only_keys(rows: list[dict], course_name: str, tz) -> list[tuple[dict, st
                                                         _assigned_key(r.get("assigned"), tz),
                                                         str(r.get("category") or ""), float(r.get("points") or 0)))
         for row in group_rows:
+            name = row.get("name") or ""
             due = parse_hac_date(row.get("due"), tz)
             if due is None:
                 undated_ordinal += 1
-                keyed.append((row, _item_key_hac_undated(base_key, undated_ordinal)))
+                keyed.append((row, _item_key_hac_undated(course_name, name, undated_ordinal)))
                 continue
-            dated_key = _item_key_hac_dated(base_key, due)
+            dated_key = hac_only_key(course_name, name, due.date())
             if dated_key in seen_dated_keys:
                 continue  # same row scraped twice: keep the first, skip the rest, count nowhere
             seen_dated_keys.add(dated_key)
@@ -221,21 +219,32 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
     handled: list[Item] = []
     canvas_names_by_course: dict[str, list[str]] = {}
     canvas_peer: dict[str, str] = {}          # HAC class name -> its Canvas twin's, for late rules
+    claimed: dict[str, set[int]] = {}         # HAC class name -> the indexes of its rows a Canvas assignment took
 
     for c in ((entry.get("canvas") or {}).get("courses") or []):
         peer = match_course(c["name"], hac_classes) if hac_classes else None
-        peer_rows = {a["name"]: a for a in (peer or {}).get("assignments", [])}
         peer_name = (peer or {}).get("name")
+        peer_rows = list((peer or {}).get("assignments") or [])
+        twin_of: dict[int, int] = {}          # Canvas assignment index -> HAC row index
         if peer_name:
             canvas_peer.setdefault(peer_name, c["name"])
+            # Each assignment's HAC row by title, one to one and best first (`matching.pair_titles`,
+            # #132): the same rule as the database, so a row the app attached is the row the paper
+            # reads. A second Canvas section pairing with this class sees only the rows the first
+            # left free.
+            taken = claimed.setdefault(peer_name, set())
+            free = [i for i in range(len(peer_rows)) if i not in taken]
+            pairs = pair_titles([a["name"] for a in c["assignments"]], [peer_rows[i]["name"] for i in free])
+            twin_of = {ci: free[hi] for ci, hi in pairs.items()}
+            taken.update(twin_of.values())
         pick = _sources.assignments_for(prefs, first, c["name"], peer_name)
-        for a in c["assignments"]:
+        for ci, a in enumerate(c["assignments"]):
             if not a.get("due_at"):
                 continue
             due = datetime.fromisoformat(a["due_at"])
             if due < year_start:
                 continue
-            hac_row = next((r for n, r in peer_rows.items() if same_item(a["name"], n)), None)
+            hac_row = peer_rows[twin_of[ci]] if ci in twin_of else None
             hac_score = (hac_row or {}).get("score")
             # The teacher excused it in the gradebook of record: nothing to print, whatever
             # Canvas's automatic mark says (#135).
@@ -289,12 +298,18 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
 
     all_canvas_names = [n for names in canvas_names_by_course.values() for n in names]
     for hname, h in hac_classes.items():
-        peer_names = match_course(hname, canvas_names_by_course)
-        already = peer_names if peer_names is not None else all_canvas_names
+        rows = list(h.get("assignments") or [])
+        if hname in claimed:
+            # The rows no Canvas assignment in the paired course took are HAC-only, exactly
+            # the rows the database stores as its own items (web.ingest): a retake whose near
+            # twin already had a row is real work, never swallowed by the match (#132).
+            own = [r for i, r in enumerate(rows) if i not in claimed[hname]]
+        else:
+            # No Canvas course paired with this class: keep out rows that name open Canvas
+            # work anywhere, as before, so a class the course matcher missed is not doubled.
+            own = [r for r in rows if not any(same_item(r["name"], seen) for seen in all_canvas_names)]
         # Keyed exactly as the database stores them (`hac_only_keys`, shared with web.ingest):
-        # two same-named rows in one class carry their due date in the key there, and a flag
-        # set on either never reached the sheet while this side used the bare key (#97).
-        own = [a for a in h.get("assignments", []) if not any(same_item(a["name"], seen) for seen in already)]
+        # the title and the due date, so a flag set in the app reaches the paper (#97, #136).
         for a, key in hac_only_keys(own, hname, tz):
             due = parse_hac_date(a.get("due"), tz)
             if due is None:

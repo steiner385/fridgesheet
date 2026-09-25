@@ -122,9 +122,9 @@ def test_hac_blank_row_is_shown_and_paired_canvas_item_is_not_duplicated(rules):
         {"name": "Quiz 1", "assigned": "09/01/2026", "due": "09/09/2026", "score": 18.0, "score_raw": "18.00", "points": 20.0, "category": "Quizzes"},
     ]}]
     work = run(entry([canvas_item(missing=True)], hac_classes=hac), rules)
-    # the HAC-only key is matching.hac_item_key: the short course and the normalised name,
-    # so it is the same string the database stores and a flag set in the app can find it.
-    assert [(i.key, i.status) for i in work.items] == [("hac:Honors Biology:lab safety contract", "HAC — NO GRADE"), ("canvas:1", "MISSING")]
+    # the HAC-only key is matching.hac_only_key: the short course, the normalised name and the
+    # due date, so it is the same string the database stores and a flag set in the app can find it.
+    assert [(i.key, i.status) for i in work.items] == [("hac:Honors Biology:lab safety contract:2026-09-08", "HAC — NO GRADE"), ("canvas:1", "MISSING")]
     canvas_row = work.items[1]
     assert canvas_row.source == "both"
     assert canvas_row.assigned == datetime(2026, 9, 7, tzinfo=TZ)   # HAC's assigned date wins
@@ -293,7 +293,7 @@ def test_a_hac_only_row_takes_a_rule_written_against_the_canvas_name(tmp_path):
     ]}]
     work = run(entry([canvas_item(missing=True, due_at=iso(-1))], hac_classes=hac), rules)
     assert [i.key for i in work.items] == ["canvas:1"]
-    assert [(i.key, i.credit) for i in work.dropped] == [("hac:Hon Bio:lab safety contract", "50%")]
+    assert [(i.key, i.credit) for i in work.dropped] == [("hac:Hon Bio:lab safety contract:2026-09-08", "50%")]
 
 
 def test_a_canvas_row_takes_a_rule_written_against_the_hac_name(tmp_path):
