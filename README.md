@@ -173,7 +173,7 @@ assignments = "canvas"
 grades = "hac"
 
 [[sources.rule]]                      # first matching rule that sets a field wins
-kid = "Alex"                          # optional; prefix match (Alex ~ Alexander)
+kid = "Alex"                          # optional; first name or a short form (Alex ~ Alexander)
 course = "Honors Algebra II"          # optional; whole words of the class name
 assignments = "hac"                   # this teacher finalises quiz scores in HAC
 

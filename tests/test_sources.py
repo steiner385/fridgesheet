@@ -42,10 +42,12 @@ def test_first_matching_rule_that_sets_the_field_wins():
     assert p.resolve("Kayla", "Honors Algebra II - 2") == sources.Choice("canvas", "canvas")
 
 
-def test_kid_is_a_prefix_match_either_way():
+def test_kid_is_the_name_or_a_short_form_of_it():
+    """A short form reaches the full name (Alex ~ Alexander); a longer one does not reach a
+    shorter name (#134: the two-way prefix let a rule for one kid reach another)."""
     p = prefs('[[sources.rule]]\nkid = "Alex"\ngrades = "canvas"\n')
     assert p.resolve("Alexander", "X").grades == "canvas"
-    assert p.resolve("Al", "X").grades == "canvas"
+    assert p.resolve("Al", "X").grades == "hac"
     assert p.resolve("Sam", "X").grades == "hac"
 
 
@@ -115,11 +117,13 @@ def test_assignments_for_defaults_to_canvas_without_prefs():
     assert sources.assignments_for(None, "Alex", "Band") == "canvas"
 
 
-def test_shared_matchers_keep_late_rules_semantics():
-    assert kid_matches("", "anyone") and kid_matches("Alex", "Al") and not kid_matches("Alex", "Sam")
-    assert course_matches("Algebra I", "Algebra II")                          # late rules: plain substring, unchanged
-    assert not course_matches("Algebra I", "Algebra II", whole_words=True)
-    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch", whole_words=True)
+def test_late_rules_and_source_rules_share_one_matcher():
+    """#134: late rules matched a plain substring and a two-way kid prefix; now both kinds of
+    rule match the same way."""
+    assert kid_matches("", "anyone") and kid_matches("Alex", "Alexander") and not kid_matches("Alex", "Al")
+    assert not kid_matches("Alex", "Sam")
+    assert not course_matches("Algebra I", "Algebra II")
+    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch")
 
 
 def test_a_course_page_rule_beats_a_broader_rule_earlier_in_the_file():

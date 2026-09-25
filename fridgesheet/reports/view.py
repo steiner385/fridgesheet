@@ -89,4 +89,4 @@ class ViewReport:
 
 def _rules(ctx: BuildContext):
     from .. import late_rules
-    return late_rules.load(ctx.home / "late-rules.toml")
+    return late_rules.load(ctx.home / "late-rules.toml", household=db.household(ctx.home))

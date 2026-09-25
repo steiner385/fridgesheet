@@ -106,7 +106,13 @@ def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | No
         a, b = _comparable(due, now - timedelta(days=overdue_days))
         if a < b:
             return False
-    return now <= rules.deadline(kid, item["course_name"], due)
+    return now <= rules.deadline(kid, item["course_name"], due, peer_course(item))
+
+
+def peer_course(item) -> str | None:
+    """The item's class under its other source's name, for a late rule written against either
+    (#134). None for a class with no twin, or a row read without the `peer_course_name` join."""
+    return item["peer_course_name"] if "peer_course_name" in item.keys() else None
 
 
 def live_items(conn: sqlite3.Connection, student_id: int, now: datetime) -> list[sqlite3.Row]:

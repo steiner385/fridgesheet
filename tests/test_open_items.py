@@ -261,3 +261,43 @@ def test_a_hac_grade_drops_an_auto_missing_row_from_the_sheet():
 def test_a_hac_zero_keeps_the_missing_row():
     work = open_items.open_items(_entry_with_ws(0.0), "Alex", NOW)
     assert "WS 1" in [i.name for i in work.items]
+
+
+# --- #133 / #134: the sheet resolves late rules the way the web does ----------------------------
+
+def _two_day_rule(tmp_path, body):
+    p = tmp_path / "late-rules.toml"
+    p.write_text('[default]\nlate_days = 14\n\n[[rule]]\n' + body + 'late_days = 2\ncredit = "50%"\n')
+    return late_rules.load(p)
+
+
+def test_late_rules_resolve_by_the_students_name_not_the_printed_nickname(tmp_path):
+    """Robert, printed as Bobby: a rule for Robert closes his work after 2 days on paper too."""
+    rules = _two_day_rule(tmp_path, 'kid = "Robert"\n')
+    e = {**entry([canvas_item(missing=True, due_at=iso(-4))]), "name": "Robert Example"}
+    work = open_items.open_items(e, "Bobby", NOW, rules=rules)
+    assert work.items == [] and [i.credit for i in work.dropped] == ["50%"]
+
+
+def test_late_rules_resolve_by_the_snapshot_key_when_given(tmp_path):
+    """The web resolves by the student's key; the sheet does too when it has one."""
+    rules = _two_day_rule(tmp_path, 'kid = "Robert"\n')
+    e = {**entry([canvas_item(missing=True, due_at=iso(-4))]), "name": "Bob Example"}
+    assert open_items.open_items(e, "Bobby", NOW, rules=rules, student_key="Robert").items == []
+
+
+def test_a_hac_only_row_takes_a_rule_written_against_the_canvas_name(tmp_path):
+    rules = _two_day_rule(tmp_path, 'course = "Honors Biology S1"\n')
+    hac = [{"name": "Hon Bio - 3", "assignments": [
+        {"name": "Lab Safety Contract", "assigned": "09/01/2026", "due": "09/08/2026", "score": None, "score_raw": "", "points": 5.0, "category": "Labs"},
+    ]}]
+    work = run(entry([canvas_item(missing=True, due_at=iso(-1))], hac_classes=hac), rules)
+    assert [i.key for i in work.items] == ["canvas:1"]
+    assert [(i.key, i.credit) for i in work.dropped] == [("hac:Hon Bio:lab safety contract", "50%")]
+
+
+def test_a_canvas_row_takes_a_rule_written_against_the_hac_name(tmp_path):
+    rules = _two_day_rule(tmp_path, 'course = "Hon Bio"\n')
+    hac = [{"name": "Hon Bio - 3", "assignments": []}]
+    work = run(entry([canvas_item(missing=True, due_at=iso(-4))], hac_classes=hac), rules)
+    assert work.items == [] and [i.credit for i in work.dropped] == ["50%"]

@@ -199,7 +199,7 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
         return Verdict(QUESTION if kind == "missing_after_grade" else DECIDED, kind, {"hac": _of(hs, points)}, ANSWERS[kind])
 
     # 7-8: both have a score and HAC is lower.
-    credit = _credit_fraction(rules.resolve(item["kid"], item["course_name"]).credit)
+    credit = _credit_fraction(rules.resolve(item["kid"], item["course_name"], reconcile.peer_course(item)).credit)
     scored = _scores(c, h, points, credit)
     if scored is not None:
         return scored
@@ -277,7 +277,7 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs, pa
 
     # 14: not done and past the late-work window.
     if outcome == outcomes.NOT_DONE and due is not None:
-        late, deadline = reconcile._comparable(now, rules.deadline(item["kid"], item["course_name"], due))
+        late, deadline = reconcile._comparable(now, rules.deadline(item["kid"], item["course_name"], due, reconcile.peer_course(item)))
         if late > deadline:
             return Verdict(STATUS, "past_credit", {"school": _school_says(c, h, points)}, ANSWERS["past_credit"])
 

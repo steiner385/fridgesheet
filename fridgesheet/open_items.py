@@ -194,26 +194,31 @@ def _flag_for(flags: dict, course: str, key: str) -> str:
 
 def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overdue_days: int = 14,
                rules: _late_rules.LateRules | None = None, include_hac: bool = True,
-               flags: dict | None = None, prefs=None) -> OpenWork:
+               flags: dict | None = None, prefs=None, student_key: str | None = None) -> OpenWork:
     rules = rules or _late_rules.LateRules(_late_rules.Rule(), [], [])
     flags = flags or {}
     tz = now.tzinfo
     horizon = now + timedelta(days=days_ahead)
     oldest = now - timedelta(days=overdue_days)
     year_start = school_year_start(now)
-    # Rules name kids by first name; `kid` here is the printed label, which may be a nickname.
-    first = ((entry.get("name") or kid).split() or [kid])[0]
+    # Rules name kids by first name -- the snapshot key, which is what the web resolves by;
+    # `kid` here is the printed label, which may be a nickname (#133).
+    first = student_key or ((entry.get("name") or kid).split() or [kid])[0]
     hac_classes = {h.get("name") or "": h for h in ((entry.get("hac") or {}).get("classes") or [])} if include_hac else {}
 
     items: list[Item] = []
     dropped: list[Item] = []
     handled: list[Item] = []
     canvas_names_by_course: dict[str, list[str]] = {}
+    canvas_peer: dict[str, str] = {}          # HAC class name -> its Canvas twin's, for late rules
 
     for c in ((entry.get("canvas") or {}).get("courses") or []):
         peer = match_course(c["name"], hac_classes) if hac_classes else None
         peer_rows = {a["name"]: a for a in (peer or {}).get("assignments", [])}
-        pick = _sources.assignments_for(prefs, first, c["name"], (peer or {}).get("name"))
+        peer_name = (peer or {}).get("name")
+        if peer_name:
+            canvas_peer.setdefault(peer_name, c["name"])
+        pick = _sources.assignments_for(prefs, first, c["name"], peer_name)
         for a in c["assignments"]:
             if not a.get("due_at"):
                 continue
@@ -261,8 +266,8 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 handled.append(it)
                 continue
             if overdue:
-                rule = rules.resolve(kid, c["name"])
-                it.late_until, it.credit = rules.deadline(kid, c["name"], due), rule.credit
+                rule = rules.resolve(first, c["name"], peer_name)
+                it.late_until, it.credit = rules.deadline(first, c["name"], due, peer_name), rule.credit
                 if due < oldest or now > it.late_until:
                     dropped.append(it)
                     continue
@@ -294,8 +299,8 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if it.flag in HANDLED_FLAGS:
                 handled.append(it)
                 continue
-            rule = rules.resolve(kid, hname)
-            it.late_until, it.credit = rules.deadline(kid, hname, due), rule.credit
+            rule = rules.resolve(first, hname, canvas_peer.get(hname))
+            it.late_until, it.credit = rules.deadline(first, hname, due, canvas_peer.get(hname)), rule.credit
             if due < oldest or now > it.late_until:
                 dropped.append(it)
             else:

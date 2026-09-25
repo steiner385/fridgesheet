@@ -8,7 +8,7 @@ both have one, and the other still fills gaps. Configured in config.toml:
     grades = "hac"
 
     [[sources.rule]]              # kid and course optional; first rule that sets a field wins
-    kid = "Douglas"               #   prefix match either way (Alex ~ Alexander)
+    kid = "Douglas"               #   the student's first name, or a short form (Alex ~ Alexander)
     course = "Honors Algebra II"  #   whole words of the class name or its short name
     assignments = "hac"
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 
-from .matching import course_matches, kid_matches
+from .matching import kid_matches, rule_course_matches
 
 log = logging.getLogger("fridgesheet.sources")
 
@@ -45,10 +45,7 @@ class SourceRule:
         """`peer` is the same class's name in the other source. The two can share no words at
         all (ENGLISH LANGUAGE ARTS <-> ELA Plus 5th Gr), and a rule is about the class, so a
         rule that fits either name applies to both halves of it."""
-        if not kid_matches(self.kid, kid):
-            return False
-        return course_matches(self.course, course, whole_words=True) or (
-            bool(peer) and course_matches(self.course, peer, whole_words=True))
+        return kid_matches(self.kid, kid) and rule_course_matches(self.course, course, peer)
 
     def targets(self, kid: str, course: str) -> bool:
         """Exactly this kid and this class, as the course-page control writes it."""

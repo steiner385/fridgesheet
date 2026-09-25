@@ -73,29 +73,44 @@ def short_course(name: str) -> str:
     return b
 
 
-def kid_matches(pattern: str, kid: str) -> bool:
-    """A rule's kid against a student's first name: empty matches everyone; otherwise a prefix
-    match either way, so "Alex" and "Alexander" (and a nickname "Al") are one kid."""
+def kid_matches(pattern: str, kid: str, household=()) -> bool:
+    """A rule's kid against a student's key (their first name): empty matches everyone; the
+    name itself matches, and so does a short form of it, so a rule for "Alex" reaches
+    Alexander (README).
+
+    Only that direction (#134): a rule for "Alexander" is not a student keyed "Alex". And a
+    short form that is some other student's whole name is that student's rule -- given the
+    `household` (every student's key), a rule for "Max" does not reach his sister Maxine."""
     if not pattern:
         return True
-    a, b = pattern.lower(), (kid or "").lower()
-    return a.startswith(b) or b.startswith(a)
+    a, b = pattern.strip().lower(), (kid or "").strip().lower()
+    if a == b:
+        return True
+    if any(a == (k or "").strip().lower() for k in household):
+        return False
+    return b.startswith(a)
 
 
-def course_matches(pattern: str, course: str, *, whole_words: bool = False) -> bool:
+def course_matches(pattern: str, course: str) -> bool:
     """A rule's course against a class name, or that name with its term/teacher tail removed.
 
-    Empty matches every class. Late rules use a plain case-insensitive substring. Source rules
-    ask for `whole_words`, so "Algebra I" does not also mean "Algebra II": a rule that flips
-    which gradebook a class's grades come from must not reach a second class by accident."""
+    Empty matches every class. Otherwise whole words, case-insensitive, so "Algebra I" does not
+    also mean "Algebra II": a rule must not reach a second class by accident. One matcher for
+    late rules and source rules alike -- the late rules used a plain substring until #134."""
     if not pattern:
         return True
     p = pattern.lower().strip()
     names = ((course or "").lower(), short_course(course).lower())
-    if not whole_words:
-        return any(p in n for n in names)
     rx = re.compile(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])")
     return any(rx.search(n) for n in names)
+
+
+def rule_course_matches(pattern: str, course: str, peer: str | None = None) -> bool:
+    """`course_matches` against a class under either of its names. `peer` is the same class's
+    name in the other source; the two can share no words at all (ENGLISH LANGUAGE ARTS <-> ELA
+    Plus 5th Gr), and a rule is about the class, so a rule that fits either name applies to both
+    halves of it."""
+    return course_matches(pattern, course) or (bool(peer) and course_matches(pattern, peer))
 
 
 def hac_item_key(course: str, name: str) -> str:
