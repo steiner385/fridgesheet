@@ -2,9 +2,9 @@
 
 The snapshot stays the MCP server's input; this file is the app's memory: every refresh
 as a change log, the parent's notes and flags, saved reports and run history. Schedules
-are *not* here: `config.toml`'s `[reports.<key>]` holds them (see the `schedules` table
-below, which nothing reads or writes). Schema changes are forward-only migrations, one
-function per version.
+are *not* here: `config.toml`'s `[reports.<key>]` and `[refresh]` hold them; `schedule_fires`
+only remembers the last slot each one fired (see the `schedules` table below, which nothing
+reads or writes). Schema changes are forward-only migrations, one function per version.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -212,6 +212,17 @@ ALTER TABLE item_observations ADD COLUMN lock_reason TEXT;
 """
 
 
+_SCHEMA_V6 = """
+-- The last slot each schedule fired, per schedule key (a report key, or "data-refresh").
+-- An ISO datetime with its UTC offset. What stops a restart firing a slot twice, and what
+-- lets a slot missed while the server was down be caught up once (web/clock.py).
+CREATE TABLE schedule_fires (
+    key TEXT PRIMARY KEY,
+    slot TEXT NOT NULL
+);
+"""
+
+
 def _migrate_v5(conn: sqlite3.Connection) -> None:
     """When the observation's missing mark, and its score, first appeared: the refresh that
     began the current run of each, carried forward across rewrites for other fields. An
@@ -331,6 +342,9 @@ def migrate(conn: sqlite3.Connection) -> int:
             _migrate_v5(conn)
             conn.execute("UPDATE schema_version SET version = 5")
         v = 5
+    if v < 6:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V6 + "\nUPDATE schema_version SET version = 6;\nCOMMIT;")
+        v = 6
     return v
 
 
