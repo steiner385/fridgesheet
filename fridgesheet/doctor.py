@@ -56,6 +56,11 @@ def _database(s: Settings, home: Path) -> str:
 
 def _timezone(s: Settings, home: Path) -> str:
     ZoneInfo(s.timezone)
+    # Worth a word when the household's zone is not the computer's (#122): on Windows a task
+    # fires on the PC's clock, and the Schedules page shows next runs in the PC's time.
+    pc_zone = host.local_timezone()
+    if pc_zone and pc_zone != s.timezone:
+        return f"{s.timezone} (this computer's clock is {pc_zone})"
     return s.timezone
 
 

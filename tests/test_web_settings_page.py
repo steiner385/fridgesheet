@@ -779,3 +779,45 @@ def test_a_password_typed_anyway_against_a_locked_keyring_is_a_message_not_a_500
     r = c.post("/settings", data={**FORM, "password": "typed-anyway"})
     assert r.status_code == 200
     assert "could not be stored" in r.text and "D-Bus" in r.text and "typed-anyway" not in r.text
+
+
+# --- the time zone (#122) ------------------------------------------------------------------
+
+def test_settings_offers_a_time_zone_and_names_this_computers(tmp_path):
+    """A field under "Where you are": the common US zones to pick from, any IANA name typed,
+    and what a blank means -- this computer's zone, named, so a parent can see it is right."""
+    client, _ = _client(tmp_path)
+    html = client.get("/settings").text
+    assert 'name="timezone"' in html and "Where you are" in html
+    assert "this computer's: America/New_York" in html
+    for zone in ("America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "Pacific/Honolulu"):
+        assert f'<option value="{zone}">' in html
+
+
+def test_saving_a_time_zone_writes_general_timezone_and_the_app_uses_it_now(tmp_path):
+    client, application = _client(tmp_path)
+    r = client.post("/settings", data=_form(timezone="America/Chicago"))
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert tomllib.loads((tmp_path / "config.toml").read_text())["general"]["timezone"] == "America/Chicago"
+    assert str(application.state.fridgesheet.tz) == "America/Chicago"      # in force now, not at the next start
+    assert 'name="timezone"' in r.text and 'value="America/Chicago"' in r.text
+    # Blank means this computer's zone again: the key goes, rather than staying as "".
+    r = client.post("/settings", data=_form(timezone="  "))
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert "timezone" not in tomllib.loads((tmp_path / "config.toml").read_text()).get("general", {})
+    assert str(application.state.fridgesheet.tz) == "America/New_York"
+
+
+def test_a_time_zone_that_is_not_a_zone_is_refused_before_anything_is_written(tmp_path):
+    client, _ = _client(tmp_path)
+    r = client.post("/settings", data=_form(timezone="Eastern"))
+    assert r.status_code == 200 and "Time zone must be a name like America/Chicago" in r.text
+    assert "general" not in tomllib.loads((tmp_path / "config.toml").read_text())
+    assert 'value="Eastern"' in r.text                                     # what was typed comes back to fix
+
+
+def test_the_settings_page_says_when_the_environment_pins_the_time_zone(tmp_path, monkeypatch):
+    monkeypatch.setenv("FRIDGESHEET_TIMEZONE", "America/Denver")
+    client, _ = _client(tmp_path)
+    html = client.get("/settings").text
+    assert "Set by FRIDGESHEET_TIMEZONE=America/Denver in the environment" in html

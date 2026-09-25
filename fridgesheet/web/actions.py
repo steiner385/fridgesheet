@@ -21,7 +21,7 @@ from typing import Callable
 from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
-from .. import config, late_rules, runner, sources
+from .. import config, host, late_rules, runner, sources
 from . import updatepin
 
 REPORT_KEY = "open-work"
@@ -76,6 +76,13 @@ class FormValues:
     has_update_pin: bool = False          # read-only, for the page: whether a hash is stored
     sources_assignments: str = "canvas"   # [sources] assignments: household default
     sources_grades: str = "hac"           # [sources] grades: household default
+    timezone: str = ""          # [general] timezone as config.toml has it; blank = this computer's zone (#122)
+
+
+#: The list behind the Time zone box: the zones a US household is likely to pick, east to
+#: west. Any IANA name can still be typed; `validate` judges it with `host.is_timezone`.
+US_ZONES: tuple[str, ...] = ("America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+                             "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "America/Puerto_Rico")
 
 
 def _settings_for(home: Path) -> config.Settings:
@@ -107,6 +114,9 @@ def load_form(home: Path) -> FormValues:
         has_update_pin=bool(s.web_update_pin_hash),
         sources_assignments=s.sources.default.assignments,
         sources_grades=s.sources.default.grades,
+        # What the file says, not `s.timezone`: that is the computer's own when the key is
+        # not set, and the box must stay blank then so a Save does not pin today's zone.
+        timezone=config.configured_timezone(config.load_config_doc(home / CONFIG_NAME)),
     )
 
 
@@ -118,6 +128,7 @@ ENV_OVERRIDES: tuple[tuple[str, str], ...] = (
     ("port", "FRIDGESHEET_WEB_PORT"),
     ("nicknames", "FRIDGESHEET_NICKNAMES"),
     ("allow_lan", "FRIDGESHEET_WEB_HOST"),
+    ("timezone", "FRIDGESHEET_TIMEZONE"),
 )
 
 
@@ -177,7 +188,7 @@ def env_overrides(environ: dict | None = None) -> dict[str, str]:
             out[field_name] = (f"{var}={value} in the environment (.env) is added on top of these, "
                                "and wins where they disagree.")
             continue
-        if field_name == "allow_lan" and not value:
+        if field_name in ("allow_lan", "timezone") and not value.strip():
             continue
         out[field_name] = f"Set by {var}={value} in the environment (.env); this box is ignored while that is set."
     return out
@@ -237,6 +248,8 @@ def validate(form: FormValues, stored: str, *, environ: dict | None = None) -> l
     for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
         if value not in sources.SOURCES:
             errors.append(f"{label} must come from Canvas or HAC.")
+    if form.timezone.strip() and not host.is_timezone(form.timezone.strip()):
+        errors.append("Time zone must be a name like America/Chicago, or blank for this computer's.")
     return errors
 
 
@@ -280,6 +293,15 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     rep.update(days_ahead=int(form.days_ahead), overdue_days=int(form.overdue_days))
     # Only the household defaults: the override rules belong to the course pages and the list below.
     doc["sources"] = sources.from_doc(doc).with_default(form.sources_assignments, form.sources_grades).to_doc()
+    # A blank box drops the key rather than writing "": the zone is then this computer's
+    # again (config.default_timezone), and an empty `[general]` is not left behind.
+    general = _table(doc, "general")
+    if form.timezone.strip():
+        general["timezone"] = form.timezone.strip()
+    else:
+        general.pop("timezone", None)
+    if not general:
+        del doc["general"]
 
     prev = dict(_table(doc, "web"))
     web = _table(doc, "web")

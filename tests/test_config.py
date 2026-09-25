@@ -4,6 +4,7 @@ export FRIDGESHEET_ENV_FILE. Claude Desktop rewrites its config on exit and can 
 way the server silently ran without its settings."""
 from __future__ import annotations
 
+import logging
 import os
 import tomllib
 from pathlib import Path
@@ -437,3 +438,102 @@ def test_printer_for_is_the_runners_precedence(tmp_path):
     assert s.printer_for("view:7") == "Shared"
     s.printer = ""
     assert s.printer_for("view:7") == ""
+
+
+# --- the time zone (#122) ----------------------------------------------------------------
+# `Settings.timezone` was a constant, America/New_York, with no key or variable to change it:
+# every non-Eastern household saw "today", DUE TODAY and its schedules an hour or more off.
+# The default is now this computer's own zone; `[general] timezone` and FRIDGESHEET_TIMEZONE
+# say otherwise. The whole suite runs pinned to Eastern (conftest `_eastern_computer`).
+
+
+def test_timezone_defaults_to_this_computers_zone(monkeypatch):
+    monkeypatch.setattr(host, "local_timezone", lambda: "America/Chicago")
+    assert config.Settings().timezone == "America/Chicago"
+    assert config.load_settings().timezone == "America/Chicago"
+
+
+def test_timezone_falls_back_to_eastern_with_a_warning_when_the_computer_cannot_say(monkeypatch, caplog, real_local_timezone):
+    """A container with no /etc/localtime, a Windows zone the small map does not know: the
+    district this was written for, said out loud once in the log rather than guessed silently."""
+    monkeypatch.setattr(host, "local_timezone", real_local_timezone)
+    monkeypatch.setattr(host, "detect_timezone", lambda: None)
+    with caplog.at_level(logging.WARNING, logger="fridgesheet.host"):
+        assert config.Settings().timezone == "America/New_York"
+        assert config.Settings().timezone == "America/New_York"
+    warnings = [r.getMessage() for r in caplog.records if "time zone" in r.getMessage()]
+    assert len(warnings) == 1 and "America/New_York" in warnings[0] and "[general] timezone" in warnings[0]
+
+
+def test_config_toml_general_timezone_is_read():
+    s = config.Settings()
+    config.settings_from_doc({"general": {"timezone": "America/Chicago"}}, s)
+    assert s.timezone == "America/Chicago"
+    s = config.Settings()
+    config.settings_from_doc({"general": {"timezone": "  "}}, s)     # blank means "not set"
+    assert s.timezone == "America/New_York"
+
+
+def test_environment_timezone_beats_config_toml(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    (tmp_path / "config.toml").write_text('[general]\ntimezone = "America/Chicago"\n')
+    assert config.load_settings().timezone == "America/Chicago"
+    monkeypatch.setenv("FRIDGESHEET_TIMEZONE", "America/Denver")
+    assert config.load_settings().timezone == "America/Denver"
+
+
+def test_a_time_zone_that_is_not_a_zone_is_a_config_error(tmp_path, monkeypatch):
+    """The same posture as a `time = "25:99"` (#144): a line naming the file and the setting,
+    which the Settings and Schedules pages show instead of a 500 and the CLI instead of a
+    traceback. `ZoneInfo` is the judge, so nothing here keeps its own list of zones."""
+    with pytest.raises(config.ConfigError, match=r"\[general\] timezone must be .*America/Chicago.*'Eastern'"):
+        config.settings_from_doc({"general": {"timezone": "Eastern"}}, config.Settings())
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+    (tmp_path / "config.toml").write_text('[general]\ntimezone = "US/Nowhere"\n')
+    with pytest.raises(config.ConfigError, match="config.toml"):
+        config.load_settings()
+    (tmp_path / "config.toml").unlink()
+    monkeypatch.setenv("FRIDGESHEET_TIMEZONE", "EDT")
+    with pytest.raises(config.ConfigError, match="FRIDGESHEET_TIMEZONE must be .*'EDT'"):
+        config.load_settings()
+
+
+def test_detection_reads_tz_then_etc_localtime_then_etc_timezone(tmp_path):
+    """Linux, with no new dependency: TZ when it names a zone, the symlink glibc itself
+    follows, then Debian's text file. Each answer is checked with `ZoneInfo` before it is
+    believed, so a `TZ=XYZ+7` (a POSIX rule, not a name) falls through instead of winning."""
+    zi = tmp_path / "usr/share/zoneinfo/America/Chicago"
+    zi.parent.mkdir(parents=True)
+    zi.write_bytes(b"")
+    localtime = tmp_path / "etc/localtime"
+    localtime.parent.mkdir()
+    localtime.symlink_to(zi)
+    tzfile = tmp_path / "etc/timezone"
+    tzfile.write_text("America/Denver\n")
+
+    def detect(environ):
+        return host.detect_timezone(environ=environ, is_windows=False, localtime=localtime, timezone_file=tzfile)
+
+    assert detect({"TZ": "America/Los_Angeles"}) == "America/Los_Angeles"
+    assert detect({"TZ": ":America/Los_Angeles"}) == "America/Los_Angeles"      # the POSIX colon form
+    assert detect({"TZ": "XYZ+7"}) == "America/Chicago"
+    assert detect({}) == "America/Chicago"
+    localtime.unlink()
+    localtime.write_bytes(b"TZif2 copied, not linked")                          # a Docker image's usual shape
+    assert detect({}) == "America/Denver"
+    tzfile.write_text("Mars/Olympus_Mons\n")
+    assert detect({}) is None
+
+
+def test_detection_maps_a_windows_zone_name_to_iana():
+    """Windows names its zones its own way ("Central Standard Time", the registry key, whatever
+    the display language); `tzdata` on Windows only knows IANA. A small map covers the zones a
+    household using this app plausibly has; anything else is None, and the fallback says so."""
+    def detect(name):
+        return host.detect_timezone(environ={}, is_windows=True, windows_zone=lambda: name)
+    assert detect("Central Standard Time") == "America/Chicago"
+    assert detect("US Mountain Standard Time") == "America/Phoenix"
+    assert detect("Klingon Standard Time") is None
+    assert detect(None) is None
+    assert host.detect_timezone(environ={"TZ": "America/Denver"}, is_windows=True,
+                                windows_zone=lambda: "Central Standard Time") == "America/Denver"

@@ -4,10 +4,13 @@ import csv
 import os
 import subprocess
 import tempfile
+from datetime import date, datetime, time as dtime
 from importlib import resources
 from xml.sax.saxutils import escape
+from zoneinfo import ZoneInfo
 
-from . import CREATE_NO_WINDOW, DAY_NAMES, ScheduleInfo, SchedulingError, check_schedule_times, task_name
+from . import (CREATE_NO_WINDOW, DAY_NAMES, ScheduleInfo, SchedulingError, check_schedule_times, local_timezone,
+               task_name)
 from .service_windows import NAME as _WEB_TASK
 
 #: Task Scheduler XML's day-element names, in `DAY_NAMES` order -- built *from* `DAY_NAMES`
@@ -91,13 +94,49 @@ def render_task_xml(name: str, times: list[str], days: list[str], exe: str, args
     before, so every task already installed keeps the XML it has.
     """
     check_schedule_times(times, days)
+    return _render(name, [(t, days) for t in times], exe, args, workdir, description)
+
+
+def _render(name: str, triggers: list[tuple[str, list[str]]], exe: str, args: str, workdir: str,
+            description: str | None) -> str:
+    """`render_task_xml` with the days chosen per time: `install` needs that once a
+    conversion to this PC's clock has carried one time over midnight and not another."""
     template = resources.files("fridgesheet.host").joinpath("task.xml").read_text(encoding="utf-8")
-    day_xml = "\n".join(f"          <{_DAY_TAGS[d]} />" for d in days)
-    triggers = "\n".join(_TRIGGER.format(time=t, days=day_xml) for t in times)
+    xml = "\n".join(_TRIGGER.format(time=t, days="\n".join(f"          <{_DAY_TAGS[d]} />" for d in days))
+                    for t, days in triggers)
     desc = description or f"Fridge Sheet: {name.split(' - ', 1)[-1]}"
     return (template.replace("{description}", escape(desc))
-                    .replace("{triggers}", triggers)
+                    .replace("{triggers}", xml)
                     .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
+
+
+def pc_local_times(times: list[str], timezone: str, *, pc_zone: str | None, today: date | None = None) -> list[tuple[str, int]]:
+    """Each HH:MM of the household's `timezone` as this PC's own HH:MM, with the day it lands
+    on relative to the household's: 0, or +1/-1 when the conversion crossed midnight.
+
+    `StartBoundary` is the PC's local time, full stop -- a systemd timer can name a zone, a
+    Task Scheduler trigger cannot -- so a household whose zone is not the PC's (a laptop from
+    another state, a PC never set) gets its task written at the PC-local hour that *is* its
+    hour (#122). Nothing is converted when no zone is configured, the two agree, or the PC's
+    cannot be read (`local_timezone` warned): the time is then taken as PC-local, which is
+    what it always was. The offset is worked out for `today`; the two zones' clocks move
+    together at daylight-saving changes, except against a zone that keeps none (Phoenix),
+    where a task installed in summer runs an hour off in winter until it is saved again.
+    """
+    if not timezone or not pc_zone or timezone == pc_zone:
+        return [(t, 0) for t in times]
+    today = today or date.today()
+    out: list[tuple[str, int]] = []
+    for t in times:
+        h, m = (int(x) for x in t.split(":", 1))
+        local = datetime.combine(today, dtime(h, m), tzinfo=ZoneInfo(timezone)).astimezone(ZoneInfo(pc_zone))
+        out.append((local.strftime("%H:%M"), (local.date() - today).days))
+    return out
+
+
+def _shift_days(days: list[str], by: int) -> list[str]:
+    """`days` moved `by` days along the week: Friday's 22:00 Pacific is Saturday's 01:00 Eastern."""
+    return [DAY_NAMES[(DAY_NAMES.index(d) + by) % len(DAY_NAMES)] for d in days]
 
 
 def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
@@ -106,16 +145,19 @@ def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
 
 def install(key: str, times: list[str], days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
             *, title: str | None = None, home: str = "", timezone: str = "") -> None:
-    """`home` and `timezone` are accepted and unused: a task runs in the logged-in session's
-    own environment, and `StartBoundary` is local time by definition. They are in the
-    signature so `scheduling.install` is one call on both platforms.
+    """`home` is accepted and unused: a task runs in the logged-in session's own environment.
+    `timezone` is the household's zone, and `StartBoundary` is this PC's local time by
+    definition -- so each time is converted to the PC's clock (`pc_local_times`), and a
+    conversion that crosses midnight moves the day with it. Both are in the signature so
+    `scheduling.install` is one call on both platforms.
 
     The ownership check runs first, ahead of even `check_schedule_times`, as the Linux one
     does: a key that renders to a task this app did not write must never reach a `schtasks`
     call."""
     _check_ownership(key)
-    xml = render_task_xml(task_name(key), times, days, exe, args, workdir,
-                          description=f"Fridge Sheet: {title}" if title else None)
+    check_schedule_times(times, days)
+    triggers = [(t, _shift_days(days, shift)) for t, shift in pc_local_times(times, timezone, pc_zone=local_timezone())]
+    xml = _render(task_name(key), triggers, exe, args, workdir, f"Fridge Sheet: {title}" if title else None)
     fd, path = tempfile.mkstemp(prefix="fridgesheet-task-", suffix=".xml")
     try:
         with os.fdopen(fd, "wb") as f:
@@ -163,11 +205,18 @@ def _csv_field(stdout: str, name: str) -> str | None:
     return value if value and value != "N/A" else None
 
 
-def describe(key: str, run=subprocess.run):
+def describe(key: str, run=subprocess.run, *, timezone: str = ""):
+    """What Task Scheduler has for `key`. The next run is in this PC's time, which is the
+    household's too -- unless `timezone` names another zone, when the line says whose clock
+    it is (#122). Callers that do not know the household's zone leave it blank."""
     # CSV rather than LIST: a field with a comma (`Task To Run`) stays one quoted field, and
     # the columns keep their order whatever the locale, which LIST's "Label: value" lines do
     # not give a reader that does not know the localised labels.
     p = _schtasks(["/Query", "/TN", task_name(key), "/FO", "CSV", "/V"], run)
     if p.returncode != 0:
         return ScheduleInfo("task-scheduler", False, None, None)
-    return ScheduleInfo("task-scheduler", True, _csv_field(p.stdout, "Next Run Time"), _csv_field(p.stdout, "Last Result"))
+    next_run = _csv_field(p.stdout, "Next Run Time")
+    pc_zone = local_timezone()
+    if next_run and timezone and pc_zone and timezone != pc_zone:
+        next_run += f" (this PC's clock, {pc_zone})"
+    return ScheduleInfo("task-scheduler", True, next_run, _csv_field(p.stdout, "Last Result"))

@@ -459,7 +459,9 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
     """`sleep` is what a scheduled run waits with while another run holds the lock (a test's
     fake); every other caller leaves it to `time.sleep`."""
     tz = ZoneInfo(settings.timezone)
-    now = now or datetime.now(tz)
+    # On the household's clock whoever built it (#122): the print window, the sheet's date
+    # and "today" are all read off `now`, and the CLI's `--date`-less clock is the process's.
+    now = now.astimezone(tz) if now else datetime.now(tz)
     started = datetime.now(tz)   # the real clock for run bookkeeping, even when `now` is injected
     home = settings.home
     home.mkdir(parents=True, exist_ok=True)

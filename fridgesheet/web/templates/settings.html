@@ -46,6 +46,22 @@
   </section>
 
   <section class="card">
+    <h3>Where you are</h3>
+    <div class="settings-grid">
+      {# A datalist, not a select: the common US zones to pick from, and any IANA name typed
+         for a household elsewhere (#122). Blank means this computer's zone, which the help
+         names so a parent can see whether it is right. #}
+      <label>Time zone <input name="timezone" list="timezone-options" value="{{ form.timezone }}" autocomplete="off"
+               placeholder="{{ local_tz or fallback_tz }}">
+         <datalist id="timezone-options">{% for z in zones %}<option value="{{ z }}">{% endfor %}</datalist>
+         <span class="field-help">Due times, "today" and schedules follow this. Leave it blank for this computer's zone
+           {% if local_tz %}(this computer's: {{ local_tz }}){% else %}— which could not be read, so {{ fallback_tz }} is assumed{% endif %};
+           pick one, or type any name like America/Chicago.</span>
+         {% if env_notes.timezone %}<span class="field-help env-note">{{ env_notes.timezone }}</span>{% endif %}</label>
+    </div>
+  </section>
+
+  <section class="card">
     <h3>Gradebook sources</h3>
     <div class="settings-grid">
       <label>Assignment scores come from <select name="sources_assignments">

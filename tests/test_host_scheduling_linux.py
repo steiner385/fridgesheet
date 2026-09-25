@@ -44,6 +44,14 @@ def test_the_timer_lists_its_days_and_catches_up():
     assert "Description=Fridge Sheet: Open Work Sheet (Mon, Tue, Wed, Thu, Fri at 14:00)" in text
 
 
+def test_the_timer_carries_whatever_zone_the_household_configured():
+    """`OnCalendar=... <zone>` is the configured zone, not the district this app was written
+    for (#122): a Central household's 14:00 is 14:00 Central, on a laptop that travels too."""
+    text = sl.timer_text("open-work", "Open Work Sheet", ["14:00"], ["Mon"], "America/Chicago")
+    assert "OnCalendar=Mon 14:00 America/Chicago" in text
+    assert "New_York" not in text
+
+
 def test_a_timer_with_no_time_zone_configured_still_writes_a_valid_line():
     text = sl.timer_text("view:7", "Weekly summary", ["16:00"], ["Fri"], "")
     assert "OnCalendar=Fri 16:00\n" in text
