@@ -7,19 +7,19 @@
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
 
-{% if refresh %}
+{% if refresh_schedule %}
 <h3>Refresh the data</h3>
 <p class="muted">How often Fridge Sheet pulls Canvas and HAC. A printed report reads whatever
   the last refresh left behind, so this is what keeps it -- and the page on the wall -- current.</p>
 <form hx-post="/schedules/refresh" hx-target="body">
-  <label><input type="checkbox" name="enabled" {{ "checked" if refresh.enabled }}> Refresh on a schedule</label>
-  <label>Every <input type="number" name="every_hours" min="1" max="24" value="{{ refresh.every_hours }}"> hours</label>
-  <label>Between <input type="time" name="start" value="{{ refresh.start }}"></label>
-  <label>and <input type="time" name="end" value="{{ refresh.end }}"></label>
+  <label><input type="checkbox" name="enabled" {{ "checked" if refresh_schedule.enabled }}> Refresh on a schedule</label>
+  <label>Every <input type="number" name="every_hours" min="1" max="24" value="{{ refresh_schedule.every_hours }}"> hours</label>
+  <label>Between <input type="time" name="start" value="{{ refresh_schedule.start }}"></label>
+  <label>and <input type="time" name="end" value="{{ refresh_schedule.end }}"></label>
   <span>{% for d in days %}<label><input type="checkbox" name="days" value="{{ d }}"
-    {{ "checked" if d in refresh.days }}> {{ d }}</label>{% endfor %}</span>
-  {% if refresh.problem %}<p class="warn">{{ refresh.problem }}</p>
-  {% elif refresh.times %}<p class="muted">Refreshes at {{ refresh.times | join(', ') }}.</p>{% endif %}
+    {{ "checked" if d in refresh_schedule.days }}> {{ d }}</label>{% endfor %}</span>
+  {% if refresh_schedule.problem %}<p class="warn">{{ refresh_schedule.problem }}</p>
+  {% elif refresh_schedule.times %}<p class="muted">Refreshes at {{ refresh_schedule.times | join(', ') }}.</p>{% endif %}
   <button class="primary">Save</button>
 </form>
 {% endif %}

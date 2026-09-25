@@ -319,10 +319,19 @@ def safe_pdf(state: AppState, path: str | None) -> Path | None:
     return resolved if any(resolved.is_relative_to(r) for r in roots) else None
 
 
+class UnknownKid(HTTPException):
+    """A 404 whose page names the kid: `/changes?kid=nobody` is a real page asked about a kid
+    it doesn't know, and "/changes is not a page here." blamed the address instead (#150)."""
+
+    def __init__(self, key: str):
+        super().__init__(404, f"no student {key!r}")
+        self.message = f"No kid called “{key}” is known here."
+
+
 def student_or_404(conn: sqlite3.Connection, key: str) -> sqlite3.Row:
     s = students.by_key(conn, key)
     if s is None or s["hidden"]:
-        raise HTTPException(404, f"no student {key!r}")
+        raise UnknownKid(key)
     return s
 
 
@@ -544,10 +553,10 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             body["version"] = version()
         return JSONResponse(body)
 
-    def not_found(request: Request) -> HTMLResponse:
+    def not_found(request: Request, message: str | None = None) -> HTMLResponse:
         conn = db.open_db(home)
         try:
-            return render(request, conn, "404.html", status_code=404, path=request.url.path)
+            return render(request, conn, "404.html", status_code=404, path=request.url.path, message=message)
         finally:
             conn.close()
 
@@ -558,7 +567,7 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
     async def http_exception(request: Request, exc: StarletteHTTPException):
         if exc.status_code != 404:
             return await http_exception_handler(request, exc)
-        return not_found(request)
+        return not_found(request, getattr(exc, "message", None))
 
     # A path that cannot be a row id (/items/abc) is a wrong address, not an API error:
     # the parent gets the 404 page, not FastAPI's 422 JSON. A bad form body is a different

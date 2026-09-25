@@ -202,3 +202,25 @@ def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
     then = body[body.index(".then(function (data)"):]
     guard = then.index("if (!document.contains(el)) return;")
     assert guard < then.index("el.innerHTML") and guard < then.index("CHARTS.push")
+
+
+def test_the_weekly_chart_draws_every_series_the_table_beside_it_shows(tmp_path):
+    """#150: `/trends/weekly.json` has five counts and the table has five columns, but the
+    chart drew four -- "On paper" (`done_offline`) was missing from it."""
+    history(tmp_path).close()
+    data = app_for(tmp_path).get("/trends/weekly.json").json()
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    start = js.index('if (el.dataset.kind === "weekly")')
+    weekly = js[start:js.index("} else {", start)]
+    for key in data.keys() - {"weeks"}:
+        assert f"data.{key}" in weekly, key
+    assert '"On paper"' in weekly
+
+
+def test_an_unknown_kid_on_trends_says_the_kid_is_not_known(tmp_path):
+    """#150: the 404 blamed the address ("/trends is not a page here.") when it was the kid."""
+    seed(tmp_path).close()
+    r = app_for(tmp_path).get("/trends?kid=nobody")
+    assert r.status_code == 404
+    assert "is not a page here" not in r.text
+    assert "No kid called “nobody”" in r.text

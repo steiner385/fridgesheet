@@ -118,3 +118,19 @@ def test_an_empty_first_refresh_is_not_the_baseline(tmp_path):
     assert not [e for e in feed if e.kind == "new_item"], "the first real look is a baseline, not news"
     assert any(e.kind == "grade_posted" for e in feed)           # the state it carried still shows
     conn.close()
+
+
+def test_an_unknown_kid_says_the_kid_is_not_known(tmp_path):
+    """#150: `/changes?kid=nobody` answered "/changes is not a page here." -- the page is; the
+    kid is not."""
+    seed(tmp_path).close()
+    r = app_for(tmp_path).get("/changes?kid=nobody")
+    assert r.status_code == 404
+    assert "is not a page here" not in r.text
+    assert "No kid called “nobody”" in r.text
+
+
+def test_a_mistyped_address_still_says_it_is_not_a_page(tmp_path):
+    seed(tmp_path).close()
+    r = app_for(tmp_path).get("/no-such-page")
+    assert r.status_code == 404 and "/no-such-page is not a page here." in r.text

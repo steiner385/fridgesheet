@@ -161,6 +161,8 @@ def reopen(item_id: int, request: Request, slot: str = "", conn: sqlite3.Connect
 @router.get("/questions")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     kid = request.query_params.get("kid") or None
+    if kid:
+        student_or_404(conn, kid)       # an unknown kid is a 404 naming it, not an empty page (#150)
     let_go_ids = _ids(request.query_params.get("let_go", ""))
     now, rules, prefs = state.now(), state.rules(), state.sources()
     groups = []

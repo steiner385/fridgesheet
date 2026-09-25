@@ -152,3 +152,12 @@ def test_a_junk_every_hours_does_not_500(tmp_path):
     assert "Traceback" not in r.text
     doc = tomllib.loads((tmp_path / "config.toml").read_text())
     assert doc["refresh"]["every_hours"] == 3
+
+
+def test_the_header_still_says_when_the_data_was_refreshed(tmp_path):
+    """#141: the page passed the refresh *schedule* as `refresh`, the name `_header.html` reads
+    the last refresh from -- so this was the one page whose header said "Refreshed" and no time."""
+    c, _ = _client(tmp_path)
+    body = c.get("/schedules").text
+    assert "Refreshed Tue 9/15 1:50 PM" in body
+    assert "Refresh on a schedule" in body                    # the schedule editor still renders

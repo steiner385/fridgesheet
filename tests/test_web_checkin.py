@@ -613,7 +613,7 @@ def test_the_print_view_carries_the_markers_a_reader_needs(tmp_path):
     body = app_for(tmp_path, now=NOW + timedelta(days=1)).get("/kids/Alex/plan/print").text
     assert "Planned for Mon 9/14 · revisit this date" in body
     assert "school record changed since this step was saved" in body
-    assert "Private" not in body and "Family accounts stay on screen" in body
+    assert "Private" not in body and "Each step’s family account stays on screen" in body
 
 
 def test_hac_scores_print_with_their_denominator(tmp_path):

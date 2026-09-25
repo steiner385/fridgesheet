@@ -28,3 +28,12 @@ def test_bulk_let_go_appears_only_with_two_or_more_past_credit_items(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/questions").text
     assert "too late for credit" not in body             # Alex has one (Homework 4), Sam none
+
+
+def test_an_unknown_kid_is_a_404_that_names_the_kid_not_an_empty_page(tmp_path):
+    """#150: `/questions?kid=nobody` filtered every kid away and rendered an empty page, as if
+    nobody had a question. It now answers the way /changes and /trends do."""
+    seed(tmp_path).close()
+    r = app_for(tmp_path).get("/questions?kid=nobody")
+    assert r.status_code == 404
+    assert "No kid called “nobody”" in r.text

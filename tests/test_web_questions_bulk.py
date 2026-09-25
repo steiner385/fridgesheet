@@ -6,7 +6,7 @@ from datetime import datetime
 
 from fridgesheet.web import db
 from fridgesheet.web.stores import flags, items, students
-from tests.web_fixtures import TZ, app_for, seed
+from tests.web_fixtures import TZ, app_for, seed, snapshot
 
 
 def _flag(tmp_path, name):
@@ -28,6 +28,16 @@ def test_letting_go_flags_only_that_kids_past_credit_work(tmp_path):
 def test_an_unknown_kid_is_refused(tmp_path):
     seed(tmp_path).close()
     assert app_for(tmp_path).post("/questions/let-go", data={"kid": "Nobody"}).status_code == 404
+
+
+def test_the_redirect_back_encodes_the_kid(tmp_path):
+    """#150: the redirect was `f"/questions?kid={kid}"`, so a key with `&` or a space in it
+    came back as a different (or broken) query."""
+    snap = snapshot()
+    snap["students"]["Al & Ex"] = snap["students"].pop("Alex")
+    seed(tmp_path, snap).close()
+    r = app_for(tmp_path).post("/questions/let-go", data={"kid": "Al & Ex"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith("/questions?kid=Al+%26+Ex")
 
 
 LATER = datetime(2026, 9, 30, 14, 0, tzinfo=TZ)     # two of Alex's items are past their window by now

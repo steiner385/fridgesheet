@@ -110,7 +110,7 @@ def _printers(s: Settings, home: Path) -> str:
         raise RuntimeError(f"configured printer {s.printer!r} is not installed; installed: {', '.join(names)}")
     default = printing.default_printer()
     if not s.printer and default is None:
-        raise RuntimeError("no printer is configured and Windows has no default printer")
+        raise RuntimeError("no printer is configured and this computer has no default printer")
     return f"{len(names)} printer(s), default {default or 'none'}, configured {s.printer or 'system default'}"
 
 
@@ -139,6 +139,21 @@ def _scheduler(s: Settings, home: Path) -> str:
     detail = f"{info.managed_by}: {state}"
     if info.last_result:
         detail += f"; last result {info.last_result}"
+    # The data refresh and every saved report's schedule are tasks too (#150): one that is on
+    # in config.toml with nothing installed fails silently, and a scheduled report runs
+    # `--no-refresh`, so a missing refresh task leaves the page on the wall going stale.
+    if s.refresh.enabled:
+        if not scheduling.describe(host.DATA_REFRESH_KEY).installed:
+            raise RuntimeError("the data refresh is on in config.toml but no task is installed; "
+                               "Save it again on the Schedules page")
+        detail += "; data refresh scheduled"
+    saved = [k for k, rc in s.reports.items() if k not in (REPORT_KEY, host.DATA_REFRESH_KEY) and rc.enabled]
+    for key in saved:
+        if not scheduling.describe(key).installed:
+            raise RuntimeError(f"[reports.{key}] is on in config.toml but no task is installed; "
+                               "Save it again on the Schedules page")
+    if saved:
+        detail += f"; {len(saved)} saved report{'s' if len(saved) != 1 else ''} scheduled"
     return detail
 
 
