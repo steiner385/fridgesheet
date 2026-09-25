@@ -16,13 +16,12 @@ router = APIRouter()
 @router.get("/runs")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     rows = runs.recent(conn, 100)
+    # Reprint prints the row's own PDF (`/jobs/reprint`, #143), so the button is offered on
+    # exactly the rows whose "open" link would work: `pdfs` decides both.
     pdfs = {r["id"]: safe_pdf(state, r["pdf_path"]) for r in rows}
-    # The day the reprint button asks for, cut from the stored ISO timestamp here rather than
-    # sliced in the template: the template says what it shows, this says what it means.
-    dates = {r["id"]: (r["started_at"] or "")[:10] for r in rows}
     # A saved report's key is `view:<id>`; the parent named it, so say that name (#6).
     titles = {r.key: r.title for r in registry.available(state.home)}
-    return render(request, conn, "runs.html", current="runs", rows=rows, pdfs=pdfs, dates=dates, titles=titles)
+    return render(request, conn, "runs.html", current="runs", rows=rows, pdfs=pdfs, titles=titles)
 
 
 @router.get("/runs/{run_id}/pdf")

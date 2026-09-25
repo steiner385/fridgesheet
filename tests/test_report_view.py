@@ -184,7 +184,8 @@ def test_the_runner_runs_a_view_report(tmp_path):
     row = conn.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 1").fetchone()
     conn.close()
     assert row["report_key"] == f"view:{rid}" and row["outcome"] == "OK"
-    assert (tmp_path / f"reports/view-{rid}" / NOW.date().isoformat() / "report.pdf").is_file()
+    # A dry run is a side build for a saved report too (#143): its own file, beside report.pdf.
+    assert (tmp_path / f"reports/view-{rid}" / NOW.date().isoformat() / "report-preview.pdf").is_file()
 
 
 def test_a_scheduled_view_report_follows_the_assignments_source(tmp_path):

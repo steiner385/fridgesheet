@@ -57,7 +57,7 @@ class ViewReport:
             raise ReportError(f"{self.name}: {e}") from None
         finally:
             conn.close()
-        pdf = ctx.out_dir / "report.pdf"
+        pdf = ctx.pdf_path("report")
         # A report limited to a window says so on paper, or "the last 7 days" reads as everything (#94).
         notes = ([f"Rows from {rendered.window.lower()}"] if rendered.window else []) + \
                 ([f"{rendered.truncated} more rows are not shown"] if rendered.truncated else [])

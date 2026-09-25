@@ -6,7 +6,7 @@ import tomllib
 
 from fastapi.testclient import TestClient
 
-from fridgesheet import config
+from fridgesheet import config, host
 from fridgesheet.web import app as webapp, updatepin
 from tests.web_fixtures import LOCAL_HOST_HEADERS, app_for, seed
 
@@ -560,7 +560,8 @@ def test_a_blank_pin_field_keeps_the_stored_one(tmp_path):
     assert stored in (tmp_path / "config.toml").read_text(encoding="utf-8")
 
 
-def test_no_button_without_a_pin(tmp_path):
+def test_no_button_without_a_pin(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the card's Windows guards, not the Linux line (#145)
     """An update genuinely is available (see `_app_with_update`), so the missing PIN is the
     only thing that can be suppressing the button here."""
     c = _app_with_update(tmp_path)
@@ -569,7 +570,8 @@ def test_no_button_without_a_pin(tmp_path):
     assert "Set an update PIN" in body
 
 
-def test_no_button_when_the_logon_task_is_missing(tmp_path):
+def test_no_button_when_the_logon_task_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the card's Windows guards, not the Linux line (#145)
     """Issue #39: schtasks /Create fails for standard users and Inno ignores [Run] exit
     codes. A silent update on such a machine leaves a dead app with no wizard and no
     shortcut, so we decline rather than strand them."""
@@ -588,7 +590,8 @@ def test_no_button_when_update_checks_are_off(tmp_path):
     assert "Update checks are turned off." in body
 
 
-def test_the_button_renders_when_nothing_blocks_it(tmp_path):
+def test_the_button_renders_when_nothing_blocks_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the card's Windows guards, not the Linux line (#145)
     """The positive case: a PIN is set, the logon task is installed, checks are on, and an
     update is genuinely available -- so the button is exactly what should show, with the
     version it would update to."""

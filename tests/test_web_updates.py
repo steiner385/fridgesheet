@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from fridgesheet import host
 from fridgesheet.web import updates
 from web_fixtures import NOW, app_for, seed
 
@@ -100,7 +101,8 @@ def test_no_test_can_reach_github_by_accident(tmp_path):
     assert not u.available and "no network in tests" in u.error
 
 
-def test_settings_says_what_it_found_and_the_header_carries_the_badge(tmp_path):
+def test_settings_says_what_it_found_and_the_header_carries_the_badge(tmp_path, monkeypatch):
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the installer link is the Windows line (#145)
     c, state = _state(tmp_path)
     state.extra["update_fetch"] = release("v0.9.0")
     page = c.get("/settings", headers={"host": "127.0.0.1"}).text

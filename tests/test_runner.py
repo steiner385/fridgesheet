@@ -240,9 +240,10 @@ def test_window_uses_the_configured_report_time(env):
 def test_config_options_feed_the_report_and_cli_overrides_win(env):
     s, calls, refresh, print_pdf, toast = env
     s.reports["open-work"] = ReportConfig(options={"days_ahead": 1})
-    _run(s, runner.RunOptions(dry_run=True), refresh=refresh, print_pdf=print_pdf, toast=toast)
+    # Real runs (the printer is a fake): only the day's sheet writes rows.json now (#143).
+    _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf, toast=toast)
     assert json.loads((s.home / "sheets" / "2026-09-11" / "rows.json").read_text())["Alex"] == []
-    _run(s, runner.RunOptions(dry_run=True, options={"days_ahead": 14, "overdue_days": None}), refresh=refresh, print_pdf=print_pdf, toast=toast)
+    _run(s, runner.RunOptions(reprint=True, options={"days_ahead": 14, "overdue_days": None}), refresh=refresh, print_pdf=print_pdf, toast=toast)
     assert len(json.loads((s.home / "sheets" / "2026-09-11" / "rows.json").read_text())["Alex"]) == 1
 
 
@@ -366,7 +367,7 @@ def test_runner_loads_flags_from_the_database(env):
     item_id = conn.execute("SELECT id FROM items WHERE key = 'canvas:1'").fetchone()[0]
     flagstore.set_flag(conn, item_id, "done", now=FRI_2PM.isoformat())
     conn.close()
-    assert _run(s, runner.RunOptions(dry_run=True), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0
+    assert _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf, toast=toast) == 0   # a real run: it writes rows.json
     rows = json.loads((s.home / "sheets" / "2026-09-11" / "rows.json").read_text())
     assert rows["Alex"] == []
     log = (s.home / runner.LOG_NAME).read_text()

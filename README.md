@@ -126,8 +126,8 @@ fridgesheet reports
 `fridgesheet print-sheet` still exists — it's `run open-work` under its original name, sending the PDF to CUPS as one duplex job, except it always applies its own `--days`/`--overdue-days` defaults (14) rather than `config.toml`'s. The household's live hand-written timer still calls it by that name (and still refreshes); a schedule installed since (from the CLI or the Schedules page) calls `run <key> --no-refresh` instead.
 
 ```bash
-fridgesheet run open-work --dry-run                    # build sheets/<today>/sheet.pdf, print nothing
-fridgesheet run open-work --dry-run --kid Al --date 2026-09-09
+fridgesheet run open-work --dry-run                    # build sheets/<today>/sheet-preview.pdf, print nothing
+fridgesheet run open-work --dry-run --kid Al --date 2026-09-09   # sheets/2026-09-09/sheet-Al.pdf
 fridgesheet print-sheet --dry-run                       # the same sheet, the original command
 ```
 
@@ -141,7 +141,7 @@ Files under `~/.fridgesheet/`, all created on first run and never overwritten:
 |---|---|
 | `late-rules.toml` | The late-work register: per kid/class, how many days after the due date work is still accepted (`late_days`, or `until = "quarter_end"`) and for what `credit`. First matching rule wins. Seeded from the 2026-27 Canvas syllabi; edit as you learn more. |
 | `no-print-days.txt` | One `YYYY-MM-DD` or `YYYY-MM-DD..YYYY-MM-DD` per line, optional note. Seeded with the district's 2026-27 no-school days. `--force` ignores it. |
-| `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is not printed again, even with `--force`; only an explicit `--reprint` does. |
+| `sheets/YYYY-MM-DD/` | `sheet.pdf`, `rows.json` (what was on it; the next run diffs against it), `printed.txt` (the CUPS job id). A date with `printed.txt` is not printed again, even with `--force`; only an explicit `--reprint` does. Only the day's real run — the schedule, **Print now**, a plain `run` — writes those. A **Preview**, `--dry-run`, `--kid` or `--date` build writes `sheet-preview.pdf` (or `sheet-<kid>.pdf`) beside them and never touches `sheet.pdf`, `rows.json` or the archive copy; each new preview replaces the last. The Runs page links whichever file its row built, and **Reprint** prints that stored file as it is. |
 | `print-sheet.log` | One line per run with its outcome, preceded by an `INFO ingested …` line on runs that refreshed. The same lines go to stderr, so `journalctl --user -u fridgesheet-print-sheet` has them too. |
 | `fridgesheet.db` | The app's database: every refresh as a change log, plus notes, flags and run history. SQLite in WAL mode, so `fridgesheet.db-wal` and `fridgesheet.db-shm` sit beside it; copy all three or none. Deleting it costs the history, not the sheets. |
 

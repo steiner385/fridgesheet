@@ -5,7 +5,8 @@
   {% if update is none %}update checks are off
   {% else %}
     {% if update.error %}could not check for updates ({{ update.error }})
-    {% elif update.available %}<strong>Fridge Sheet {{ update.latest }} is available — <a href="{{ update.url }}">download the installer</a></strong>. Run it over this one; it stops and restarts the app itself.
+    {% elif update.available and is_windows %}<strong>Fridge Sheet {{ update.latest }} is available — <a href="{{ update.url }}">download the installer</a></strong>. Run it over this one; it stops and restarts the app itself.
+    {% elif update.available %}{# Off Windows the asset is an .exe this machine cannot run (#145): name the release instead. #}<strong>Fridge Sheet {{ update.latest }} is available — <a href="{{ releases_page }}">see the release</a></strong>. {{ linux_update_how }}
     {% else %}up to date (checked {{ update.checked_at | time12 }}){% endif %}
     <button type="button" hx-post="/settings/update/check" hx-target="#update-status" hx-swap="outerHTML">Check for updates now</button>
   {% endif %}

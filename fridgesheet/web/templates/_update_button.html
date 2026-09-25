@@ -2,12 +2,11 @@
    executes an installer is not offered when we can already predict it would strand the
    household -- see the spec's section 6.
 
-   The reason, when there is one, is a plain line of text next to the button's spot rather
-   than a tooltip on a disabled control: this page is read on phones and on a kitchen kiosk,
-   both places nothing hovers, so a tooltip is a tooltip nobody ever sees. #}
-{% if update_blocked_reason %}
-  <p class="muted">{{ update_blocked_reason }}</p>
-{% elif update_ready %}
+   The reason, when there is one, is a plain line of text rather than a tooltip on a
+   disabled control: this page is read on phones and on a kitchen kiosk, both places nothing
+   hovers, so a tooltip is a tooltip nobody ever sees. It is rendered in the Updates card
+   (settings.html), beside the PIN field it is usually about, not here below it (#145). #}
+{% if update_ready %}
   <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="card update-action">
     <h3>Update Fridge Sheet</h3>
     <div class="row">

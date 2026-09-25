@@ -38,14 +38,15 @@ def test_runs_page_lists_history_newest_first_with_badges_and_links(tmp_path):
 def test_reprint_button_only_for_printable_ok_runs_when_a_worker_exists(tmp_path):
     ids, pdf = _rows(tmp_path)
     body = app_for(tmp_path).get("/runs").text
-    assert 'hx-post="/jobs/print"' not in body                 # no worker: no button
+    assert 'hx-post="/jobs/reprint"' not in body               # no worker: no button
     body = app_for(tmp_path, worker=True).get("/runs").text
-    assert body.count('hx-post="/jobs/print"') == 1 and 'value="2026-09-15"' in body
+    assert body.count('hx-post="/jobs/reprint"') == 1 and f'name="run_id" value="{ids[0]}"' in body
 
 
-def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
-    """Reprint posted only a date, so reprinting a saved report's run printed the open-work
-    sheet instead of the report. The row's own key goes with the date now."""
+def test_reprint_submits_its_own_run_and_the_worker_prints_that_rows_pdf(tmp_path):
+    """Reprint once posted a date and a report key and rebuilt from today's data (#143). It
+    names the run now, and the job prints the PDF that run stored -- a saved report's row
+    prints the saved report's file, not the open-work sheet."""
     import json
     import re
 
@@ -57,8 +58,11 @@ def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
     rid = reportstore.create(conn, "Mine", json.dumps({"title": "Mine", "source": "items",
                                                        "columns": ["kid", "name"]}),
                              now="2026-09-16T08:00:00-04:00")
-    runs.record(conn, f"view:{rid}", "2026-09-16T16:00:00-04:00", "2026-09-16T16:01:00-04:00",
-                "schedule", "OK", "1p 3 rows", str(pdf))
+    report_pdf = tmp_path / "reports" / f"view-{rid}" / "2026-09-16" / "report.pdf"
+    report_pdf.parent.mkdir(parents=True)
+    report_pdf.write_bytes(b"%PDF-1.4 the report")
+    run_id = runs.record(conn, f"view:{rid}", "2026-09-16T16:00:00-04:00", "2026-09-16T16:01:00-04:00",
+                         "schedule", "OK", "1p 3 rows", str(report_pdf))
     conn.close()
 
     application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
@@ -66,14 +70,14 @@ def test_reprint_submits_the_report_key_of_its_own_row(tmp_path):
     w = jobs.Worker(application.state.fridgesheet, actions=fake)
     application.state.fridgesheet.jobs = w
     c = TestClient(application, headers=LOCAL_HOST_HEADERS)
-    form = re.search(r'<form hx-post="/jobs/print".*?</form>', c.get("/runs").text, re.S).group(0)
+    form = re.search(r'<form hx-post="/jobs/reprint".*?</form>', c.get("/runs").text, re.S).group(0)
     fields = dict(re.findall(r'name="(\w+)" value="([^"]*)"', form))   # the newest run: the view report
-    assert fields == {"date": "2026-09-16", "report": f"view:{rid}"}
+    assert fields == {"run_id": str(run_id)}
 
-    assert c.post("/jobs/print", data=fields).status_code == 200
-    assert w.current.params == {"date": "2026-09-16", "report": f"view:{rid}", "refresh_first": False}
+    assert c.post("/jobs/reprint", data=fields).status_code == 200
+    assert w.current.params == {"run_id": run_id, "pdf": str(report_pdf), "report": f"view:{rid}"}
     w.run_pending()
-    assert ("print", "2026-09-16", f"view:{rid}", False) in fake.calls
+    assert fake.calls == [("reprint", run_id, str(report_pdf), f"view:{rid}")]
 
 
 def test_pdf_is_served_from_home_and_refused_elsewhere(tmp_path):

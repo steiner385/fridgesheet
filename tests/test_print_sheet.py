@@ -91,7 +91,9 @@ def test_dry_run_builds_but_neither_prints_nor_records(env):
     s, calls, refresh, lp = env
     assert print_sheet.run(_args(dry_run=True), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
     day = s.home / "sheets" / "2026-09-11"
-    assert (day / "sheet.pdf").is_file() and not (day / "printed.txt").exists() and calls["lp"] == []
+    # Its own file, beside where the day's sheet would go (#143); nothing printed, nothing recorded as printed.
+    assert (day / "sheet-preview.pdf").is_file() and not (day / "sheet.pdf").exists()
+    assert not (day / "printed.txt").exists() and calls["lp"] == []
 
 
 def test_skip_list_is_honoured_and_force_overrides(env):
@@ -167,14 +169,20 @@ def test_kid_filter_and_explicit_date(env):
     s, calls, refresh, lp = env
     rc = print_sheet.run(_args(dry_run=True, kid="al", date="2026-09-09"), s, now=FRI_2PM, refresh=refresh, lp=lp)
     assert rc == 0
-    rows = json.loads((s.home / "sheets" / "2026-09-09" / "rows.json").read_text())
-    assert set(rows) == {"Alex"}
+    day = s.home / "sheets" / "2026-09-09"
+    # One kid's build is that kid's file, and never that day's rows.json (#143): a one-child
+    # rows.json would make the next sheet call every other child's items NEW.
+    assert (day / "sheet-al.pdf").is_file() and not (day / "sheet.pdf").exists() and not (day / "rows.json").exists()
+    log = (s.home / "print-sheet.log").read_text()
+    assert "Al=" in log and "Sam=" not in log
 
 
 @needs_pdftotext
 def test_second_run_diffs_against_the_previous_sheet(env):
     s, calls, refresh, lp = env
-    assert print_sheet.run(_args(dry_run=True, date="2026-09-10"), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
+    # Thursday's real run (the printer is a fake), then Friday's: only a real run leaves the
+    # rows.json the next sheet is compared against (#143).
+    assert print_sheet.run(_args(), s, now=FRI_2PM - timedelta(days=1), refresh=refresh, lp=lp) == 0
     assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
     from fridgesheet import sheet
     text = sheet.pdf_text(s.home / "sheets" / "2026-09-11" / "sheet.pdf")
@@ -211,7 +219,7 @@ def test_pdf_is_also_saved_to_the_archive_folder_by_school_year(env):
     """The hidden ~/.fridgesheet/sheets/ tree is for the machine; people look in Drive."""
     s, calls, refresh, lp = env
     s.sheets_archive = str(s.home / "drive" / "Open Work Sheets")
-    assert print_sheet.run(_args(dry_run=True), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0
+    assert print_sheet.run(_args(), s, now=FRI_2PM, refresh=refresh, lp=lp) == 0   # the real run; a preview is not archived (#143)
     saved = s.home / "drive" / "Open Work Sheets" / "2026-27" / "2026-09-11 Open Work.pdf"
     assert saved.is_file() and saved.read_bytes()[:4] == b"%PDF"
     assert f"saved={saved}" in (s.home / "print-sheet.log").read_text()

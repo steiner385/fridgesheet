@@ -29,6 +29,8 @@ LOGIN_STAMP = "login-ok.txt"
 APP_LOG = "app.log"
 CONFIG_NAME = "config.toml"
 MAX_DAYS = 60
+#: A shorter PIN is guessable inside the five tries the lockout allows (#145).
+MIN_PIN_LENGTH = 4
 
 #: What the job pane promises next to the spinner. It said "1-3 minutes", which was true on
 #: the maintainer's Linux box and reads as *hung* on the family PC it actually runs on, where
@@ -70,6 +72,8 @@ class FormValues:
     allow_lan: bool = False
     check_updates: bool = True
     update_pin: str = ""        # write-only, like `password`: blank = keep the stored hash
+    clear_update_pin: bool = False        # the "Remove the update PIN" box: drop the stored hash
+    has_update_pin: bool = False          # read-only, for the page: whether a hash is stored
     sources_assignments: str = "canvas"   # [sources] assignments: household default
     sources_grades: str = "hac"           # [sources] grades: household default
 
@@ -100,6 +104,7 @@ def load_form(home: Path) -> FormValues:
         port=s.web_port,
         allow_lan=s.web_allow_lan,
         check_updates=s.web_check_updates,
+        has_update_pin=bool(s.web_update_pin_hash),
         sources_assignments=s.sources.default.assignments,
         sources_grades=s.sources.default.grades,
     )
@@ -183,6 +188,11 @@ def validate(form: FormValues, stored: str) -> list[str]:
     n = _whole_number(form.port)
     if n is None or not 1024 <= n <= 65535:
         errors.append("Port must be a whole number between 1024 and 65535.")
+    pin = form.update_pin.strip()
+    if pin and len(pin) < MIN_PIN_LENGTH:
+        errors.append(f"The update PIN must be at least {MIN_PIN_LENGTH} characters.")
+    if pin and form.clear_update_pin:
+        errors.append("Type a new update PIN or tick Remove the update PIN, not both.")
     for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
         if value not in sources.SOURCES:
             errors.append(f"{label} must come from Canvas or HAC.")
@@ -233,6 +243,9 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     # saving any other setting can never silently erase the household's update PIN.
     if form.update_pin.strip():
         web["update_pin_hash"] = updatepin.hash_pin(form.update_pin.strip())
+    elif form.clear_update_pin:
+        # The one way to unset it from the page (#145); the update button goes with it.
+        web.pop("update_pin_hash", None)
     restart_needed = prev.get("port", 8433) != web["port"] or bool(prev.get("allow_lan", False)) != web["allow_lan"]
 
     messages: list[str] = []
@@ -246,6 +259,9 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     if form.update_pin.strip():
         log("Update PIN stored.")
         messages.append("Update PIN stored.")
+    elif form.clear_update_pin:
+        log("Update PIN removed.")
+        messages.append("Update PIN removed.")
 
     if form.password:
         try:
@@ -382,6 +398,53 @@ def print_now(*, home: Path, log: Callable[[str], None], settings: config.Settin
     with forward_logs(log):
         return run(report_key, runner.RunOptions(force=True, reprint=True, force_print=True, date=date,
                                                  trigger="web", no_refresh=not refresh), settings, echo=log)
+
+
+def reprint(*, home: Path, log: Callable[[str], None], settings: config.Settings, run_id: int, pdf: str,
+            report_key: str, print_pdf=None, now: datetime | None = None) -> int:
+    """The Runs page's Reprint: the PDF that run stored, to the printer, as it is.
+
+    Not a rebuild (#143). Rebuilding "from 9/22" from today's snapshot printed a different
+    sheet under 9/22's name, overwrote the file every earlier row linked, and failed outright
+    once the snapshot was a day old. The caller (`routes/jobs.py`) has already checked that
+    `pdf` is a file under the app's own folders; this prints it, records a `runs` row of its
+    own for the report so Runs shows the reprint, and touches nothing under `sheets/`.
+    """
+    from . import db
+    from .stores import runs as runstore
+    from .. import reports as registry
+    if print_pdf is None:
+        from ..host import printing
+        print_pdf = printing.print_pdf
+    from ..host.printing import PrintError
+    tz = ZoneInfo(settings.timezone)
+    started = now or datetime.now(tz)
+    try:
+        title = registry.resolve(report_key, home).title
+    except registry.ReportError:
+        title = report_key          # a saved report deleted since; the PDF is still the PDF
+    # The same resolution the runner prints with and the Runs confirm names (#127).
+    printer = settings.printer_for(report_key) or None
+    path = Path(pdf)
+    day = path.parent.name
+    log(f"Printing {path.name} from {day} again on {printer or 'the default printer'}...")
+    try:
+        job = print_pdf(path, printer, f"fridgesheet {title.lower()} {day} (reprint)")
+    except PrintError as e:
+        outcome, message, job = "FAIL", f"{e}; PDF kept at {path}", None
+    else:
+        outcome, message = "OK", f"reprinted run {run_id} job={job} {path}"
+    log(message)
+    try:
+        conn = db.open_db(home)
+        try:
+            runstore.record(conn, report_key, started.isoformat(), datetime.now(tz).isoformat(), "web", outcome, message,
+                            str(path), job)
+        finally:
+            conn.close()
+    except Exception as e:  # noqa: BLE001  the database is a passenger here too
+        log(f"WARN could not record the run: {e}")
+    return 0 if outcome == "OK" else 1
 
 
 def status_line(home: Path, describe=None) -> str:

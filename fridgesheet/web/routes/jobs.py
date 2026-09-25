@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from ... import reports as registry
 from ..app import Db, State, is_htmx, render_partial, safe_pdf
 from .. import jobs as jobmod
+from ..stores import runs
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ def _worker(state) -> jobmod.Worker:
 
 @router.post("/jobs/{kind}")
 def start(kind: str, request: Request, date: str | None = Form(None), report: str = Form("open-work"),
-          refresh_first: bool = Form(False), conn: sqlite3.Connection = Db, state=State):
+          refresh_first: bool = Form(False), run_id: int | None = Form(None), conn: sqlite3.Connection = Db, state=State):
     if kind not in jobmod.OPEN_KINDS:
         raise HTTPException(404, f"no job kind {kind!r}")
     w = _worker(state)
@@ -39,6 +40,15 @@ def start(kind: str, request: Request, date: str | None = Form(None), report: st
             raise HTTPException(400, str(e)) from None
         params["report"] = report
         params["refresh_first"] = refresh_first
+    elif kind == "reprint":
+        # Runs → Reprint names a run, not a date (#143): the job prints the PDF that run
+        # stored, so the same check the Runs page's "open" link makes (`safe_pdf`: an existing
+        # file under the app's own folders) decides here whether there is anything to print.
+        row = runs.by_id(conn, run_id) if run_id is not None else None
+        pdf = safe_pdf(state, row["pdf_path"]) if row else None
+        if pdf is None:
+            raise HTTPException(404, "no PDF for that run")
+        params = {"run_id": row["id"], "pdf": str(pdf), "report": row["report_key"]}
     job = w.submit(kind, **params)
     if job is None:
         # The job that refused this one can finish between `submit` and here (#4); then the
