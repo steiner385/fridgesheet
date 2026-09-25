@@ -33,10 +33,22 @@ def test_the_grade_chart_has_one_stepped_series_per_course_and_source_on_a_time_
     labels = {d["label"] for d in cfgs[0]["data"]["datasets"]}
     assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
     hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
-    assert [p["y"] for p in hac["data"]] == [85.0, 88.0]
+    assert [p["y"] for p in hac["data"]][:2] == [85.0, 88.0]          # the observations; then the hold to now
     assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
     assert hac["stepped"] == "before" and hac["borderWidth"] == 3      # hold until the next point
     assert cfgs[0]["options"]["plugins"]["title"]["text"] == "Grade per class"
+
+
+def test_every_grade_line_runs_to_now_not_to_its_own_last_observation(tmp_path):
+    """Alex's HAC average last moved on 9/14 and the Canvas current on 9/15; both lines must
+    reach `now`, or the class that has not changed looks like it stopped being tracked."""
+    history(tmp_path).close()
+    cfg, = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
+    now_ms = int(NOW.timestamp() * 1000)
+    ends = {d["label"]: d["data"][-1]["x"] for d in cfg["data"]["datasets"]}
+    assert set(ends.values()) == {now_ms}, ends
+    hac = next(d for d in cfg["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    assert [p["y"] for p in hac["data"]] == [85.0, 88.0, 88.0] and hac["pointRadius"][-1] == 0
 
 
 def test_the_all_kids_view_draws_one_titled_grade_chart_per_kid(tmp_path):
@@ -62,7 +74,7 @@ def test_a_grade_series_label_cannot_close_the_script_tag():
     from fridgesheet.web.stores.trends import GradeSeries
     evil = GradeSeries(1, "</script><script>alert(1)</script>", "hac", "</script> (HAC average)",
                        points=[(NOW, 90.0)], official=True)
-    text = chart_json(grade_chart([evil], title="Grade per class"))
+    text = chart_json(grade_chart([evil], title="Grade per class", now=NOW))
     assert "</script>" not in text and "\\u003c/script" in text
 
 

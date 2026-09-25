@@ -123,7 +123,7 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
         rows = items.sorted_views(rows, sort, direction)
     # This course's own lines, all history (no Weeks selector here); the twin has its own page.
     mine = [gs for gs in trends.grade_series(conn, student_id=s["id"], prefs=prefs) if gs.course_id == course_id]
-    chart = grade_chart(mine, title="This class")
+    chart = grade_chart(mine, title="This class", now=now)
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
                   history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,

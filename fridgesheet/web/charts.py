@@ -43,6 +43,11 @@ class ChartData:
     title: str = ""
     x_scale: str = "category"       # "time": each series carries its own (ms, value) points
     stepped: bool = False           # a line holds its value until the next point
+    #: Time charts only: carry every series at its last value to this x (epoch ms), as one
+    #: more point with no marker. A stepped line only shapes the segments *between* points,
+    #: so without this a class whose grade has not moved stops where it last moved while its
+    #: siblings run on -- and reads as "this class stopped being tracked".
+    hold_until: int | None = None
 
 
 def escape_for_script_tag(json_text: str) -> str:
@@ -69,12 +74,18 @@ def chart_config(data: ChartData) -> dict:
     datasets = []
     for i, s in enumerate(data.series):
         color = s.color or SERIES_COLORS[i % len(SERIES_COLORS)]
+        held = False
         if time_axis:
             values = [{"x": t, "y": v} for t, v in s.points]
+            if data.hold_until is not None and values and values[-1]["x"] < data.hold_until:
+                values.append({"x": data.hold_until, "y": values[-1]["y"]})
+                held = True
         else:
             by_label = dict(s.points)
             values = [by_label.get(l) for l in labels]
         ds = {"label": s.label, "data": values, "borderColor": color, "backgroundColor": color, "fill": False}
+        if held:
+            ds["pointRadius"] = [3] * (len(values) - 1) + [0]      # the carried point is a line's end, not an observation
         if s.emphasis:
             ds["borderWidth"] = 3
         if data.stepped:

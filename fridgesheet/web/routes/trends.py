@@ -36,16 +36,18 @@ def weekly_chart(rows: list[trends.WeekOutcomes], now: datetime) -> charts.Chart
                             series=series, labels=labels, title="Work due that week")
 
 
-def grade_chart(series: list[trends.GradeSeries], *, title: str) -> charts.ChartData | None:
+def grade_chart(series: list[trends.GradeSeries], *, title: str, now: datetime) -> charts.ChartData | None:
     """One stepped line per course and source, each observation at the moment it was seen:
     `grade_observations` only holds rows where something changed, so a line holds its value
-    until the next point. The official source (sources.py) is drawn thicker and says so in its
-    label, the words the Changes feed uses. None when there is nothing to draw -- the page
-    prints its sentence rather than an empty chart."""
+    until the next point -- and on to `now`, because the grade *is* still that today. The
+    official source (sources.py) is drawn thicker and says so in its label, the words the
+    Changes feed uses. None when there is nothing to draw -- the page prints its sentence
+    rather than an empty chart."""
     if not series:
         return None
     return charts.ChartData(
         type="line", x_label="Seen", y_label="Grade", x_scale="time", stepped=True, title=title,
+        hold_until=int(now.timestamp() * 1000),
         series=[charts.ChartSeries(label=s.label + (" · official" if s.official else ""), emphasis=s.official,
                                    points=[(int(t.timestamp() * 1000), v) for t, v in s.points])
                 for s in series])
@@ -109,7 +111,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
                   kid=student["key"] if student else None, weeks=weeks,
                   course_names=sorted({gs.course_short for _, series in per_kid for gs in series}),
                   has_grades=any(series for _, series in per_kid),
-                  grade_charts=[(key, chart_json(grade_chart(series, title=title(key))) if series else None)
+                  grade_charts=[(key, chart_json(grade_chart(series, title=title(key), now=now)) if series else None)
                                 for key, series in per_kid],
                   weekly_json=chart_json(weekly_chart(week_rows, now)),
                   week_rows=week_rows,

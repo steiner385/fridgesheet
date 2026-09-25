@@ -28,6 +28,22 @@ def test_a_time_scale_chart_carries_points_as_x_y_and_no_labels():
     assert cfg["options"]["plugins"]["title"] == {"display": True, "text": "Grade per class"}
 
 
+def test_a_time_scale_chart_holds_every_series_at_its_last_value_until_hold_until():
+    """A stepped line only shapes the segments *between* points, so a class whose grade has
+    not moved since 9/1 would stop on 9/1 while its siblings run to today -- reading as "this
+    class stopped being tracked". The hold is data: one more point at `hold_until`, carrying
+    the last value, drawn with no marker. A series already there is left alone."""
+    data = charts.ChartData(type="line", x_label="Seen", y_label="Grade", x_scale="time", stepped=True,
+                            hold_until=1758542400000,
+                            series=[charts.ChartSeries(label="Math", points=[(1757937600000, 88.0)]),
+                                    charts.ChartSeries(label="Art", points=[(1757937600000, 90.0), (1758542400000, 91.0)])])
+    math, art = charts.chart_config(data)["data"]["datasets"]
+    assert math["data"] == [{"x": 1757937600000, "y": 88.0}, {"x": 1758542400000, "y": 88.0}]
+    assert math["pointRadius"] == [3, 0]
+    assert art["data"] == [{"x": 1757937600000, "y": 90.0}, {"x": 1758542400000, "y": 91.0}]
+    assert "pointRadius" not in art
+
+
 def test_a_series_colour_is_its_own_when_given_and_positional_otherwise():
     data = charts.ChartData(type="stacked_bar", x_label="Week of", y_label=charts.COUNT_LABEL, labels=("9/8",),
                             series=[charts.ChartSeries(label="Not done", color=charts.OUTCOME_COLORS["not_done"], points=[("9/8", 2.0)]),
