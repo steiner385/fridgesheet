@@ -67,13 +67,13 @@ class ViewReport:
         if rendered.chart is not None:
             try:
                 chart_png = chart_render.render_chart_png(views.chart_config(rendered.chart))
-                ImageReader(io.BytesIO(chart_png)).getSize()   # raises if the bytes aren't a real image
+                ImageReader(io.BytesIO(chart_png)).getRGBData()   # decodes pixel data, not just the header
             except Exception as e:
                 # Broad on purpose: a chart is an enhancement to this report, not a requirement
                 # of it -- whatever stops the headless render (a missing Chromium, a timeout, a
                 # malformed config, or unreadable image bytes) must degrade to a chart-less PDF,
-                # never fail the run. The size check above also guards `build_table_pdf`'s own
-                # `Image()` construction below, which is not itself inside this try block.
+                # never fail the run. The decode check above also guards `build_table_pdf`'s own
+                # `Image.draw()` call below, which is not itself inside this try block.
                 log.warning("%s: chart render failed (%s)", self.name, e, exc_info=True)
                 chart_png = None
                 notes.append("Chart unavailable this run — see the log")
