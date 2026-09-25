@@ -546,7 +546,7 @@ def main(argv=None) -> None:
     rn.add_argument("--days", type=int, default=None, help="days ahead (default: config.toml, then 14)")
     rn.add_argument("--overdue-days", type=int, default=None, help="how far back an overdue item may be (default: config.toml, then 14)")
     rn.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the print window (never reprints a day)")
-    rn.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: config.toml, then the system default)")
+    rn.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: FRIDGESHEET_PRINTER if set in the shell environment, then the report's own printer, then [print] printer in config.toml or FRIDGESHEET_PRINTER in .env, then the system default)")
     rn.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     rn.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
     rn.add_argument("--trigger", choices=["cli", "schedule"], default="cli", help=argparse.SUPPRESS)   # set by installed schedules
@@ -581,7 +581,7 @@ def main(argv=None) -> None:
     ps.add_argument("--days", type=int, default=14, help="how far ahead to look (default 14)")
     ps.add_argument("--overdue-days", type=int, default=14, help="how far back an overdue item may be (default 14)")
     ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the 2 PM window (never reprints a day)")
-    ps.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: config.toml, then the system default)")
+    ps.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: FRIDGESHEET_PRINTER if set in the shell environment, then the report's own printer, then [print] printer in config.toml or FRIDGESHEET_PRINTER in .env, then the system default)")
     ps.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     ps.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
     ps.set_defaults(fn=cmd_print_sheet)

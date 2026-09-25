@@ -28,7 +28,10 @@
     {% endif %}
   </div>
   {% else %}
-  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
+  {# The button, not a command: `fridgesheet refresh` without --record never fills the database
+     this page reads, and on Windows there is no terminal step at all (#153). #}
+  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
+    {% if jobs %}<p class="actions"><button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button></p>{% endif %}</div>
   {% endfor %}
   <div class="card">
     <h2>Today's sheet</h2>
@@ -45,7 +48,7 @@
       <button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button>
       <label><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label>
       <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
-      <button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ settings.printer or 'the default printer' }}?">Print now</button>
+      <button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ 'open-work' | printer_name }}?">Print now</button>
     </p>
     {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
     {% endif %}

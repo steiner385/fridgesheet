@@ -79,7 +79,7 @@ class RunOptions:
     date: str | None = None
     kid: str | None = None
     no_refresh: bool = False
-    printer: str | None = None       # None -> settings.printer -> system default
+    printer: str | None = None       # None -> Settings.printer_for: the report's own, [print], system default
     options: dict = field(default_factory=dict)   # report-specific CLI overrides; None values are ignored
     notify: bool = True
     trigger: str = "cli"             # cli | schedule | web
@@ -482,7 +482,7 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
                               toast_msg=summary, pdf_path=built.pdf, printed=False)
 
             # --- print ------------------------------------------------------------------
-            printer = opts.printer or rc_cfg.printer or settings.printer or None
+            printer = settings.printer_for(report.key, opts.printer) or None
             try:
                 job = print_pdf(built.pdf, printer, f"fridgesheet {report.title.lower()} {day}")
             except PrintError as e:

@@ -140,7 +140,7 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
     ]
     if not work.items:
         body = [Paragraph("Nothing open. Nice work.", CELL)]
-        tail = _tail_lines(ks)
+        tail = _tail_lines(ks, overdue_days)
         return [KeepTogether(head + body + tail), Spacer(1, 12)]
 
     data = [["", "", "Due / assigned", "Course", "Assignment", "Pts", "Via", "Status"]]
@@ -164,7 +164,7 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
     for i in range(2, len(data)):
         if work.items[i - 1].overdue != work.items[i - 2].overdue:
             style.append(("LINEABOVE", (0, i), (-1, i), 1, colors.black))
-    tail = _tail_lines(ks)
+    tail = _tail_lines(ks, overdue_days)
     if tail:
         # Spanning rows inside the table, so the trailer can never be orphaned on the next page.
         for t in tail:
@@ -179,7 +179,7 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
     return [KeepTogether(head + [t]) if len(data) <= 8 else None, *([] if len(data) <= 8 else head + [t]), Spacer(1, 12)]
 
 
-def _tail_lines(ks: KidSheet) -> list:
+def _tail_lines(ks: KidSheet, overdue_days: int) -> list:
     out = []
     if ks.diff and ks.diff.cleared:
         names = " &nbsp;·&nbsp; ".join(f"{_esc(r.get('course', ''))}: {_esc(r.get('name', ''))}" for r in ks.diff.cleared[:10])
@@ -191,7 +191,7 @@ def _tail_lines(ks: KidSheet) -> list:
     if ks.work.dropped:
         n = len(ks.work.dropped)
         pts = fmt_pts(sum((i.points or 0) for i in ks.work.dropped))
-        out.append(Paragraph(f"Not shown: {n} item{'s' if n != 1 else ''} past the late window or older than two weeks ({pts} pts)", NOTE))
+        out.append(Paragraph(f"Not shown: {n} item{'s' if n != 1 else ''} past the late window or more than {overdue_days} days overdue ({pts} pts)", NOTE))
     return out
 
 

@@ -47,7 +47,7 @@ PHRASES: dict[str, dict[str, str]] = {
     "facts.hac_still_blank": {"early": "Canvas has {canvas} since {when}. HAC doesn't have it yet.", "middle": "Canvas has {canvas} since {when}. HAC still has nothing.", "older": "Canvas graded it {canvas} on {when}. HAC still has nothing."},
     "facts.hac_lag":         {"early": "Canvas has {canvas}. HAC will catch up.", "middle": "Canvas has {canvas}; waiting for HAC.", "older": "Canvas has {canvas}; waiting for HAC to catch up."},
     "facts.teacher_grading": {"early": "Handed in {when}, waiting for a grade.", "middle": "Handed in {when}, not graded yet.", "older": "Handed in {when}, waiting for the teacher to grade it."},
-    "facts.still_ungraded":  {"early": "This was {kind} work, due {due}. There's still no grade.", "middle": "{kind} work, due {due}. Still no grade anywhere.", "older": "{kind} work, due {due}. A week on, no grade anywhere."},
+    "facts.still_ungraded":  {"early": "This was {kind} work, due {due}. There's still no grade.", "middle": "{kind} work, due {due}. Still no grade anywhere.", "older": "{kind} work, due {due}. Still no grade anywhere, longer than grading usually takes."},
     "facts.awaiting_grade":  {"early": "This was {kind} work, due {due}. No grade yet.", "middle": "{kind} work, due {due}. No grade yet.", "older": "{kind} work, due {due}. No grade yet; grading paper takes time."},
     "facts.stale_answer":    {"early": "On {when} you said “{flag}”. {change}.", "middle": "On {when} you said “{flag}”. {change}.", "older": "On {when} your answer was “{flag}”. {change}."},
     "ask.missing_after_grade": {"early": "Which one is right?", "middle": "Which is right?", "older": "Which is right?"},

@@ -423,3 +423,17 @@ def test_a_boolean_that_is_not_one_keeps_the_default_and_says_so(caplog):
         config.settings_from_doc({"reports": {"open-work": {"print": "maybe"}}}, s)
     assert s.report_config("open-work").prints is True
     assert "[reports.open-work] print" in caplog.text
+
+
+def test_printer_for_is_the_runners_precedence(tmp_path):
+    """One answer to "which printer?" for the runner and every confirmation that names it
+    (#127): the explicit override, then the report's own, then [print], then "" (the system
+    default)."""
+    doc = tomllib.loads('[print]\nprinter = "Shared"\n[reports.open-work]\nprinter = "Kitchen"\n')
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(doc, s)
+    assert s.printer_for("open-work") == "Kitchen"
+    assert s.printer_for("open-work", "Office") == "Office"
+    assert s.printer_for("view:7") == "Shared"
+    s.printer = ""
+    assert s.printer_for("view:7") == ""
