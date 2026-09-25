@@ -515,6 +515,7 @@ is handed in (online / paper / in class) · status.
 | ZERO | red | A 0 was entered in either gradebook. |
 | LATE | amber | Handed in late, not yet graded. |
 | PAPER — CHECK | purple | Paper work, past due, no grade anywhere yet — ask. |
+| IN CLASS — CHECK | purple | In-class work, past due, no grade anywhere yet — ask. |
 | HAC — NO GRADE | purple | Listed only in HAC, past due, no grade. |
 | DUE TODAY / DUE TOMORROW | blue | |
 | DUE *Mon* … | black | Due later in the window. |
@@ -530,18 +531,22 @@ with nothing open still gets a section: *Nothing open. Nice work.* The legend en
 attempted refresh.
 
 **What never prints:** work you marked handled; work past its late window or older than
-*Overdue days*; paper work with a grade in HAC (it's done); anything due before August 1 of
-the current school year (last year's course copies).
+*Overdue days*; work with a grade above zero in HAC (it's done, whatever Canvas shows);
+anything due before August 1 of the current school year (last year's course copies). Work
+with no due date prints only once a teacher has marked it missing or scored it 0 — with *no
+due date* in the Due column and no credit line, since there is no window for it to fall out of.
 
 **When it prints** — see [§10](#10-schedules-printing-and-refreshing-on-their-own). A day
 already printed is not printed again (except by **Reprint**); a day listed in *Days the
 sheet does not print* is skipped.
 
-> The screen and the paper are meant to list the same rows. A few edge cases still differ:
-> in-class work with no grade shows as *unknown* on screen but MISSING on paper; a HAC-only
-> item shows on screen the moment it is past due but on paper a day later; Canvas work with
-> no due date never prints; and an assignment the screen pairs by date and points (because
-> the two teachers typed different titles) prints as PAPER — CHECK ([#137](https://github.com/steiner385/fridgesheet/issues/137)).
+> The screen and the paper are one list. The sheet is built from the same rows the Open
+> work page shows — *Still fixable*, then *Coming due*, in the sheet's words — and its *Not
+> shown* and *Handled* lines are the page's counts. Two things do differ: the order (the page
+> puts the soonest-closing late-work window first; the sheet keeps overdue work by due date),
+> and history — a sheet built on a machine that has only ever run a bare `refresh`, never
+> `refresh --record` or the web app, reads the snapshot alone and cannot see a missing mark
+> that arrived *after* HAC's grade, so it follows the grade where the app would ask.
 
 ---
 

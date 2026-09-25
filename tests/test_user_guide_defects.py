@@ -1,4 +1,4 @@
-"""Six rules the user guide turned up wrong, pinned where they were found.
+"""Seven rules the user guide turned up wrong, pinned where they were found.
 
 #131  A Canvas observation is rewritten whenever any field changes, the availability window
       locking included, and that read as "Canvas marked it missing after HAC's grade".
@@ -8,6 +8,10 @@
       from the sheet.
 #136  A lone HAC-only row was keyed by title alone, and a second row with that title re-keyed
       it, orphaning its flag, notes and history.
+#137  The screens and the printed sheet decided "open work" separately and disagreed four
+      ways: a HAC-only row opened on paper a day late; undated Canvas work marked missing never
+      printed; a pair the title matcher misses was done on screen, PAPER — CHECK on paper; and
+      in-class work with no grade was MISSING on paper, "In class, check" on screen.
 #138  "of N due so far" counted work handed in early, before it was due.
 #139  Work due at 00:00 said "Due tomorrow" the evening it had to be finished.
 
@@ -20,7 +24,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from fridgesheet import dates, late_rules, open_items, sheet
-from fridgesheet.web import db, ingest, outcomes, reconcile, verdicts
+from fridgesheet.web import db, ingest, outcomes, phrasing, reconcile, verdicts
 from fridgesheet.web.stores import flags, items as items_store, notes, trends
 
 TZ = ZoneInfo("America/New_York")
@@ -488,3 +492,66 @@ def test_an_upgraded_file_reads_the_next_refresh_as_the_same_items(tmp_path):
     ingest.record(conn, snap([], [_h("Participation", "09/05/2026", None), _h("Participation", "09/12/2026", None)], T[2]), tz=TZ)
     live = {r["id"]: r["flag"] for r in reconcile.live_items(conn, 1, _at(9, 15))}
     assert live[1] == "done" and len(live) == 2
+
+
+# --- #137: one list, on the screen and on the paper -----------------------------------------------
+
+def test_a_hac_only_row_is_open_on_paper_the_moment_it_is_past_due(tmp_path):
+    """The guide's repro: a lab due 9/14, blank in HAC, read at 2pm on 9/15. Open work listed
+    it; the sheet waited a full day."""
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, snap([], [_h("Lab", "09/14/2026", None)]), tz=TZ)
+    now = _at(9, 15, 14)
+    assert views(conn, now)["Lab"].actionable
+    entry = snap([], [_h("Lab", "09/14/2026", None)])["students"]["Alex"]
+    assert [(i.name, i.status) for i in open_items.open_items(entry, "Alex", now).items] == [("Lab", "HAC — NO GRADE")]
+
+
+def test_undated_canvas_work_the_teacher_marked_prints_and_unmarked_undated_work_does_not(tmp_path):
+    """Work with no due date joins the record once something has happened to it (#138): a
+    missing mark or a zero is something, and there is no window for it to fall out of. The
+    sheet used to skip every undated row; the page listed it forever. Both list it, with no
+    due date and no credit line; undated work nothing has happened to is on neither."""
+    conn = db.open_db(tmp_path)
+    marked = dict(_a(5, "Makeup form", "09-01", missing=True), due_at=None)
+    quiet = dict(_a(6, "Extra credit", "09-01"), due_at=None)
+    ingest.record(conn, snap([marked, quiet], []), tz=TZ)
+    now = _at(12, 15, 14)
+    v = views(conn, now)
+    assert v["Makeup form"].actionable and v["Makeup form"].late_until is None
+    assert not v["Extra credit"].actionable and not v["Extra credit"].upcoming
+    entry = snap([marked, quiet], [])["students"]["Alex"]
+    work = open_items.open_items(entry, "Alex", now)
+    assert [(i.name, i.status, i.due, i.late_until, i.overdue) for i in work.items] == [("Makeup form", "MISSING", None, None, True)]
+    assert work.dropped == []
+
+
+def test_a_pair_the_title_matcher_misses_is_done_on_paper_on_the_sheet_too(tmp_path):
+    """The guide's repro: Canvas "Concert Contract Due", HAC "Concert Contract" 10/10, same
+    day, same points. The database paired them by date and points and called it done; the
+    sheet paired by title alone and printed PAPER — CHECK. One matcher now."""
+    ca = [_a(3, "Concert Contract Due", "09-10", submission_types=["on_paper"])]
+    hr = [_h("Concert Contract", "09/10/2026", 10.0)]
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, snap(ca, hr), tz=TZ)
+    now = _at(9, 15, 14)
+    assert views(conn, now)["Concert Contract Due"].outcome == outcomes.DONE_OFFLINE
+    entry = snap(ca, hr)["students"]["Alex"]
+    work = open_items.open_items(entry, "Alex", now)
+    assert work.items == [] and work.dropped == []                  # and no HAC-only "Concert Contract" either
+
+
+def test_in_class_work_with_no_grade_says_check_on_paper_as_it_does_on_screen():
+    """Canvas cannot see in-class work handed in any more than paper work; "unknown" on the
+    screen ("In class, check") was MISSING on the sheet, the word for online work never done."""
+    ca = [_a(4, "Warm-up", "09-10", submission_types=["none"])]
+    entry = snap(ca, [])["students"]["Alex"]
+    now = _at(9, 15, 14)
+    assert [(i.name, i.status, i.kind) for i in open_items.open_items(entry, "Alex", now).items] == [("Warm-up", "IN CLASS — CHECK", "in class")]
+    item = {"kind": "in class", "due": "2026-09-10T23:59:00-04:00", "points": 10}
+    obs = {"canvas": _canvas(1)}
+    assert outcomes.classify(item, obs, now) == outcomes.UNKNOWN
+    assert items_store.status_text(item, obs, now) == "In class, check"
+    assert "IN CLASS — CHECK" in open_items.OVERDUE_STATUSES and sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
+    assert sheet.status_word("IN CLASS — CHECK", "early") == phrasing.phrase("In class, check", "early")
+    assert sheet.status_word("IN CLASS — CHECK", "older") == "IN CLASS — CHECK"

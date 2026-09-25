@@ -73,6 +73,38 @@ def pair_titles(canvas: Sequence[str], hac: Sequence[str]) -> dict[int, int]:
     return pairs
 
 
+def twin_by_date_and_points(name: str, due: date | None, points, candidates: Sequence[tuple[str, str, object]]) -> int | None:
+    """The index of the Canvas twin of a HAC row whose *title* `pair_titles` could not pair,
+    among `candidates` of (title, due date as "YYYY-MM-DD", points); None when none or more
+    than one fits.
+
+    On a real gradebook three pairs slipped past `same_item`: "Concert Contract" / "Concert
+    Contract Due", "Community Health" / "Ch. 1 - Community Health", "WK #1 HW" / "Week 1 Skill
+    of the Week: Summary". Each was then a HAC-only item *and* a Canvas-only item, so the
+    kid's record counted the work twice -- once as done (HAC had the grade) and once as
+    unknown (Canvas had no submission). A teacher who enters the same assignment in both
+    systems gives it the same due date and the same points, so when exactly one unclaimed
+    Canvas item in the paired course matches on both, and the two titles agree on every
+    number they contain (`Quiz 1` must still never pair with `Quiz 2`), that is the twin.
+    Exactly one: two same-day ten-point worksheets with unrelated titles stay apart. One rule
+    for the database (`web.ingest`) and the sheet (`open_items`), which paired by title alone
+    and printed PAPER — CHECK for work the app had already called done (#137).
+    """
+    if due is None or points is None:
+        return None
+    digits = {w for w in norm_name(name).split() if w.isdigit()}
+
+    def numbers_agree(other: str) -> bool:
+        # Only two titles that *both* carry numbers have to agree on them. "Ch. 1 - Community
+        # Health" against "Community Health" is one assignment; a title with no number imposes
+        # no constraint. "Week 1" against "Week 2" stays two.
+        theirs = {w for w in norm_name(other).split() if w.isdigit()}
+        return not digits or not theirs or digits == theirs
+
+    found = [i for i, (title, d, p) in enumerate(candidates) if d == due.isoformat() and p == points and numbers_agree(title)]
+    return found[0] if len(found) == 1 else None
+
+
 # HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1-2027-Hoch"
 # (term, year, teacher). Trim both tails so the two systems' names for one class compare equal.
 _COURSE_TAIL_RE = re.compile(r"\s*(?:-\s*\d+|\bS[12]\b|\bSem\s*[12]\b|-\s*20\d\d.*)$", re.I)

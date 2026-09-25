@@ -92,6 +92,19 @@ def test_a_young_kids_section_uses_the_childs_words(tmp_path):
 
 
 @needs_pdftotext
+def test_an_undated_row_prints_with_no_due_date_and_no_credit_line(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, due=None), _item("canvas:2", "DUE MON", False, 3)]))])
+    assert "no due date" in text and "until" not in text.split("credit until")[0]
+
+
+@needs_pdftotext
+def test_in_class_check_has_its_own_word_colour_and_legend_entry(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "IN CLASS — CHECK", True, -2, kind="in class")]))])
+    assert text.count("IN CLASS — CHECK") == 2                                        # the row and the legend
+    assert sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
+
+
+@needs_pdftotext
 def test_given_and_credit_until_are_spelled_out(tmp_path):
     text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, -2, late_until=NOW, credit="50%", assigned=NOW)]))])
     assert "given" in text and "50% until" in text

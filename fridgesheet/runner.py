@@ -586,7 +586,7 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
             variant = build_variant(opts)
             ctx = BuildContext(settings=settings, home=home, day=day, now=at, out_dir=day_dir, kid=opts.kid, nicknames=settings.nicknames,
                                prev_rows=prev_rows, prev_label=prev_label, stale_note=stale_note, options=options, data_as_of=as_of,
-                               flags=_load_flags(db_conn, log), variant=variant)
+                               flags=_load_flags(db_conn, log), variant=variant, conn=db_conn)
             try:
                 built = report.build(snap, ctx)
             except ReportError as e:

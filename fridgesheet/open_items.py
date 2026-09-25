@@ -1,12 +1,19 @@
-"""One definition of "open work", shared by the MCP tools and the printed sheet.
+"""Open work from the snapshot alone: the MCP tools, and the printed sheet's fallback.
 
-Open means the kid can still do something about it:
+The sheet's rows normally come from the database, the same decided rows the Open work page
+shows (`reports.open_work.decided_work`, #137); this module is what a household that has
+never recorded a refresh gets, and what the MCP tools read, so it must say the same thing
+from the snapshot. The rules are the web's (docs/outcomes.md), in the sheet's words:
 
-* Canvas items not submitted -- past due (MISSING, ZERO, PAPER — CHECK) or due within the
-  next `days_ahead` days (DUE TODAY / DUE TOMORROW / DUE <weekday>) -- plus submissions
-  turned in late and not yet graded (LATE). A graded late submission is finished business.
-* HAC rows with a blank score after their due date (HAC — NO GRADE), deduped against the
-  Canvas item they pair with.
+* Canvas items not submitted -- past due (MISSING, ZERO, PAPER — CHECK, IN CLASS — CHECK) or
+  due within the next `days_ahead` days (DUE TODAY / DUE TOMORROW / DUE <weekday>) -- plus
+  submissions turned in late and not yet graded (LATE). A graded late submission is finished
+  business, and so is anything HAC has graded above zero: done on paper is done. A HAC zero
+  is ZERO.
+* HAC rows with a blank score once past due (HAC — NO GRADE), or a zero (ZERO), deduped
+  against the Canvas item they pair with.
+* Work with no due date, once the teacher has marked it missing or scored it zero (#138):
+  nothing else can happen to it, so it has no window and never grows too old.
 
 Overdue items are shown only while the class still gives credit for them (see
 `late_rules`) and only within `overdue_days`; anything older goes to `dropped`, which the
@@ -23,9 +30,12 @@ from typing import Iterable
 from . import late_rules as _late_rules
 from . import sources as _sources
 from .dates import deadline_date
-from .matching import hac_item_key, hac_only_key, match_course, pair_titles, same_item, short_course
+from .matching import hac_item_key, hac_only_key, match_course, pair_titles, same_item, short_course, twin_by_date_and_points
 
-OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "HAC — NO GRADE")
+OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "IN CLASS — CHECK", "HAC — NO GRADE")
+#: The words for work nothing has been handed in for, which a HAC grade settles (docs/outcomes.md).
+_NOTHING_HANDED_IN = ("MISSING", "PAPER — CHECK", "IN CLASS — CHECK")
+_FAR = datetime.max.replace(tzinfo=None)         # sorts an undated row after every dated one
 HANDLED_FLAGS = ("done", "excused", "ignore", "too_late")     # these remove the item from the open list
 MARKED_FLAGS = ("follow_up", "ask_teacher")       # these print a marker in the status column
 ASSESSMENT_WORDS = ("quiz", "test", "assess", "exam")   # an assignment group naming one of these is graded work that counts
@@ -37,7 +47,7 @@ class Item:
     kid: str
     course: str
     name: str
-    due: datetime
+    due: datetime | None             # None for undated work the teacher has marked (#137)
     status: str
     overdue: bool
     source: str                      # canvas | hac | both
@@ -66,6 +76,14 @@ class OpenWork:
     dropped: list[Item]             # overdue but past credit / too old; not shown as rows
     handled: list[Item] = field(default_factory=list)  # removed by a handled flag; not in items or dropped
 
+    def sort(self) -> "OpenWork":
+        """The sheet's order: overdue rows first, then by due date, class and title; the two
+        trailers by due date. Undated rows come after every dated one."""
+        self.items.sort(key=lambda i: (not i.overdue, _due_key(i), i.course, i.name))
+        self.dropped.sort(key=lambda i: (_due_key(i), i.course, i.name))
+        self.handled.sort(key=lambda i: (_due_key(i), i.course, i.name))
+        return self
+
 
 @dataclass
 class Diff:
@@ -91,7 +109,7 @@ def hac_excused(row: dict) -> bool:
     return (row.get("score_raw") or "").strip().upper().startswith("EX")
 
 
-def _status(a: dict, due: datetime, now: datetime) -> str | None:
+def _status(a: dict, due: datetime | None, now: datetime) -> str | None:
     """The status word for a Canvas assignment, or None when there is nothing open."""
     if a.get("excused") or not a.get("published", True):
         return None
@@ -103,9 +121,13 @@ def _status(a: dict, due: datetime, now: datetime) -> str | None:
         return "ZERO"
     if a.get("late") and a.get("score") is None:
         return "LATE"
+    if due is None:                  # undated: only a mark or a zero (above) makes it open
+        return None
     if due < now:
         if unsubmitted:
-            return "PAPER — CHECK" if kind_of(a.get("submission_types")) == "paper" else "MISSING"
+            # Canvas cannot see paper or in-class work handed in, so "not submitted" says
+            # nothing about it: the honest word is "check", as the screen's is (#137).
+            return {"paper": "PAPER — CHECK", "in class": "IN CLASS — CHECK"}.get(kind_of(a.get("submission_types")), "MISSING")
         return None
     if not unsubmitted:
         return None
@@ -236,13 +258,26 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             free = [i for i in range(len(peer_rows)) if i not in taken]
             pairs = pair_titles([a["name"] for a in c["assignments"]], [peer_rows[i]["name"] for i in free])
             twin_of = {ci: free[hi] for ci, hi in pairs.items()}
+            # Titles typed too differently to pair: the same due date and points, when exactly
+            # one assignment has them (`matching.twin_by_date_and_points`) -- the database's
+            # rule, which the sheet lacked, so a "Concert Contract" the app had called done
+            # printed PAPER — CHECK (#137).
+            unpaired = [ci for ci in range(len(c["assignments"])) if ci not in twin_of]
+            for hi in free:
+                if hi in twin_of.values():
+                    continue
+                row = peer_rows[hi]
+                hac_due = parse_hac_date(row.get("due"), tz)
+                at = twin_by_date_and_points(row.get("name") or "", hac_due.date() if hac_due else None, row.get("points"),
+                                             [(c["assignments"][ci]["name"], (c["assignments"][ci].get("due_at") or "")[:10],
+                                               c["assignments"][ci].get("points_possible")) for ci in unpaired])
+                if at is not None:
+                    twin_of[unpaired.pop(at)] = hi
             taken.update(twin_of.values())
         pick = _sources.assignments_for(prefs, first, c["name"], peer_name)
         for ci, a in enumerate(c["assignments"]):
-            if not a.get("due_at"):
-                continue
-            due = datetime.fromisoformat(a["due_at"])
-            if due < year_start:
+            due = datetime.fromisoformat(a["due_at"]) if a.get("due_at") else None
+            if due is not None and due < year_start:
                 continue
             hac_row = peer_rows[twin_of[ci]] if ci in twin_of else None
             hac_score = (hac_row or {}).get("score")
@@ -260,12 +295,17 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             # Canvas shows paper and in-class work as unsubmitted forever; a grade in HAC is the
             # proof it was handed in. The web app's outcome definition calls that *done on
             # paper* (docs/outcomes.md), and the sheet must not print PAPER — CHECK -- or
-            # MISSING -- for work the gradebook has already marked. That includes Canvas's
-            # `missing`, which is often its late policy's automatic mark. A 0 in either source
-            # still wins. The web app also asks when Canvas changed after HAC; a snapshot has no
-            # history, so the sheet cannot, and follows HAC.
-            if status in ("PAPER — CHECK", "MISSING") and a.get("score") is None and hac_score not in (None, 0):
+            # MISSING, or DUE -- for work the gradebook has already marked. That includes
+            # Canvas's `missing`, which is often its late policy's automatic mark, and a Canvas
+            # placeholder zero. A HAC 0 on work never handed in is ZERO, as the screen has it,
+            # unless Canvas's own missing mark is the word (#137). The web app also asks when
+            # Canvas changed after HAC; a snapshot has no history, so the sheet cannot, and
+            # follows HAC.
+            if status != "LATE" and a.get("score") in (None, 0) and hac_score is not None and hac_score > 0:
                 continue
+            if status in _NOTHING_HANDED_IN and not a.get("missing") and a.get("score") is None and hac_score == 0 \
+                    and (a.get("points_possible") or 0) > 0:
+                status = "ZERO"
             overdue = status in OVERDUE_STATUSES
             if not overdue and due > horizon:
                 continue
@@ -288,7 +328,7 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if it.flag in HANDLED_FLAGS:
                 handled.append(it)
                 continue
-            if overdue:
+            if overdue and due is not None:          # undated work has no window to fall out of
                 rule = rules.resolve(first, c["name"], peer_name)
                 it.late_until, it.credit = rules.deadline(first, c["name"], due, peer_name), rule.credit
                 if due < oldest or now > it.late_until:
@@ -315,13 +355,15 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if due is None:
                 continue
             due = due.replace(hour=23, minute=59)
-            # A blank cell is no grade yet; "EXC" is excused, and neither prints (#135).
-            if due < year_start or hac_excused(a) or not (a.get("score") is None and a.get("score_raw") == "" and due < now - timedelta(days=1)):
+            # A blank cell is no grade yet, open the moment it is past due, as on the screen
+            # (#137); a zero is not done; "EXC" is excused and never prints (#135).
+            zero = a.get("score") == 0 and (a.get("points") or 0) > 0
+            if due < year_start or hac_excused(a) or not (zero or (a.get("score") is None and due < now)):
                 continue
             course = short_course(hname)
             it = Item(
-                key=key, kid=kid, course=course, name=a["name"], due=due,
-                status="HAC — NO GRADE", overdue=True, source="hac", kind="", points=a.get("points"),
+                key=key, kid=kid, course=course, name=a["name"], due=due, score=a.get("score"),
+                status="ZERO" if zero else "HAC — NO GRADE", overdue=True, source="hac", kind="", points=a.get("points"),
                 assigned=parse_hac_date(a.get("assigned"), tz),
                 is_assessment=any(w in (a.get("category") or "").lower() for w in ("quiz", "assess")),
             )
@@ -336,10 +378,11 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             else:
                 items.append(it)
 
-    items.sort(key=lambda i: (not i.overdue, i.due, i.course, i.name))
-    dropped.sort(key=lambda i: (i.due, i.course, i.name))
-    handled.sort(key=lambda i: (i.due, i.course, i.name))
-    return OpenWork(kid=kid, as_of=now, items=items, dropped=dropped, handled=handled)
+    return OpenWork(kid=kid, as_of=now, items=items, dropped=dropped, handled=handled).sort()
+
+
+def _due_key(i: Item) -> datetime:
+    return (i.due or _FAR).replace(tzinfo=None)
 
 
 def compare(prev_rows: Iterable[dict], items: list[Item], handled: Iterable[Item] = ()) -> Diff:

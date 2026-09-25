@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from .. import collector
-from ..matching import match_course, norm_name, pair_titles, short_course
+from ..matching import match_course, pair_titles, short_course, twin_by_date_and_points
 from ..open_items import ASSESSMENT_WORDS, hac_excused, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
 from . import db
 
@@ -85,37 +85,6 @@ def _upsert_course(conn, student_id: int, source: str, external_id, name: str, t
          teacher, teacher_email),
     )
     return conn.execute("SELECT id FROM courses WHERE student_id = ? AND source = ? AND name = ?", (student_id, source, name)).fetchone()[0]
-
-
-def _twin_by_date_and_points(row: dict, name: str, twins: list, attached: set[int], tz) -> int | None:
-    """The Canvas twin of a HAC row whose *title* the word matcher could not pair.
-
-    On a real gradebook three pairs slipped past `same_item`: "Concert Contract" / "Concert
-    Contract Due", "Community Health" / "Ch. 1 - Community Health", "WK #1 HW" / "Week 1 Skill
-    of the Week: Summary". Each was then a HAC-only item *and* a Canvas-only item, so the
-    kid's record counted the work twice -- once as done (HAC had the grade) and once as
-    unknown (Canvas had no submission). A teacher who enters the same assignment in both
-    systems gives it the same due date and the same points, so when exactly one unclaimed
-    Canvas item in the paired course matches on both, and the two titles agree on every
-    number they contain (`Quiz 1` must still never pair with `Quiz 2`), that is the twin.
-    Exactly one: two same-day ten-point worksheets with unrelated titles stay apart.
-    """
-    due = parse_hac_date(row.get("due"), tz)
-    points = row.get("points")
-    if due is None or points is None:
-        return None
-    digits = {w for w in norm_name(name).split() if w.isdigit()}
-
-    def numbers_agree(other: str) -> bool:
-        # Only two titles that *both* carry numbers have to agree on them. "Ch. 1 - Community
-        # Health" against "Community Health" is one assignment; a title with no number imposes
-        # no constraint. "Week 1" against "Week 2" stays two.
-        theirs = {w for w in norm_name(other).split() if w.isdigit()}
-        return not digits or not theirs or digits == theirs
-
-    found = [iid for iid, n, d, p in twins
-             if iid not in attached and d == due.date().isoformat() and p == points and numbers_agree(n)]
-    return found[0] if len(found) == 1 else None
 
 
 def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kind: str, points, due: str | None,
@@ -297,8 +266,14 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     name = row.get("name") or ""
                     twin = twin_of.get(i)
                     if twin is None:
-                        twin = _twin_by_date_and_points(row, name, twins, attached_twins, tz)
-                        if twin is not None:
+                        # Titles typed too differently to pair: the same due date and points,
+                        # when exactly one free Canvas item has them (`matching.twin_by_date_and_points`).
+                        free = [t for t in twins if t[0] not in attached_twins]
+                        hac_due = parse_hac_date(row.get("due"), tz)
+                        at = twin_by_date_and_points(name, hac_due.date() if hac_due else None, row.get("points"),
+                                                     [(n, d, p) for _iid, n, d, p in free])
+                        if at is not None:
+                            twin = free[at][0]
                             attached_twins.add(twin)
                     if twin is not None:
                         n_obs += _observe(conn, refresh_id, twin, "hac", _hac_values(row))
