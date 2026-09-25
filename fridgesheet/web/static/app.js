@@ -254,7 +254,23 @@ document.addEventListener("htmx:afterSwap", function (e) { attachCharts(e.detail
 // chart.umd.min.js on their own initial page load, before any htmx swap can bring in a
 // chart-bearing partial, so there is no "library not loaded yet" race to poll for here (unlike
 // attachCharts' wait loop, which exists for the first draw on page load itself).
+//
+// Same lifecycle rule as `pruneCharts` above: Chart.js keeps every instance in its own
+// registry (and a ResizeObserver on the canvas's parent) until `destroy()`. The builder's
+// Preview replaces `#preview` wholesale on every click, so without this each click drew a new
+// chart and kept the old one for the life of the page (tests/test_web_report_chart_lifecycle.py).
+var REPORT_CHARTS = [];
+
+function pruneReportCharts() {
+  REPORT_CHARTS = REPORT_CHARTS.filter(function (chart) {
+    if (document.contains(chart.canvas)) return true;
+    try { chart.destroy(); } catch (e) { /* already gone; the entry goes either way */ }
+    return false;
+  });
+}
+
 function attachReportCharts(root) {
+  pruneReportCharts();                    // whatever this swap replaced, before anything new
   var els = root.querySelectorAll ? root.querySelectorAll("[data-report-chart]") : [];
   Array.prototype.forEach.call(els, function (canvas) {
     if (canvas.dataset.drawn) return;
@@ -262,7 +278,7 @@ function attachReportCharts(root) {
     if (!script) return;
     canvas.dataset.drawn = "1";
     try {
-      new Chart(canvas.getContext("2d"), JSON.parse(script.textContent));
+      REPORT_CHARTS.push(new Chart(canvas.getContext("2d"), JSON.parse(script.textContent)));
     } catch (e) {
       canvas.parentNode.innerHTML = '<p class="warn">The chart could not load.</p>';
     }
