@@ -13,8 +13,12 @@
      <select name="source" hx-post="/reports/builder" hx-trigger="change" hx-include="#builder"
              hx-target="#builder" hx-select="#builder" hx-swap="outerHTML">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label></p>
   <p><label>Rows from
-     <select name="window">{% for key, label, _ in WINDOWS %}<option value="{{ key }}" {{ 'selected' if d.window == key }}>{{ label }}</option>{% endfor %}</select></label>
-     <span class="muted">by due date for assignments, by when it happened for grades and changes</span></p>
+     <select name="window" onchange="document.getElementById('customRange').hidden = this.value !== 'custom'">{% for key, label, _ in WINDOWS %}<option value="{{ key }}" {{ 'selected' if d.window == key }}>{{ label }}</option>{% endfor %}</select></label>
+     <span class="muted">by due date for assignments, by when it happened for grades and changes</span>
+     <span id="customRange" {{ 'hidden' if d.window != 'custom' }}>
+       <label>from <input type="date" name="date_from" value="{{ d.date_from }}"></label>
+       <label>to <input type="date" name="date_to" value="{{ d.date_to }}"></label>
+     </span></p>
   <p>Kids: {% for k in kids %}<label><input type="checkbox" name="scope" value="{{ k.key }}" {{ 'checked' if k.key in d.scope }}> {{ k.key | nickname }}</label> {% endfor %}
      <span class="muted">none ticked means every kid</span></p>
   <p>Columns:<br>

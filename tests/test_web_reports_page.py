@@ -289,3 +289,21 @@ def test_csv_quotes_a_comma_keeps_non_ascii_and_never_breaks_the_filename(tmp_pa
     filename = disposition.split('filename="', 1)[1].split('"', 1)[0]      # the ASCII fallback; `filename*` follows
     assert filename.startswith("Bad rm -rf name ") and filename.endswith(".csv")
     assert not any(ch in filename for ch in '";/\\\r\n')
+
+
+def test_the_builder_saves_a_custom_range(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={"title": "Recap", "source": "items", "columns": ["kid", "name"],
+                                     "window": "custom", "date_from": "2026-09-01", "date_to": "2026-09-15"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    assert 'name="date_from" value="2026-09-01"' in body and 'name="date_to" value="2026-09-15"' in body
+
+
+def test_the_builder_shows_the_custom_range_problem(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={"title": "Recap", "source": "items", "columns": ["kid", "name"],
+                                     "window": "custom", "date_from": "2026-09-15", "date_to": "2026-09-01"})
+    assert "on or before" in r.text

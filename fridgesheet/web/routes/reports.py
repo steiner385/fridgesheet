@@ -35,6 +35,7 @@ def definition_from_form(form) -> views.Definition:
         orientation=form.get("orientation", "portrait"),
         per_kid_sections=bool(form.get("per_kid_sections")),
         window=form.get("window", "all"),
+        date_from=form.get("date_from", ""), date_to=form.get("date_to", ""),
     ).to_json())
 
 
@@ -109,7 +110,8 @@ async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
         filters=tuple(f for f in d.filters if f.get("field") in known),
         group_by=d.group_by if d.group_by in known else None,
         sort=tuple(s for s in d.sort if s.get("column") in known),
-        orientation=d.orientation, per_kid_sections=d.per_kid_sections, window=d.window)
+        orientation=d.orientation, per_kid_sections=d.per_kid_sections, window=d.window,
+        date_from=d.date_from, date_to=d.date_to)
     rid = form.get("report_id")
     report = store.by_id(conn, int(rid)) if rid and str(rid).isdigit() else None
     return _builder(request, conn, state, report=report, d=d)
