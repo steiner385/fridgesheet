@@ -19,12 +19,13 @@ Fridge Sheet prints a one-page-per-kid list of open schoolwork every school day 
 
 Fridge Sheet is a small web app that runs on your own PC. The shortcut starts it if it is not already running and opens it in your browser at `http://127.0.0.1:8433/`. Nothing is published to the internet; only this PC can reach that address unless you turn on the option below.
 
-1. **Settings page.** Enter your OneLogin username and password. The password goes into Windows Credential Manager, never into a file, and the page refuses to take one from another device. Pick your printer (or leave "System default") and how many days ahead to look. If your kids go by nicknames, put one `First=Nick` per line. Click **Save**.
+1. **Settings page.** Enter your OneLogin username and password. The password goes into Windows Credential Manager, never into a file. (You can do this from a phone or another PC too, but the page will remind you that the app has no HTTPS, so the password crosses your network unencrypted on its way there -- type it on this PC if you can.) Pick your printer (or leave "System default") and how many days ahead to look. If your kids go by nicknames, put one `First=Nick` per line. Click **Save**.
 2. **Settings page → Test login.** Takes up to a minute; progress appears on the page as it goes. Both lines must say OK. If not, fix the username and password, Save, and try again.
-3. **Schedules page.** This is where you turn printing on. The built-in "Open Work Sheet" has its own section here, and so does any report you build yourself on the Reports page. In the section for the report you want, tick **Run this on a schedule**, set a time, and tick the days. Leave the printer where it says "(the printer on the Settings page)" to use the one you already chose, or pick a different printer just for this report. Tick **Print it** to have the sheet print itself, or leave it unticked to keep it as a PDF only, without printing — handy if you want to check a sheet before it goes to a kid. Click that section's **Save**; once Test login has passed, saving here is what installs the Windows task that runs this report on its own.
-4. **Dashboard → Refresh now** pulls Canvas and Home Access Center and fills the page in. **Preview today's sheet** builds the PDF and links it; **Print now** prints it straight away.
+3. **Schedules page.** This is where you turn printing on. The built-in "Open Work Sheet" has its own section here, and so does any report you build yourself on the Reports page. In the section for the report you want, tick **Run this on a schedule**, set a time, and tick the days. Leave the printer where it says "(the printer on the Settings page)" to use the one you already chose, or pick a different printer just for this report. Tick **Print it** to have the sheet print itself, or leave it unticked to keep it as a PDF only, without printing — handy if you want to check a sheet before it goes to a kid. Click that section's **Save**; once Test login has passed, saving here is what installs the Windows task that runs this report on its own. At the top of the same page, under **Refresh the data**, tick **Refresh on a schedule** and Save: that is what keeps the sheet and every page current between runs, since a scheduled print uses whatever the last refresh found.
+4. **Today → Refresh now** pulls Canvas and Home Access Center and fills the page in. **Preview today's sheet** builds the PDF and links it; **Print now** prints it straight away.
 5. **Runs** lists every sheet that has been built or printed, with a link to each PDF and a Reprint button.
 6. To read the sheet on your phone, tick **Allow other devices on this network** on the Settings page and save. Saving says the server address changed; sign out and back in (or restart the PC) so the background task picks it up, and the Settings page then shows the address to type on the phone — with a **QR code** next to it, so you can point the phone's ordinary camera at the screen instead of typing. Leave the box unticked if you would rather keep the app on this PC only.
+7. **Settings page → Updates.** Set a **New update PIN** and Save. With one set, the Settings page can install a newer version itself: an **Update to <version>** button appears there when GitHub has one. Without a PIN, download the new installer from the Releases page and run it over the old one.
 
 ## What happens every day
 
@@ -46,6 +47,7 @@ Everything lives in `%LOCALAPPDATA%\fridgesheet` (paste that into File Explorer'
 | `app.log` | the app's own log, including the web server's |
 | `doctor.txt` | the last diagnostics report |
 | `config.toml` | your settings (no password in it) |
+| `.env` | optional; create it yourself, one `NAME=value` per line, for settings the pages do not offer. Another district's addresses go here: `FRIDGESHEET_CANVAS_BASE=https://<district>.instructure.com`, `FRIDGESHEET_HAC_BASE=https://<hac host>/HomeAccess`, `FRIDGESHEET_ONELOGIN_HOST=<district>.onelogin.com`. Restart the app after editing it (`env.example` in the source lists the rest) |
 | `web.lock` | present only while the server is running; it keeps a second copy from starting |
 
 ## If something goes wrong
@@ -69,7 +71,7 @@ Everything lives in `%LOCALAPPDATA%\fridgesheet` (paste that into File Explorer'
 
 - **"Login failed"**: the username or password is wrong, or OneLogin wants multi-factor sign-in. Fix the Settings page, Save, and Test login again.
 - **Nothing printed at the scheduled time**: open the Runs page; it shows the last result for every day. Common causes: the PC was off or you were signed out; the printer was off (the sheet is kept as a PDF in `sheets\<date>`, and the Runs page links it); it was a no-print day. You can also open Windows **Task Scheduler** and look for "Fridge Sheet - open-work" (the built-in report), "Fridge Sheet - web" (the server that starts at sign-in), and one more per report you scheduled yourself — a saved report named "view 7" on the Reports page shows up there as "Fridge Sheet - view 7". To stop one for good, go to the Schedules page, untick **Run this on a schedule** for that report, and Save; that removes the task itself, not just the tick.
-- **Wrong printer**: pick another on the Settings page and Save; the app never uses the Windows default unless you leave the choice at "System default". **Print now** on the Dashboard prints straight away so you can check.
+- **Wrong printer**: pick another on the Settings page and Save; the app never uses the Windows default unless you leave the choice at "System default". **Print now** on Today prints straight away so you can check; its confirmation names the printer it will use.
 
 ## Upgrading from Lakota Sheet
 

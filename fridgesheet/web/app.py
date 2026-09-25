@@ -350,8 +350,10 @@ LOOPBACK = ("127.0.0.1", "::1")
 
 
 def loopback(request: Request) -> bool:
-    """This request came from a browser on this computer, not the LAN -- the OneLogin
-    password field (and a posted password) is gated on this, never on `testclient`."""
+    """This request came from a browser on this computer, not the LAN. The Settings page
+    uses it only to word its help: a posted password is accepted from anywhere the Host check
+    admits (routes/settings.py `save` says why), and from off this computer the page says the
+    password crosses the network in the clear. Never true for `testclient`."""
     return bool(request.client) and request.client.host in LOOPBACK
 
 

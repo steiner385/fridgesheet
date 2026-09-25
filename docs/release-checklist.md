@@ -444,22 +444,26 @@ renames `lakota.db`, and copies the Credential Manager entry (`fridgesheet\migra
 - [ ] From another machine: `/health` answers `"app":"fridgesheet"`, version 0.4.0, and the
   header shows the fridge-magnet mark.
 
-## 8. Only now, the tag
+## 8. The tag, if you are choosing the version by hand
 
-Everything above passed. This step is yours — an agent does not run it and this checklist
-does not authorize one to.
+Everything above passed. Normally there is nothing left to do: the release you just checked
+was tagged and published by `release.yml` on merge (see the top of this file), and the next
+merge tags the next one. The only time a human pushes a tag is a deliberately chosen version
+that is *not* the next patch — and even then the usual route is to bump `version` in
+`pyproject.toml` in the PR and let the merge release it.
+
+If you do push one by hand — an agent does not run this and this checklist does not
+authorize one to:
 
 ```
 git tag v<version-in-pyproject.toml>
 git push origin v<version-in-pyproject.toml>
 ```
 
-For example, if `pyproject.toml` currently says `version = "0.2.0"`, that's
-`git tag v0.2.0 && git push origin v0.2.0`. (As of this checklist being written, this repo
-has no tags at all yet — this will be the first one.) `release.yml` refuses to build
-anything for a tag that doesn't match `pyproject.toml` exactly, so get the version bumped
-and merged to `main` first if it isn't already (see "Releasing the Windows installer" in
-`README.md`).
+`release.yml` refuses to build anything for a pushed tag that doesn't match `pyproject.toml`
+exactly, so get the version bumped and merged to `main` first if it isn't already (see
+"Releasing the Windows installer" in `README.md`). `git tag --list 'v*' --sort=-v:refname`
+shows what has already shipped.
 
-**Pushing the tag is the maintainer's call, on his own schedule — not something this
+**Pushing a tag by hand is the maintainer's call, on his own schedule — not something this
 document, or any agent, decides for him.**

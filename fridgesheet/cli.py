@@ -1,4 +1,4 @@
-"""Command line: `fridgesheet login|set-credentials|check|refresh|status|serve|run|reports|printers|schedule|print-sheet|web|service|doctor`."""
+"""Command line: `fridgesheet login|set-credentials|check|refresh|status|serve|run|reports|printers|schedule|print-sheet|web|service|self-update|doctor`."""
 from __future__ import annotations
 
 import argparse
@@ -591,13 +591,14 @@ def main(argv=None) -> None:
     su.add_argument("--force", action="store_true", help="proceed even if another account owns the install")
     su.set_defaults(fn=cmd_self_update)
     sub.add_parser("doctor", help="check Python, Chromium, the PDF engine, the credential store, printers and the scheduler; writes <home>/doctor.txt").set_defaults(fn=cmd_doctor)
-    ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it (CUPS)")
-    ps.add_argument("--dry-run", action="store_true", help="build sheet-preview.pdf under ~/.fridgesheet/sheets/<day>/ and print nothing; the run is still recorded on the Runs page")
+    ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it "
+                                            "(`run open-work` under its original name, with fixed 14-day defaults)")
+    ps.add_argument("--dry-run", action="store_true", help="build sheet-preview.pdf under <home>/sheets/<date>/ and print nothing; the run is still recorded on the Runs page")
     ps.add_argument("--kid", help="one student only (first name or nickname prefix); builds sheet-<kid>.pdf beside the day's sheet, which it leaves alone")
-    ps.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the 2 PM window and builds that day's sheet-preview.pdf, never its sheet.pdf")
+    ps.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the print window and builds that day's sheet-preview.pdf, never its sheet.pdf")
     ps.add_argument("--days", type=int, default=14, help="how far ahead to look (default 14)")
     ps.add_argument("--overdue-days", type=int, default=14, help="how far back an overdue item may be (default 14)")
-    ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the 2 PM window (never reprints a day)")
+    ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the print window (never reprints a day)")
     ps.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: FRIDGESHEET_PRINTER if set in the shell environment, then the report's own printer, then [print] printer in config.toml or FRIDGESHEET_PRINTER in .env, then the system default)")
     ps.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     ps.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")

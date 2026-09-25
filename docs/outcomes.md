@@ -2,7 +2,7 @@
 
 Canvas and Home Access Center each tell part of the story, in different words. This is the
 one table the app uses to turn those words into an answer a parent can act on — and it is
-the same table whether you are reading a kid's card on the Dashboard, the Kid page, the
+the same table whether you are reading a kid's card on Today, a kid's Assignments tab, the
 Trends page or the printed sheet. The code is `fridgesheet/web/outcomes.py`; if the two
 ever disagree, the code is wrong.
 
@@ -55,7 +55,7 @@ Two consequences worth knowing:
   sheet reads a snapshot with no history, so it always follows HAC's grade here.
 - **"Due so far" means work that is due.** Work handed in before its due date is *on time*
   from the moment it is handed in -- the outcome is right -- but it does not join *of N due
-  so far* on the Dashboard, the Kid page or Trends until the due date passes. Work with no
+  so far* on Today, the Assignments tab or Trends until the due date passes. Work with no
   due date can never become past due, so it is on the record as soon as anything has
   happened to it (a grade, a hand-in, a mark); with nothing at all it is *not due yet* and
   off the record. `outcomes.on_record` is the one test every tally uses.
@@ -64,16 +64,16 @@ Two consequences worth knowing:
 
 | place | what you see |
 |---|---|
-| **Dashboard, each kid's card** | *N on time · N late · N not done · N on paper · N unknown · of N due so far.* Each number links to the rows behind it. "Due so far" is the five settled outcomes of work whose due date has passed (`outcomes.on_record`); work handed in early is not on the record until it is due, and not-due, excused and unpublished never are. |
-| **Kid page, Outcome filter** | Every row's outcome; filter by one. Choosing an outcome shows *all* matching rows, including those past their late-work window — "not done" means not done, whether or not it can still be fixed. |
+| **Today, each kid's card** ("School record so far") | *N on time · N late · N not done · N on paper · N unknown · of N due so far.* Each number links to the rows behind it. "Due so far" is the five settled outcomes of work whose due date has passed (`outcomes.on_record`); work handed in early is not on the record until it is due, and not-due, excused and unpublished never are. |
+| **Assignments tab, Outcome filter** (under *More filters*) | Every row's outcome; filter by one. Choosing an outcome shows *all* matching rows, including those past their late-work window — "not done" means not done, whether or not it can still be fixed. |
 | **Open work page** | The sheet's two questions on a screen, per kid: *Still fixable* is the actionable rows (below) no more than the Overdue days setting past due, soonest-closing late-work window first, each with the day it closes and the credit the register promises; *Coming due* is unsubmitted Canvas work due within the Days ahead setting. What is open but past its window, and what you flagged handled, are counted underneath with links, not listed. Both read Days ahead and Overdue days through one accessor (`config.day_option`), so the page lists the same rows the sheet prints. Each row is the work list's row: the item's verdict, its question tag, and its detail card. |
-| **Kid page, Handed in and Grade columns** | The raw facts the outcome was decided from, kept separate: Handed in is the submission (Yes / Late / No / Excused / — for paper, in-class and HAC-only work); Grade is the gradebook (the score, a 0 in red, the teacher's Missing, "Not yet" for handed in and unmarked). |
+| **Assignments tab, the work list** | Three columns: *Due*, *Assignment* (its class and kind beneath it) and *Where it stands* — one phrase from the item's verdict (`web/verdicts.py`), red only when the school recorded it as not done and nothing settled it otherwise. The raw facts the outcome was decided from are in the row's detail card: what Canvas and what HAC each say, and as of when. |
 | **Trends, "How the work due each week came out"** | The five settled outcomes per week of *due date*, for work that is due — the same numbers as the card, spread over the calendar. By due week, not refresh week, so the chart shows the year so far from the first day. |
 | **Trends, "On-time hand-ins"** | *on time ÷ (on time + late + not done)* over work due so far. "Done on paper" is left out because its timing is unknowable; "unknown" is left out because it is unknown. |
 | **Questions** | Not an outcome — a *verdict* on top of it (`web/verdicts.py`): the app **decides** what the records settle (a HAC grade over Canvas's automatic missing; a gap explained by the late-work rule), **waits** on what time will settle (a Canvas grade not yet in HAC; paper work with no grade for less time than that class usually takes; work handed in and not graded), and **asks** only when the family can act: HAC lower than Canvas, a HAC zero on work handed in online or excused in Canvas, HAC still blank longer than it usually takes for that class, paper or HAC-only work with no grade longer than that class usually takes, or a newer record contradicting your own answer. "Usually takes" is Fridge Sheet's own count from that class's earlier grades (`web/pace.py`), 7 days until there are enough of them. Too late for credit is a status, not a question. |
-| **"open"** (Kid page filter, *Open the longest*) | *not done* or *unknown*, plus *late* until it is graded. Defined from the outcome, so paper work the gradebook has marked is settled — it used to count as open forever because Canvas never sees a paper hand-in. |
+| **"open"** (the Assignments tab's *Open* choice, which also shows what is coming due; Trends, *Open the longest*) | *not done* or *unknown*, plus *late* until it is graded (`web/reconcile.py`, `open_sources`). Defined from the outcome, so paper work the gradebook has marked is settled — it used to count as open forever because Canvas never sees a paper hand-in. |
 | **The printed sheet** | Only what is still open: MISSING, ZERO, LATE, PAPER — CHECK, HAC — NO GRADE, and DUE TODAY / DUE TONIGHT / DUE TOMORROW / DUE *day*. These are the same facts, shouted, and limited to what a kid can still do something about. A deadline in the first hour of a day (00:00–00:59) belongs to the evening before: it is DUE TONIGHT on that day, never "due tomorrow" the evening it has to be finished, and the app's "Due tonight" and "due today" count say the same (`dates.deadline_date`). Work marked EXC in HAC does not print. Work with a grade above zero in HAC is *done on paper* and does not print, even where Canvas still shows MISSING (the sheet has no refresh history, so unlike the app it cannot tell a MISSING set after the grade); a 0 in either source still prints. |
-| **"actionable"** (Dashboard, Kid page) | Also not an outcome: *not done* or *unknown* work that is still inside its late-work credit window (`late-rules.toml`) and that you have not flagged as handled. It is the short list for tonight; the record line is the long one for the quarter. |
+| **"still fixable"** (Today's card, Open work; `actionable` in the code) | Also not an outcome: *not done* or *unknown* work that is still inside its late-work credit window (`late-rules.toml`) and that you have not flagged as handled. It is the short list for tonight; the record line is the long one for the quarter. |
 | **How it is worded** | Every child sees every row and every action. A `[kids].grades` entry changes type, density, colour and vocabulary only (`fridgesheet/web/tiers.py`, `fridgesheet/web/phrasing.py`) — never which rows appear, which `tests/test_web_tier_parity.py` holds. No child phrase states a time, date or number its adult equivalent does not. The printed sheet follows the same rule per kid section: a kid on the early or middle tier reads the phrase table's word for the status ("Teacher hasn't got it" for MISSING, `sheet.status_word`) in the same colour and the same row; an older or ungraded kid's section, and the legend, keep the capitals. |
 
 ## Which source is the source of truth
@@ -107,7 +107,7 @@ fills in what it lacks, so a class Canvas never lists still shows HAC's work and
 school uses one system still shows that system. Submitted, late and excused always come from
 Canvas, because HAC does not record them. Under a HAC preference a HAC score settles the item:
 a HAC 48/50 is *done on paper* even where Canvas says *missing*, and a HAC zero is *not done*
-even where Canvas shows a score. The kid page's *Decided for you* lines still show where Canvas disagrees, each with a *Not right?* link.
+even where Canvas shows a score. The Assignments tab's *Settled by the records* lines still show where Canvas disagrees, each with a *Not right?* link.
 
 Paper work is not a reason on its own to prefer HAC. In this household's data on 2026-09-21,
 20 of 27 past-due paper assignments were graded in Canvas. The real conflicts were one
