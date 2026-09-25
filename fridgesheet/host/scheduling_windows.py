@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import csv
 import os
-import re
 import subprocess
 import tempfile
 from importlib import resources
@@ -21,7 +21,11 @@ from .service_windows import NAME as _WEB_TASK
 #: With `strict=True` the mismatch fails loudly here, at import time, instead.
 _DAY_FULL_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 _DAY_TAGS = dict(zip(DAY_NAMES, _DAY_FULL_NAMES, strict=True))
-_NOT_FOUND = "cannot find the file"
+
+#: Where `schtasks /Query /FO CSV /V` puts the two fields `describe` reads. schtasks localises
+#: the header row's words on a non-English Windows but never reorders the columns, so a header
+#: that does not carry the English name is read by position instead (#151).
+_CSV_COLUMNS = {"Next Run Time": 2, "Last Result": 6}
 
 #: Task names this module must refuse, whatever key renders to them: `scheduling_linux` has
 #: `_FOREIGN_UNITS` for exactly this, and an ownership promise that holds on only one platform
@@ -131,17 +135,39 @@ def remove(key: str, run=subprocess.run) -> None:
     runs -- `remove` is the direction where getting it wrong costs the web server."""
     _check_ownership(key)
     p = _schtasks(["/Delete", "/TN", task_name(key), "/F"], run)
-    if p.returncode != 0 and _NOT_FOUND not in (p.stderr or ""):
+    if p.returncode != 0 and _schtasks(["/Query", "/TN", task_name(key)], run).returncode == 0:
+        # Still registered, so the delete really failed. A task that is simply not there is
+        # not an error -- and that is `/Query`'s exit code, not the words in `/Delete`'s
+        # stderr: "cannot find the file" is "Das System kann die angegebene Datei nicht
+        # finden." on a German Windows, and matching the English made every remove there
+        # raise (#151).
         raise SchedulingError(f"schtasks /Delete failed: {(p.stderr or p.stdout or '').strip()[:300]}")
 
 
+def _csv_field(stdout: str, name: str) -> str | None:
+    """One field of `schtasks /Query /FO CSV /V`'s first row, or None when the output cannot
+    place it: by the English header when the header is English, by `_CSV_COLUMNS` position
+    when it is localised, and None for anything short, empty or not CSV at all -- `describe`
+    then says "installed, next run unknown" rather than crashing on a non-English Windows.
+    `/V` prints one row per trigger; the first is the next to fire. "N/A" is schtasks' own
+    blank."""
+    try:
+        rows = [r for r in csv.reader((stdout or "").splitlines()) if r]
+    except csv.Error:
+        return None
+    if len(rows) < 2:
+        return None
+    header, row = rows[0], rows[1]
+    i = header.index(name) if name in header else _CSV_COLUMNS[name]
+    value = row[i].strip() if i < len(row) else ""
+    return value if value and value != "N/A" else None
+
+
 def describe(key: str, run=subprocess.run):
-    p = _schtasks(["/Query", "/TN", task_name(key), "/FO", "LIST", "/V"], run)
+    # CSV rather than LIST: a field with a comma (`Task To Run`) stays one quoted field, and
+    # the columns keep their order whatever the locale, which LIST's "Label: value" lines do
+    # not give a reader that does not know the localised labels.
+    p = _schtasks(["/Query", "/TN", task_name(key), "/FO", "CSV", "/V"], run)
     if p.returncode != 0:
         return ScheduleInfo("task-scheduler", False, None, None)
-    fields = {}
-    for line in (p.stdout or "").splitlines():
-        m = re.match(r"^([A-Za-z ]+):\s*(.*?)\s*$", line)
-        if m:
-            fields.setdefault(m.group(1).strip(), m.group(2))
-    return ScheduleInfo("task-scheduler", True, fields.get("Next Run Time") or None, fields.get("Last Result") or None)
+    return ScheduleInfo("task-scheduler", True, _csv_field(p.stdout, "Next Run Time"), _csv_field(p.stdout, "Last Result"))

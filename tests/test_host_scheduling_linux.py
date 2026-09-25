@@ -486,3 +486,28 @@ def test_a_failed_re_save_keeps_the_pair_that_was_already_there(tmp_path):
         sl.install("open-work", ["15:00"], ["Mon"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
                    run=run, unit_dir=tmp_path)
     assert (tmp_path / "fridgesheet-open-work.timer").exists() and (tmp_path / "fridgesheet-open-work.service").exists()
+
+
+def test_a_home_with_a_space_is_quoted_the_way_systemd_reads_it():
+    """`Environment=` is read under systemd's own quoting rules, as `ExecStart=` is: unquoted,
+    a path with a space assigns the first word and leaves the rest as a nameless second
+    variable, and the unit fails to load (#151). A plain path keeps the line every unit
+    already on disk has."""
+    text = sl.service_text("open-work", "t", "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+                           "/home/tony/My Data/.fridgesheet")
+    assert 'Environment="FRIDGESHEET_HOME=/home/tony/My Data/.fridgesheet"\n' in text
+    plain = sl.service_text("open-work", "t", "/venv/bin/fridgesheet", "run open-work", "/home/tony",
+                            "/home/tony/.fridgesheet")
+    assert "Environment=FRIDGESHEET_HOME=/home/tony/.fridgesheet\n" in plain
+
+
+def test_a_unit_with_a_quoted_home_still_round_trips(tmp_path):
+    """The quoting changes one line's spelling, not who wrote the unit: the marker check,
+    `describe` and `remove` read the pair back exactly as before."""
+    calls, run = _recorder({("is-enabled", "fridgesheet-weekly.timer"): (0, "enabled\n")})
+    sl.install("weekly", ["14:00"], ["Mon"], "x", "run weekly", ".", run=run, unit_dir=tmp_path,
+               home="/home/tony/My Data/.fridgesheet")
+    assert 'Environment="FRIDGESHEET_HOME=/home/tony/My Data/.fridgesheet"\n' in (tmp_path / "fridgesheet-weekly.service").read_text()
+    assert sl.describe("weekly", run=run, unit_dir=tmp_path) == ScheduleInfo("systemd", True, None, None, True)
+    sl.remove("weekly", run=run, unit_dir=tmp_path)
+    assert not list(tmp_path.iterdir())

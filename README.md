@@ -256,7 +256,7 @@ Every count, filter and colour that says whether an assignment was done comes fr
 | `upcoming(student, days=14)` | Unsubmitted items due in the window, Eastern time, with DUE TODAY / DUE TOMORROW / DUE <weekday> statuses |
 | `assignments(student, course=None)` | Full Canvas assignment list with flags |
 | `hac_classwork(student, course=None)` | Raw HAC rows and category subtotals |
-| `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, and `stale` (sources served from an older pull, with that pull's time) / pull now |
+| `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, `stale` (sources served from an older pull, with that pull's time) and `run_in_progress` (a scheduled print or refresh holds `run.lock`, so reads answer from the snapshot on disk) / pull now, under that same lock |
 
 All dates are `America/New_York` ISO strings (Canvas `due_at` is UTC and is converted).
 
