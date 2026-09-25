@@ -14,8 +14,9 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from .web import views
+
 _STATIC = Path(__file__).parent / "web" / "static"
-_CHART_JS = (_STATIC / "chart.umd.min.js").read_text(encoding="utf-8")
 
 _HTML = """<!doctype html><html><head><meta charset="utf-8">
 <style>html,body{{margin:0;padding:0}}</style>
@@ -24,24 +25,30 @@ _HTML = """<!doctype html><html><head><meta charset="utf-8">
 <script>
 var cfg = {config};
 cfg.options = cfg.options || {{}};
-cfg.options.animation = {{onComplete: function () {{ window.__chartReady = true; }}}};
+cfg.options.animation = {{duration: 0, onComplete: function () {{ window.__chartReady = true; }}}};
 cfg.options.responsive = false;
 new Chart(document.getElementById("c").getContext("2d"), cfg);
 </script></body></html>"""
 
 
-def render_chart_png(config: dict, *, width_px: int = 1400, height_px: int = 500) -> bytes:
+def _chart_js() -> str:
+    return (_STATIC / "chart.umd.min.js").read_text(encoding="utf-8")
+
+
+def render_chart_png(config: dict, *, width_px: int = 1400, height_px: int = 500,
+                     timeout_ms: int = 10000) -> bytes:
     """A Chart.js `config` (from `views.chart_config`), drawn headlessly and returned as a PNG
     at 2x scale for print sharpness. Raises on anything that stops it -- a missing/broken
     Chromium, a page that never signals ready -- so the caller decides how to degrade
     (`reports/view.py` falls back to a chart-less PDF rather than failing the run)."""
-    html = _HTML.format(chart_js=_CHART_JS, width=width_px, height=height_px, config=json.dumps(config))
+    html = _HTML.format(chart_js=_chart_js(), width=width_px, height=height_px,
+                        config=views.escape_for_script_tag(json.dumps(config)))
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page(viewport={"width": width_px, "height": height_px}, device_scale_factor=2)
             page.set_content(html)
-            page.wait_for_function("window.__chartReady === true", timeout=10000)
+            page.wait_for_function("window.__chartReady === true", timeout=timeout_ms)
             return page.locator("canvas").screenshot()
         finally:
             browser.close()

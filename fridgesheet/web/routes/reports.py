@@ -119,23 +119,10 @@ async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
 
 
 def _chart_json(rendered) -> str | None:
-    """`chart_config()`'s output, safe to inline verbatim inside a `<script>` tag.
-
-    A series/axis/bucket label can come from a course or assignment name -- untrusted the same
-    way `sheet.py`'s `_esc()` and the CSV formula-injection guard already treat those names --
-    so a label of literal `</script>` must not be able to close the element early and either
-    break the JSON or splice in markup of its own. `json.dumps` alone does not guard against
-    that; the escapes below live inside JSON string values, which `JSON.parse` unescapes
-    transparently, so the value round-trips unchanged.
-    """
+    """`chart_config()`'s output, safe to inline verbatim inside a `<script>` tag."""
     if not (rendered and rendered.chart):
         return None
-    return (json.dumps(views.chart_config(rendered.chart))
-            .replace('<', '\\u003c')
-            .replace('>', '\\u003e')
-            .replace('&', '\\u0026')
-            .replace(' ', '\\u2028')
-            .replace(' ', '\\u2029'))
+    return views.escape_for_script_tag(json.dumps(views.chart_config(rendered.chart)))
 
 
 @router.post("/reports/preview")

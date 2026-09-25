@@ -588,6 +588,21 @@ _CHART_JS_TYPE = {"line": "line", "bar": "bar", "stacked_bar": "bar"}
 _SERIES_COLORS = ("#1f5fa8", "#b3261e", "#2e7d32", "#6b3fa0", "#b8860b", "#00707f")
 
 
+def escape_for_script_tag(json_text: str) -> str:
+    """A JSON string, safe to inline verbatim inside an HTML <script> tag.
+
+    A chart series/axis/bucket label can come from a course or assignment name -- untrusted
+    the same way sheet.py's _esc() and the CSV formula-injection guard already treat those
+    names -- so a label of literal `</script>` must not be able to close the element early.
+    `json.dumps` alone does not guard against that; the escapes below live inside JSON string
+    values, which `JSON.parse` unescapes transparently, so the value round-trips unchanged.
+    Both the live web preview (`routes/reports.py`) and the headless PDF capture
+    (`chart_render.py`) share this, so neither can drift out of sync about what's safe.
+    """
+    return (json_text.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+                     .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))
+
+
 def chart_config(data: ChartData) -> dict:
     """A Chart.js `type`/`data`/`options` object, built once -- the live web preview and the
     headless PDF capture (`chart_render.py`) both draw from this, so neither can disagree with
