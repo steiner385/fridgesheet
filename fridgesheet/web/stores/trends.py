@@ -11,7 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from ... import sources
+from ... import dates as _dates, sources
 from ...open_items import HANDLED_FLAGS
 from .. import db as _db, outcomes, reconcile
 from . import students as _students
@@ -99,10 +99,6 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
     return sorted((s for s in out.values() if s.points), key=lambda s: not s.official)
 
 
-def _monday(d: date) -> date:
-    return d - timedelta(days=d.weekday())
-
-
 def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, weeks: int = 8,
                   now: datetime) -> list[WeekCounts]:
     """Per week: how many items turned missing, how many were handed in late, how many were
@@ -112,7 +108,7 @@ def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, we
     `weeks` below 1 is treated as 1: a caller asking for no weeks wants this week, not an
     `IndexError`. Only the route clamps, and stores are called directly too."""
     weeks = max(1, weeks)
-    starts = [_monday(now.date()) - timedelta(weeks=n) for n in range(weeks - 1, -1, -1)]
+    starts = [_dates.week_start(now.date()) - timedelta(weeks=n) for n in range(weeks - 1, -1, -1)]
     buckets = {s: {"missing": 0, "late": 0, "on_time": 0, "posted": 0} for s in starts}
     floor = starts[0]
     sql = """SELECT o.*, r.started_at AS at, i.student_id AS student_id
@@ -132,7 +128,7 @@ def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, we
         at = _dt(row["at"])
         if at is None:
             continue
-        week = _monday(at.date())
+        week = _dates.week_start(at.date())
         if week < floor or week not in buckets:
             continue
         b = buckets[week]
@@ -164,7 +160,7 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
     are counted, from `reconcile.live_items`, the same candidate set as the Kid page and the
     Dashboard record line, so the three cannot disagree about a number."""
     weeks = max(1, weeks)
-    starts = [_monday(now.date()) - timedelta(weeks=n) for n in range(weeks - 1, -1, -1)]
+    starts = [_dates.week_start(now.date()) - timedelta(weeks=n) for n in range(weeks - 1, -1, -1)]
     buckets = {s: {k: 0 for k in outcomes.PAST_DUE} for s in starts}
     ids = [s["id"] for s in _students.visible(conn)]
     if student_id is not None:
@@ -178,7 +174,7 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
             due = reconcile.due_of(item)
             if due is None:
                 continue
-            week = _monday(due.date())
+            week = _dates.week_start(due.date())
             if week not in buckets:
                 continue
             outcome = outcomes.classify(item, latest.get(item["id"], {}), now,

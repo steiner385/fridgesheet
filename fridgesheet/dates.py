@@ -5,7 +5,7 @@ Python on Windows raises ValueError on them. %a %A %B %p are portable and stay.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 def md(d: date) -> str:
@@ -63,3 +63,11 @@ def long_date(d: date) -> str:
 
 def parse_iso(s: str | None) -> datetime | None:
     return datetime.fromisoformat(s) if s else None
+
+
+def week_start(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def month_start(d: date) -> date:
+    return d.replace(day=1)
