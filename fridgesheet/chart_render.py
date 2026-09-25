@@ -32,7 +32,10 @@ new Chart(document.getElementById("c").getContext("2d"), cfg);
 
 
 def _chart_js() -> str:
-    return (_STATIC / "chart.umd.min.js").read_text(encoding="utf-8")
+    """Chart.js and its date adapter, in that order -- the same pair `_chart_scripts.html`
+    gives the browser, so a `time` x-scale draws on paper exactly as it does on the page."""
+    return "\n;".join((_STATIC / name).read_text(encoding="utf-8")
+                      for name in ("chart.umd.min.js", "chartjs-adapter-date-fns.bundle.min.js"))
 
 
 def render_chart_png(config: dict, *, width_px: int = 1400, height_px: int = 500,

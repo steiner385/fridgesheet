@@ -393,3 +393,15 @@ def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):
     assert r.status_code == 200
     assert '<span id="chartFields" hidden>' in r.text     # hidden: the chart was dropped
     assert '<option value="stacked_bar" selected>' not in r.text
+
+
+def test_every_chart_page_loads_chart_js_and_its_date_adapter_through_one_partial():
+    """Chart.js and the date adapter are one pair: a page that has one without the other
+    draws category charts but throws on a time scale."""
+    from pathlib import Path
+    templates = Path(views.__file__).parent / "templates"
+    partial = (templates / "_chart_scripts.html").read_text(encoding="utf-8")
+    assert partial.index("chart.umd.min.js") < partial.index("chartjs-adapter-date-fns.bundle.min.js")
+    for p in templates.glob("*.html"):
+        if p.name != "_chart_scripts.html":
+            assert "chart.umd.min.js" not in p.read_text(encoding="utf-8"), p.name

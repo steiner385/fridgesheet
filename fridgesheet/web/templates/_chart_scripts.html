@@ -1,0 +1,5 @@
+{# Chart.js and its date adapter, one pair: every page that draws a chart includes this once.
+   `app.js` (base.html, deferred) runs first; both of these are deferred too, and deferred
+   scripts run in document order, so a chart's first draw at DOMContentLoaded sees both. #}
+<script src="/static/chart.umd.min.js" defer></script>
+<script src="/static/chartjs-adapter-date-fns.bundle.min.js" defer></script>

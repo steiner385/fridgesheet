@@ -6,7 +6,7 @@
 <title>{{ report.name }} · Fridge Sheet</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
-<script src="/static/chart.umd.min.js" defer></script>
+{% include "_chart_scripts.html" %}
 <script src="/static/app.js" defer></script>
 </head>
 {# A page of its own, not the app shell: this is what a parent clicking a report's name from

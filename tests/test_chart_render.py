@@ -58,3 +58,17 @@ def test_render_chart_png_does_not_let_a_label_break_out_of_the_script_tag(tmp_p
     img = Image.open(io.BytesIO(png))
     assert img.format == "PNG"
     assert img.convert("L").getextrema() != (255, 255)    # must not be a blank forged "success"
+
+
+def test_render_chart_png_draws_a_time_scale_chart(tmp_path):
+    """A `time` x-scale needs the vendored date adapter loaded beside Chart.js; without it
+    Chart.js throws before drawing and the ready flag never sets."""
+    if not _chromium_available(tmp_path):
+        pytest.skip("no Playwright browser here")
+    config = {"type": "line",
+              "data": {"datasets": [{"label": "HAC", "data": [{"x": 1757937600000, "y": 88.0},
+                                                               {"x": 1758542400000, "y": 91.0}]}]},
+              "options": {"scales": {"x": {"type": "time", "time": {"minUnit": "day"}}}}}
+    png = chart_render.render_chart_png(config, width_px=400, height_px=200, timeout_ms=4000)
+    img = Image.open(io.BytesIO(png))
+    assert img.convert("L").getextrema() != (255, 255)
