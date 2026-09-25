@@ -28,6 +28,9 @@ WINDOWS = (("all", "Any time", None), ("7d", "The last 7 days", 7), ("30d", "The
            ("90d", "The last 90 days", 90), ("school_year", "This school year", None),
            ("custom", "Custom range", None))
 WINDOW_KEYS = tuple(k for k, _, _ in WINDOWS)
+CHART_TYPES = ("line", "bar", "stacked_bar")
+BUCKETS = ("day", "week", "month")
+MAX_CHART_POINTS = 60          # a chart is illustrative, not exhaustive
 DIRS = ("asc", "desc")
 MAX_ROWS = 2000
 
@@ -41,6 +44,15 @@ class Column:
     id: str
     label: str
     kind: str                       # text | number | date | bool
+
+
+@dataclass(frozen=True)
+class ChartSpec:
+    type: str
+    x: str                      # a date column of the source
+    y: str | None = None        # a number column, or None = count of rows
+    series: str | None = None   # splits the chart into lines/segments; required for stacked_bar
+    bucket: str = "week"
 
 
 def _cols(*specs: tuple[str, str, str]) -> dict[str, Column]:
@@ -80,7 +92,7 @@ class Definition:
     filters: tuple[dict, ...] = ()
     group_by: str | None = None
     sort: tuple[dict, ...] = ()
-    chart: None = None
+    chart: ChartSpec | None = None
     orientation: str = "portrait"
     per_kid_sections: bool = False
     window: str = "all"
@@ -91,7 +103,9 @@ class Definition:
         return json.dumps({
             "title": self.title, "source": self.source, "scope": list(self.scope),
             "columns": list(self.columns), "filters": [dict(f) for f in self.filters],
-            "group_by": self.group_by, "sort": [dict(s) for s in self.sort], "chart": None,
+            "group_by": self.group_by, "sort": [dict(s) for s in self.sort],
+            "chart": ({"type": self.chart.type, "x": self.chart.x, "y": self.chart.y,
+                      "series": self.chart.series, "bucket": self.chart.bucket} if self.chart else None),
             "orientation": self.orientation, "per_kid_sections": self.per_kid_sections,
             "window": self.window, "date_from": self.date_from, "date_to": self.date_to,
         }, indent=1)
@@ -100,6 +114,18 @@ class Definition:
 def defaults(source: str = "items") -> Definition:
     src = source if source in SOURCES else "items"
     return Definition(source=src, columns=tuple(DEFAULT_COLUMNS[src]))
+
+
+def _chart_from(raw: dict) -> ChartSpec | None:
+    """Whatever shape `chart` has in the stored JSON, built as-is -- `validate()` is where a
+    malformed chart is named precisely, the same discipline `filters`/`sort` already follow."""
+    c = raw.get("chart")
+    if not isinstance(c, dict) or not c.get("type"):
+        return None
+    return ChartSpec(type=str(c.get("type", "")), x=str(c.get("x", "")),
+                     y=(str(c["y"]) if c.get("y") else None),
+                     series=(str(c["series"]) if c.get("series") else None),
+                     bucket=str(c.get("bucket") or "week"))
 
 
 def from_json(text: str) -> Definition:
@@ -126,6 +152,7 @@ def from_json(text: str) -> Definition:
             filters=tuple(dict(f) for f in seq("filters", ()) if isinstance(f, dict)),
             group_by=raw["group_by"] if isinstance(raw.get("group_by"), str) else None,
             sort=tuple(dict(s) for s in seq("sort", ()) if isinstance(s, dict)),
+            chart=_chart_from(raw),
             orientation=str(raw.get("orientation", d.orientation)),
             per_kid_sections=_as_bool(raw.get("per_kid_sections", False)),
             window=str(raw.get("window", d.window)),
@@ -201,6 +228,20 @@ def validate(d: Definition) -> list[str]:
             problems.append(f"{s.get('dir')!r} is not a sort direction; use asc or desc.")
     if d.orientation not in ORIENTATIONS:
         problems.append(f"Unknown orientation {d.orientation!r}; use portrait or landscape.")
+    if d.chart is not None:
+        ch = d.chart
+        if ch.type not in CHART_TYPES:
+            problems.append(f"Unknown chart type {ch.type!r}; choose one of {', '.join(CHART_TYPES)}.")
+        if ch.bucket not in BUCKETS:
+            problems.append(f"Unknown chart bucket {ch.bucket!r}; choose one of {', '.join(BUCKETS)}.")
+        if ch.x not in known or known[ch.x].kind != "date":
+            problems.append("The chart's date field must be one of the source's date columns.")
+        if ch.y is not None and (ch.y not in known or known[ch.y].kind != "number"):
+            problems.append("The chart's value field must be one of the source's number columns.")
+        if ch.type == "stacked_bar" and ch.series is None:
+            problems.append("A stacked/grouped bar chart needs a series column.")
+        if ch.series is not None and ch.series not in known:
+            problems.append(f"{ch.series!r} is not a column of the {d.source} source.")
     return problems
 
 
