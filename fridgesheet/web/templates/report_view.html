@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ report.name }} · Fridge Sheet</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
 {% include "_chart_scripts.html" %}
-<script src="/static/app.js" defer></script>
+<script src="/static/app.js?v={{ version }}" defer></script>
 </head>
 {# A page of its own, not the app shell: this is what a parent clicking a report's name from
    the list wants to read, and what their browser's print dialog should print -- not the

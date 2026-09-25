@@ -2,14 +2,29 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
+import fridgesheet.web as webapp
 from fridgesheet.web import db
 from fridgesheet.web.stores import flags, notes
 from tests.web_fixtures import NOW, app_for, seed
 
+TEMPLATES = Path(webapp.__file__).parent / "templates"
+
 
 def _item_id(conn, name):
     return conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]
+
+
+def test_static_script_and_style_urls_carry_the_version():
+    """An upgraded install serves new templates to a browser that may still hold last week's
+    app.js (StaticFiles sends no Cache-Control). A new build is a new URL, so the two cannot
+    disagree about what markup to draw."""
+    for name in ("base.html", "report_view.html", "plan_print.html", "_chart_scripts.html"):
+        tmpl = (TEMPLATES / name).read_text(encoding="utf-8")
+        urls = re.findall(r'(?:src|href)="(/static/[^"]+\.(?:js|css)[^"]*)"', tmpl)
+        assert urls, name
+        assert all(u.endswith("?v={{ version }}") for u in urls), (name, urls)
 
 
 def test_dashboard_cards_per_kid(tmp_path):

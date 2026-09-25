@@ -90,7 +90,7 @@ def test_dashboard_renders_with_an_empty_database(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "No refresh yet" in r.text and "Fridge Sheet" in r.text
-    assert 'href="/static/app.css"' in r.text and 'src="/static/htmx.min.js"' in r.text
+    assert 'href="/static/app.css?v=' in r.text and 'src="/static/htmx.min.js?v=' in r.text
 
 
 def test_header_shows_refresh_time_source_health_and_last_run(settings, home):
