@@ -152,7 +152,10 @@ def test_blank_y_value_excluded_from_average_not_coerced_to_zero():
 def test_evening_due_date_stays_in_its_day_for_bucketing():
     """(e) An item due 2026-09-20T23:59:00-04:00 (9/20 in NY) buckets into the week
     containing 2026-09-20, not 2026-09-21 (UTC). This is the regression test for
-    the timezone bucketing bug where UTC times drifted items into the next calendar period."""
+    the timezone bucketing bug where UTC times drifted items into the next calendar period.
+    2026-09-20 is a Sunday; the week_start (Monday) is 2026-09-14, labeled "9/14".
+    Under the old UTC bug, 2026-09-20T23:59-04:00 = 2026-09-21T03:59 UTC (Monday), so
+    it would incorrectly bucket to the following week, labeled "9/21"."""
     spec = views.ChartSpec(type="bar", x="due", y=None, bucket="week")
     now = datetime(2026, 9, 20, tzinfo=TZ)
     # The evening of 9/20 in America/New_York
@@ -163,8 +166,7 @@ def test_evening_due_date_stays_in_its_day_for_bucketing():
     chart, _ = views._chart_data("items", spec, kept, now)
     assert chart is not None and len(chart.series) > 0
     points = chart.series[0].points
-    # The week containing 2026-09-20 starts on 2026-09-15 (or 2026-09-16 if week_start uses Monday)
-    # Just verify the point exists and is in a reasonable week
     assert len(points) == 1
-    # We can't hardcode the exact week label, but we can verify it's a real date format
-    assert "/" in points[0][0]  # should be "M/D" format
+    # Must be the correct week label (9/14, the Monday of the week containing 9/20),
+    # not the incorrect UTC-shifted week (9/21)
+    assert points[0][0] == "9/14"
