@@ -33,7 +33,7 @@ from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
 from ..host import selfupdate
-from . import db, phrasing, staleness, tiers, updates, verdicts
+from . import actions, db, phrasing, staleness, tiers, updates, verdicts
 from .actions import REPORT_KEY
 from .stores import flags as flagstore, num, refreshes, runs, students
 
@@ -99,6 +99,13 @@ class AppState:
             return late_rules.LateRules(late_rules.Rule(), [], [])
         self.extra["warnings"] = []
         return rules
+
+    def warnings(self) -> list[str]:
+        """What the header says is wrong with a hand-edited file: the late-rules.toml message
+        `rules()` left in `extra["warnings"]`, plus every line of no-print-days.txt the sheet
+        has to ignore (#147) -- re-read each page, like the rules, so the warning goes away
+        the moment the file is fixed."""
+        return list(self.extra.get("warnings") or []) + actions.no_print_days_problems(self.home)
 
     def sources(self) -> SourcePrefs:
         """Which gradebook is authoritative per kid and class. Read from settings, which
@@ -289,7 +296,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "sources": [(k.upper() if k == "hac" else k.capitalize(), v) for k, v in sources],
         "last_run": (last_run := runs.latest(conn)), "last_run_what": runs.describe(last_run) if last_run else None,
         "students": students.visible(conn), "version": version(),
-        "warnings": state.extra.get("warnings") or [],
+        "warnings": state.warnings(),
         "job": state.jobs.current if state.jobs else None,
         "jobs": state.jobs is not None,
         "update": updates.cached(state),              # never a network call here: the last answer, or None
@@ -355,6 +362,74 @@ def served_url(settings: Settings) -> str:
     if ":" in host:
         host = f"[{host}]"
     return f"http://{escape(host, quote=True)}:{settings.web_port}/"
+
+
+#: A DNS-style name and nothing else: labels of letters, digits, hyphens (and the underscore
+#: Windows computer names allow), joined by dots. This is what a refused `Host` must match
+#: before `host_refusal` will show it back -- see there for why that is safe.
+_PLAIN_NAME = re.compile(r"^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?)*$")
+
+
+def _refused_name(host_header: str | None, settings: Settings) -> str | None:
+    """The plain name a refused `Host` carried, when that name is the whole reason it was
+    refused: a wildcard bind (other devices already allowed), the right port, and a hostname
+    that is a name rather than an address. Anything else -- LAN off, wrong port, an IP literal
+    (which a wildcard bind admits anyway), a string with any character a name cannot have --
+    is `None`, and the refusal says nothing about the header."""
+    if not host_header or settings.bind_host not in _WILDCARD_HOSTS:
+        return None
+    if any(c in host_header for c in "/?#"):
+        return None
+    try:
+        parsed = urlsplit(f"//{host_header}")
+        port = parsed.port
+    except ValueError:
+        return None
+    name = (parsed.hostname or "").lower()
+    if parsed.username is not None or port not in (None, settings.web_port):
+        return None
+    if not name or len(name) > 253 or _is_ip_literal(name) or not _PLAIN_NAME.match(name):
+        return None
+    return name
+
+
+def host_refusal(settings: Settings, host_header: str | None) -> str:
+    """The body of the Host-check 403. Nobody hostile ever reads it; the person who does is the
+    parent who typed `http://dobby:8433/`, so it has to say what actually gets them in (#149).
+
+    With other devices *not* allowed, that is the Settings tick. With it already on, a name is
+    still refused (a name is what a DNS-rebinding attacker controls, so names are a closed
+    list), and telling the parent to tick the box they just ticked sends them in a circle: the
+    way in is `[web] extra_hosts`, and the page shows the exact line.
+
+    That line is the one place a refused `Host` is shown back, and only through
+    `_refused_name`: a string of letters, digits, dots and hyphens on the right port under a
+    wildcard bind. Such a string cannot carry markup, a URL or a sentence -- it is exactly the
+    TOML value the parent has to type, and the only person who will ever read it is the one who
+    typed that name into their own address bar. It is escaped anyway. Everything else about the
+    header is still never echoed; see `test_the_two_refusals_say_two_different_things`."""
+    url = served_url(settings)
+    lead = f"<p>Fridge Sheet only answers at <a href=\"{url}\">{url}</a> on this computer.</p>"
+    if settings.bind_host not in _WILDCARD_HOSTS:
+        return lead + (
+            "<p>Open that address on the computer running Fridge Sheet. To read it on a phone "
+            "or tablet, tick <b>Allow other devices on this network</b> on the Settings page, "
+            "restart Fridge Sheet, and use the address (or the QR code) shown there.</p>")
+    name = _refused_name(host_header, settings)
+    config_path = escape(str(settings.home / "config.toml"))
+    if name is None:
+        return lead + (
+            "<p>Other devices on this network are already allowed: use the address (or the QR code) "
+            f"shown on the Settings page, with port {settings.web_port}. A computer name is only "
+            f"accepted once it is listed under <code>[web] extra_hosts</code> in <code>{config_path}</code>.</p>")
+    return lead + (
+        "<p>Other devices on this network are already allowed, but a computer name is only accepted "
+        f"once it is listed. To use <code>{escape(name)}</code>, add it to <code>extra_hosts</code> under "
+        f"<code>[web]</code> in <code>{config_path}</code>, then restart Fridge Sheet:</p>"
+        f"<pre>[web]\nextra_hosts = [\"{escape(name)}\"]</pre>"
+        "<p>If a <code>[web]</code> heading is already there (it is, once other devices are allowed), "
+        "put the <code>extra_hosts</code> line under it rather than adding a second heading. "
+        "Or use the address (or the QR code) shown on the Settings page instead of a name.</p>")
 
 
 def _allowed_hosts(settings: Settings) -> set[str]:
@@ -511,19 +586,15 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
     # over an SSH port-forward, or is on a multi-homed or VPN box where the LAN probe follows
     # the default route and names an address this machine is not reached at. Telling them
     # "cross-site" blames them for an attack they did not make and points nowhere, so the Host
-    # refusal names the address that does work instead. Neither body echoes the header it
-    # refused: that is attacker-controlled text on a page this app itself serves.
+    # refusal names the address that does work instead (`host_refusal`). Neither body echoes
+    # the header it refused -- attacker-controlled text on a page this app itself serves --
+    # with the one narrow exception `host_refusal` documents: a plain name under a wildcard
+    # bind, shown as the `extra_hosts` line that admits it (#149).
     @app.middleware("http")
     async def same_origin_only(request: Request, call_next):
         host = request.headers.get("host")
         if not _host_allowed(host, settings):
-            url = served_url(settings)
-            return HTMLResponse(
-                f"<p>Fridge Sheet only answers at <a href=\"{url}\">{url}</a> on this computer.</p>"
-                "<p>Open that address on the computer running Fridge Sheet. To read it on a phone "
-                "or tablet, tick <b>Allow other devices on this network</b> on the Settings page, "
-                "restart Fridge Sheet, and use the address (or the QR code) shown there.</p>",
-                status_code=403)
+            return HTMLResponse(host_refusal(settings, host), status_code=403)
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             origin = request.headers.get("origin")
             # Origin == Host is not enough on its own: an attacker domain whose DNS resolves

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import subprocess
 
-from . import SERVICE
+from . import keyring_service
 
 log = logging.getLogger("fridgesheet.host.credentials")
 LABEL = "Fridge Sheet OneLogin"
@@ -14,7 +14,7 @@ def _lookup(key: str, run) -> str | None:
     """None when unavailable so the caller falls through. A locked keyring makes secret-tool
     block on a GUI prompt, which would hang a timer forever -- hence the timeout."""
     try:
-        p = run(["secret-tool", "lookup", "service", SERVICE, "key", key], capture_output=True, text=True, timeout=20)
+        p = run(["secret-tool", "lookup", "service", keyring_service(), "key", key], capture_output=True, text=True, timeout=20)
     except FileNotFoundError:
         return None
     except subprocess.TimeoutExpired:
@@ -35,7 +35,7 @@ def read_password(username: str, run=subprocess.run) -> str | None:
 
 def _store(key: str, value: str, run) -> None:
     """`value` goes on stdin, never argv, so it cannot leak through the process table."""
-    p = run(["secret-tool", "store", "--label", LABEL, "service", SERVICE, "key", key],
+    p = run(["secret-tool", "store", "--label", LABEL, "service", keyring_service(), "key", key],
             input=value, capture_output=True, text=True, timeout=60)
     if p.returncode != 0:
         raise RuntimeError(f"`secret-tool store` failed for {key!r}: {(p.stderr or '').strip()[:200]}")

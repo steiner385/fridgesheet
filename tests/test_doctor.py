@@ -43,7 +43,7 @@ def test_real_probes_run_on_this_machine(tmp_path):
     no keyring) but each must produce a Check."""
     out = doctor.checks(Settings(home=tmp_path), tmp_path)
     names = [c.name for c in out]
-    assert names == ["python", "home", "database", "timezone", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server", "old names"]
+    assert names == ["python", "home", "database", "timezone", "no-print days", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server", "old names"]
     assert all(isinstance(c.detail, str) and c.detail for c in out)
     by = {c.name: c for c in out}
     assert by["python"].ok and by["home"].ok and by["database"].ok and by["timezone"].ok and by["pdf"].ok
@@ -176,3 +176,19 @@ def test_web_server_probe(monkeypatch, tmp_path):
     monkeypatch.setattr(doctor, "_describe_service", broken)
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: True)
     assert "service state unknown" in doctor._web_server(s, tmp_path)
+
+
+def test_no_print_days_probe_reports_the_lines_it_cannot_read(tmp_path):
+    """#147: `parse_skip_days` leaves out a reversed range or an impossible date. A hand-edited
+    file is exactly the one nobody re-reads, so the doctor names each line it had to drop."""
+    probe = [("no-print days", doctor._no_print_days)]
+    s = Settings(home=tmp_path)
+    first = doctor.checks(s, tmp_path, probes=probe)[0]
+    assert first.ok and "not created yet" in first.detail
+    (tmp_path / "no-print-days.txt").write_text(
+        "2026-09-07 Labor Day\n2026-12-21..2026-12-01 Break\n2026-02-30\n", encoding="utf-8")
+    c = doctor.checks(s, tmp_path, probes=probe)[0]
+    assert not c.ok and "line 2" in c.detail and "line 3" in c.detail and "2026-02-30" in c.detail
+    (tmp_path / "no-print-days.txt").write_text("2026-09-07 Labor Day\n2026-12-21..2026-12-23 Break\n", encoding="utf-8")
+    c = doctor.checks(s, tmp_path, probes=probe)[0]
+    assert c.ok and c.detail == "2 entries covering 4 days"

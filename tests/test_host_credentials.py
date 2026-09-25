@@ -118,3 +118,20 @@ def test_settings_credentials_falls_back_to_store_username_then_errors(monkeypat
     with pytest.raises(RuntimeError) as e:
         config.Settings().credentials()
     assert "set-credentials" in str(e.value)
+
+
+def test_the_keyring_service_name_is_read_when_used_not_when_imported(monkeypatch, fake_keyring):
+    """#148: `FRIDGESHEET_KEYRING_SERVICE` was read at import, before `load_settings` had
+    loaded .env, so the line env.example suggests did nothing. Both spellings the code base
+    uses (`host.SERVICE`, `credentials.SERVICE`) now answer with what the environment says
+    at the moment they are asked."""
+    from fridgesheet import host
+    assert host.keyring_service() == "fridgesheet" and host.SERVICE == "fridgesheet"
+    assert credentials.SERVICE == "fridgesheet"
+    monkeypatch.setenv("FRIDGESHEET_KEYRING_SERVICE", "fridgesheet-test")
+    assert host.SERVICE == "fridgesheet-test" and credentials.SERVICE == "fridgesheet-test"
+    seen = []
+    credentials_linux.read_password("u", run=lambda cmd, **kw: (seen.append(cmd), _R(0, "x\n"))[1])
+    assert seen[0][:4] == ["secret-tool", "lookup", "service", "fridgesheet-test"]
+    credentials_windows.write("p@x.com", "pw")
+    assert fake_keyring == {("fridgesheet-test", "p@x.com"): "pw"}

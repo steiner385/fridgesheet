@@ -474,3 +474,33 @@ def test_run_recording_failure_is_a_warning(env):
     conn = db.open_db(s.home)                            # the ingest in the same run did commit
     assert conn.execute("SELECT count(*) FROM refreshes").fetchone()[0] == 1
     conn.close()
+
+
+def test_parse_skip_days_reports_a_reversed_range_and_an_impossible_date():
+    """#147: a hand-edited file with a range that ends before it starts, or a date that does
+    not exist, used to lose those lines silently -- the sheet printed on a day the parent
+    thought was covered. The lines are still left out (nothing else is sensible), but each
+    one is reported by line number, for the Settings editor, the header and the doctor."""
+    text = ("# header\n2026-09-07 Labor Day\n2026-12-21..2026-12-01  Holiday break\n"
+            "2026-02-30 Nope\nnot a date\n\n2027-01-18\n")
+    problems: list[str] = []
+    days = runner.parse_skip_days(text, problems=problems)
+    assert set(days) == {date(2026, 9, 7), date(2027, 1, 18)}
+    assert [p.split(":")[0] for p in problems] == ["line 3", "line 4", "line 5"]
+    assert "2026-12-21..2026-12-01" in problems[0] and "ends before it starts" in problems[0]
+    assert "2026-02-30" in problems[1] and "not a real date" in problems[1]
+    assert "not a date" in problems[2]
+    assert runner.skip_day_problems(text) == problems
+    assert runner.parse_skip_days(text) == days          # the default stays quiet, as every caller expects
+    entry_problems: list[str] = []
+    entries = runner.parse_skip_entries(text, problems=entry_problems)
+    assert [e.start for e in entries] == [date(2026, 9, 7), date(2027, 1, 18)]
+    assert entry_problems == problems
+
+
+def test_the_seeded_header_does_not_claim_weekends_never_print():
+    """#147: nothing guards weekends -- Schedules offers Sat and Sun, and a ticked Saturday
+    prints. The header the editor rewrites into every saved file has to say what is true."""
+    assert "never print" not in runner.SKIP_HEADER.lower()
+    assert "Schedules" in runner.SKIP_HEADER
+    assert runner.format_skip_entries([]).startswith(runner.SKIP_HEADER.rstrip("\n"))

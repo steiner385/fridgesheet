@@ -37,3 +37,16 @@ def test_course_matches_whole_words_for_every_rule():
     assert not course_matches("Algebra I", "Algebra II")
     assert course_matches("English 9", "Honors English 9 S1-2027-Hoch")
     assert course_matches("", "anything")
+
+
+def test_course_aliases_are_read_when_used_not_when_imported(monkeypatch):
+    """#148: `FRIDGESHEET_COURSE_ALIASES` was parsed at import, before `.env` was loaded."""
+    import json
+    from fridgesheet import matching
+    assert matching.course_base("ENGLISH LANGUAGE ARTS") != matching.course_base("ELA Plus 5th Gr")
+    monkeypatch.setenv("FRIDGESHEET_COURSE_ALIASES", json.dumps({"ENGLISH LANGUAGE ARTS": "ELA Plus 5th Gr"}))
+    assert matching.course_base("ENGLISH LANGUAGE ARTS") == matching.course_base("ELA Plus 5th Gr")
+    monkeypatch.setenv("FRIDGESHEET_COURSE_ALIASES", "not json")          # ignored, never fatal
+    assert matching.course_base("ENGLISH LANGUAGE ARTS") == "english language arts"
+    monkeypatch.delenv("FRIDGESHEET_COURSE_ALIASES")
+    assert matching.course_aliases() == {}

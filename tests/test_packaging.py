@@ -308,3 +308,13 @@ def test_the_mark_is_rendered_into_the_icon_the_exe_and_installer_use():
     static = ROOT / "fridgesheet" / "web" / "static"
     assert (static / "mark.svg").read_text(encoding="utf-8") == (static / "favicon.svg").read_text(encoding="utf-8")
     assert (static / "mark-32.png").is_file() and (static / "mark-180.png").is_file()
+
+
+def test_the_docs_name_extra_hosts_as_the_way_to_use_a_computer_name():
+    """#149: `[web] extra_hosts` is how `http://dobby:8433/` gets admitted, and it was in no
+    document -- docs/windows.md said there was no clean way at all."""
+    page = (ROOT / "docs" / "windows.md").read_text(encoding="utf-8")
+    assert "There is no clean way" not in page
+    assert "extra_hosts" in page and 'extra_hosts = ["' in page
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "extra_hosts" in readme

@@ -105,6 +105,48 @@ def load_form(home: Path) -> FormValues:
     )
 
 
+#: Settings fields the process environment (or the .env `load_settings` reads into it) wins
+#: over, and the variable that does it -- the same list `config.load_settings` applies.
+ENV_OVERRIDES: tuple[tuple[str, str], ...] = (
+    ("printer", "FRIDGESHEET_PRINTER"),
+    ("archive", "FRIDGESHEET_SHEETS_ARCHIVE"),
+    ("port", "FRIDGESHEET_WEB_PORT"),
+    ("nicknames", "FRIDGESHEET_NICKNAMES"),
+    ("allow_lan", "FRIDGESHEET_WEB_HOST"),
+)
+
+
+def env_overrides(environ: dict | None = None) -> dict[str, str]:
+    """One sentence per form field the environment overrides, keyed by field name, for the
+    Settings page to print beside the box (#148). `load_form` shows config.toml, which is what
+    the form edits -- but `config.load_settings` lets these variables win over it, so a parent
+    who changed the printer here saw nothing happen and had no way to know why.
+
+    Only a variable that actually changes something earns a note, by the same rules
+    `load_settings` applies: a `FRIDGESHEET_WEB_PORT` that is not a number is ignored there,
+    an empty `FRIDGESHEET_NICKNAMES` parses to nothing, an empty `FRIDGESHEET_WEB_HOST` is not
+    a pin -- while an empty `FRIDGESHEET_PRINTER` *does* override (it means "system default")."""
+    import os
+    env = os.environ if environ is None else environ
+    out: dict[str, str] = {}
+    for field_name, var in ENV_OVERRIDES:
+        if var not in env:
+            continue
+        value = env[var]
+        if field_name == "port" and _whole_number(value) is None:
+            continue
+        if field_name == "nicknames":
+            if not config.parse_nicknames(value):
+                continue
+            out[field_name] = (f"{var}={value} in the environment (.env) is added on top of these, "
+                               "and wins where they disagree.")
+            continue
+        if field_name == "allow_lan" and not value:
+            continue
+        out[field_name] = f"Set by {var}={value} in the environment (.env); this box is ignored while that is set."
+    return out
+
+
 def parse_nickname_lines(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for n, raw in enumerate(text.splitlines(), start=1):
@@ -444,14 +486,29 @@ def save_late_rules(home: Path, *, default_late_days: str, default_credit: str, 
     return []
 
 
-def no_print_days_settings(home: Path) -> list[runner.SkipEntry]:
+def no_print_days_settings(home: Path, problems: list[str] | None = None) -> list[runner.SkipEntry]:
     """The parsed skip list for the graphical editor, seeding the file first if this is its
-    first touch (never overwriting an existing one)."""
-    path = home / "no-print-days.txt"
+    first touch (never overwriting an existing one). `problems` collects the lines the editor
+    cannot show (`runner.parse_skip_entries`), so the page can say so instead of the next Save
+    quietly dropping them (#147)."""
+    path = home / runner.SKIP_NAME
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(runner.SKIP_SEED)
-    return runner.parse_skip_entries(path.read_text(encoding="utf-8"))
+    return runner.parse_skip_entries(path.read_text(encoding="utf-8"), problems=problems)
+
+
+def no_print_days_problems(home: Path) -> list[str]:
+    """The lines of no-print-days.txt the app has to ignore, each prefixed with the file name
+    so it reads on its own in the page header -- beside a broken late-rules.toml, which
+    `AppState.rules` carries there the same way. Nothing when there is no file yet, or when
+    it reads clean."""
+    path = home / runner.SKIP_NAME
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    return [f"{runner.SKIP_NAME} {p}" for p in runner.skip_day_problems(text)]
 
 
 def save_no_print_days(home: Path, entries: list[runner.SkipEntry]) -> list[str]:
@@ -460,7 +517,7 @@ def save_no_print_days(home: Path, entries: list[runner.SkipEntry]) -> list[str]
               if e.end is not None and e.end < e.start]
     if errors:
         return errors
-    path = home / "no-print-days.txt"
+    path = home / runner.SKIP_NAME
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(runner.format_skip_entries(entries), encoding="utf-8")
     return []

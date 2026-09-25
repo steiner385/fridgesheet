@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import subprocess
 
-from . import SERVICE
+from . import keyring_service
 
 log = logging.getLogger("fridgesheet.host.credentials")
 
@@ -24,7 +24,7 @@ def read_password(username: str, run=subprocess.run) -> str | None:
     if not username:
         return None
     try:
-        return _keyring().get_password(SERVICE, username)
+        return _keyring().get_password(keyring_service(), username)
     except Exception as e:
         log.warning("credential store read failed for %r: %s", username, e)
         return None
@@ -32,6 +32,6 @@ def read_password(username: str, run=subprocess.run) -> str | None:
 
 def write(username: str, password: str, run=subprocess.run) -> None:
     try:
-        _keyring().set_password(SERVICE, username, password)
+        _keyring().set_password(keyring_service(), username, password)
     except Exception as e:
         raise RuntimeError(f"credential store write failed: {str(e)[:200]}") from e

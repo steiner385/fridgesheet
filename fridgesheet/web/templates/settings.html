@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Settings · Fridge Sheet{% endblock %}
 {% block content %}
+{# Both come from `routes.settings._page`; defaulted so a render that forgot them still shows the page. #}
+{% set env_notes = env_notes | default({}) %}
+{% set skip_problems = skip_problems | default([]) %}
 <h2>Settings</h2>
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
@@ -23,12 +26,18 @@
     <div class="settings-grid">
       <label>Printer <select name="printer"><option value="" {{ 'selected' if not form.printer }}>System default</option>
          {% for p in printers %}<option value="{{ p }}" {{ 'selected' if p == form.printer }}>{{ p }}</option>{% endfor %}
-         {% if form.printer and form.printer not in printers %}<option value="{{ form.printer }}" selected>{{ form.printer }}</option>{% endif %}</select></label>
+         {% if form.printer and form.printer not in printers %}<option value="{{ form.printer }}" selected>{{ form.printer }}</option>{% endif %}</select>
+         {# The environment wins over config.toml (config.load_settings), and this form only
+            edits config.toml -- so say which variable is in charge, or the box looks broken (#148).
+            The box stays editable: what it holds is what takes over once the variable is gone. #}
+         {% if env_notes.printer %}<span class="field-help env-note">{{ env_notes.printer }}</span>{% endif %}</label>
       <label>Days ahead <input name="days_ahead" value="{{ form.days_ahead }}" size="3"></label>
       <label>Overdue days <input name="overdue_days" value="{{ form.overdue_days }}" size="3"></label>
-      <label>Archive folder <input name="archive" value="{{ form.archive }}"></label>
+      <label>Archive folder <input name="archive" value="{{ form.archive }}">
+         {% if env_notes.archive %}<span class="field-help env-note">{{ env_notes.archive }}</span>{% endif %}</label>
     </div>
-    <p><label>Nicknames (one First=Nick per line)<br><textarea name="nicknames">{{ form.nicknames }}</textarea></label></p>
+    <p><label>Nicknames (one First=Nick per line)<br><textarea name="nicknames">{{ form.nicknames }}</textarea></label>
+       {% if env_notes.nicknames %}<br><span class="field-help env-note">{{ env_notes.nicknames }}</span>{% endif %}</p>
     <p class="field-help"><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
     <p class="field-help">Automatic printing: {{ status }}</p>
   </section>
@@ -48,9 +57,11 @@
   <section class="card">
     <h3>Network</h3>
     <div class="settings-grid">
-      <label>Port <input name="port" value="{{ form.port }}" size="5"></label>
+      <label>Port <input name="port" value="{{ form.port }}" size="5">
+         {% if env_notes.port %}<span class="field-help env-note">{{ env_notes.port }}</span>{% endif %}</label>
     </div>
-    <p><label><input type="checkbox" name="allow_lan" {{ 'checked' if form.allow_lan }}> Allow other devices on this network</label></p>
+    <p><label><input type="checkbox" name="allow_lan" {{ 'checked' if form.allow_lan }}> Allow other devices on this network</label>
+       {% if env_notes.allow_lan %}<br><span class="field-help env-note">{{ env_notes.allow_lan }}</span>{% endif %}</p>
     {% if lan_url or tailnet_url %}
     <div class="network-row">
       <div>
@@ -100,7 +111,7 @@
 {% endif %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
-{% with errors=[], saved=false %}{% include "_no_print_days_editor.html" %}{% endwith %}
+{% with errors=[], saved=false, notes=[], problems=skip_problems %}{% include "_no_print_days_editor.html" %}{% endwith %}
 <section class="card">
 <h3>About</h3>
 <pre class="muted">{{ about }}</pre>

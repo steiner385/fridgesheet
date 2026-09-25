@@ -82,16 +82,34 @@ def _chromium(s: Settings, home: Path) -> str:
     return f"Chromium {version} at {path}"
 
 
+def _no_print_days(s: Settings, home: Path) -> str:
+    """Does no-print-days.txt read the way the parent meant it? A reversed range or a date that
+    does not exist is left out by `runner.parse_skip_days` -- a day the parent thinks is
+    covered and is not (#147) -- and a hand-edited file is exactly the one nobody re-reads, so
+    every such line is a FAIL here. Never writes: the first run seeds the file, not this."""
+    from . import runner
+    path = home / runner.SKIP_NAME
+    if not path.is_file():
+        return f"{runner.SKIP_NAME} not created yet (the first run seeds it)"
+    problems: list[str] = []
+    entries = runner.parse_skip_entries(path.read_text(encoding="utf-8"), problems=problems)
+    if problems:
+        raise RuntimeError(f"{runner.SKIP_NAME}: " + "; ".join(problems))
+    days = runner.parse_skip_days(path.read_text(encoding="utf-8"))
+    return f"{len(entries)} entries covering {len(days)} days"
+
+
 def _credential_store(s: Settings, home: Path) -> str:
     if host.IS_WINDOWS:
         import keyring
         name = type(keyring.get_keyring()).__name__
         token = secrets.token_hex(8)
-        keyring.set_password(host.SERVICE, "doctor-probe", token)
+        service = host.keyring_service()
+        keyring.set_password(service, "doctor-probe", token)
         try:
-            got = keyring.get_password(host.SERVICE, "doctor-probe")
+            got = keyring.get_password(service, "doctor-probe")
         finally:
-            keyring.delete_password(host.SERVICE, "doctor-probe")
+            keyring.delete_password(service, "doctor-probe")
         if got != token:
             raise RuntimeError(f"keyring backend {name} did not round-trip a probe value")
         return f"keyring backend {name}: round trip OK"
@@ -178,7 +196,8 @@ def _old_names(s: Settings, home: Path) -> str:
 
 
 PROBES: list[tuple[str, Callable[[Settings, Path], str]]] = [
-    ("python", _python), ("home", _home), ("database", _database), ("timezone", _timezone), ("pdf", _pdf), ("chromium", _chromium),
+    ("python", _python), ("home", _home), ("database", _database), ("timezone", _timezone), ("no-print days", _no_print_days),
+    ("pdf", _pdf), ("chromium", _chromium),
     ("credential store", _credential_store), ("printers", _printers), ("print engine", _print_engine), ("scheduler", _scheduler),
     ("web server", _web_server), ("old names", _old_names),
 ]

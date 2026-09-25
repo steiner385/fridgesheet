@@ -691,3 +691,22 @@ def test_self_update_gives_a_friendly_line_on_malformed_release_json(tmp_path, m
     ok = actions.self_update(home=tmp_path, log=lines.append, settings=Settings(home=tmp_path), state=state)
     assert ok is False
     assert any("reach GitHub" in ln for ln in lines)
+
+
+def test_env_overrides_names_the_variable_that_wins_over_each_field(monkeypatch):
+    """#148: one sentence per Settings field the environment overrides, keyed by form field."""
+    assert actions.env_overrides() == {}
+    monkeypatch.setenv("FRIDGESHEET_PRINTER", "")          # blank still overrides: it means "system default"
+    monkeypatch.setenv("FRIDGESHEET_SHEETS_ARCHIVE", "/mnt/drive")
+    monkeypatch.setenv("FRIDGESHEET_WEB_PORT", "9000")
+    monkeypatch.setenv("FRIDGESHEET_NICKNAMES", "")        # parses to nothing, changes nothing: no note
+    notes = actions.env_overrides()
+    assert set(notes) == {"printer", "archive", "port"}
+    assert notes["printer"].startswith("Set by FRIDGESHEET_PRINTER= in the environment")
+    assert "/mnt/drive" in notes["archive"] and "9000" in notes["port"]
+    monkeypatch.setenv("FRIDGESHEET_WEB_PORT", "x")        # load_settings ignores it, so no note
+    assert "port" not in actions.env_overrides()
+    monkeypatch.setenv("FRIDGESHEET_NICKNAMES", "Alex=Lex")
+    monkeypatch.setenv("FRIDGESHEET_WEB_HOST", "127.0.0.1")
+    notes = actions.env_overrides()
+    assert "wins" in notes["nicknames"] and "FRIDGESHEET_WEB_HOST=127.0.0.1" in notes["allow_lan"]
