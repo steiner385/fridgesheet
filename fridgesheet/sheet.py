@@ -265,10 +265,16 @@ def pdf_text(path: Path, *, raw: bool = False) -> str:
     neighbours line by line, so a test that reads one cell's whole phrase asks for `raw`."""
     if not shutil.which("pdftotext"):
         raise RuntimeError("pdftotext (poppler-utils) is not installed")
-    args = ["pdftotext", *([] if raw else ["-layout"]), str(path), "-"]
-    # pdftotext writes UTF-8 whatever the locale; `text=True` would decode it as cp1252 on
-    # Windows and turn the em dash in "IN CLASS — CHECK" into mojibake (#137's CI run).
-    return subprocess.run(args, capture_output=True, encoding="utf-8", check=True).stdout
+    # `-enc UTF-8` is understood by poppler's pdftotext and xpdf's (the one the Windows CI
+    # runner has, which writes Latin-1 by default and so lost the em dash in "IN CLASS —
+    # CHECK"); the bytes are decoded here rather than by `text=True`, which would pick the
+    # console code page on Windows. An empty answer is reported with the whole result, since a
+    # test reads the text and would otherwise fail three lines later on a bare None.
+    args = ["pdftotext", "-enc", "UTF-8", *([] if raw else ["-layout"]), str(path), "-"]
+    p = subprocess.run(args, capture_output=True, check=True)
+    if not p.stdout:
+        raise RuntimeError(f"pdftotext produced no text: {p!r}")
+    return p.stdout.decode("utf-8", errors="replace")
 
 
 TABLE_HEAD = ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)
