@@ -222,6 +222,7 @@ def test_a_chart_bearing_report_embeds_the_chart(tmp_path):
     out.mkdir()
     built = r.build({}, _ctx(tmp_path, out))
     assert built.pdf.is_file()
+    assert "Chart unavailable" not in sheet.pdf_text(built.pdf)
 
 
 @needs_pdftotext
@@ -234,5 +235,21 @@ def test_a_broken_chart_renderer_still_produces_a_built_report(tmp_path):
     with patch("fridgesheet.reports.view.chart_render.render_chart_png", side_effect=RuntimeError("no chromium")):
         built = r.build({}, _ctx(tmp_path, out))
     assert built.pdf.is_file()
-    from fridgesheet import sheet
+    assert "Chart unavailable" in sheet.pdf_text(built.pdf)
+
+
+@needs_pdftotext
+def test_malformed_chart_bytes_still_produce_a_built_report(tmp_path):
+    """`render_chart_png` is expected to always return real image bytes, but if it ever didn't,
+    `sheet.build_table_pdf`'s `Image()` construction would raise `PIL.UnidentifiedImageError`
+    from outside the render-failure try block -- unless the bytes are validated as a decodable
+    image before that block ends."""
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    with patch("fridgesheet.reports.view.chart_render.render_chart_png", return_value=b"not a real image"):
+        built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
     assert "Chart unavailable" in sheet.pdf_text(built.pdf)
