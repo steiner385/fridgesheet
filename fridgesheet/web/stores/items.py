@@ -308,8 +308,8 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         open_in = reconcile.open_sources(r, obs, now, prefer=prefer)
         late_until, credit = None, ""
         if open_in and due is not None:
-            late_until = rules.deadline(r["kid"], r["course_name"], due)
-            credit = rules.resolve(r["kid"], r["course_name"]).credit
+            late_until = rules.deadline(r["kid"], r["course_name"], due, r["peer_course_name"])
+            credit = rules.resolve(r["kid"], r["course_name"], r["peer_course_name"]).credit
         out.append(ItemView(
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
             due_time=due_time(due, from_canvas="canvas" in obs),

@@ -21,7 +21,7 @@ def test_missing_file_gives_fourteen_day_default(tmp_path):
     assert rules.deadline("Al", "Latin I", DUE) == datetime(2026, 9, 18, 15, 0, tzinfo=TZ)
 
 
-def test_first_matching_rule_wins_on_course_substring_and_kid_prefix(tmp_path):
+def test_first_matching_rule_wins_on_course_words_and_kid_short_form(tmp_path):
     p = tmp_path / "late-rules.toml"
     p.write_text(
         '[default]\nlate_days = 14\n\n'
@@ -121,3 +121,46 @@ def test_to_toml_preserves_a_zero_day_deadline():
     the way an empty string field is."""
     rules = late_rules.LateRules(default=late_rules.Rule(late_days=0), rules=[], quarters=[])
     assert "late_days = 0" in late_rules.to_toml(rules)
+
+
+# --- #134: late rules match the way source rules do ------------------------------------------
+
+def _one_rule(tmp_path, body: str, **load_kw):
+    p = tmp_path / "r.toml"
+    p.write_text('[default]\nlate_days = 14\n\n[[rule]]\n' + body + 'late_days = 2\n')
+    return late_rules.load(p, **load_kw)
+
+
+def test_course_is_matched_on_whole_words_so_algebra_i_is_not_algebra_ii(tmp_path):
+    rules = _one_rule(tmp_path, 'course = "Algebra I"\n')
+    assert rules.resolve("Alex", "Algebra I - 2").late_days == 2
+    assert rules.resolve("Alex", "Algebra II S1-2027-Hoch").late_days == 14
+
+
+def test_a_rule_written_against_either_name_of_a_paired_class_applies(tmp_path):
+    """Canvas' ENGLISH LANGUAGE ARTS is HAC's ELA Plus 5th Gr; a rule is about the class."""
+    rules = _one_rule(tmp_path, 'course = "ELA Plus"\n')
+    assert rules.resolve("Alex", "ENGLISH LANGUAGE ARTS").late_days == 14
+    assert rules.resolve("Alex", "ENGLISH LANGUAGE ARTS", "ELA Plus 5th Gr").late_days == 2
+    assert rules.deadline("Alex", "ENGLISH LANGUAGE ARTS", DUE, "ELA Plus 5th Gr") == datetime(2026, 9, 6, 15, 0, tzinfo=TZ)
+
+
+def test_a_rule_for_one_sibling_does_not_reach_a_sibling_whose_name_it_prefixes(tmp_path):
+    rules = _one_rule(tmp_path, 'kid = "Max"\n', household=["Max", "Maxine"])
+    assert rules.resolve("Max", "Band").late_days == 2
+    assert rules.resolve("Maxine", "Band").late_days == 14
+
+
+def test_a_short_form_of_the_name_still_reaches_the_kid(tmp_path):
+    """README: kid = "Alex" matches Alexander. Only that direction: a longer name is not the kid."""
+    rules = _one_rule(tmp_path, 'kid = "Alex"\n', household=["Alexander", "Sam"])
+    assert rules.resolve("Alexander", "Band").late_days == 2
+    assert rules.resolve("Al", "Band").late_days == 14
+    assert rules.resolve("Sam", "Band").late_days == 14
+
+
+def test_default_until_quarter_end_is_rejected_not_silently_replaced(tmp_path):
+    p = tmp_path / "r.toml"
+    p.write_text('[default]\nuntil = "quarter_end"\n\n[quarters]\nq1 = 2026-10-15\n')
+    with pytest.raises(late_rules.LateRulesError, match="default"):
+        late_rules.load(p)

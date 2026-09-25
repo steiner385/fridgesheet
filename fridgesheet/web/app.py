@@ -93,7 +93,7 @@ class AppState:
         fixable, and drop the warning again as soon as a later load parses.
         """
         try:
-            rules = late_rules.load(self.home / "late-rules.toml")
+            rules = late_rules.load(self.home / "late-rules.toml", household=db.household(self.home))
         except late_rules.LateRulesError as e:
             self.extra["warnings"] = [str(e)]
             return late_rules.LateRules(late_rules.Rule(), [], [])

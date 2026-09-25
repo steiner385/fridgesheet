@@ -35,7 +35,7 @@
       {% if view.verdict.answers %}{% set item = view %}{% set qid = 'qc-' ~ view.id %}{% set vd = view.verdict %}{% set tier = student.key | tier_of %}
       {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
       {% include "_answers.html" %}{% endif %}
-      {% if view.open_in and view.due %}<p class="muted">Late work is usually accepted until {{ rules.deadline(student.key, view.course_name, view.due) | wd_md }} (from your late-work rules). Ask the teacher if you need longer.</p>{% endif %}
+      {% if view.open_in and view.due %}<p class="muted">Late work is usually accepted until {{ view.late_until | wd_md }} (from your late-work rules). Ask the teacher if you need longer.</p>{% endif %}
       {% set earlier = completed_for.get(view.id) %}
       {% if earlier %}<p class="family-account">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
       <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}{% if label == waiting_group %}&amp;state=waiting{% endif %}">Plan a step</a>

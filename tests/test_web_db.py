@@ -8,6 +8,16 @@ import pytest
 from fridgesheet.web import db
 
 
+def test_household_lists_every_student_key_and_is_empty_without_a_database(tmp_path):
+    """The late rules need every key to keep a rule for "Max" off Maxine (#134)."""
+    home = tmp_path / "home"
+    assert db.household(home) == [] and not home.exists()
+    conn = db.open_db(home)
+    conn.executemany("INSERT INTO students(id, key, name) VALUES (?, ?, ?)", [(1, "Max", "Max S"), (2, "Maxine", "Maxine S")])
+    conn.close()
+    assert sorted(db.household(home)) == ["Max", "Maxine"]
+
+
 def test_open_db_creates_file_and_schema(tmp_path):
     conn = db.open_db(tmp_path / "home")
     assert (tmp_path / "home" / "fridgesheet.db").is_file()

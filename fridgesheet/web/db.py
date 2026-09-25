@@ -235,6 +235,23 @@ def connect(path: Path) -> sqlite3.Connection:
     return conn
 
 
+def household(home: Path) -> list[str]:
+    """Every student's key, for the late rules' kid matching (`matching.kid_matches`): read-only,
+    and empty when there is no database yet or it cannot be read -- rules still resolve then, a
+    short name just cannot be told apart from a sibling's whole one."""
+    path = db_path(home)
+    if not path.is_file():
+        return []
+    try:
+        conn = connect(path)
+        try:
+            return [r["key"] for r in conn.execute("SELECT key FROM students")]
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
+
+
 def _version(conn: sqlite3.Connection) -> int:
     has = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'").fetchone()
     if not has:

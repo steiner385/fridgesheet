@@ -64,6 +64,27 @@ def test_open_work_honours_kid_filter_options_and_previous_rows(tmp_path):
         r.build(_snapshot(), _ctx(tmp_path, kid="zed"))
 
 
+def test_open_work_kid_filter_prefers_an_exact_name_over_a_sibling_it_prefixes(tmp_path):
+    """#134: --kid Sam must not also print Samantha's section; a short form still selects."""
+    snap = _snapshot()
+    snap["students"]["Samantha"] = {"name": "Samantha S", "canvas": {"courses": []}, "hac": {"classes": []}}
+    r = reports.get("open-work")
+    assert set(r.build(snap, _ctx(tmp_path, kid="sam")).rows) == {"Sam"}
+    assert set(r.build(snap, _ctx(tmp_path, kid="samant")).rows) == {"Samantha"}
+    assert set(r.build(snap, _ctx(tmp_path, kid="al")).rows) == {"Alex"}
+
+
+def test_open_work_resolves_late_rules_by_the_students_key_not_the_nickname(tmp_path):
+    """#133: nickname Robert=Bobby, a 2-day rule for Robert; the sheet drops what the web closes."""
+    (tmp_path / "late-rules.toml").write_text('[default]\nlate_days = 14\n\n[[rule]]\nkid = "Robert"\nlate_days = 2\n')
+    snap = _snapshot()
+    a = dict(snap["students"]["Alex"]["canvas"]["courses"][0]["assignments"][0], missing=True, due_at=(NOW - timedelta(days=4)).isoformat())
+    snap["students"] = {"Robert": {"name": "Bob S", "canvas": {"courses": [{"id": 5, "name": "Honors Biology", "assignments": [a]}]},
+                                   "hac": {"classes": []}}}
+    built = reports.get("open-work").build(snap, _ctx(tmp_path, nicknames={"Robert": "Bobby"}))
+    assert built.rows == {"Robert": []}
+
+
 def test_available_lists_the_code_reports_and_every_saved_one(tmp_path):
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")

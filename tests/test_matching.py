@@ -2,7 +2,7 @@
 printed sheet can use it without importing the MCP server."""
 from __future__ import annotations
 
-from fridgesheet.matching import match_course, same_item, short_course
+from fridgesheet.matching import course_matches, kid_matches, match_course, same_item, short_course
 
 
 def test_short_course_strips_term_year_and_teacher_tails():
@@ -22,3 +22,18 @@ def test_match_course_pairs_differently_abbreviated_names():
     assert match_course("ENGLISH LANGUAGE ARTS", table) == "ela"
     assert match_course("Adv Math 7-2027-Nagy", table) == "math7"
     assert match_course("", table) is None
+
+
+def test_kid_matches_the_name_or_a_short_form_of_it_never_a_longer_one():
+    assert kid_matches("", "anyone")
+    assert kid_matches("alex", "Alex") and kid_matches("Alex", "Alexander")
+    assert not kid_matches("Alexander", "Alex")          # was a two-way prefix (#134)
+    assert not kid_matches("Max", "Maxine", household=["Max", "Maxine"])
+    assert kid_matches("Max", "Max", household=["Max", "Maxine"])
+    assert kid_matches("Max", "Maxine", household=["Maxine", "Sam"])   # no Max in the house: a short form
+
+
+def test_course_matches_whole_words_for_every_rule():
+    assert not course_matches("Algebra I", "Algebra II")
+    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch")
+    assert course_matches("", "anything")
