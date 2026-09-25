@@ -361,6 +361,25 @@ def test_the_builder_saves_a_chart(tmp_path):
     assert '<option value="status" selected>' in body
     assert '<option value="week" selected>' in body
     assert '<span id="chartFields" >' in body            # visible: a chart is set
+    assert '<select name="chart_series" >' in body        # stacked_bar: enabled, not disabled
+
+
+def test_a_non_stacked_chart_disables_the_series_field(tmp_path):
+    """A hidden-but-enabled <select> still submits its value on save. A parent who switches an
+    existing stacked_bar chart (with a series) to "line" must not have that stale series value
+    silently resurrected on Save -- so the series control is `disabled` whenever it is `hidden`,
+    not just visually hidden."""
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={
+        "title": "Recap", "source": "items", "columns": ["kid", "name", "due"],
+        "chart_type": "line", "chart_x": "due", "chart_bucket": "week"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    assert '<select name="chart_series" disabled>' in body
+
+    r2 = c.get("/reports/new").text                       # no chart at all: also disabled
+    assert '<select name="chart_series" disabled>' in r2
 
 
 def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):

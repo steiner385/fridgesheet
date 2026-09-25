@@ -42,7 +42,7 @@
     <input name="filter_value" value="{{ d.filters[i].value if d.filters|length > i else '' }}">
     {% endfor %}</p>
   <p>Chart:
-    <select name="chart_type" onchange="document.getElementById('chartFields').hidden = !this.value; document.getElementById('chartSeries').hidden = this.value !== 'stacked_bar'">
+    <select name="chart_type" onchange="document.getElementById('chartFields').hidden = !this.value; var stacked = this.value === 'stacked_bar'; var cs = document.getElementById('chartSeries'); cs.hidden = !stacked; cs.querySelector('select').disabled = !stacked;">
       <option value="">none</option>
       {% for t in CHART_TYPES %}<option value="{{ t }}" {{ 'selected' if d.chart and d.chart.type == t }}>{{ t.replace('_', ' ') }}</option>{% endfor %}
     </select>
@@ -50,7 +50,7 @@
       <label>Date <select name="chart_x">{% for cid, col in cols.items() if col.kind == 'date' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.x == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
       <label>Value <select name="chart_y"><option value="">Count of rows</option>{% for cid, col in cols.items() if col.kind == 'number' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.y == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
       <span id="chartSeries" {{ 'hidden' if not d.chart or d.chart.type != 'stacked_bar' }}>
-        <label>Series <select name="chart_series"><option value="">—</option>{% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.series == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+        <label>Series <select name="chart_series" {{ 'disabled' if not d.chart or d.chart.type != 'stacked_bar' }}><option value="">—</option>{% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.series == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
       </span>
       <label>Bucket <select name="chart_bucket">{% for b in BUCKETS %}<option value="{{ b }}" {{ 'selected' if d.chart and d.chart.bucket == b }}>{{ b }}</option>{% endfor %}</select></label>
     </span></p>
