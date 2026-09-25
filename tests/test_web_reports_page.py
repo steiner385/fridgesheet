@@ -344,3 +344,33 @@ def test_chart_json_escapes_a_label_that_would_close_the_script_tag():
     assert "<script>" not in out
     # still valid, round-tripping JSON once the escapes are undone by JSON.parse
     assert json.loads(out.replace("\\u003c", "<").replace("\\u003e", ">"))["data"]["datasets"][0]["label"] == evil
+
+
+def test_the_builder_saves_a_chart(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={
+        "title": "Recap", "source": "items", "columns": ["kid", "name", "due"],
+        "chart_type": "stacked_bar", "chart_x": "due", "chart_series": "status", "chart_bucket": "week"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    # The template's `{{ 'selected' if ... }}` with no `else` renders nothing when false, so a
+    # true condition is the only way this exact substring appears (report_builder.html, Step 3).
+    assert '<option value="stacked_bar" selected>' in body
+    assert '<option value="due" selected>' in body
+    assert '<option value="status" selected>' in body
+    assert '<option value="week" selected>' in body
+    assert '<span id="chartFields" >' in body            # visible: a chart is set
+
+
+def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):
+    """"due" and "status" belong to items, not grades -- the redrawn builder must not carry a
+    now-invalid chart forward silently."""
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/builder", data={
+        "title": "Recap", "source": "grades", "columns": ["value"],
+        "chart_type": "stacked_bar", "chart_x": "due", "chart_series": "status", "chart_bucket": "week"})
+    assert r.status_code == 200
+    assert '<span id="chartFields" hidden>' in r.text     # hidden: the chart was dropped
+    assert '<option value="stacked_bar" selected>' not in r.text
