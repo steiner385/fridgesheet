@@ -316,7 +316,7 @@ def test_a_saved_chart_report_shows_a_canvas_and_its_config(tmp_path):
     rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
                chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
     body = c.get(f"/reports/{rid}/view").text
-    assert "data-report-chart" in body and "data-chart-config" in body
+    assert "data-chart-canvas" in body and "data-chart-config" in body
     assert '"type": "bar"' in body or '"type":"bar"' in body
 
 
@@ -325,7 +325,17 @@ def test_a_table_only_report_shows_no_chart_markup(tmp_path):
     c = _client(tmp_path)
     rid = _save(tmp_path, source="items", columns=["kid", "name"])
     body = c.get(f"/reports/{rid}/view").text
-    assert "data-report-chart" not in body
+    assert "data-chart-canvas" not in body
+
+
+def test_the_report_view_draws_its_chart_through_the_shared_canvas_partial(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
+               chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    body = c.get(f"/reports/{rid}/view").text
+    assert '<div class="chart-holder" style="height: 260px">' in body
+    assert '<canvas data-chart-canvas role="img" aria-label="Mine, as a chart"></canvas>' in body
 
 
 def test_chart_json_escapes_a_label_that_would_close_the_script_tag():
@@ -393,3 +403,15 @@ def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):
     assert r.status_code == 200
     assert '<span id="chartFields" hidden>' in r.text     # hidden: the chart was dropped
     assert '<option value="stacked_bar" selected>' not in r.text
+
+
+def test_every_chart_page_loads_chart_js_and_its_date_adapter_through_one_partial():
+    """Chart.js and the date adapter are one pair: a page that has one without the other
+    draws category charts but throws on a time scale."""
+    from pathlib import Path
+    templates = Path(views.__file__).parent / "templates"
+    partial = (templates / "_chart_scripts.html").read_text(encoding="utf-8")
+    assert partial.index("chart.umd.min.js") < partial.index("chartjs-adapter-date-fns.bundle.min.js")
+    for p in templates.glob("*.html"):
+        if p.name != "_chart_scripts.html":
+            assert "chart.umd.min.js" not in p.read_text(encoding="utf-8"), p.name

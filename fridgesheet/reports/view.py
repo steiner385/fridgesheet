@@ -15,7 +15,7 @@ from reportlab.lib.utils import ImageReader
 
 from .. import chart_render, sheet
 from ..naming import safe_name
-from ..web import db, views
+from ..web import charts, db, views
 from .base import Built, BuildContext, ReportError
 
 log = logging.getLogger("fridgesheet.reports.view")
@@ -66,7 +66,7 @@ class ViewReport:
         chart_png = None
         if rendered.chart is not None:
             try:
-                chart_png = chart_render.render_chart_png(views.chart_config(rendered.chart))
+                chart_png = chart_render.render_chart_png(charts.chart_config(rendered.chart))
                 ImageReader(io.BytesIO(chart_png)).getRGBData()   # decodes pixel data, not just the header
             except Exception as e:
                 # Broad on purpose: a chart is an enhancement to this report, not a requirement

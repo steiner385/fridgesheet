@@ -6,9 +6,11 @@
 <title>{% block title %}Fridge Sheet{% endblock %}</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/mark-180.png">
-<link rel="stylesheet" href="/static/app.css">
-<script src="/static/htmx.min.js" defer></script>
-<script src="/static/app.js" defer></script>
+{# `?v=`: a new build is a new URL, so a browser holding last week's app.js cannot draw this
+   week's markup (StaticFiles sends no Cache-Control; the query is ignored when serving). #}
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
+<script src="/static/htmx.min.js?v={{ version }}" defer></script>
+<script src="/static/app.js?v={{ version }}" defer></script>
 </head>
 {# A page about one child carries that child's tier; the stylesheet keys on the attribute
    wherever it sits, so the Open work page can put it on each kid section instead. A child

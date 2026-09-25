@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from fridgesheet import config, sources
 from fridgesheet.web import app as webapp, views
 from fridgesheet.web.stores import changes, students
-from tests.web_fixtures import LOCAL_HOST_HEADERS, NOW, TZ, history, seed
+from tests.web_fixtures import LOCAL_HOST_HEADERS, NOW, TZ, chart_configs, history, seed
 
 CANVAS_GRADES = '[sources]\ngrades = "canvas"\n'
 
@@ -51,14 +51,17 @@ def test_course_page_headline_follows_the_grades_source(tmp_path):
     assert flipped.index("Canvas current") < flipped.index("HAC average")
 
 
-def test_grades_json_marks_the_official_series(tmp_path):
+def _grade_labels(body: str) -> set[str]:
+    return {d["label"] for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
+            for d in c["data"]["datasets"]}
+
+
+def test_the_trends_grade_chart_marks_the_official_series(tmp_path):
     history(tmp_path).close()
-    series = client(tmp_path, "").get("/trends/grades.json").json()["series"]
-    official = {s["label"]: s["official"] for s in series}
-    assert official["Honors English 9 (HAC average)"] is True
-    assert official["Honors English 9 (Canvas current)"] is False
-    series = client(tmp_path, CANVAS_GRADES).get("/trends/grades.json").json()["series"]
-    assert {s["label"]: s["official"] for s in series}["Honors English 9 (Canvas current)"] is True
+    labels = _grade_labels(client(tmp_path, "").get("/trends").text)
+    assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
+    labels = _grade_labels(client(tmp_path, CANVAS_GRADES).get("/trends").text)
+    assert "Honors English 9 (Canvas current) · official" in labels and "Honors English 9 (HAC average)" in labels
 
 
 def test_grade_change_events_say_which_is_official(tmp_path):
@@ -83,7 +86,5 @@ def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
     """Review finding: grade_series resolved each twin by its own name, so a rule matching only the
     Canvas name made both the Canvas and the HAC series official."""
     history(tmp_path).close()
-    series = client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends/grades.json").json()["series"]
-    official = {s["label"]: s["official"] for s in series}
-    assert official["Honors English 9 (Canvas current)"] is True
-    assert official["Honors English 9 (HAC average)"] is False
+    labels = _grade_labels(client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text)
+    assert "Honors English 9 (Canvas current) · official" in labels and "Honors English 9 (HAC average)" in labels

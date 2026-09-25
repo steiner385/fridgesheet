@@ -1,0 +1,5 @@
+{# One chart. `config` is charts.chart_config()'s JSON, already passed through
+   charts.escape_for_script_tag(); app.js draws it into the canvas. `height` is the CSS pixels
+   the holder gives the chart -- Chart.js sizes to its parent, so the height lives here, not on
+   the canvas. `label` is the one sentence a screen reader gets. #}
+<div class="chart-holder" style="height: {{ height|default(260) }}px"><canvas data-chart-canvas role="img" aria-label="{{ label }}"></canvas><script type="application/json" data-chart-config>{{ config | safe }}</script></div>

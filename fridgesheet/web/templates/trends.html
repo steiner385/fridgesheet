@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Trends · Fridge Sheet{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="/static/uplot.min.css">
-<script src="/static/uplot.min.js" defer></script>
+{% include "_chart_scripts.html" %}
 <h2>Trends</h2>
 <div class="filters">
   <span>Kid:</span>
@@ -13,7 +12,7 @@
 </div>
 {# With nothing at all yet, one sentence says so; the cards, the charts and the table each had
    their own way of saying the same thing (#5). #}
-{% set empty = not series and not longest and record.on_time_rate is none %}
+{% set empty = not has_grades and not longest and record.on_time_rate is none %}
 {% if empty %}
 <p class="muted">Not enough history yet. Trends fill in as refreshes accumulate — come back after a few days of runs.</p>
 {% else %}
@@ -33,24 +32,15 @@
 </div>
 <h3>Grades</h3>
 <p class="muted">{{ course_names | join(", ") if course_names else "No grades recorded yet." }}</p>
-{% if kid %}
-{% with url = "/trends/grades.json?weeks=" ~ weeks ~ "&kid=" ~ kid, kind = "lines", title = "Grade per class", height = 260 %}
-{% include "_chart.html" %}
-{% endwith %}
-{% else %}
 {# One chart per kid, not one chart for the house: three kids' classes in one legend was 28
-   series and unreadable (#40 item 12). Each of these is the chart the kid's own view shows. #}
-{% for s in students %}
-{% with url = "/trends/grades.json?weeks=" ~ weeks ~ "&kid=" ~ s.key, kind = "lines", title = (s.key | nickname) ~ " — grade per class", height = 260 %}
-{% include "_chart.html" %}
-{% endwith %}
+   series and unreadable (#40 item 12). A kid's own view shows just theirs. #}
+{% for key, cfg in grade_charts %}
+{% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class and source" %}{% include "_chart_canvas.html" %}{% endwith %}
+{% elif grade_charts | length > 1 %}<p class="muted">{{ key | nickname }}: no grades recorded yet.</p>{% endif %}
 {% endfor %}
-{% endif %}
 <h3>How the work due each week came out</h3>
 <p class="muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
-{% with url = "/trends/weekly.json?weeks=" ~ weeks ~ (("&kid=" ~ kid) if kid else ""), kind = "weekly", title = "Work due that week" %}
-{% include "_chart.html" %}
-{% endwith %}
+{% with config = weekly_json, height = 220, label = "Work due each week, by how it came out; the table below has the numbers" %}{% include "_chart_canvas.html" %}{% endwith %}
 <table class="items">
   <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
   <tbody>

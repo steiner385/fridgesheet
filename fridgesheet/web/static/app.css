@@ -35,10 +35,9 @@
 body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--wash); }
 a { color: var(--accent); }
 /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` track is `minmax(auto, 1fr)`, so it never shrinks
-   below its content's min-content width. Once a chart has drawn, the content is a fixed-width
-   `<canvas>`, so the column would stay at its widest-ever size, `chartWidth` would keep
-   returning that old width, and app.js's resize handler -- which only calls `setSize` when the
-   width actually changed -- would never fire on the way down. Narrowing the window then leaves
+   below its content's min-content width. Once a chart has drawn, the content is a `<canvas>`
+   with a fixed pixel width, so the column would stay at its widest-ever size and Chart.js's
+   own resize detection would never see it shrink. Narrowing the window then leaves
    the page horizontally scrollable with the rail pushed off-screen (rotate a phone to
    landscape and back). The `0` minimum lets the track shrink, which lets the canvas shrink. */
 .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
@@ -170,12 +169,10 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
    Windows path with no spaces in it, which the job log and Diagnostics both print. */
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overflow: auto; font-size: 12px; }
-/* No fixed height: uPlot draws a title and a legend *around* the plot, and a box clipped to
-   the plot height alone overflows into whatever follows it. Let the holder grow to whatever
-   uPlot draws; `min-height` just keeps "Loading…" from collapsing to one line. */
-.chart { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; min-height: 120px; }
-.chart .muted { padding: 8px; }
-.u-legend { font-size: 12px; }
+/* Chart.js sizes its canvas to this holder (`responsive`, no aspect ratio), so the holder's
+   inline height from `_chart_canvas.html` is the chart's height; `position: relative` is
+   what Chart.js's own resize detection asks of a chart's parent. */
+.chart-holder { position: relative; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; }
 
 /* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
 .rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }

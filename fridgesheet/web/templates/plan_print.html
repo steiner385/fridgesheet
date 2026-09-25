@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ student.key | nickname }}’s plan · Fridge Sheet</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/app.css">
-<script src="/static/app.js" defer></script>
+<link rel="stylesheet" href="/static/app.css?v={{ version }}">
+<script src="/static/app.js?v={{ version }}" defer></script>
 </head>
 {# A page of its own, not the app shell: no rail (which names every child), no status bar, no
    htmx. What is here is what goes on the fridge. #}

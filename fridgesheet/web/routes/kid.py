@@ -11,7 +11,8 @@ from fastapi.responses import RedirectResponse
 from ... import sources
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
-from ..stores import changes, items, notes, students
+from ..stores import changes, items, notes, students, trends
+from .trends import chart_json, grade_chart
 
 router = APIRouter()
 
@@ -120,10 +121,14 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     if peer is not None:
         rows += items.list_items(conn, s, now=now, rules=rules, show="all", course_id=peer["id"], sort=sort, direction=direction, prefs=prefs)
         rows = items.sorted_views(rows, sort, direction)
+    # This course's own lines, all history (no Weeks selector here); the twin has its own page.
+    mine = [gs for gs in trends.grade_series(conn, student_id=s["id"], prefs=prefs) if gs.course_id == course_id]
+    chart = grade_chart(mine, title="This class", now=now)
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
                   history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,
                   sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
+                  grade_chart_json=chart_json(chart) if chart else None,
                   notes=notes.for_target(conn, "course", course_id), **source_ctx)
 
 

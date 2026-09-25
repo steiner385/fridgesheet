@@ -29,7 +29,7 @@ Both parents in the household, from a laptop primarily and optionally a phone; a
 
 - Any login or account system — see [[credential-security]] for why, and what that implies about network exposure.
 - A kid-facing view or multiple households sharing one install.
-- A JavaScript build step — htmx plus one small vendored charting library (uPlot) is the entire client-side dependency.
+- A JavaScript build step — htmx plus one vendored charting library (Chart.js, with its date adapter) is the entire client-side dependency.
 
 ## Notes
 
@@ -41,7 +41,7 @@ Both parents in the household, from a laptop primarily and optionally a phone; a
 
 - `fridgesheet/web/app.py`, `fridgesheet/web/server.py`, `fridgesheet/web/__main__.py`, `fridgesheet/web/jobs.py`, `fridgesheet/web/routes/jobs.py`
 - `fridgesheet/web/routes/dashboard.py`, `kid.py`, `reconcile.py`, `flags.py`, `notes.py`
-- `fridgesheet/web/templates/*`, `fridgesheet/web/static/app.css`, `app.js`, vendored `htmx.min.js`, `uplot.min.js`
+- `fridgesheet/web/templates/*`, `fridgesheet/web/static/app.css`, `app.js`, vendored `htmx.min.js`, `chart.umd.min.js`, `chartjs-adapter-date-fns.bundle.min.js`
 - CLI: `fridgesheet web`
 - README.md §"The browser app"
 - GitHub issues #3, #4

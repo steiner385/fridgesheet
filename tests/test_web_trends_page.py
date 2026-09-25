@@ -1,14 +1,20 @@
-"""The Trends page and the JSON its charts read."""
+"""The Trends page and the chart configs it inlines."""
 from __future__ import annotations
 
 import re
 from datetime import timedelta
 from pathlib import Path
 
-from tests.web_fixtures import NOW, app_for, history, seed, snapshot
+from fridgesheet.web import charts
+from tests.web_fixtures import NOW, app_for, chart_configs, history, seed, snapshot
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 TEMPLATES, STATIC = WEB / "templates", WEB / "static"
+WEEKLY_LABELS = ["On time", "Late", "Not done", "On paper", "Unknown"]      # the table's column order
+
+
+def weekly_config(body: str) -> dict:
+    return next(c for c in chart_configs(body) if c["options"]["plugins"]["title"]["text"] == "Work due that week")
 
 
 def test_empty_database_says_nothing_yet(tmp_path):
@@ -16,51 +22,110 @@ def test_empty_database_says_nothing_yet(tmp_path):
     assert r.status_code == 200 and "Not enough history yet" in r.text
 
 
-def test_page_renders_chart_holders_and_the_summary(tmp_path):
+def grade_configs(body: str) -> list[dict]:
+    return [c for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"]
+
+
+def test_the_grade_chart_has_one_stepped_series_per_course_and_source_on_a_time_axis(tmp_path):
     history(tmp_path).close()
-    body = app_for(tmp_path).get("/trends").text
-    assert 'data-chart="/trends/grades.json' in body and 'data-chart="/trends/weekly.json' in body
-    assert "uplot.min.js" in body and "uplot.min.css" in body
-    assert "On-time" in body and "%" in body
-    assert "Open the longest" in body and "Quiz 1" in body
+    cfgs = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
+    assert len(cfgs) == 1 and cfgs[0]["type"] == "line"
+    labels = {d["label"] for d in cfgs[0]["data"]["datasets"]}
+    assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
+    hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    assert [p["y"] for p in hac["data"]][:2] == [85.0, 88.0]          # the observations; then the hold to now
+    assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
+    assert hac["stepped"] == "before" and hac["borderWidth"] == 3      # hold until the next point
+    assert cfgs[0]["options"]["plugins"]["title"]["text"] == "Grade per class"
 
 
-def test_grades_json_has_one_series_per_course_and_source(tmp_path):
+def test_every_grade_line_runs_to_now_not_to_its_own_last_observation(tmp_path):
+    """Alex's HAC average last moved on 9/14 and the Canvas current on 9/15; both lines must
+    reach `now`, or the class that has not changed looks like it stopped being tracked."""
     history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/grades.json").json()
-    labels = {s["label"] for s in data["series"]}
-    assert "Honors English 9 (HAC average)" in labels and "Honors English 9 (Canvas current)" in labels
-    hac = next(s for s in data["series"] if s["label"].endswith("(HAC average)") and s["label"].startswith("Honors"))
-    assert [v for _, v in hac["points"]] == [85.0, 88.0]
-    assert all(isinstance(t, (int, float)) for t, _ in hac["points"])       # epoch seconds for uPlot
+    cfg, = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
+    now_ms = int(NOW.timestamp() * 1000)
+    ends = {d["label"]: d["data"][-1]["x"] for d in cfg["data"]["datasets"]}
+    assert set(ends.values()) == {now_ms}, ends
+    hac = next(d for d in cfg["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    assert [p["y"] for p in hac["data"]] == [85.0, 88.0, 88.0] and hac["pointRadius"][-1] == 0
 
 
-def test_weekly_json_is_parallel_arrays(tmp_path):
+def test_the_all_kids_view_draws_one_titled_grade_chart_per_kid(tmp_path):
+    """Three kids' classes in one legend was 28 series (#40 item 12)."""
     history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/weekly.json?weeks=4").json()
-    assert len(data["weeks"]) == 4
-    for key in ("on_time", "late", "not_done", "done_offline", "unknown"):
-        assert len(data[key]) == 4
-    assert data["weeks"] == sorted(data["weeks"])
+    c = app_for(tmp_path)
+    everyone = grade_configs(c.get("/trends").text)
+    assert len(everyone) >= 2
+    assert "Alex — grade per class" in {cfg["options"]["plugins"]["title"]["text"] for cfg in everyone}
+    assert len(grade_configs(c.get("/trends?kid=Sam").text)) == 1
 
 
-def test_kid_filter_applies_to_page_and_json(tmp_path):
+def test_a_kid_with_no_grade_points_in_the_window_gets_the_sentence_not_a_canvas(tmp_path):
+    """The first refresh records a grade point, so an empty window is the way to have none:
+    one week, looked at three weeks after the only refresh."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path, now=NOW + timedelta(weeks=3)).get("/trends?kid=Alex&weeks=1").text
+    assert grade_configs(body) == [] and "No grades recorded yet." in body
+
+
+def test_a_grade_series_label_cannot_close_the_script_tag():
+    from fridgesheet.web.routes.trends import chart_json, grade_chart
+    from fridgesheet.web.stores.trends import GradeSeries
+    evil = GradeSeries(1, "</script><script>alert(1)</script>", "hac", "</script> (HAC average)",
+                       points=[(NOW, 90.0)], official=True)
+    text = chart_json(grade_chart([evil], title="Grade per class", now=NOW))
+    assert "</script>" not in text and "\\u003c/script" in text
+
+
+def test_the_grades_json_endpoint_is_gone(tmp_path):
+    history(tmp_path).close()
+    assert app_for(tmp_path).get("/trends/grades.json").status_code == 404
+
+
+def test_the_weekly_chart_is_a_stacked_bar_in_the_tables_column_order(tmp_path):
+    history(tmp_path).close()
+    cfg = weekly_config(app_for(tmp_path).get("/trends?weeks=4").text)
+    assert cfg["type"] == "bar" and cfg["options"]["scales"]["x"]["stacked"] is True
+    assert [d["label"] for d in cfg["data"]["datasets"]] == WEEKLY_LABELS
+    assert len(cfg["data"]["labels"]) == 4
+    colors = {d["label"]: d["borderColor"] for d in cfg["data"]["datasets"]}
+    assert colors["Not done"] == charts.OUTCOME_COLORS["not_done"] and colors["On time"] == charts.OUTCOME_COLORS["on_time"]
+
+
+def test_the_weekly_chart_and_the_table_beside_it_show_the_same_numbers(tmp_path):
+    """One definition for every number (#150): the chart's labels are the table's "Week of"
+    cells -- the household's dates, not UTC's -- and each dataset is one table column."""
+    history(tmp_path).close()
+    body = app_for(tmp_path).get("/trends?weeks=4").text
+    cfg = weekly_config(body)
+    rows = re.findall(r"<tr><td>([^<]*)</td><td>(\d+)</td><td>(\d+)</td><td[^>]*>(\d+)</td><td>(\d+)</td><td[^>]*>(\d+)</td></tr>", body)
+    assert len(rows) == 4
+    assert [r[0] for r in rows] == cfg["data"]["labels"]
+    for i, _ in enumerate(WEEKLY_LABELS):
+        assert cfg["data"]["datasets"][i]["data"] == [float(r[i + 1]) for r in rows]
+
+
+def test_the_weekly_json_endpoint_is_gone(tmp_path):
+    history(tmp_path).close()
+    assert app_for(tmp_path).get("/trends/weekly.json?weeks=4").status_code == 404
+
+
+def test_kid_filter_applies_to_the_page_and_its_chart(tmp_path):
     history(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/trends?kid=Sam").text
     assert "Science 7" in body and "Honors English 9" not in body
-    data = c.get("/trends/grades.json?kid=Sam").json()
-    assert all("Science 7" in s["label"] for s in data["series"])
+    assert all("Science 7" in d["label"] for cfg in grade_configs(body) for d in cfg["data"]["datasets"])
     assert c.get("/trends?kid=Nobody").status_code == 404
-    assert c.get("/trends/grades.json?kid=Nobody").status_code == 404
 
 
 def test_weeks_parameter_is_bounded(tmp_path):
     history(tmp_path).close()
     c = app_for(tmp_path)
-    assert len(c.get("/trends/weekly.json?weeks=200").json()["weeks"]) == 52     # clamped
-    assert len(c.get("/trends/weekly.json?weeks=0").json()["weeks"]) == 1
-    assert c.get("/trends/weekly.json?weeks=nonsense").status_code == 200        # falls back to the default
+    assert len(weekly_config(c.get("/trends?weeks=200").text)["data"]["labels"]) == 52     # clamped
+    assert len(weekly_config(c.get("/trends?weeks=0").text)["data"]["labels"]) == 1
+    assert len(weekly_config(c.get("/trends?weeks=nonsense").text)["data"]["labels"]) == 8  # the default
 
 
 def test_weeks_parameter_also_narrows_the_grade_chart(tmp_path):
@@ -68,16 +133,13 @@ def test_weeks_parameter_also_narrows_the_grade_chart(tmp_path):
     c = app_for(tmp_path)
 
     def total_points(weeks):
-        data = c.get(f"/trends/grades.json?weeks={weeks}").json()
-        return sum(len(s["points"]) for s in data["series"])
+        return sum(len(d["data"]) for cfg in grade_configs(c.get(f"/trends?weeks={weeks}").text) for d in cfg["data"]["datasets"])
 
     assert total_points(1) < total_points(16)
 
 
-def test_grades_json_with_no_weeks_returns_all_history(tmp_path):
-    """An absent `weeks` means all history, not the same default window a chart with a Weeks
-    selector would use -- `course.html`'s embed has no selector and must not silently drop
-    old grades."""
+def test_the_course_page_chart_shows_all_history_not_a_default_window(tmp_path):
+    """`course.html`'s chart has no Weeks selector and must not silently drop old grades."""
     old_now = NOW - timedelta(weeks=20)                            # ~5 months back
     old_snap = snapshot()
     old_snap["students"]["Alex"]["hac"]["classes"][0]["marking_period_avg"] = 70.0
@@ -86,35 +148,12 @@ def test_grades_json_with_no_weeks_returns_all_history(tmp_path):
     conn = history(tmp_path)                                       # the standard 3-day fixture, layered on top
     cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
     conn.close()
-
-    data = app_for(tmp_path).get(f"/trends/grades.json?course={cid}").json()
-    points = [p for s in data["series"] for p in s["points"]]
-    eight_weeks_ago = (NOW - timedelta(weeks=8)).timestamp()
-    assert any(t < eight_weeks_ago for t, _ in points)
-
-
-def test_weeks_selector_url_carries_the_chosen_weeks_for_the_grade_chart_too(tmp_path):
-    history(tmp_path).close()
-    body = app_for(tmp_path).get("/trends?weeks=4").text
-    assert 'data-chart="/trends/grades.json?weeks=4' in body
-
-
-def test_a_course_filter_that_is_not_a_course_matches_nothing(tmp_path):
-    """`?course=abc` names no course, so it answers with no series -- it must not fall through
-    to "every class in the house", which is what a course-page chart would then draw."""
-    history(tmp_path).close()
-    c = app_for(tmp_path)
-    assert c.get("/trends/grades.json?course=abc").json() == {"series": []}
-    assert c.get("/trends/grades.json?course=999999").json() == {"series": []}
-    assert c.get("/trends/grades.json").json()["series"]                  # the unfiltered call still answers
-
-
-def test_course_page_gains_a_grade_chart(tmp_path):
-    conn = history(tmp_path)
-    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
-    conn.close()
-    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert 'data-chart="/trends/grades.json?course=' in body and "uplot.min.js" in body
+    cfgs = grade_configs(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert len(cfgs) == 1 and cfgs[0]["options"]["plugins"]["title"]["text"] == "This class"
+    points = [p for d in cfgs[0]["data"]["datasets"] for p in d["data"]]
+    eight_weeks_ago = (NOW - timedelta(weeks=8)).timestamp() * 1000
+    assert any(p["x"] < eight_weeks_ago for p in points)
+    assert all("Honors English 9" in d["label"] for d in cfgs[0]["data"]["datasets"])   # this course, not the house
 
 
 def test_one_refresh_only_still_renders(tmp_path):
@@ -123,98 +162,39 @@ def test_one_refresh_only_still_renders(tmp_path):
     assert r.status_code == 200 and "Trends" in r.text
 
 
-# The chart holder's *sizing* contract, pinned the way `test_packaging.py` pins the installer
-# text: none of it can be exercised here (there is no browser in this suite), and all of it is
-# load-bearing. Each assertion below stands for a defect that shipped once:
-#
-#   - an inline `style="height:NNNpx"` on `.chart` clipped the holder to the plot alone, so
-#     uPlot's title and legend -- drawn as *siblings* of the sized plot -- printed 72px/42px
-#     over whatever followed the chart. `.chart` must have no fixed height at all (app.css
-#     says the same in prose); the holder grows to fit title + plot + legend.
-#   - `data-height` is what app.js passes to uPlot as the plot height. Drop it from a holder
-#     and `drawChart` silently falls back to 220, so the grade chart -- the one the page gives
-#     260 to -- renders 40px shorter with nothing anywhere saying so.
-def test_chart_holders_carry_their_plot_height_and_no_inline_height():
-    """`_chart.html` is the only place a chart holder is emitted; `style="height` there is the
-    exact overflow bug, and `data-height` is the only channel the per-chart height travels."""
-    tmpl = (TEMPLATES / "_chart.html").read_text(encoding="utf-8")
-    assert 'data-height="{{ height|default(220) }}"' in tmpl
-    assert "style=" not in tmpl, "a chart holder sized in CSS overflows uPlot's title and legend"
-
-
-def test_trends_page_asks_for_a_taller_grade_chart_than_the_weekly_one(tmp_path):
-    """Rendered, not just templated: the grade chart is given 260 and the weekly chart takes
-    the 220 default, and neither holder carries an inline height."""
+def test_page_renders_both_charts_and_the_summary(tmp_path):
     history(tmp_path).close()
     body = app_for(tmp_path).get("/trends").text
-    holders = re.findall(r'<div class="chart"[^>]*>', body)
-    grades = [h for h in holders if "grades.json" in h]          # one per kid in the "all" view
-    weekly = [h for h in holders if "weekly.json" in h]
-    assert len(grades) >= 1 and len(weekly) == 1 and len(holders) == len(grades) + 1
-    assert all('data-height="260"' in h for h in grades) and 'data-height="220"' in weekly[0]
-    assert 'style="height' not in body
+    assert body.count("data-chart-canvas") == len(chart_configs(body)) >= 2
+    assert "chart.umd.min.js" in body and "chartjs-adapter-date-fns.bundle.min.js" in body
+    assert "On-time" in body and "%" in body
+    assert "Open the longest" in body and "Quiz 1" in body
 
 
-def test_course_page_chart_holder_also_carries_a_height(tmp_path):
-    conn = history(tmp_path)
-    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
-    conn.close()
-    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    holder, = re.findall(r'<div class="chart"[^>]*>', body)
-    assert 'data-height="220"' in holder and 'style="height' not in body
+def test_uplot_is_gone():
+    """Two charting libraries was one too many: everything draws through charts.chart_config."""
+    assert not (STATIC / "uplot.min.js").exists() and not (STATIC / "uplot.min.css").exists()
+    assert not (TEMPLATES / "_chart.html").exists()
+    for p in [*TEMPLATES.glob("*.html"), STATIC / "app.js", STATIC / "app.css", STATIC / "VENDOR.md"]:
+        assert "uplot" not in p.read_text(encoding="utf-8").lower(), p.name
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert js.count("function attachCharts") == 1 and "typeof uPlot" not in js
 
 
 def test_the_content_column_can_shrink_below_its_content():
     """A bare `1fr` track is `minmax(auto, 1fr)`: it never narrows past its content's
-    min-content width. After the first draw a chart holder's content is a fixed-width
-    `<canvas>`, so the column froze at its widest-ever size -- `chartWidth` kept reporting the
-    old width, app.js's `w !== c.u.width` stayed false, `setSize` never fired, and narrowing
-    the window left the page horizontally scrollable with the rail off-screen, permanently (a
-    phone rotated to landscape and back needs a reload). Measured in Chromium at 1400 -> 900 ->
+    min-content width. After the first draw a chart holder's content is a `<canvas>` with a
+    fixed pixel width, so the column froze at its widest-ever size and narrowing the window
+    left the page horizontally scrollable with the rail off-screen, permanently (a phone
+    rotated to landscape and back needs a reload). Measured in Chromium at 1400 -> 900 ->
     700 -> 390: holders of 1050/630/674/364 with `scrollWidth == innerWidth` at every step;
     with a bare `1fr`, 1050 at all four and `scrollWidth` up to 1320 against a 900 viewport.
-    Both grid declarations need the explicit zero minimum -- the phone width uses the second."""
+    Chart.js's own resize detection can only follow a track that is allowed to shrink. Both
+    grid declarations need the explicit zero minimum -- the phone width uses the second."""
     css = (STATIC / "app.css").read_text(encoding="utf-8")
     tracks = re.findall(r"\.shell\s*\{[^}]*grid-template-columns:\s*([^;}]+)", css)
     assert len(tracks) == 2, "expected the wide layout and the max-width:800px override"
     assert [t.strip() for t in tracks] == ["220px minmax(0, 1fr)", "minmax(0, 1fr)"]
-
-
-def test_the_all_kids_view_draws_one_grade_chart_per_kid(tmp_path):
-    """Three kids' classes in one legend was 28 series (#40 item 12). "all" now shows the
-    chart each kid's own view shows, one under the other; a kid's view still shows one."""
-    history(tmp_path).close()
-    c = app_for(tmp_path)
-    everyone = c.get("/trends").text
-    assert everyone.count('data-chart="/trends/grades.json') >= 2
-    assert 'grades.json?weeks=8&amp;kid=Alex' in everyone or 'grades.json?weeks=8&kid=Alex' in everyone
-    assert 'data-title="Alex — grade per class"' in everyone
-    one = c.get("/trends?kid=Sam").text
-    assert one.count('data-chart="/trends/grades.json') == 1
-
-
-def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
-    """#9: `drawChart` marks the holder drawn at once but only registers the uPlot when its JSON
-    arrives. An htmx swap in between removes the holder and prunes; the late continuation then
-    drew into the detached node and pushed it into CHARTS. It now checks first."""
-    js = (STATIC / "app.js").read_text(encoding="utf-8")
-    body = js[js.index("function drawChart"):js.index("// One shared resize listener")]
-    then = body[body.index(".then(function (data)"):]
-    guard = then.index("if (!document.contains(el)) return;")
-    assert guard < then.index("el.innerHTML") and guard < then.index("CHARTS.push")
-
-
-def test_the_weekly_chart_draws_every_series_the_table_beside_it_shows(tmp_path):
-    """#150: `/trends/weekly.json` has five counts and the table has five columns, but the
-    chart drew four -- "On paper" (`done_offline`) was missing from it."""
-    history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/weekly.json").json()
-    js = (STATIC / "app.js").read_text(encoding="utf-8")
-    start = js.index('if (el.dataset.kind === "weekly")')
-    weekly = js[start:js.index("} else {", start)]
-    for key in data.keys() - {"weeks"}:
-        assert f"data.{key}" in weekly, key
-    assert '"On paper"' in weekly
 
 
 def test_an_unknown_kid_on_trends_says_the_kid_is_not_known(tmp_path):

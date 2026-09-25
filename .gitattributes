@@ -3,6 +3,5 @@
 # checkout, or the hash no longer matches what upstream published.
 # By name, not *.js/*.css: app.js and app.css are ours and may normalise like any source file (#4).
 fridgesheet/web/static/htmx.min.js -text
-fridgesheet/web/static/uplot.min.js -text
-fridgesheet/web/static/uplot.min.css -text
 fridgesheet/web/static/chart.umd.min.js -text
+fridgesheet/web/static/chartjs-adapter-date-fns.bundle.min.js -text
