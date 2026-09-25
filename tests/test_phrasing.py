@@ -127,3 +127,23 @@ def test_the_pace_sentences_exist_and_name_fridge_sheet_not_the_teacher():
 def test_the_one_tap_words_exist_in_every_tier():
     for key in ("a.today", "a.tomorrow", "a.add_details", "step.work_on_it", "where.planned_today", "where.planned_tomorrow", "facts.not_due_yet"):
         assert key in phrasing.PHRASES, key
+
+
+#: A span of days or weeks. The "Was it handed in?" question fires after a learned pace --
+#: anything from 1 to 21 days -- so no sentence may carry a span it was never given (#130).
+_SPAN_RE = re.compile(r"\b(a|an|one|two|three|four|few|\d+)\s+(day|days|week|weeks)\b|\bfortnight\b", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("tier", tiers.TIERS)
+def test_no_phrase_states_a_span_of_days_or_weeks(tier):
+    """"A week on, no grade anywhere" sat beside a pace line that said nine days, or two.
+    The wait is learned; a fixed span in the copy contradicts it."""
+    for word, by_tier in phrasing.PHRASES.items():
+        found = _SPAN_RE.search(by_tier.get(tier, ""))
+        assert found is None, f"{word!r} at {tier!r} states the span {found.group(0)!r}"
+
+
+def test_still_ungraded_says_longer_than_usual_at_every_tier_without_a_number():
+    for tier in tiers.TIERS:
+        words = phrasing.phrase("facts.still_ungraded", tier)
+        assert "week" not in words.lower() and not re.search(r"\d", words), (tier, words)

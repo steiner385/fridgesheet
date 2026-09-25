@@ -195,7 +195,16 @@ def _filters(state: AppState) -> dict:
             lines.append(state.settings.canvas_base + item.canvas_path)
         return "\n".join(lines)
 
-    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname,
+    @jinja2.pass_context
+    def printer_name(_ctx, report_key: str) -> str:
+        """The printer a Print of this report will use, for its confirmation (#127). The same
+        `Settings.printer_for` the runner prints with -- never `settings.printer` alone, which a
+        report's own printer overrides. `pass_context` is only there to stop Jinja folding
+        `'open-work' | printer_name` into a constant when the template compiles: the answer
+        changes whenever Settings or Schedules is saved."""
+        return state.settings.printer_for(report_key) or "the default printer"
+
+    return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname, "printer_name": printer_name,
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
             "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
             "standing": lambda item, tier: verdicts.standing(item, tier),

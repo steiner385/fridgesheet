@@ -109,3 +109,12 @@ def test_kid_headings_are_not_coloured_like_statuses():
     """Alex's heading blue was DUE TODAY blue and Sam's purple was PAPER — CHECK purple: one
     colour, two meanings on one page. Colour is for status; a kid's name is ink."""
     assert not hasattr(sheet, "KID_COLORS")
+
+
+def test_the_not_shown_line_names_the_real_overdue_window():
+    """"older than two weeks" was hard-coded whatever `overdue_days` said (#130)."""
+    ks = sheet.KidSheet("Jo", _work("Jo", [], dropped=[_item("canvas:9", "MISSING", True, -20)]))
+    for days in (5, 14, 30):
+        text = " ".join(p.text for p in sheet._tail_lines(ks, days))
+        assert f"more than {days} days overdue" in text, text
+        assert "two weeks" not in text

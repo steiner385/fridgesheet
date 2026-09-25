@@ -12,7 +12,7 @@
     <td>{{ r.message }}</td>
     <td>{% if pdfs[r.id] %}<a href="/runs/{{ r.id }}/pdf">open</a>{% endif %}</td>
     <td>{% if jobs and r.outcome == 'OK' and pdfs[r.id] and r.report_key != 'refresh' %}
-      <form hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ titles.get(r.report_key, r.report_key) }} from {{ r.started_at | md }} again?">
+      <form hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ titles.get(r.report_key, r.report_key) }} from {{ r.started_at | md }} again, on {{ r.report_key | printer_name }}?">
         <input type="hidden" name="date" value="{{ dates[r.id] }}">
         <input type="hidden" name="report" value="{{ r.report_key }}"><button>Reprint</button></form>{% endif %}</td>
   </tr>

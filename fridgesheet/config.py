@@ -268,6 +268,14 @@ class Settings:
         rc = self.reports.get(key) or ReportConfig()
         return replace(rc, time=default_time) if rc.time is None else rc
 
+    def printer_for(self, key: str, override: str | None = None) -> str:
+        """The printer a run of report `key` sends to, "" meaning the system default.
+
+        `override` (the CLI's --printer), then the report's own `[reports.<key>].printer`, then
+        `[print].printer`. The runner prints with this and every Print confirmation names what
+        it returns, so the two cannot disagree (#127)."""
+        return override or self.report_config(key).printer or self.printer or ""
+
     @property
     def bind_host(self) -> str:
         """The address to bind. An explicit FRIDGESHEET_WEB_HOST wins over `allow_lan`, so
