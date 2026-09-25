@@ -5,6 +5,7 @@ state: live
 parent: browser-app
 links:
   - kind: powered_by
+    project: fridgesheet
     feature: actionable-work-model
 ---
 

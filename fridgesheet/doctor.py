@@ -55,6 +55,11 @@ def _database(s: Settings, home: Path) -> str:
 
 def _timezone(s: Settings, home: Path) -> str:
     ZoneInfo(s.timezone)
+    # Worth a word when the household's zone is not the computer's (#122): on Windows a task
+    # fires on the PC's clock, and the Schedules page shows next runs in the PC's time.
+    pc_zone = host.local_timezone()
+    if pc_zone and pc_zone != s.timezone:
+        return f"{s.timezone} (this computer's clock is {pc_zone})"
     return s.timezone
 
 
@@ -147,13 +152,23 @@ def _print_engine(s: Settings, home: Path) -> str:
 def _scheduler(s: Settings, home: Path) -> str:
     """The server's own clock fires schedules (web/clock.py). From a terminal there is no clock
     to ask, so this names what is next and says schedules need the server; inside the server a
-    clock that has stopped ticking is a FAIL, and so is a schedule that is on but cannot run."""
+    clock that has stopped ticking is a FAIL, and so is a schedule that is on but cannot run, or a
+    report scheduled while the data refresh is off."""
     from datetime import datetime
     from . import schedule_plan
     from .web import clock
     schedules, problems = clock.configured(home, settings=s)
     if problems:
         raise RuntimeError("; ".join(f"{k}: {v}" for k, v in sorted(problems.items())))
+    # A scheduled report with the refresh off prints once and then fails every day (#120): it
+    # runs with no refresh of its own and refuses a snapshot older than MAX_DATA_AGE_HOURS.
+    reports_on = [x.key for x in schedules if x.key != host.DATA_REFRESH_KEY]
+    if reports_on and not s.refresh.enabled:
+        from .runner import MAX_DATA_AGE_HOURS
+        raise RuntimeError(
+            f"{', '.join(reports_on)} {'is' if len(reports_on) == 1 else 'are'} scheduled but the data refresh "
+            f"is off; a scheduled report prints from the last refresh and refuses one older than "
+            f"{MAX_DATA_AGE_HOURS} h. Tick Refresh on a schedule on the Schedules page and Save")
     if not schedules:
         return "no schedules are on"
     now = datetime.now(ZoneInfo(s.timezone))

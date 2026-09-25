@@ -67,12 +67,15 @@ def test_smoke_script_runs_doctor_dry_run_the_server_and_a_no_args_launch():
     ps = (WIN / "smoke.ps1").read_text(encoding="utf-8")
     assert "FRIDGESHEET_HOME" in ps and "fixture-snapshot.json" in ps
     assert '"doctor"' in ps and "doctor.txt" in ps
-    assert '"run"' in ps and '"--dry-run"' in ps and '"--no-refresh"' in ps and "sheet.pdf" in ps
+    # A dry run builds sheet-preview.pdf, never the day's sheet.pdf (#143); the smoke test
+    # must look for the file the run actually writes, or every release fails at this step.
+    assert '"run"' in ps and '"--dry-run"' in ps and '"--no-refresh"' in ps and "sheet-preview.pdf" in ps
     assert "app.log" in ps and "finally" in ps
     assert "$home" not in ps.replace("$smokeHome", ""), "never shadow PowerShell's automatic $HOME"
     assert "MainWindowHandle" not in ps, "the tkinter window is gone; the smoke test drives the server"
     # --all: the exact command line installer.iss's [UninstallRun] issues, run against a real
-    # schtasks. (`schedule install` is gone with the OS scheduler.)
+    # schtasks. `schedule install` only turns a schedule on in config.toml now, so it has no
+    # schtasks to prove and the smoke test does not run it (#179 is superseded).
     assert '"schedule","install"' not in ps and '"schedule","remove","--all"' in ps
     # the browser app: serve real pages, then prove the no-args launch and the logon task
     assert '"web","--no-browser"' in ps and "/health" in ps and "/diagnostics" in ps

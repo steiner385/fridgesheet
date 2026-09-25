@@ -15,6 +15,9 @@
       <label>OneLogin username <input name="username" value="{{ form.username }}" autocomplete="username"></label>
       <label>OneLogin password <input name="password" type="password" autocomplete="current-password" placeholder="leave blank to keep the stored one"></label>
     </div>
+    {# The environment supplies the login (FRIDGESHEET_ONELOGIN_* or the 1Password references):
+       the store is never read, Save asks for neither box, and the note says so (#154). #}
+    {% if env_notes.password %}<p class="field-help env-note">{{ env_notes.password }}</p>{% endif %}
     <p class="field-help">{% if loopback %}The password is stored in this computer's credential store, never in a file.{% else %}The password is stored in the credential store on the computer running Fridge Sheet, never in a file.{% endif %}</p>
     {% if not loopback %}<details class="field-help"><summary>You are not on that computer</summary>
       This page has no HTTPS, so the password crosses your network in the clear on its way
@@ -40,6 +43,22 @@
        {% if env_notes.nicknames %}<br><span class="field-help env-note">{{ env_notes.nicknames }}</span>{% endif %}</p>
     <p class="field-help"><a href="/schedules">Schedules</a> — when each report runs, and where it prints.</p>
     <p class="field-help">Automatic printing: {{ status }}</p>
+  </section>
+
+  <section class="card">
+    <h3>Where you are</h3>
+    <div class="settings-grid">
+      {# A datalist, not a select: the common US zones to pick from, and any IANA name typed
+         for a household elsewhere (#122). Blank means this computer's zone, which the help
+         names so a parent can see whether it is right. #}
+      <label>Time zone <input name="timezone" list="timezone-options" value="{{ form.timezone }}" autocomplete="off"
+               placeholder="{{ local_tz or fallback_tz }}">
+         <datalist id="timezone-options">{% for z in zones %}<option value="{{ z }}">{% endfor %}</datalist>
+         <span class="field-help">Due times, "today" and schedules follow this. Leave it blank for this computer's zone
+           {% if local_tz %}(this computer's: {{ local_tz }}){% else %}— which could not be read, so {{ fallback_tz }} is assumed{% endif %};
+           pick one, or type any name like America/Chicago.</span>
+         {% if env_notes.timezone %}<span class="field-help env-note">{{ env_notes.timezone }}</span>{% endif %}</label>
+    </div>
   </section>
 
   <section class="card">

@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from .. import config, dates, host, refresh_schedule, reports as registry, schedule_plan
+from .. import config, dates, host, refresh_schedule, reports as registry, runner, schedule_plan
 from . import clock, db
 from .actions import _settings_for, _table          # one copy of each (#7)
 
@@ -97,7 +97,8 @@ def forget(key: str, *, home: Path, log: Callable[[str], None], title: str = "")
 def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, prints: bool,
          home: Path, log: Callable[[str], None]) -> Outcome:
     """Write this report's schedule. Validation first, so a bad time never reaches the file;
-    the clock picks the new values up on its next tick."""
+    the clock picks the new values up on its next tick. Saving a report enabled while the
+    data refresh is off turns the refresh on too, and says so (#120)."""
     if host.is_reserved(key):
         return Outcome(False, errors=[
             f"{key!r} is a reserved name Fridge Sheet uses for its own data-refresh schedule; "
@@ -118,6 +119,14 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     rep = _table(_table(doc, "reports"), key)
     rep.update(enabled=bool(enabled), time=time, days=[str(d) for d in days],
                printer=printer.strip(), print=bool(prints))
+    # A scheduled report runs with no refresh of its own and refuses a snapshot older than a
+    # day, so with the refresh off it prints once and then FAILs every day (#120). Turning a
+    # report on turns the refresh on with it, in the same write, keeping whatever `[refresh]`
+    # already says about the interval, window and days.
+    rc = _settings_for(home).refresh
+    turned_on = bool(enabled) and not rc.enabled
+    if turned_on:
+        _table(doc, "refresh")["enabled"] = True
     config.save_config_doc(path, doc)
     messages = [f"Saved {report.title}."]
     log(messages[-1])
@@ -128,7 +137,60 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
         return Outcome(True, messages)
     messages.append(f"Scheduled: {', '.join(days)} at {time}" + ("" if prints else ", PDF only") + ".")
     log(messages[-1])
+    if turned_on:
+        messages.append(refresh_turned_on(rc))
+        log(messages[-1])
+    # After the auto-enable: the refresh that just went on may land on this report's minute.
+    messages += coincidence_notes(home, keys={key}, subject="This report")
     return Outcome(True, messages)
+
+
+def refresh_turned_on(rc: config.RefreshConfig) -> str:
+    """What `save` says when saving a report turned the data refresh on with it (#120)."""
+    days = "every day" if set(rc.days) >= set(host.DAY_NAMES) else ", ".join(rc.days)
+    every = "hour" if rc.every_hours == 1 else f"{rc.every_hours} hours"
+    return (f"Turned on the data refresh too (every {every}, {rc.start}–{rc.end}, {days}): "
+            "a scheduled report prints from the last refresh, and refuses one older than "
+            f"{runner.MAX_DATA_AGE_HOURS} hours.")
+
+
+def refresh_warning(rows: list[Row], refresh: "RefreshRow | None") -> str:
+    """The banner for a page that has a report scheduled and the refresh off (#120): the
+    state that prints once and then fails every day. Empty when there is nothing to say."""
+    if refresh is None or refresh.enabled:
+        return ""
+    on = [r.title for r in rows if r.enabled]
+    if not on:
+        return ""
+    return (f"{', '.join(on)} {'is' if len(on) == 1 else 'are'} scheduled but the data refresh is off. "
+            "A scheduled report prints from the last refresh and refuses once that is more than "
+            f"{runner.MAX_DATA_AGE_HOURS} hours old, so tick Refresh on a schedule below and Save.")
+
+
+def coincidence_notes(home: Path, *, keys: set[str] | None = None, subject: str | None = None) -> list[str]:
+    """One line per enabled report whose time is one of the data refresh's times on a day
+    they share: the two run on the same minute, and the report waits for the refresh
+    (`runner.LOCK_WAIT_SECONDS`) rather than racing it for run.lock (#121). A note, never
+    an error -- printing right after a refresh is the best minute there is. `keys` limits it
+    to the reports just saved; `subject` replaces the report's title ("This report")."""
+    s = _settings_for(home)
+    rc = s.refresh
+    if not rc.enabled:
+        return []
+    try:
+        times = set(refresh_schedule.refresh_times(rc.start, rc.end, rc.every_hours))
+    except config.ConfigError:
+        return []                       # the refresh form shows that problem itself
+    notes: list[str] = []
+    for report in registry.available(home):
+        if keys is not None and report.key not in keys:
+            continue
+        r = s.report_config(report.key, report.default_time)
+        at = r.time or report.default_time
+        if r.enabled and at in times and set(r.days) & set(rc.days):
+            notes.append(f"{subject or report.title} and the data refresh both run at {at}; "
+                         "the report will wait for the refresh.")
+    return notes
 
 
 @dataclass(frozen=True)
@@ -186,6 +248,7 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
     else:
         messages.append(f"Refreshing at {', '.join(times)} on {', '.join(days)}.")
     log(messages[-1])
+    messages += coincidence_notes(home)
     return Outcome(True, messages)
 
 

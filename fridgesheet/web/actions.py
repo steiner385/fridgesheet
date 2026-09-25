@@ -21,7 +21,7 @@ from typing import Callable
 from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
-from .. import config, dates, late_rules, runner, sources
+from .. import config, dates, host, late_rules, runner, sources
 from . import updatepin
 
 REPORT_KEY = "open-work"
@@ -76,6 +76,13 @@ class FormValues:
     has_update_pin: bool = False          # read-only, for the page: whether a hash is stored
     sources_assignments: str = "canvas"   # [sources] assignments: household default
     sources_grades: str = "hac"           # [sources] grades: household default
+    timezone: str = ""          # [general] timezone as config.toml has it; blank = this computer's zone (#122)
+
+
+#: The list behind the Time zone box: the zones a US household is likely to pick, east to
+#: west. Any IANA name can still be typed; `validate` judges it with `host.is_timezone`.
+US_ZONES: tuple[str, ...] = ("America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+                             "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu", "America/Puerto_Rico")
 
 
 def _settings_for(home: Path) -> config.Settings:
@@ -107,6 +114,9 @@ def load_form(home: Path) -> FormValues:
         has_update_pin=bool(s.web_update_pin_hash),
         sources_assignments=s.sources.default.assignments,
         sources_grades=s.sources.default.grades,
+        # What the file says, not `s.timezone`: that is the computer's own when the key is
+        # not set, and the box must stay blank then so a Save does not pin today's zone.
+        timezone=config.configured_timezone(config.load_config_doc(home / CONFIG_NAME)),
     )
 
 
@@ -118,7 +128,31 @@ ENV_OVERRIDES: tuple[tuple[str, str], ...] = (
     ("port", "FRIDGESHEET_WEB_PORT"),
     ("nicknames", "FRIDGESHEET_NICKNAMES"),
     ("allow_lan", "FRIDGESHEET_WEB_HOST"),
+    ("timezone", "FRIDGESHEET_TIMEZONE"),
 )
+
+
+#: The variable pairs that supply the OneLogin login without the credential store, in the
+#: order `config.Settings.credentials` tries them: the pair itself, then 1Password references
+#: to it. Either pair, complete, means the store is never read -- and so never written here.
+CREDENTIAL_ENV: tuple[tuple[str, str], ...] = (
+    ("FRIDGESHEET_ONELOGIN_USERNAME", "FRIDGESHEET_ONELOGIN_PASSWORD"),
+    ("FRIDGESHEET_OP_USERNAME_REF", "FRIDGESHEET_OP_PASSWORD_REF"),
+)
+
+
+def credentials_from_env(environ: dict | None = None) -> str | None:
+    """The username variable of the pair that supplies the login from the environment (or the
+    `.env` `load_settings` reads into it), or None when the credential store is the source.
+
+    Half a pair earns nothing: `Settings.credentials` fills the missing half from config.toml
+    and the store, so the boxes on the Settings page still matter then (#154)."""
+    import os
+    env = os.environ if environ is None else environ
+    for user_var, pw_var in CREDENTIAL_ENV:
+        if env.get(user_var) and env.get(pw_var):
+            return user_var
+    return None
 
 
 def env_overrides(environ: dict | None = None) -> dict[str, str]:
@@ -130,10 +164,18 @@ def env_overrides(environ: dict | None = None) -> dict[str, str]:
     Only a variable that actually changes something earns a note, by the same rules
     `load_settings` applies: a `FRIDGESHEET_WEB_PORT` that is not a number is ignored there,
     an empty `FRIDGESHEET_NICKNAMES` parses to nothing, an empty `FRIDGESHEET_WEB_HOST` is not
-    a pin -- while an empty `FRIDGESHEET_PRINTER` *does* override (it means "system default")."""
+    a pin -- while an empty `FRIDGESHEET_PRINTER` *does* override (it means "system default").
+
+    The `password` key is the School login card's note (#154): a login the environment
+    supplies never reaches the store, so both boxes are ignored and Save asks for neither.
+    The note names the variable, never its value -- that is the password's own."""
     import os
     env = os.environ if environ is None else environ
     out: dict[str, str] = {}
+    login_var = credentials_from_env(env)
+    if login_var:
+        out["password"] = (f"Username and password are supplied by the environment ({login_var}); "
+                           "the boxes here are ignored.")
     for field_name, var in ENV_OVERRIDES:
         if var not in env:
             continue
@@ -146,7 +188,7 @@ def env_overrides(environ: dict | None = None) -> dict[str, str]:
             out[field_name] = (f"{var}={value} in the environment (.env) is added on top of these, "
                                "and wins where they disagree.")
             continue
-        if field_name == "allow_lan" and not value:
+        if field_name in ("allow_lan", "timezone") and not value.strip():
             continue
         out[field_name] = f"Set by {var}={value} in the environment (.env); this box is ignored while that is set."
     return out
@@ -169,14 +211,24 @@ def format_nicknames(d: dict[str, str]) -> str:
     return "\n".join(f"{k}={v}" for k, v in d.items())
 
 
-def validate(form: FormValues, stored: str) -> list[str]:
-    """Every problem with the form, as one sentence each. Empty means save is allowed."""
+def validate(form: FormValues, stored: str, *, environ: dict | None = None) -> list[str]:
+    """Every problem with the form, as one sentence each. Empty means save is allowed.
+
+    The login boxes are only required when the credential store is where the login comes
+    from. With `FRIDGESHEET_ONELOGIN_*` (or the 1Password references) in the environment --
+    the headless setup, where the keyring is locked -- the store is never read, so demanding
+    a password here only to fail storing it kept a parent from saving a printer (#154). A
+    password typed anyway still needs a username to be stored under."""
     errors: list[str] = []
     user = form.username.strip()
-    if not user:
-        errors.append("OneLogin username is required.")
-    if not form.password and (not stored or user != stored):
-        errors.append("Enter the OneLogin password (it is stored in the OS credential store, never in a file).")
+    if credentials_from_env(environ) is not None:
+        if form.password and not user:
+            errors.append("OneLogin username is required to store the password under.")
+    else:
+        if not user:
+            errors.append("OneLogin username is required.")
+        if not form.password and (not stored or user != stored):
+            errors.append("Enter the OneLogin password (it is stored in the OS credential store, never in a file).")
     for label, value in (("Days ahead", form.days_ahead), ("Overdue days", form.overdue_days)):
         n = _whole_number(value)
         if n is None or not 1 <= n <= MAX_DAYS:
@@ -196,6 +248,8 @@ def validate(form: FormValues, stored: str) -> list[str]:
     for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
         if value not in sources.SOURCES:
             errors.append(f"{label} must come from Canvas or HAC.")
+    if form.timezone.strip() and not host.is_timezone(form.timezone.strip()):
+        errors.append("Time zone must be a name like America/Chicago, or blank for this computer's.")
     return errors
 
 
@@ -213,19 +267,25 @@ def _table(doc: dict, key: str) -> dict:
     return doc[key]
 
 
-def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=None) -> SaveResult:
+def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=None,
+         environ: dict | None = None) -> SaveResult:
     """Validate, write config.toml, and store the password if one was typed. The schedule
-    itself -- enabled, time, days -- is the Schedules page's alone; this never touches it."""
+    itself -- enabled, time, days -- is the Schedules page's alone; this never touches it.
+
+    The store is only written when a password was typed: with the login supplied by the
+    environment (`validate`, #154) both boxes may be blank, and then nothing here goes near
+    a keyring that, on the box this matters on, is locked."""
     if credstore is None:
         from ..host import credentials as credstore
     path = home / CONFIG_NAME
     doc = config.load_config_doc(path)
-    errors = validate(form, stored=str(_table(doc, "account").get("username", "")))
+    errors = validate(form, stored=str(_table(doc, "account").get("username", "")), environ=environ)
     if errors:
         return SaveResult(False, errors)
 
     user = form.username.strip()
-    _table(doc, "account")["username"] = user
+    if user:                     # blank only when the environment supplies the login: leave the file's alone
+        _table(doc, "account")["username"] = user
     prn = _table(doc, "print")
     prn["printer"], prn["archive"] = form.printer.strip(), form.archive.strip()
     _table(doc, "kids")["nicknames"] = parse_nickname_lines(form.nicknames)
@@ -233,6 +293,15 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     rep.update(days_ahead=int(form.days_ahead), overdue_days=int(form.overdue_days))
     # Only the household defaults: the override rules belong to the course pages and the list below.
     doc["sources"] = sources.from_doc(doc).with_default(form.sources_assignments, form.sources_grades).to_doc()
+    # A blank box drops the key rather than writing "": the zone is then this computer's
+    # again (config.default_timezone), and an empty `[general]` is not left behind.
+    general = _table(doc, "general")
+    if form.timezone.strip():
+        general["timezone"] = form.timezone.strip()
+    else:
+        general.pop("timezone", None)
+    if not general:
+        del doc["general"]
 
     prev = dict(_table(doc, "web"))
     web = _table(doc, "web")
@@ -327,13 +396,31 @@ def test_login(*, home: Path, log: Callable[[str], None], settings: config.Setti
         results = {"Login": str(e)[:300]}
     for site, err in results.items():
         log(f"  {site}: {'OK' if err is None else 'FAILED - ' + err}")
-    stamp = home / LOGIN_STAMP
-    if all(v is None for v in results.values()):
-        stamp.write_text(now.isoformat())
+    ok = all(v is None for v in results.values())
+    record_login(home, ok, now=now)
+    if ok:
         return LoginResult(True, results, "Login OK for " + " and ".join(results) + ".")
-    stamp.unlink(missing_ok=True)
     bad = "; ".join(f"{k}: {v}" for k, v in results.items() if v is not None)
     return LoginResult(False, results, f"Login failed ({bad}). Check the username and password, then try again.")
+
+
+def record_login(home: Path, ok: bool, *, now: datetime | None = None) -> None:
+    """Leave `login-ok.txt` after a passing login check, and take it away after a failing
+    one. The one place the stamp is written or removed, for both callers that check the
+    login -- the web Test login above and `fridgesheet check` (#154), so a terminal-only setup
+    leaves the same record of a passed login as the button does."""
+    stamp = home / LOGIN_STAMP
+    if ok:
+        stamp.write_text((now or datetime.now().astimezone()).isoformat())
+    else:
+        stamp.unlink(missing_ok=True)
+
+
+def login_passed(home: Path) -> bool:
+    """Whether a login check has passed since it last failed. Nothing gates on it any more:
+    schedules are config.toml switches the server's clock reads (2026-09-25 in-app scheduler),
+    so neither the Schedules page nor `schedule install` waits for a login."""
+    return (home / LOGIN_STAMP).exists()
 
 
 def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
@@ -739,14 +826,17 @@ class RefreshResult:
 
 
 def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
-            collect=None, now: datetime | None = None, trigger: str = "web") -> RefreshResult:
+            collect=None, now: datetime | None = None, trigger: str = "web", sleep=None) -> RefreshResult:
     """Refresh now: pull Canvas and HAC, ingest the snapshot, record the run. Holds the runner's
     lock so a scheduled print in progress is never pulled out from under. Every failure is a
     result, never an exception -- the page shows it.
 
     `trigger` is what the run is recorded as: "web" for the Refresh now button, "schedule"
-    for the app's own data-refresh task. It is the only thing that differs between them --
-    a scheduled refresh is this same collect / ingest / record, under the same lock.
+    for the app's own data-refresh task. A scheduled refresh is this same collect / ingest /
+    record under the same lock, with one difference: nobody is watching it, so when a
+    scheduled print holds the lock on the same minute it waits (up to
+    `runner.LOCK_WAIT_SECONDS`, with `sleep`) rather than recording a FAIL and pulling
+    nothing (#121). The button is told at once, as before.
     """
     from .. import collector
     from . import db, ingest
@@ -756,9 +846,20 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
     tz = ZoneInfo(settings.timezone)
     started = now or datetime.now(tz)
     lock = runner.Lock(home / runner.LOCK_NAME)
-    if not lock.acquire():
-        message = "already running (run.lock present); nothing done"
-        log("A run is already in progress (run.lock present); try again in a minute.")
+    if trigger == "schedule":
+        got = lock.acquire_wait(runner.LOCK_WAIT_SECONDS, sleep=sleep, label=runner.REFRESH_LABEL)
+        who = runner.holder_phrase(lock.waited_for)
+        if got and lock.waited:
+            log(f"waited {lock.waited} s for {who} to finish")
+    else:
+        got = lock.acquire(label=runner.REFRESH_LABEL)
+    if not got:
+        if trigger == "schedule":
+            message = f"waited {lock.waited} s for {who} to finish and it is still running (run.lock present); nothing pulled"
+            log(message)
+        else:
+            message = "already running (run.lock present); nothing done"
+            log("A run is already in progress (run.lock present); try again in a minute.")
         now2 = datetime.now(tz).isoformat()
         try:
             conn = db.open_db(home)
@@ -780,6 +881,8 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
             r = ingest.record(conn, snap, tz=tz, now=now)
             refresh_id = r.refresh_id
             message = f"refresh {r.refresh_id}: {r.items} new items, {r.observations} changes, {r.grades} grade changes"
+            if r.note():
+                message += "; " + r.note()      # a class carried from an older pull, or not fetched (#140)
             if bad:
                 message += "; " + "; ".join(f"{k}: {v}" for k, v in bad.items())
             outcome = "OK" if not bad else "FAIL"

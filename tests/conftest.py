@@ -25,11 +25,16 @@ import pytest
 # override in force `migrate.legacy_home` answers None and nothing outside tmp is touched.
 TEST_HOME = os.environ["FRIDGESHEET_HOME"] = tempfile.mkdtemp(prefix="fridgesheet-tests-")
 
-from fridgesheet import config, migrate
+from fridgesheet import config, host, migrate
 
 #: The unpatched lookup, for the one test that checks what it computes (paths only; it
 #: never touches the filesystem). Every other test sees the None from `_no_real_migration`.
 REAL_LEGACY_HOME = migrate.legacy_home
+
+#: The unpatched detection, for the tests of what it reads and of the fallback it warns
+#: about (`tests/test_config.py`). Every other test sees the Eastern zone `_eastern_computer`
+#: pins below.
+REAL_LOCAL_TIMEZONE = host.local_timezone
 
 #: Executable names (case-folded, `.exe`-stripped) that must never actually launch during a
 #: test run. `systemctl --user` reaches this machine's live units --
@@ -109,6 +114,28 @@ def real_legacy_home():
 def _no_app_env(monkeypatch):
     for name in [k for k in os.environ if k.startswith(("FRIDGESHEET_", "LAKOTA_"))]:
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _eastern_computer(monkeypatch):
+    """Every test runs on a computer in Eastern time (#122). `Settings.timezone` defaults to
+    the host's own zone, and the suite's fixtures, frozen clocks and expected strings were
+    all written for America/New_York -- so a CI runner on UTC, or a developer elsewhere, must
+    see what the household this was written for sees. The pin is the *detected* zone, not
+    FRIDGESHEET_TIMEZONE: a variable in the environment would be an override, shown as a note
+    on every Settings page render and returned by `actions.env_overrides()`, which a test
+    asserts is empty. A test about another zone sets `[general] timezone` or the variable
+    itself, exactly as a parent would."""
+    monkeypatch.setattr(host, "local_timezone", lambda: "America/New_York")
+
+
+@pytest.fixture
+def real_local_timezone():
+    """`host.local_timezone` as shipped, its once-per-process cache cleared on the way in and
+    out so one test's fake detection never answers for the next."""
+    REAL_LOCAL_TIMEZONE.cache_clear()
+    yield REAL_LOCAL_TIMEZONE
+    REAL_LOCAL_TIMEZONE.cache_clear()
 
 
 @pytest.fixture(autouse=True)

@@ -14,6 +14,46 @@ from .session import LoginRequired, browser, ensure_canvas, ensure_hac
 
 log = logging.getLogger("fridgesheet.collector")
 
+#: How long `collect_locked` waits for another run to let go of run.lock before giving up: a
+#: refresh is one to three minutes, so this outlasts one that started just before us without
+#: holding a terminal (or the hand-written refresh timer) for as long as a stuck run would.
+LOCK_WAIT_SECONDS = 5 * 60
+LOCK_POLL_SECONDS = 5
+
+
+class RunInProgress(RuntimeError):
+    """Another run holds run.lock and `collect_locked` gave up waiting. One line, for a
+    terminal or a tool result."""
+
+
+def run_in_progress(s: Settings) -> bool:
+    """Whether a run (a scheduled print, `refresh --record`, the Refresh now button) holds
+    run.lock right now -- the reason a read is being answered from an older snapshot."""
+    from . import runner                                    # runner imports this module
+    return runner.Lock(s.home / runner.LOCK_NAME).is_held()
+
+
+def collect_locked(s: Settings, *, wait_seconds: int | None = None, sleep=None, **kw) -> dict:
+    """`collect` under the runner's run.lock, the lock `run` and `web.actions.refresh` already
+    hold around their own pull: one Chromium at a time over the one browser profile. Bare
+    `refresh` (and so the hand-written refresh timer) and the MCP server used to call
+    `collect` with no lock and could overlap a scheduled print (#151).
+
+    Waits up to `wait_seconds` (`LOCK_WAIT_SECONDS`; 0 for "now or not at all") for the other
+    run to finish, polling every `LOCK_POLL_SECONDS` (`runner.Lock.acquire_wait`, the one wait
+    loop every lock taker shares), then raises `RunInProgress`. `kw` is `collect`'s own
+    keywords."""
+    from . import runner
+    wait = LOCK_WAIT_SECONDS if wait_seconds is None else wait_seconds
+    lock = runner.Lock(s.home / runner.LOCK_NAME)
+    if not lock.acquire_wait(wait, sleep=sleep or time.sleep, poll=LOCK_POLL_SECONDS, label=runner.REFRESH_LABEL):
+        raise RunInProgress(f"another run holds {lock.path} (a scheduled print or refresh in progress); "
+                            f"waited {lock.waited} s and gave up -- try again in a few minutes")
+    try:
+        return collect(s, **kw)
+    finally:
+        lock.release()
+
 
 def _snapshot_path(s: Settings) -> Path:
     return s.cache_dir / "snapshot.json"
@@ -32,16 +72,40 @@ def snapshot_is_fresh(s: Settings, snap: dict | None) -> bool:
 
 def summary(s: Settings, snap: dict | None) -> dict:
     """What `status`, `refresh` and the CLI report: age, per-source health, which sources
-    are being served from an older pull (and how old), and the kids in the snapshot."""
+    are being served from an older pull (and how old), the kids in the snapshot, and whether
+    a run holds run.lock right now (`run_in_progress`: a read is answered from this snapshot
+    rather than pulling a fresh one over that run's Chromium)."""
     if not snap:
-        return {"snapshot": None, "fresh": False}
+        return {"snapshot": None, "fresh": False, "run_in_progress": run_in_progress(s)}
+    carried, missing = course_faults(snap)
     return {
         "fetched_at": snap["fetched_at"],
         "fresh": snapshot_is_fresh(s, snap),
         "sources": snap["sources"],
         "stale": {src: {"fetched_at": m["fetched_at"], "reason": m["reason"]} for src, m in (snap.get("stale") or {}).items()},
+        "carried": carried,
+        "missing": missing,
         "students": list(snap["students"]),
+        "run_in_progress": run_in_progress(s),
     }
+
+
+def course_faults(snap: dict | None) -> tuple[list[dict], list[dict]]:
+    """The Canvas classes this snapshot could not pull, in two lists: `carried` (served from
+    an older pull -- which one, and why this one failed) and `missing` (nothing older to
+    serve; the class is absent). Both are empty for a snapshot with no per-course errors."""
+    carried, missing = [], []
+    for kid, entry in ((snap or {}).get("students") or {}).items():
+        cv = entry.get("canvas") or {}
+        kept = cv.get("carried") or {}
+        for err in cv.get("errors") or []:
+            cid = str(err["course_id"])
+            if cid in kept:
+                carried.append({"kid": kid, "course_id": cid, "name": kept[cid]["name"], "reason": kept[cid]["reason"],
+                                "fetched_at": kept[cid]["fetched_at"]})
+            else:
+                missing.append({"kid": kid, "course_id": cid, "reason": err["error"]})
+    return carried, missing
 
 
 def _first_name(full: str) -> str:
@@ -127,6 +191,39 @@ def _carry_forward(snap: dict, prev: dict | None, kids_filter: list[str] | None)
                 if pe.get(k) is not None:
                     entry[k] = pe[k]
         snap["stale"][src] = {"fetched_at": origin["fetched_at"], "fetched_at_epoch": origin["fetched_at_epoch"], "reason": status or "skipped"}
+    _carry_courses(snap, prev)
+
+
+def _carry_courses(snap: dict, prev: dict) -> None:
+    """The per-course half of the same rule (#140): Canvas refuses observers on some endpoints
+    for some courses, and a 403 on one class left the source "ok" with that class simply gone
+    -- its open work vanished from every page until the next good pull, with no warning.
+    A class that failed keeps its record from the previous snapshot (grade, assignments,
+    staff), noted under the entry's `carried` with the pull it really comes from -- the
+    previous snapshot's, or older still if that one was itself carried (per course, or the
+    whole source). The source stays "ok" and nothing goes under `stale`: the household's data
+    is complete, one class of it is just a pull older, so a refresh with a carried class is
+    still a good refresh for the runner's 24-hour rule and `data_as_of` (which reads only
+    `stale`). A class with nothing to carry stays under `errors` alone, and is reported as
+    missing.
+    """
+    src_stale = (prev.get("stale") or {}).get("canvas")
+    for key, entry in snap["students"].items():
+        cv = entry.get("canvas")
+        if not cv or not cv.get("errors"):
+            continue
+        pe = prev["students"].get(_entry_key(prev["students"], key)) or {}
+        pcv = pe.get("canvas") or {}
+        old = {str(c.get("id")): c for c in pcv.get("courses") or []}
+        for err in cv["errors"]:
+            cid = str(err["course_id"])
+            course = old.get(cid)
+            if course is None:
+                continue
+            origin = (pcv.get("carried") or {}).get(cid) or src_stale or prev
+            cv["courses"].append(course)
+            cv.setdefault("carried", {})[cid] = {"name": course.get("name") or f"course {cid}", "reason": err["error"],
+                                                 "fetched_at": origin["fetched_at"], "fetched_at_epoch": origin["fetched_at_epoch"]}
 
 
 def collect(s: Settings, include_hac: bool = True, include_canvas: bool = True, kids_filter: list[str] | None = None) -> dict:
@@ -192,5 +289,7 @@ def collect(s: Settings, include_hac: bool = True, include_canvas: bool = True, 
     _carry_forward(snap, prev, kids_filter)
     for src, m in snap["stale"].items():
         log.warning("%s not refreshed (%s); serving data from %s", src, m["reason"], m["fetched_at"])
+    for c in course_faults(snap)[0]:
+        log.warning("Canvas course %s (%s) for %s not refreshed (%s); serving data from %s", c["course_id"], c["name"], c["kid"], c["reason"], c["fetched_at"])
     _write_snapshot(s, snap)
     return snap

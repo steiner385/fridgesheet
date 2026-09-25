@@ -65,7 +65,7 @@ def test_marked_flag_and_handled_trailer_render(tmp_path):
     sheet.build_pdf(sheets, out, data_as_of=NOW, days_ahead=14, overdue_days=14)
     text = sheet.pdf_text(out)
     assert "FOLLOW UP" in text
-    assert "Handled: 1 item marked done, excused or ignored in the app" in text
+    assert "Handled: 1 item marked done, excused, let go or too late to submit in the app" in text   # the app's words (#129)
     assert "Item canvas:2 HANDLED" not in text
 
 
@@ -89,6 +89,23 @@ def test_a_young_kids_section_uses_the_childs_words(tmp_path):
     assert al.count("MISSING") == 2 and "Teacher hasn't got it" not in al             # the row and the legend
     sam = _text(tmp_path, [sheet.KidSheet("Sam", _work("Sam", [_item("canvas:2", "MISSING", True, -2, late_until=NOW, credit="50%", kid="Sam")]), tier="early")])
     assert "Teacher hasn't got it" in sam and sam.count("MISSING") == 1             # the legend keeps the key word
+
+
+@needs_pdftotext
+def test_an_undated_row_prints_with_no_due_date_and_no_credit_line(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "MISSING", True, due=None), _item("canvas:2", "DUE MON", False, 3)]))])
+    assert "no due date" in text and "until" not in text.split("credit until")[0]
+
+
+@needs_pdftotext
+def test_in_class_check_has_its_own_word_colour_and_legend_entry(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "IN CLASS — CHECK", True, -2, kind="in class")]))])
+    # The row and the legend. The row's status cell wraps ("IN CLASS — / CHECK") and xpdf's
+    # pdftotext (the Windows CI runner's) interleaves the neighbouring Via cell's second line
+    # between the halves -- "IN CLASS — class CHECK" -- where poppler keeps a cell's words
+    # together, so one stray word is allowed between the dash and CHECK.
+    assert len(re.findall(r"IN\s*CLASS\s*—\s*(?:\w+\s+)?CHECK", text)) == 2, text
+    assert sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
 
 
 @needs_pdftotext

@@ -69,7 +69,8 @@ credential store (Windows Credential Manager or the GNOME keyring), never in a f
 - A OneLogin **parent** account *without* multi-factor sign-in. If a code is sent to your
   phone each time you sign in, automatic refreshes cannot work.
 - A computer that is on, and signed in, at the times you want it to print.
-- The app assumes US Eastern time (see [Known issues](#known-issues-worth-knowing)).
+- That computer's clock set to your time zone — or your zone picked under **Settings →
+  Where you are** ([§13](#13-settings)). Due times, "today" and schedules all follow it.
 
 ---
 
@@ -136,9 +137,9 @@ Fridge Sheet runs fine on a home server, with three things to arrange:
   `http://127.0.0.1:8433/` on the laptop; or
 - put `[web]` / `allow_lan = true` in `~/.fridgesheet/config.toml` and restart the service.
 
-Settings' **Save** currently insists on a password even when it comes from `.env`
-([#154](https://github.com/steiner385/fridgesheet/issues/154)); edit `config.toml` for
-one-off changes on a server set up this way.
+When the login comes from `.env` this way, the School login card on Settings says so
+(*Username and password are supplied by the environment*) and **Save** does not ask for a
+password — changing the printer or the network settings needs nothing typed in those boxes.
 
 ### 2.4 Another school district
 
@@ -150,7 +151,7 @@ The defaults are Lakota Local Schools'. For another district:
 | The HAC tile on your OneLogin portal, if it isn't called "Home Access" or "HAC" | `.env`: `FRIDGESHEET_HAC_APP_PATTERN=…` (a name to look for), or pin it with `FRIDGESHEET_HAC_ONELOGIN_APP_URL=…` |
 | School holidays | **Settings → Days the sheet does not print** — replace Lakota's dates. |
 | Quarter end dates | **Settings → Late-work rules → Quarters** — replace Lakota's dates. |
-| Time zone | Fixed to US Eastern for now ([#122](https://github.com/steiner385/fridgesheet/issues/122)). Outside Eastern time, due times show and schedules fire in Eastern: in Central time, a sheet you want at 2 pm needs **15:00**. |
+| Time zone | This computer's, unless **Settings → Where you are → Time zone** says otherwise (or `FRIDGESHEET_TIMEZONE=America/Chicago` in `.env`). Due times, "today", the print window and schedules follow it: a sheet you want at 2 pm is **14:00**, wherever you are. |
 
 If **Test login** fails, run `fridgesheet login` on a machine with a screen: it opens a
 visible browser so you can watch where sign-in stops. A district whose OneLogin form differs
@@ -176,22 +177,25 @@ Do these once, in this order. Each takes a minute or two.
 > **Why step 5 matters.** A scheduled print does **not** refresh the data itself; it prints
 > from whatever the last refresh left behind. If nothing has refreshed in 24 hours, the
 > print refuses to run ("snapshot is stale … nothing printed"). The Refresh schedule is what
-> keeps a scheduled sheet current. The Schedules page itself currently says a scheduled
-> report "refreshes, builds, and prints" — it does not
-> ([#120](https://github.com/steiner385/fridgesheet/issues/120)).
+> keeps a scheduled sheet current. If you skip step 5, step 6 turns the refresh on for you
+> with the defaults and says so; the Schedules page warns, and Diagnostics fails, whenever
+> a report is scheduled and the refresh is off.
 
 **Setting up from a terminal (Linux)** — the same steps without a browser:
 
 ```bash
-fridgesheet set-credentials      # asks for the password, never echoes it
-fridgesheet check                # "Canvas: OK", "HAC: OK"
-fridgesheet refresh --record     # --record is what fills the web app; plain `refresh` doesn't
+fridgesheet set-credentials                 # step 1: asks for the password, never echoes it
+fridgesheet check                           # step 2: "Canvas: OK", "HAC: OK" — counts as a passed Test login
+fridgesheet refresh --record                # step 3: --record is what fills the web app; plain `refresh` doesn't
+fridgesheet schedule install data-refresh   # step 5: every 3 hours, 06:00–21:00, every day, unless [refresh] in config.toml says otherwise
+fridgesheet schedule install open-work      # step 6: 14:00 Mon–Fri, unless [reports.open-work] says otherwise
 ```
 
-`check` does not yet count as a passed **Test login**, so the Schedules page will still
-refuse to install schedules until you press Test login there once
-([#154](https://github.com/steiner385/fridgesheet/issues/154)). For a server with no desktop,
-read [§2.3 Headless server](#23-a-server-with-no-desktop-linux) first.
+`check` counts as a passed **Test login**: it leaves the same `login-ok.txt` the button does.
+`schedule install` only turns the schedule on in `config.toml`, the same switch as the
+Schedules page's Save, and needs no login first. The schedules then fire while
+`fridgesheet web` runs; to keep it running after you sign out, run `fridgesheet service install`.
+For a server with no desktop, read [§2.3 Headless server](#23-a-server-with-no-desktop-linux) first.
 
 ---
 
@@ -213,7 +217,9 @@ so a child sitting at the screen sees less.
 The **status bar** at the top of every page says:
 
 - **Refreshed** *time*, and **Canvas OK** / **HAC OK** — or the error from the last
-  attempt. "No refresh yet" before the first one.
+  attempt. "No refresh yet" before the first one. When Canvas answered but refused one
+  class, it reads **Canvas OK (1 class carried from** *time*: *kid's class (error)***)** —
+  that class is shown from the pull named, and nothing has been lost.
 - **Last run** with an OK/FAIL badge — the last sheet or report built or printed (links to
   Runs).
 - A badge while a job (refresh, build, print) is running.
@@ -252,7 +258,7 @@ The app and this guide use a few words that overlap. They mean:
 | **Waiting** / **Waiting on the school** | Nothing to do yet; the app will ask you if it drags on. |
 | **To do** (check-in) | Work the child could act on — a question isn't needed. |
 | **handled** | Answered *It's done*, *Excused*, *Let it go* or *Too late to submit*. |
-| **Let it go** = *ignore* = *Ignored* | One answer, currently named differently in a few places ([#129](https://github.com/steiner385/fridgesheet/issues/129)). |
+| **Let it go** → *let go* → *Let go* | One answer in three forms: the button you press, the state it leaves the item in (the row badge, the *Your answer* filter and line, Changes) and the confirmation. Every answer works this way: *Ask the teacher* → *asked the teacher* → *Asked the teacher*; *Follow up* → *following up* → *Following up*. The stored name (`ignore`) never appears on a page. |
 
 ---
 
@@ -321,8 +327,10 @@ obligations": pick a few. Anything not in the queue can be planned from **Browse
 work**.
 
 > **Doing this with a younger child.** The *School record* block is written in the app's
-> words, not the teacher's, and is the same at every reading level — "marked missing · no
-> submission recorded · 0/10" is a fact to check, not a verdict on the child. Read it
+> words, not the teacher's — "marked missing · 0 of 10" is a fact to check, not a verdict on
+> the child — and it reads the same on the check-in card and the assignment's detail. A
+> child on the early reading level gets the same facts in plainer words ("the teacher
+> hasn't got it"), never fewer of them. Read it
 > aloud in your own words and let them tell you what they know. The Questions are for the
 > grown-up to settle; the child helps with the facts. Start with what went well: the
 > *Done so far* line on the Assignments tab is a good opener.
@@ -457,7 +465,7 @@ answered since keeps your answer).
 
 ## 8. Answering: flags, answers and notes
 
-Every assignment can carry **one answer** from you at a time (on the item's **More** menu the current one is shown as *Flag: …*).
+Every assignment can carry **one answer** from you at a time (on the item's **More** menu the current one is shown as *Your answer: …*, in the same words as the row's badge).
 Open an assignment's detail and look under **More → Correct the school record**, or answer
 a question card.
 
@@ -468,7 +476,7 @@ a question card.
 | **Let it go** | You've decided not to chase it. | Handled. |
 | **Too late to submit** | The teacher no longer accepts it. | Handled. |
 | **Follow up** | You're keeping an eye on it. | Stays listed, with a marker (FOLLOW UP on the sheet). |
-| **Ask the teacher** | You're asking. | Stays listed, with a marker (ASK TEACHER on the sheet); moves to *Waiting on the teacher*. |
+| **Ask the teacher** | You're asking. | Stays listed, with a marker (ASK THE TEACHER on the sheet); moves to *Waiting on the teacher*. |
 
 - **Why (optional)** records a reason next to the answer.
 - **clear** removes the answer.
@@ -508,12 +516,13 @@ is handed in (online / paper / in class) · status.
 | ZERO | red | A 0 was entered in either gradebook. |
 | LATE | amber | Handed in late, not yet graded. |
 | PAPER — CHECK | purple | Paper work, past due, no grade anywhere yet — ask. |
+| IN CLASS — CHECK | purple | In-class work, past due, no grade anywhere yet — ask. |
 | HAC — NO GRADE | purple | Listed only in HAC, past due, no grade. |
 | DUE TODAY / DUE TOMORROW | blue | |
 | DUE *Mon* … | black | Due later in the window. |
 
 Overdue rows add *50% until Fri* — the last day your late-work rule says it is still
-accepted. FOLLOW UP / ASK TEACHER mark your answers. A child on the early or middle reading
+accepted. FOLLOW UP / ASK THE TEACHER mark your answers. A child on the early or middle reading
 level gets their own words instead of the capitals ("Teacher hasn't got it" for MISSING). A child on the older level, or with no grade set, sees the capitals in red — the fridge is a shared surface, so decide whether that suits your teenager.
 
 **Under each table:** *Cleared since last sheet*, *Handled: n items marked done, excused or
@@ -523,18 +532,22 @@ with nothing open still gets a section: *Nothing open. Nice work.* The legend en
 attempted refresh.
 
 **What never prints:** work you marked handled; work past its late window or older than
-*Overdue days*; paper work with a grade in HAC (it's done); anything due before August 1 of
-the current school year (last year's course copies).
+*Overdue days*; work with a grade above zero in HAC (it's done, whatever Canvas shows);
+anything due before August 1 of the current school year (last year's course copies). Work
+with no due date prints only once a teacher has marked it missing or scored it 0 — with *no
+due date* in the Due column and no credit line, since there is no window for it to fall out of.
 
 **When it prints** — see [§10](#10-schedules-printing-and-refreshing-on-their-own). A day
 already printed is not printed again (except by **Reprint**); a day listed in *Days the
 sheet does not print* is skipped.
 
-> The screen and the paper are meant to list the same rows. A few edge cases still differ:
-> in-class work with no grade shows as *unknown* on screen but MISSING on paper; a HAC-only
-> item shows on screen the moment it is past due but on paper a day later; Canvas work with
-> no due date never prints; and an assignment the screen pairs by date and points (because
-> the two teachers typed different titles) prints as PAPER — CHECK ([#137](https://github.com/steiner385/fridgesheet/issues/137)).
+> The screen and the paper are one list. The sheet is built from the same rows the Open
+> work page shows — *Still fixable*, then *Coming due*, in the sheet's words — and its *Not
+> shown* and *Handled* lines are the page's counts. Two things do differ: the order (the page
+> puts the soonest-closing late-work window first; the sheet keeps overdue work by due date),
+> and history — a sheet built on a machine that has only ever run a bare `refresh`, never
+> `refresh --record` or the web app, reads the snapshot alone and cannot see a missing mark
+> that arrived *after* HAC's grade, so it follows the grade where the app would ask.
 
 ---
 
@@ -555,7 +568,7 @@ on Linux, `fridgesheet service install`; on Windows, the installer's own logon t
 
 ### Each report (the built-in *Open Work Sheet*, then any you saved)
 
-> A report schedule prints from the last refresh; it does not refresh first. Keep **Refresh the data** (above) turned on, or the sheet stops printing after a day ([#120](https://github.com/steiner385/fridgesheet/issues/120)).
+> A report schedule prints from the last refresh; it does not refresh first. Keep **Refresh the data** (above) turned on, or the sheet stops printing after a day. Saving a report schedule while the refresh is off turns the refresh on with its current settings (the defaults, unless you changed them) and says so in the saved message; the page shows a warning, and Diagnostics fails, while any report is scheduled with the refresh off.
 
 - **Run this on a schedule**, **Time** (24-hour), **Days**.
 - **Printer** — *(the printer on the Settings page)*, or a different one for this report.
@@ -590,9 +603,12 @@ server to be running at all (a locked screen is fine).
 - To stop a schedule: untick **Run this on a schedule** and Save — this turns it off in
   `config.toml`, not just the tick. (Leave at least one day ticked when you do.)
 - Weekends print if you tick Sat or Sun.
-- Avoid a report time that coincides with a refresh time (e.g. refreshing every 2 or 4
-  hours from 06:00 lands on 14:00): whichever starts second is skipped for that slot.
-  A report at 14:05 avoids it ([#121](https://github.com/steiner385/fridgesheet/issues/121)).
+- A report time that coincides with a refresh time (e.g. refreshing every 2 or 4 hours
+  from 06:00 lands on 14:00) is fine: the report waits for the refresh to finish (up to
+  10 minutes) and then prints from the fresh data; `print-sheet.log` says how long it
+  waited. Saving either form tells you when the two coincide. If a run is still going
+  after 10 minutes the report gives up with a notification and a FAIL row, not a silent
+  skip. The scheduled refresh waits the same way for a print in progress.
 
 ---
 
@@ -649,6 +665,7 @@ One form with one **Save** at the bottom, then separate editors below it.
 |---|---|
 | **School login** | **OneLogin username**, **OneLogin password** (blank keeps the stored one). |
 | **Printing and the report window** | **Printer**, **Days ahead**, **Overdue days** (1–60, for the Open Work Sheet), **Archive folder** (a second copy of every PDF, e.g. a Google Drive folder, filed as `2026-27/2026-09-11 Open Work.pdf`), **Nicknames**. |
+| **Where you are** | **Time zone** — blank means this computer's zone, which the page names; pick a US zone from the list or type any name such as `America/Chicago`. Due times, "today", the print window and schedules follow it. On Windows a scheduled task fires on the PC's clock, so the app writes it converted from this zone when the two differ (the Schedules page's next run is then in the PC's time). |
 | **Gradebook sources** | **Assignment scores come from** (default Canvas) and **Class averages come from** (default HAC). |
 | **Network** | **Port** (default 8433), **Allow other devices on this network** ([§16](#16-using-it-on-a-phone-or-tablet)). |
 | **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
@@ -694,9 +711,9 @@ Some settings live only in files in the data folder ([§19](#19-files-backup-and
 - `config.toml`: `[kids] grades`, `[web] extra_hosts`, per-report options,
   `[[sources.rule]]` (also editable per class).
 - `.env`: district addresses (`FRIDGESHEET_CANVAS_BASE`, `FRIDGESHEET_HAC_BASE`,
-  `FRIDGESHEET_ONELOGIN_HOST`), and overrides such as `FRIDGESHEET_PRINTER`. A value in the
-  environment or `.env` **beats** the same setting on the Settings page, and the page does
-  not show it.
+  `FRIDGESHEET_ONELOGIN_HOST`), and overrides such as `FRIDGESHEET_PRINTER` and
+  `FRIDGESHEET_TIMEZONE`. A value in the environment or `.env` **beats** the same setting on
+  the Settings page, and the page says so beside the box.
 
 ### Where the password can come from
 
@@ -820,7 +837,7 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | Command | Does |
 |---|---|
 | `fridgesheet set-credentials` | Stores the username and password. |
-| `fridgesheet check` | Test login. |
+| `fridgesheet check` | Test login; a pass counts the same as the button's. |
 | `fridgesheet login` | Opens a visible browser to sign in by hand — for diagnosing a changed login form. |
 | `fridgesheet refresh [--record]` | Pulls the data. `--record` also updates the app's database — what the refresh schedule runs. |
 | `fridgesheet status` | Data age and each source's health, as JSON. |
@@ -828,9 +845,9 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | `fridgesheet run view:<id>` | The same for a saved report. |
 | `fridgesheet print-sheet` | The original name for `run open-work`; always uses 14/14 days. |
 | `fridgesheet reports` | Every report and its schedule. |
-| `fridgesheet schedule show\|remove <key>` | Show a report's next/last scheduled run, or turn it off in `config.toml`. `remove --all` cleans up whatever a much older version left behind in Task Scheduler/systemd — what the uninstaller runs. There is no `schedule install`: a schedule is turned on from the Schedules page, or by hand in `config.toml`. |
+| `fridgesheet schedule install\|remove\|show <key>` | Turn a report's schedule on or off in `config.toml`, or show every schedule's next/last run; `install data-refresh` is the refresh schedule. No login check is needed first (`--force` is accepted and ignored). Schedules fire while `fridgesheet web` runs. `remove --all` cleans up whatever a much older version left behind in Task Scheduler/systemd — what the uninstaller runs. |
 | `fridgesheet printers` | Lists printers; `*` = default. |
-| `fridgesheet web` | Runs the web app in the foreground. |
+| `fridgesheet web` | Runs the web app in the foreground; `--no-browser` on a machine with no desktop. |
 | `fridgesheet service install\|remove\|show` | Keeps the web app running in the background. |
 | `fridgesheet doctor` | Diagnostics (same as the Diagnostics page). |
 | `fridgesheet self-update [--check]` | Windows only: install the newest release. |
@@ -895,13 +912,12 @@ Start with **Diagnostics → Run diagnostics**. Any `FAIL` line is where to look
 | *Fridge Sheet only answers at http://127.0.0.1:8433/* | You used another address (a computer name, a port-forward). Use `127.0.0.1`, or the address/QR from Settings on a phone ([§16](#16-using-it-on-a-phone-or-tablet)). |
 | The shortcut does nothing / browser can't connect | The app didn't start. On Windows, paste `%LOCALAPPDATA%\fridgesheet` into File Explorer's address bar and open `app.log` in Notepad; the last lines say why. On Linux: `journalctl --user -u fridgesheet-web`. Signing out and in, or running the shortcut again, restarts it. |
 | An assignment appears twice | Canvas and HAC titles didn't pair. Look under **Questions → Can't pair these**. Answer the duplicate *Let it go*. |
-| A class's work vanished after a refresh | One Canvas course can fail on its own without a warning ([#140](https://github.com/steiner385/fridgesheet/issues/140)); refresh again. |
+| The status bar says *Canvas OK (1 class carried from …)* | Canvas refused that one class on the last refresh (the error is in the parentheses). Its work is still shown, from the pull named; it will be current again the next time the class answers. *1 class not fetched* means there was no earlier copy to show — refresh again. |
 | Settings or Schedules shows an error page | A hand edit made `config.toml` invalid (e.g. `time = "25:99"`). Fix or remove the line. |
 | The keyring prompt hangs a refresh (Linux) | The login keyring is locked; sign in to the desktop. |
 
 ### Known issues worth knowing
 
-- The app assumes US Eastern time for due dates, "today" and schedules ([#122](https://github.com/steiner385/fridgesheet/issues/122)).
 - Work due at exactly midnight reads *Due tomorrow* the evening before ([#139](https://github.com/steiner385/fridgesheet/issues/139)).
 - A class whose Canvas page failed to load during a refresh drops out until the next good refresh, with no warning ([#140](https://github.com/steiner385/fridgesheet/issues/140)).
 - Two assignments with nearly the same title ("Unit 3 Test", "Unit 3 Test Retake") can be paired wrongly ([#132](https://github.com/steiner385/fridgesheet/issues/132)).

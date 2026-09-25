@@ -25,15 +25,20 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
-from .open_items import MARKED_FLAGS, Diff, Item, OpenWork
+from .open_items import HANDLED_FLAGS, MARKED_FLAGS, Diff, Item, OpenWork
 from .web import phrasing
 
 RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
 STATUS_COLOR = {
     "MISSING": RED, "ZERO": RED, "LATE": AMBER,
-    "PAPER — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
+    "PAPER — CHECK": PURPLE, "IN CLASS — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
     "DUE TODAY": BLUE, "DUE TONIGHT": BLUE, "DUE TOMORROW": BLUE,
 }
+#: The web page's status phrase -> the sheet's word for it: one table, read this way to print
+#: the page's rows (`reports.open_work.sheet_status`) and the other way to say a word in a
+#: kid's tier (`status_word`), so the two surfaces cannot name one fact differently (#137).
+STATUS_WORD = {"Missing": "MISSING", "Zero": "ZERO", "Late, ungraded": "LATE", "Paper, check": "PAPER — CHECK",
+               "In class, check": "IN CLASS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
 
 # 10pt cells and 8pt sub-lines: the kid reading the fridge is the reader NN/g puts at a 12pt
 # floor on screen, and 8.5/7 was the smallest text in the whole product. Two kids still fit
@@ -62,7 +67,7 @@ class KidSheet:
 
 #: The sheet's status word -> the web page's, so the phrase table can say it for the kid's tier.
 #: Older and no-tier sections keep the capitals the parent knows from the legend.
-_STATUS_KEY = {"MISSING": "Missing", "ZERO": "Zero", "LATE": "Late, ungraded", "PAPER — CHECK": "Paper, check", "HAC — NO GRADE": "HAC, no grade"}
+_STATUS_KEY = {word: phrase for phrase, word in STATUS_WORD.items()}
 
 
 def status_word(status: str, tier: str) -> str:
@@ -82,14 +87,17 @@ def _esc(s: str) -> str:
     return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def fmt_due(d: datetime, *, from_canvas: bool = True) -> str:
-    """The due date as the sheet prints it, with the time when there is one to print.
+def fmt_due(d: datetime | None, *, from_canvas: bool = True) -> str:
+    """The due date as the sheet prints it, with the time when there is one to print; "no due
+    date" for undated work the teacher has marked (#137).
 
     This used to suppress 23:59 outright, which was right for HAC (whose 23:59 the app
     invents, since HAC gives no time) and wrong for Canvas (whose 23:59 a teacher really
     set). `dates.due_time` draws that line once, for the sheet and the pages both -- them
     disagreeing is what kept a 7:20am deadline looking the same as an 11:59pm one.
     """
+    if d is None:
+        return "no due date"
     s = wd_md(d)
     t = due_time(d, from_canvas=from_canvas)
     return f"{s} {t}" if t else s
@@ -105,11 +113,24 @@ def _checkbox() -> Table:
     return Table([[""]], colWidths=[11], rowHeights=[11], style=[("BOX", (0, 0), (-1, -1), 0.75, colors.black)])
 
 
+def marker(flag: str) -> str:
+    """The status column's marker for a follow-up or ask-the-teacher item: the answer's own
+    button, in capitals, from the one label table (#129)."""
+    return phrasing.flag_label(flag, "button").upper()
+
+
+def handled_words() -> str:
+    """"done, excused, let go or too late to submit": the answers that take an item off the
+    sheet, in the words the app uses for them, for the Handled trailer."""
+    states = [phrasing.flag_label(f, "state") for f in HANDLED_FLAGS]
+    return ", ".join(states[:-1]) + f" or {states[-1]}"
+
+
 def _status_cell(it: Item, tier: str = "") -> Paragraph:
     style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, colors.black))
     text = _esc(status_word(it.status, tier))
     if it.flag in MARKED_FLAGS:
-        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{"FOLLOW UP" if it.flag == "follow_up" else "ASK TEACHER"}</font>'
+        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{_esc(marker(it.flag))}</font>'
     if it.overdue and it.late_until:
         credit = f"{it.credit} " if it.credit and it.credit != "?" else ""
         text += f'<br/><font name="Helvetica" size="8" color="#555555">{_esc(credit)}until {wd_md(it.late_until)}</font>'
@@ -187,7 +208,7 @@ def _tail_lines(ks: KidSheet, overdue_days: int) -> list:
         out.append(Paragraph(f"<b>Cleared since last sheet:</b> {names}{more}", SM))
     if ks.work.handled:
         n = len(ks.work.handled)
-        out.append(Paragraph(f"Handled: {n} item{'s' if n != 1 else ''} marked done, excused or ignored in the app", NOTE))
+        out.append(Paragraph(f"Handled: {n} item{'s' if n != 1 else ''} marked {handled_words()} in the app", NOTE))
     if ks.work.dropped:
         n = len(ks.work.dropped)
         pts = fmt_pts(sum((i.points or 0) for i in ks.work.dropped))
@@ -200,7 +221,7 @@ def _legend(data_as_of: datetime, stale_note: str | None) -> list:
     lines = [
         Spacer(1, 4),
         Paragraph(sw("MISSING / ZERO", "#B3261E") + " past due or scored 0 &nbsp; " + sw("LATE", "#B26A00") + " turned in late, not graded &nbsp; "
-                  + sw("PAPER — CHECK / HAC — NO GRADE", "#6C3FA0") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "#1A5FB4")
+                  + sw("PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE", "#6C3FA0") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "#1A5FB4")
                   + " &nbsp; later due dates in black &nbsp; <i>credit until date</i> = last day the teacher still takes it", SM),
         Spacer(1, 2),
         Paragraph("<b>Via</b> where it was read (Canvas, HAC, Both) · how it is turned in (online, paper, in class) &nbsp; "
@@ -244,8 +265,16 @@ def pdf_text(path: Path, *, raw: bool = False) -> str:
     neighbours line by line, so a test that reads one cell's whole phrase asks for `raw`."""
     if not shutil.which("pdftotext"):
         raise RuntimeError("pdftotext (poppler-utils) is not installed")
-    args = ["pdftotext", *([] if raw else ["-layout"]), str(path), "-"]
-    return subprocess.run(args, capture_output=True, text=True, check=True).stdout
+    # `-enc UTF-8` is understood by poppler's pdftotext and xpdf's (the one the Windows CI
+    # runner has, which writes Latin-1 by default and so lost the em dash in "IN CLASS —
+    # CHECK"); the bytes are decoded here rather than by `text=True`, which would pick the
+    # console code page on Windows. An empty answer is reported with the whole result, since a
+    # test reads the text and would otherwise fail three lines later on a bare None.
+    args = ["pdftotext", "-enc", "UTF-8", *([] if raw else ["-layout"]), str(path), "-"]
+    p = subprocess.run(args, capture_output=True, check=True)
+    if not p.stdout:
+        raise RuntimeError(f"pdftotext produced no text: {p!r}")
+    return p.stdout.decode("utf-8", errors="replace")
 
 
 TABLE_HEAD = ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)

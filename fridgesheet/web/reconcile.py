@@ -58,7 +58,8 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, 
     have printed PAPER — CHECK for it. Done on paper is done.
 
     The set names the sources that have not settled it: Canvas whenever it lists the item,
-    HAC when it lists the item without a grade a day past due."""
+    HAC when it lists the item without a grade past due -- the moment it is past due, which
+    is when the sheet prints HAC — NO GRADE too (#137; this side used to wait a day)."""
     from . import outcomes                      # outcomes imports this module's helpers
     outcome = outcomes.classify(item, obs, now, prefer=prefer)
     c, h = obs.get("canvas"), obs.get("hac")
@@ -72,14 +73,16 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, 
     if c is not None:
         out.add("canvas")
     due = _due(item)
-    if h is not None and h["score"] is None and due is not None and due < now - timedelta(days=1):
+    if h is not None and h["score"] is None and due is not None and outcomes._is_past(item, now):
         out.add("hac")
     return out or ({"hac"} if h is not None else set())
 
 
-def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days_ahead: int = 14) -> bool:
+def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days_ahead: int = 14, prefer: str = "canvas") -> bool:
     """Not open yet, but due within `days_ahead` days and still unsubmitted in Canvas: the
-    sheet's DUE TODAY / DUE TOMORROW / DUE <weekday> rows."""
+    sheet's DUE TODAY / DUE TOMORROW / DUE <weekday> rows. Work nothing has happened to, by
+    the outcome (`not due yet`): a grade HAC already holds is done, not coming due (#137)."""
+    from . import outcomes                      # outcomes imports this module's helpers
     due = _due(item)
     c = obs.get("canvas")
     if c is None or due is None or c["excused"] or c["published"] == 0:
@@ -89,7 +92,7 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
     # is still coming due, not in neither list (#3).
     if a < b or a > b + timedelta(days=days_ahead):
         return False
-    return c["state"] in ("unsubmitted", None) and c["score"] is None
+    return c["state"] in ("unsubmitted", None) and c["score"] is None and outcomes.classify(item, obs, now, prefer=prefer) == outcomes.NOT_DUE
 
 
 def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime,

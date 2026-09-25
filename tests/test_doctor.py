@@ -127,15 +127,17 @@ def test_scheduler_with_nothing_on(tmp_path, monkeypatch):
 
 def test_scheduler_from_a_terminal_names_the_next_run(tmp_path, monkeypatch):
     monkeypatch.setattr(clock, "_current", None)
-    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}}})
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}},
+                                   "refresh": {"enabled": True}})
     out = doctor._scheduler(s, tmp_path)
-    assert "next: open-work" in out and "only while the web server is running" in out
+    assert "2 on; next: " in out and "only while the web server is running" in out
 
 
 def test_scheduler_fails_when_the_clock_has_stopped(tmp_path, monkeypatch):
     stopped = SimpleNamespace(stale=lambda now: True)
     monkeypatch.setattr(clock, "_current", stopped)
-    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": ["Fri"]}}})
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": ["Fri"]}},
+                                   "refresh": {"enabled": True}})
     with pytest.raises(RuntimeError, match="paused"):
         doctor._scheduler(s, tmp_path)
 
@@ -145,6 +147,23 @@ def test_scheduler_fails_on_a_schedule_that_cannot_run(tmp_path, monkeypatch):
     s = _sched_settings(tmp_path, {"refresh": {"enabled": True, "every_hours": 1, "start": "06:00", "end": "21:00"}})
     with pytest.raises(RuntimeError, match="refreshes a day"):
         doctor._scheduler(s, tmp_path)
+
+
+def test_scheduler_probe_fails_when_a_report_is_scheduled_and_the_refresh_is_off(monkeypatch, tmp_path):
+    """#120: a scheduled report runs with no refresh of its own and refuses a snapshot older
+    than a day, so with the refresh off it prints once and then fails every day. Report-on-
+    refresh-off is the broken state, whichever report it is; refresh-off with nothing
+    scheduled is fine."""
+    monkeypatch.setattr(clock, "_current", None)
+    assert doctor._scheduler(_sched_settings(tmp_path, {}), tmp_path) == "no schedules are on"
+    on = {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}
+    s = _sched_settings(tmp_path, {"reports": {"open-work": on}})
+    with pytest.raises(RuntimeError, match=r"open-work is scheduled but the data refresh is off"):
+        doctor._scheduler(s, tmp_path)
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {**on, "enabled": False}}, "refresh": {"enabled": False}})
+    assert doctor._scheduler(s, tmp_path) == "no schedules are on"
+    s = _sched_settings(tmp_path, {"reports": {"open-work": on}, "refresh": {"enabled": True}})
+    assert "2 on" in doctor._scheduler(s, tmp_path)
 
 
 def test_credential_probe_round_trips_on_windows(monkeypatch, tmp_path):
@@ -199,6 +218,17 @@ def test_web_server_probe(monkeypatch, tmp_path):
     monkeypatch.setattr(doctor, "_describe_service", broken)
     monkeypatch.setattr(doctor, "_port_answers", lambda host, port: True)
     assert "service state unknown" in doctor._web_server(s, tmp_path)
+
+
+def test_timezone_probe_names_the_computers_clock_when_it_is_another_zone(monkeypatch, tmp_path):
+    """On Windows a task fires on the PC's clock (#122): a household zone that is not the PC's
+    is worth a word here, since the Schedules page shows next runs in the PC's time."""
+    assert doctor._timezone(Settings(timezone="America/New_York"), tmp_path) == "America/New_York"
+    monkeypatch.setattr(host, "local_timezone", lambda: "America/Los_Angeles")
+    assert doctor._timezone(Settings(timezone="America/Chicago"), tmp_path) == \
+        "America/Chicago (this computer's clock is America/Los_Angeles)"
+    with pytest.raises(Exception):
+        doctor._timezone(Settings(timezone="Eastern"), tmp_path)
 
 
 def test_no_print_days_probe_reports_the_lines_it_cannot_read(tmp_path):

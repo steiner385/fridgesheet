@@ -67,7 +67,7 @@ def test_no_page_wraps_the_job_card_in_a_second_id_job():
 
 def test_service_errors_other_than_service_error_are_a_message_not_a_traceback(monkeypatch, capsys):
     from fridgesheet.host import service
-    monkeypatch.setattr(service, "install_service", lambda: (_ for _ in ()).throw(FileNotFoundError("schtasks")))
+    monkeypatch.setattr(service, "install_service", lambda **kw: (_ for _ in ()).throw(FileNotFoundError("schtasks")))
     with pytest.raises(SystemExit) as e:
         cli.main(["service", "install"])
     assert e.value.code == 1 and "schtasks" in capsys.readouterr().err

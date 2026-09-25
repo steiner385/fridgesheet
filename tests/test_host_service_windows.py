@@ -200,7 +200,9 @@ def test_describe_and_remove_know_the_startup_shortcut(monkeypatch, tmp_path):
     lnk.write_bytes(b"lnk")
     info = service_windows.describe(run=_run_returning("", code=1))
     assert info.installed and info.managed_by == "startup-folder"
-    _, run = _run_sequence({"/End": (1, "", ""), "/Delete": (1, "", "ERROR: The system cannot find the file specified.")})
+    # A failed /Delete is followed by a /Query: absent is its exit code, not its stderr text.
+    _, run = _run_sequence({"/End": (1, "", ""), "/Delete": (1, "", "ERROR: The system cannot find the file specified."),
+                            "/Query": (1, "", "")})
     service_windows.remove(run=run)
     assert not lnk.exists()
 

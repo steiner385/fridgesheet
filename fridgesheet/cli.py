@@ -1,4 +1,4 @@
-"""Command line: `fridgesheet login|set-credentials|check|refresh|status|serve|run|reports|printers|schedule|print-sheet|web|service|doctor`."""
+"""Command line: `fridgesheet login|set-credentials|check|refresh|status|serve|run|reports|printers|schedule|print-sheet|web|service|self-update|doctor`."""
 from __future__ import annotations
 
 import argparse
@@ -101,6 +101,11 @@ def cmd_set_credentials(args) -> int:
 
 
 def cmd_check(args) -> int:
+    """Sign in headless to Canvas and HAC, the way a scheduled run will. A pass counts the
+    same as the Settings page's Test login: it leaves the stamp the Schedules page and
+    `schedule install` gate on (`web.actions.record_login`, #154), and a failure takes it
+    away, so a terminal-only setup can finish without ever opening the web app."""
+    from .web import actions
     s = load_settings()
     ok = True
     with browser(s) as ctx:
@@ -111,6 +116,7 @@ def cmd_check(args) -> int:
             except Exception as e:
                 ok = False
                 print(f"  {name}: FAILED - {e}")
+    actions.record_login(s.home, ok)
     return 0 if ok else 1
 
 
@@ -137,7 +143,15 @@ def cmd_refresh(args) -> int:
         result = actions.refresh(home=s.home, log=lambda m: print(m), trigger="schedule")
         print(result.message)
         return 0 if result.ok else 1
-    snap = collector.collect(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
+    # Under run.lock, as `run` and `--record` above are: this is what the hand-written refresh
+    # timer runs, and unlocked it could put a second Chromium over the browser profile a
+    # scheduled print was using (#151). A run already in progress is waited for a bounded
+    # time, then one line and exit 1 -- never a pull over the top of it.
+    try:
+        snap = collector.collect_locked(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
+    except collector.RunInProgress as e:
+        print(str(e), file=sys.stderr)
+        return 1
     print(json.dumps(collector.summary(s, snap), indent=2))
     return 0 if all(v == "ok" for v in snap["sources"].values() if v) else 1
 
@@ -216,24 +230,30 @@ def cmd_schedule(args) -> int:
     from .web import clock, db as web_db, schedules as page
     s = load_settings()
     key = args.report
-    if args.action == "remove":
+    if args.action in ("install", "remove"):
         # `data-refresh` is the one escape hatch through the report-key gate below: it is
         # not a report (`reports.resolve` would raise `ReportError` for it, same as any
         # other non-report string), but it is a fixed, reserved key (`host.RESERVED_KEYS`)
         # a report can never be saved under -- so admitting it here by name does not loosen
         # what the gate protects against (`remove web` still refuses). Without it, a parent
         # whose refresh schedule outlived its `[refresh]` config had no single-key way to
-        # turn off just that schedule.
+        # turn off just that schedule, and a terminal-only setup no way to turn it on (#154).
         if key != host.DATA_REFRESH_KEY:
             try:
                 reports.resolve(key, s.home)
             except reports.ReportError as e:
                 print(str(e), file=sys.stderr)
                 return 1
-        page.record_enabled(s.home, key, False, create=False)
-        print(f"{key}: turned off in config.toml")
-    # Read the same plan the clock acts on: this is what `remove` just changed, and what
-    # `show` (no key given) is here to report on.
+        # `install` is the terminal's Save: it turns the schedule on in config.toml and the
+        # server's clock does the rest. There is no OS task, so no login gate either -- the
+        # Schedules page has none -- and `--force` (#154's way past that gate) is accepted and
+        # ignored, so a script written for the older gate still runs.
+        on = args.action == "install"
+        page.record_enabled(s.home, key, on, create=on)
+        print(f"{key}: turned {'on' if on else 'off'} in config.toml")
+        s = load_settings()                       # read back what was just written
+    # Read the same plan the clock acts on: this is what `install` or `remove` just changed,
+    # and what `show` (no key given) is here to report on.
     schedules, problems = clock.configured(s.home, settings=s)
     now = datetime.now(ZoneInfo(s.timezone))
     conn = web_db.open_db(s.home)
@@ -253,6 +273,9 @@ def cmd_schedule(args) -> int:
 
 
 def cmd_web(args) -> int:
+    """Run the web app in the foreground and open a browser on it -- `--no-browser` on a
+    machine with no desktop (a headless server, an SSH session), where there is none to open;
+    the app is then reached through an SSH tunnel or, once allowed, from another device."""
     from .web import server
     return server.run(load_settings(), host=args.host, port=args.port, open_browser=not args.no_browser)
 
@@ -261,7 +284,11 @@ def cmd_service(args) -> int:
     from .host import ServiceError, service
     try:
         if args.action == "install":
-            print(f"Installed {service.SERVICE_NAME}: {service.install_service()}")
+            # The home the timers get (`s.home` in `cmd_schedule`), resolved without reading
+            # config.toml: `Settings.home` is only ever `DEFAULT_HOME`, and a config that does
+            # not parse must not stop the installer from registering the server (#151).
+            from .config import DEFAULT_HOME
+            print(f"Installed {service.SERVICE_NAME}: {service.install_service(home=str(DEFAULT_HOME))}")
         elif args.action == "remove":
             service.remove_service()
             print(f"Removed {service.SERVICE_NAME}")
@@ -385,19 +412,24 @@ def main(argv=None) -> None:
     rn.add_argument("--trigger", choices=["cli", "schedule"], default="cli", help=argparse.SUPPRESS)   # set by installed schedules
     rn.set_defaults(fn=cmd_run)
     sub.add_parser("reports", help="list report types and their schedules").set_defaults(fn=cmd_reports)
-    sc2 = sub.add_parser("schedule", help="show when schedules run next, or turn one off "
+    sc2 = sub.add_parser("schedule", help="show when schedules run next, or turn one on or off in config.toml "
                                           "(`remove --all`: remove tasks older versions registered with the OS)")
-    sc2.add_argument("action", choices=["remove", "show"])
+    sc2.add_argument("action", choices=["install", "remove", "show"])
     sc2.add_argument("report", nargs="?", default="open-work", help="ignored with --all")
     sc2.add_argument("--all", action="store_true",
                      help="with `remove`: every report's schedule, not just `report` -- what the uninstaller runs, "
                           "and the only way to remove a schedule left behind by a saved report that "
                           "no longer exists (`remove view:N` refuses a key that does not resolve)")
+    sc2.add_argument("--force", action="store_true",
+                     help="accepted and ignored: `install` no longer waits for a passed login check")
     sc2.set_defaults(fn=cmd_schedule)
-    w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser")
+    w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser "
+                                   "(use that on a machine with no desktop)")
     w.add_argument("--host", default=None, help="bind address (default: config.toml [web], 127.0.0.1)")
     w.add_argument("--port", type=int, default=None, help="port (default: config.toml [web], 8433)")
-    w.add_argument("--no-browser", action="store_true")
+    w.add_argument("--no-browser", action="store_true",
+                   help="do not open a browser: for a machine with no desktop (a headless server, an SSH "
+                        "session); reach the app through an SSH tunnel or from another device instead")
     w.set_defaults(fn=cmd_web)
     sv = sub.add_parser("service", help="install, remove or show the always-on web server (systemd user unit / Windows logon task)")
     sv.add_argument("action", choices=["install", "remove", "show"])
@@ -407,13 +439,14 @@ def main(argv=None) -> None:
     su.add_argument("--force", action="store_true", help="proceed even if another account owns the install")
     su.set_defaults(fn=cmd_self_update)
     sub.add_parser("doctor", help="check Python, Chromium, the PDF engine, the credential store, printers and the scheduler; writes <home>/doctor.txt").set_defaults(fn=cmd_doctor)
-    ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it (CUPS)")
-    ps.add_argument("--dry-run", action="store_true", help="build sheet-preview.pdf under ~/.fridgesheet/sheets/<day>/ and print nothing; the run is still recorded on the Runs page")
+    ps = sub.add_parser("print-sheet", help="refresh, build the kids' open-work sheet, and print it "
+                                            "(`run open-work` under its original name, with fixed 14-day defaults)")
+    ps.add_argument("--dry-run", action="store_true", help="build sheet-preview.pdf under <home>/sheets/<date>/ and print nothing; the run is still recorded on the Runs page")
     ps.add_argument("--kid", help="one student only (first name or nickname prefix); builds sheet-<kid>.pdf beside the day's sheet, which it leaves alone")
-    ps.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the 2 PM window and builds that day's sheet-preview.pdf, never its sheet.pdf")
+    ps.add_argument("--date", help="YYYY-MM-DD to build for (testing); bypasses the print window and builds that day's sheet-preview.pdf, never its sheet.pdf")
     ps.add_argument("--days", type=int, default=14, help="how far ahead to look (default 14)")
     ps.add_argument("--overdue-days", type=int, default=14, help="how far back an overdue item may be (default 14)")
-    ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the 2 PM window (never reprints a day)")
+    ps.add_argument("--force", action="store_true", help="ignore no-print-days.txt and the print window (never reprints a day)")
     ps.add_argument("--printer", default=os.environ.get("FRIDGESHEET_PRINTER") or None, help="printer name (default: FRIDGESHEET_PRINTER if set in the shell environment, then the report's own printer, then [print] printer in config.toml or FRIDGESHEET_PRINTER in .env, then the system default)")
     ps.add_argument("--no-refresh", action="store_true", help="use the snapshot as is")
     ps.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")

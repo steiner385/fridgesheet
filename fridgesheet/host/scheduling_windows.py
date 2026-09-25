@@ -15,7 +15,6 @@ from .service_windows import NAME as _WEB_TASK
 
 PREFIX = "Fridge Sheet - "
 _WEB_FOLDED = _WEB_TASK.strip().casefold()
-_NOT_FOUND = "cannot find the file"
 
 
 def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
@@ -43,7 +42,12 @@ def remove_task(name: str, run=subprocess.run) -> None:
     if name.strip().casefold() == _WEB_FOLDED:
         raise SchedulingError(f"{name} is the web server's own task; refusing to remove it")
     p = _schtasks(["/Delete", "/TN", name, "/F"], run)
-    if p.returncode != 0 and _NOT_FOUND not in (p.stderr or "").lower():
+    if p.returncode != 0 and _schtasks(["/Query", "/TN", name], run).returncode == 0:
+        # Still registered, so the delete really failed. A task that is simply not there is
+        # not an error -- and that is `/Query`'s exit code, not the words in `/Delete`'s
+        # stderr: "cannot find the file" is "Das System kann die angegebene Datei nicht
+        # finden." on a German Windows, and matching the English made every remove there
+        # raise (#151).
         raise SchedulingError((p.stderr or p.stdout or "").strip()[:300])
 
 

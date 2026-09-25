@@ -64,10 +64,13 @@ def test_save_writes_the_config_and_nothing_else(tmp_path):
     out = schedules.save("view:1", enabled=True, time="16:30", days=["Fri"], printer="Brother",
                          prints=False, home=home, log=lambda s: None)
     assert out.ok and not out.errors
-    assert out.messages == ["Saved Weekly summary.", "Scheduled: Fri at 16:30, PDF only."]
+    # The refresh was off, so it is turned on in the same write (#120) -- and nothing else.
+    assert out.messages[:2] == ["Saved Weekly summary.", "Scheduled: Fri at 16:30, PDF only."]
+    assert len(out.messages) == 3 and out.messages[2].startswith("Turned on the data refresh too")
     doc = tomllib.loads((home / "config.toml").read_text())
     assert doc["reports"]["view:1"] == {"enabled": True, "time": "16:30", "days": ["Fri"],
                                         "printer": "Brother", "print": False}
+    assert doc["refresh"] == {"enabled": True}
 
 
 def test_turning_a_schedule_off_keeps_the_settings(tmp_path):

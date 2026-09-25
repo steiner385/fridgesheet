@@ -722,3 +722,80 @@ def test_the_host_refusal_echoes_a_name_only_when_it_is_plainly_a_name(tmp_path)
     app.state.fridgesheet.settings.web_allow_lan = False
     r = c.get("/", headers={"Host": "dobby:8433"})
     assert "Allow other devices" in r.text and "dobby" not in r.text
+
+
+def test_save_needs_no_password_when_the_environment_supplies_the_login(monkeypatch, tmp_path):
+    """#154: on a headless box the login lives in `.env` (`FRIDGESHEET_ONELOGIN_*`), and the
+    keyring is locked. Save used to demand a password anyway, so changing the printer meant
+    typing one that then failed to store. The card says where the login comes from, and Save
+    writes the rest without touching the store."""
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "s3cret")
+    c, app = _client(tmp_path)
+    card = c.get("/settings").text.split("School login", 1)[1].split("</section>", 1)[0]
+    assert "Username and password are supplied by the environment (FRIDGESHEET_ONELOGIN_USERNAME)" in card
+    assert "the boxes here are ignored" in card and "s3cret" not in card and "env@x.com" not in card
+    r = c.post("/settings", data={**FORM, "username": "", "password": "", "printer": "Canon"})
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert "Enter the OneLogin password" not in r.text and "username is required" not in r.text
+    assert app.state.fridgesheet.extra["credstore"].written == []
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["print"]["printer"] == "Canon" and doc["account"]["username"] == "parent@example.org"
+    monkeypatch.delenv("FRIDGESHEET_ONELOGIN_PASSWORD")
+    assert "supplied by the environment" not in c.get("/settings").text
+
+
+def test_a_password_typed_anyway_against_a_locked_keyring_is_a_message_not_a_500(monkeypatch, tmp_path):
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_USERNAME", "env@x.com")
+    monkeypatch.setenv("FRIDGESHEET_ONELOGIN_PASSWORD", "s3cret")
+    c, app = _client(tmp_path)
+
+    class Locked:
+        def write(self, username, password):
+            raise RuntimeError("secret-tool: Cannot autolaunch D-Bus without X11 $DISPLAY")
+    app.state.fridgesheet.extra["credstore"] = Locked()
+    r = c.post("/settings", data={**FORM, "password": "typed-anyway"})
+    assert r.status_code == 200
+    assert "could not be stored" in r.text and "D-Bus" in r.text and "typed-anyway" not in r.text
+
+
+# --- the time zone (#122) ------------------------------------------------------------------
+
+def test_settings_offers_a_time_zone_and_names_this_computers(tmp_path):
+    """A field under "Where you are": the common US zones to pick from, any IANA name typed,
+    and what a blank means -- this computer's zone, named, so a parent can see it is right."""
+    client, _ = _client(tmp_path)
+    html = client.get("/settings").text
+    assert 'name="timezone"' in html and "Where you are" in html
+    assert "this computer's: America/New_York" in html
+    for zone in ("America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles", "Pacific/Honolulu"):
+        assert f'<option value="{zone}">' in html
+
+
+def test_saving_a_time_zone_writes_general_timezone_and_the_app_uses_it_now(tmp_path):
+    client, application = _client(tmp_path)
+    r = client.post("/settings", data=_form(timezone="America/Chicago"))
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert tomllib.loads((tmp_path / "config.toml").read_text())["general"]["timezone"] == "America/Chicago"
+    assert str(application.state.fridgesheet.tz) == "America/Chicago"      # in force now, not at the next start
+    assert 'name="timezone"' in r.text and 'value="America/Chicago"' in r.text
+    # Blank means this computer's zone again: the key goes, rather than staying as "".
+    r = client.post("/settings", data=_form(timezone="  "))
+    assert r.status_code == 200 and "Settings saved" in r.text
+    assert "timezone" not in tomllib.loads((tmp_path / "config.toml").read_text()).get("general", {})
+    assert str(application.state.fridgesheet.tz) == "America/New_York"
+
+
+def test_a_time_zone_that_is_not_a_zone_is_refused_before_anything_is_written(tmp_path):
+    client, _ = _client(tmp_path)
+    r = client.post("/settings", data=_form(timezone="Eastern"))
+    assert r.status_code == 200 and "Time zone must be a name like America/Chicago" in r.text
+    assert "general" not in tomllib.loads((tmp_path / "config.toml").read_text())
+    assert 'value="Eastern"' in r.text                                     # what was typed comes back to fix
+
+
+def test_the_settings_page_says_when_the_environment_pins_the_time_zone(tmp_path, monkeypatch):
+    monkeypatch.setenv("FRIDGESHEET_TIMEZONE", "America/Denver")
+    client, _ = _client(tmp_path)
+    html = client.get("/settings").text
+    assert "Set by FRIDGESHEET_TIMEZONE=America/Denver in the environment" in html

@@ -12,8 +12,10 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from ..matching import hac_item_key, hac_only_key
+
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 8
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -212,7 +214,7 @@ ALTER TABLE item_observations ADD COLUMN lock_reason TEXT;
 """
 
 
-_SCHEMA_V6 = """
+_SCHEMA_V8 = """
 -- The last slot each schedule fired, per schedule key (a report key, or "data-refresh").
 -- An ISO datetime with its UTC offset. What stops a restart firing a slot twice, and what
 -- lets a slot missed while the server was down be caught up once (web/clock.py).
@@ -233,6 +235,16 @@ def _migrate_v5(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE item_observations ADD COLUMN missing_since INTEGER REFERENCES refreshes(id)")
     conn.execute("ALTER TABLE item_observations ADD COLUMN scored_since INTEGER REFERENCES refreshes(id)")
     _backfill_since(conn)
+
+
+_SCHEMA_V6 = """
+-- Canvas classes this refresh could not pull, when one class fails on its own (#140): JSON
+-- {"carried": [{kid, course_id, name, reason, fetched_at}], "missing": [{kid, course_id, reason}]}
+-- as `collector.course_faults` lists them, NULL when every class answered. A carried class is
+-- served from an older pull and its refresh still counts as good (`ok`); a missing one had
+-- nothing older to serve. The header reads it to say so beside "Canvas OK".
+ALTER TABLE refreshes ADD COLUMN carried TEXT;
+"""
 
 
 def since_fields(last: sqlite3.Row | None, refresh_id: int, missing, score) -> tuple[int | None, int | None]:
@@ -259,6 +271,64 @@ def _backfill_since(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE item_observations SET missing_since = ?, scored_since = ? WHERE id = ?", (missing_since, scored_since, r["id"]))
         last[key] = {"refresh_id": r["refresh_id"], "missing": r["missing"], "score": r["score"],
                      "missing_since": missing_since, "scored_since": scored_since}
+
+
+def _migrate_v7(conn: sqlite3.Connection) -> None:
+    """Every HAC-only item's key carries its due date (`matching.hac_only_key`, #136).
+
+    Up to v6 a lone HAC-only row was keyed `hac:<short course>:<norm name>` and only rows that
+    shared a title got `:<YYYY-MM-DD>`, so the day a second "Participation" appeared the first
+    was re-keyed: a new item, and the flag, notes and history left behind on the old one. Each
+    bare key is rewritten with the item's own due date (`:unknown` without one; a key already
+    dated, or not one this code made, is left alone). Where the re-key already happened, the
+    dated twin the newer refreshes wrote is folded back onto the bare item that holds the
+    parent's answers, so the next refresh upserts the row it was set on. One transaction with
+    the version bump."""
+    rows = conn.execute(
+        """SELECT i.id, i.student_id, i.course_id, i.key, i.name, i.due, c.name AS course
+           FROM items i JOIN courses c ON c.id = i.course_id WHERE i.key LIKE 'hac:%' ORDER BY i.id""").fetchall()
+    for r in rows:
+        if r["key"] != hac_item_key(r["course"], r["name"]):
+            continue
+        try:
+            due = datetime.fromisoformat(r["due"]).date() if r["due"] else None
+        except ValueError:
+            due = None
+        key = hac_only_key(r["course"], r["name"], due)
+        twin = conn.execute("SELECT id FROM items WHERE student_id = ? AND course_id = ? AND key = ?",
+                            (r["student_id"], r["course_id"], key)).fetchone()
+        if twin is not None:
+            _fold_item(conn, twin["id"], into=r["id"])
+        conn.execute("UPDATE items SET key = ? WHERE id = ?", (key, r["id"]))
+
+
+def _fold_item(conn: sqlite3.Connection, src: int, into: int) -> None:
+    """Move everything that hangs off item `src` onto `into`, then delete `src`: the dated
+    twin the pre-v7 re-key made for one HAC row, folded back onto the item the parent answered."""
+    # The twin began in the refresh the bare row stopped being seen, so the two never share
+    # an observation; one that would is dropped rather than doubled (unique per refresh, source).
+    conn.execute(
+        """UPDATE item_observations SET item_id = ? WHERE item_id = ? AND NOT EXISTS (
+               SELECT 1 FROM item_observations o WHERE o.item_id = ?
+               AND o.refresh_id = item_observations.refresh_id AND o.source = item_observations.source)""",
+        (into, src, into))
+    conn.execute("DELETE FROM item_observations WHERE item_id = ?", (src,))
+    # One active flag per item: the twin's is the parent's later answer, so the older one is
+    # closed off at the moment the newer was set.
+    newer = conn.execute("SELECT set_at FROM flags WHERE item_id = ? AND cleared_at IS NULL", (src,)).fetchone()
+    if newer is not None:
+        conn.execute("UPDATE flags SET cleared_at = ? WHERE item_id = ? AND cleared_at IS NULL", (newer["set_at"], into))
+    conn.execute("UPDATE flags SET item_id = ? WHERE item_id = ?", (into, src))
+    conn.execute("UPDATE notes SET target_id = ? WHERE target_type = 'item' AND target_id = ?", (into, src))
+    conn.execute("UPDATE plan_steps SET item_id = ? WHERE item_id = ?", (into, src))
+    # The twin is the later sighting of the row: its attributes, and the span of both.
+    t = conn.execute("SELECT * FROM items WHERE id = ?", (src,)).fetchone()
+    conn.execute(
+        """UPDATE items SET name = ?, kind = ?, points = ?, due = ?, assigned = COALESCE(?, assigned), is_assessment = ?,
+           unlock_at = ?, lock_at = ?, first_seen = MIN(first_seen, ?), last_seen = MAX(last_seen, ?) WHERE id = ?""",
+        (t["name"], t["kind"], t["points"], t["due"], t["assigned"], t["is_assessment"], t["unlock_at"], t["lock_at"],
+         t["first_seen"], t["last_seen"], into))
+    conn.execute("DELETE FROM items WHERE id = ?", (src,))
 
 
 def db_path(home: Path) -> Path:
@@ -345,6 +415,15 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 6:
         conn.executescript("BEGIN;\n" + _SCHEMA_V6 + "\nUPDATE schema_version SET version = 6;\nCOMMIT;")
         v = 6
+    if v < 7:
+        with conn:
+            conn.execute("BEGIN")
+            _migrate_v7(conn)
+            conn.execute("UPDATE schema_version SET version = 7")
+        v = 7
+    if v < 8:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V8 + "\nUPDATE schema_version SET version = 8;\nCOMMIT;")
+        v = 8
     return v
 
 

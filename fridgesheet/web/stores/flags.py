@@ -5,12 +5,13 @@ from __future__ import annotations
 import sqlite3
 
 from ...open_items import HANDLED_FLAGS as HANDLED, MARKED_FLAGS as MARKED
+from .. import phrasing
 
 FLAGS = HANDLED + MARKED
 #: Every flag with the words the detail card's menu shows, in the store's order; the menu is
-#: drawn from this, so a flag added here appears there (#3).
-CHOICES = (("done", "It's done"), ("excused", "Excused"), ("ignore", "Let it go"), ("too_late", "Too late to submit"),
-           ("follow_up", "Follow up"), ("ask_teacher", "Ask the teacher"))
+#: drawn from this, so a flag added here appears there (#3). The words are the one label
+#: table's button column (`phrasing.FLAG_LABELS`, #129): the store never spells a label.
+CHOICES = tuple((f, phrasing.flag_label(f, "button")) for f in FLAGS)
 
 
 def active(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
@@ -82,7 +83,7 @@ def active_by_student(conn: sqlite3.Connection) -> dict[str, dict[tuple[str, str
     open_items, one dict per kid.
 
     Item keys are only unique within a student *and course*: two kids in like-named classes
-    share `hac:<short course>:<norm name>`, siblings in one section share `canvas:<id>`, and
+    share `hac:<short course>:<norm name>:<due>`, siblings in one section share `canvas:<id>`, and
     one kid in two sections of a class ("Algebra I - 2" and "- 3") shares a HAC key between
     them. Keyed by less, one `done` struck the other kid's, or the other section's, work off
     the sheet (#97). The course is its full name as the gradebook gives it, which is what

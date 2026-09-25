@@ -202,3 +202,118 @@ def test_a_leftover_listing_that_failed_says_so_in_plain_words(tmp_path):
     assert "could not check for old scheduled tasks from an earlier version" in body
     assert "Access is denied." in body
     assert "Remove it with" not in body and "the list of scheduled tasks" not in body
+
+
+# --- #120: a scheduled report prints from the last refresh, so scheduling one keeps the refresh on ----
+
+def test_saving_an_enabled_report_turns_on_the_data_refresh_with_defaults(tmp_path):
+    """A scheduled report runs with no refresh of its own and refuses a snapshot older than a
+    day, so a household that schedules a report without the refresh gets one sheet and then a
+    daily FAIL (#120). Saving an enabled report with the refresh off turns the refresh on, in
+    the same config.toml write, with the defaults, and says so."""
+    c = _client(tmp_path)
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Mon", "Fri"], "printer": "", "prints": "on"})
+    assert r.status_code == 200
+    assert "Scheduled: Mon, Fri at 16:30" in r.text
+    assert "Turned on the data refresh too" in r.text
+    assert "every 3 hours" in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"] == {"enabled": True}                           # the defaults, nothing pinned
+    assert doc["reports"]["view:1"]["enabled"] is True
+    body = c.get("/schedules").text
+    assert "data refresh is off" not in body                            # nothing left to warn about
+    assert "next: Fri 9/25 12:00 PM" in body                            # the refresh is in the plan now
+
+
+def test_saving_a_report_leaves_an_already_on_refresh_alone(tmp_path):
+    """The parent's own refresh settings (every 2 hours, weekdays) are never overwritten with
+    the defaults."""
+    c = _client(tmp_path)
+    c.post("/schedules/refresh", data={"enabled": "on", "every_hours": "2", "start": "07:00",
+                                       "end": "19:00", "days": ["Mon", "Tue", "Wed", "Thu", "Fri"]})
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "Turned on the data refresh" not in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"]["every_hours"] == 2 and doc["refresh"]["days"] == ["Mon", "Tue", "Wed", "Thu", "Fri"]
+
+
+def test_saving_a_report_keeps_a_switched_off_refreshs_own_values(tmp_path):
+    """A refresh the parent saved and later switched off comes back on with their values."""
+    c = _client(tmp_path)
+    c.post("/schedules/refresh", data={"every_hours": "2", "start": "07:00", "end": "19:00", "days": ["Mon"]})
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "16:30",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "Turned on the data refresh too (every 2 hours, 07:00–19:00, Mon)" in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert doc["refresh"] == {"enabled": True, "every_hours": 2, "start": "07:00", "end": "19:00", "days": ["Mon"]}
+
+
+def test_turning_a_report_off_never_touches_the_refresh(tmp_path):
+    c = _client(tmp_path)
+    r = c.post("/schedules", data={"key": "view:1", "time": "16:30", "days": ["Fri"],
+                                   "printer": "", "prints": "on"})
+    assert r.status_code == 200 and "not scheduled" in r.text
+    doc = tomllib.loads((tmp_path / "config.toml").read_text())
+    assert "refresh" not in doc
+
+
+def test_the_page_warns_when_a_report_is_scheduled_and_the_refresh_is_off(tmp_path):
+    c = _client(tmp_path)
+    assert "data refresh is off" not in c.get("/schedules").text          # nothing scheduled: no warning
+    (tmp_path / "config.toml").write_text('[reports."view:1"]\nenabled = true\ntime = "16:30"\ndays = ["Fri"]\n')
+    body = c.get("/schedules").text
+    assert "data refresh is off" in body
+    assert "Weekly summary" in body.split("data refresh is off")[0]       # names the report(s) affected
+    (tmp_path / "config.toml").write_text('[refresh]\nenabled = true\n[reports."view:1"]\nenabled = true\ntime = "16:30"\ndays = ["Fri"]\n')
+    assert "data refresh is off" not in c.get("/schedules").text
+
+
+def test_the_page_no_longer_claims_a_scheduled_report_refreshes(tmp_path):
+    """schedules.html said "it refreshes, builds, and prints"; it never refreshed (#120)."""
+    body = app_for(tmp_path).get("/schedules").text
+    assert "it refreshes, builds, and prints" not in body
+    assert "does not refresh first" in body
+
+
+# --- #121: a report's time on a refresh time is a note, never an error -----------------------
+
+_REFRESH_EVERY_2H = {"enabled": "on", "every_hours": "2", "start": "06:00", "end": "21:00", "days": ["Mon", "Fri"]}
+
+
+def test_saving_a_report_at_a_refresh_time_says_the_report_will_wait(tmp_path):
+    c = _client(tmp_path)
+    c.post("/schedules/refresh", data=_REFRESH_EVERY_2H)                  # 06:00, 08:00, ..., 14:00, ..., 20:00
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert r.status_code == 200 and "Scheduled: Fri at 14:00" in r.text
+    assert "This report and the data refresh both run at 14:00; the report will wait for the refresh." in r.text
+    # Between refreshes, or on a day the refresh does not run, there is nothing to say.
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:05",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "both run at" not in r.text
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                                   "days": ["Sat"], "printer": "", "prints": "on"})
+    assert "both run at" not in r.text
+
+
+def test_the_refresh_a_report_save_turns_on_is_checked_for_a_shared_minute(tmp_path):
+    """The note is checked after the auto-enable: the default refresh (every 3 hours from
+    06:00) lands on 15:00."""
+    c = _client(tmp_path)
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "15:00",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "Turned on the data refresh too" in r.text
+    assert "This report and the data refresh both run at 15:00" in r.text
+
+
+def test_saving_a_refresh_that_lands_on_a_scheduled_reports_time_says_so(tmp_path):
+    c = _client(tmp_path)
+    c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                               "days": ["Fri"], "printer": "", "prints": "on"})
+    r = c.post("/schedules/refresh", data=_REFRESH_EVERY_2H)
+    assert r.status_code == 200
+    assert "Weekly summary and the data refresh both run at 14:00; the report will wait for the refresh." in r.text
+    r = c.post("/schedules/refresh", data={**_REFRESH_EVERY_2H, "every_hours": "3"})   # 06, 09, 12, 15, 18, 21
+    assert "both run at" not in r.text

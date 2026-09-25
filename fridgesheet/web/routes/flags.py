@@ -7,13 +7,18 @@ from fastapi import APIRouter, Form, HTTPException, Request
 
 from ..app import Db, State, render_partial
 from ..stores import changes, flags, items, notes, students
-from .. import db
+from .. import db, phrasing
 from .kid import card_for
 
 router = APIRouter()
 
-LABELS = {"done": "Marked done", "excused": "Marked excused", "ignore": "Ignored", "follow_up": "Marked follow up",
-          "ask_teacher": "Marked ask teacher", "too_late": "Marked too late to submit", "clear": "No flag"}
+CLEARED = "Answer cleared"
+
+
+def confirmation(flag: str) -> str:
+    """The line the card shows after saving: the label table's confirm column (#129), or the
+    one word for taking the answer away."""
+    return CLEARED if flag == "clear" else phrasing.flag_label(flag, "confirm")
 
 
 @router.post("/items/{item_id}/flag")
@@ -32,6 +37,6 @@ def set_item_flag(item_id: int, request: Request, flag: str = Form(...), text: s
         flags.set_flag(conn, item_id, flag, now=now, text=text.strip())
     v = items.one(conn, s, item_id, now=when, rules=rules, prefs=state.sources(), **state.window())
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
-                          item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=LABELS[flag],
+                          item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=confirmation(flag),
                           notes=notes.for_target(conn, "item", item_id), refresh_row=True,
                           card=card_for(card, item_id))

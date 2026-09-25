@@ -106,13 +106,23 @@ def test_previous_year_course_copy_artifacts_are_ignored_entirely(rules):
     assert work.items == [] and work.dropped == []
 
 
-def test_excused_unpublished_and_undated_items_are_skipped(rules):
+def test_excused_unpublished_and_untouched_undated_items_are_skipped(rules):
     work = run(entry([
         canvas_item(id=1, missing=True, excused=True),
         canvas_item(id=2, missing=True, published=False),
         canvas_item(id=3, due_at=None),
     ]), rules)
     assert work.items == []
+
+
+def test_undated_work_the_teacher_marked_prints_with_no_window(rules):
+    """No due date can never pass, so a missing mark or a zero is what puts undated work on
+    the sheet, as it puts it on the record (docs/outcomes.md, #137): no due date, no credit
+    line, never too old."""
+    work = run(entry([canvas_item(id=1, missing=True, due_at=None), canvas_item(id=2, state="graded", score=0, due_at=None)]), rules)
+    assert [(i.key, i.status, i.due, i.late_until, i.overdue) for i in work.items] == \
+        [("canvas:1", "MISSING", None, None, True), ("canvas:2", "ZERO", None, None, True)]
+    assert work.dropped == []
 
 
 def test_hac_blank_row_is_shown_and_paired_canvas_item_is_not_duplicated(rules):
@@ -122,9 +132,9 @@ def test_hac_blank_row_is_shown_and_paired_canvas_item_is_not_duplicated(rules):
         {"name": "Quiz 1", "assigned": "09/01/2026", "due": "09/09/2026", "score": 18.0, "score_raw": "18.00", "points": 20.0, "category": "Quizzes"},
     ]}]
     work = run(entry([canvas_item(missing=True)], hac_classes=hac), rules)
-    # the HAC-only key is matching.hac_item_key: the short course and the normalised name,
-    # so it is the same string the database stores and a flag set in the app can find it.
-    assert [(i.key, i.status) for i in work.items] == [("hac:Honors Biology:lab safety contract", "HAC — NO GRADE"), ("canvas:1", "MISSING")]
+    # the HAC-only key is matching.hac_only_key: the short course, the normalised name and the
+    # due date, so it is the same string the database stores and a flag set in the app can find it.
+    assert [(i.key, i.status) for i in work.items] == [("hac:Honors Biology:lab safety contract:2026-09-08", "HAC — NO GRADE"), ("canvas:1", "MISSING")]
     canvas_row = work.items[1]
     assert canvas_row.source == "both"
     assert canvas_row.assigned == datetime(2026, 9, 7, tzinfo=TZ)   # HAC's assigned date wins
@@ -293,7 +303,7 @@ def test_a_hac_only_row_takes_a_rule_written_against_the_canvas_name(tmp_path):
     ]}]
     work = run(entry([canvas_item(missing=True, due_at=iso(-1))], hac_classes=hac), rules)
     assert [i.key for i in work.items] == ["canvas:1"]
-    assert [(i.key, i.credit) for i in work.dropped] == [("hac:Hon Bio:lab safety contract", "50%")]
+    assert [(i.key, i.credit) for i in work.dropped] == [("hac:Hon Bio:lab safety contract:2026-09-08", "50%")]
 
 
 def test_a_canvas_row_takes_a_rule_written_against_the_hac_name(tmp_path):

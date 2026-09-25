@@ -78,7 +78,7 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
     c = app_for(tmp_path)
     alex = c.get("/kids/Alex/check-in").text
     assert "The sources disagree." not in alex        # Quiz 1 was the only disagreement; HAC's grade settles it
-    assert "paper / in-class work; no online submission expected" in alex                   # Lab notebook
+    assert "nothing to submit online" in alex                   # Lab notebook, in the record's one vocabulary (#129)
     assert "Late work is usually accepted until" in alex and "Ask the teacher if you need longer" in alex
     sam = c.get("/kids/Sam/check-in").text
     assert "Zero recorded. A zero can mean not graded yet, not handed in, or handed in on paper" in sam
@@ -621,8 +621,10 @@ def test_hac_scores_print_with_their_denominator(tmp_path):
     qid = _item_id(conn, "Quiz 1")
     conn.close()
     body = app_for(tmp_path).get(f"/kids/Alex/check-in/step?item_id={qid}").text     # Quiz 1 is settled, so not in review
-    assert "HAC: 28/30" in body and "score 28.0" not in body
-    assert "Canvas: no submission recorded · 0/10" in app_for(tmp_path).get("/kids/Sam/check-in").text
+    # The record's words are the detail card's (`_source_facts.html`, #129): "28 of 30", as the
+    # verdict sentence says it, on both.
+    assert "28 of 30" in body and "score 28.0" not in body and "28/30" not in body
+    assert re.search(r"Canvas.*?nothing submitted · 0 of 10", app_for(tmp_path).get("/kids/Sam/check-in").text, re.S)
 
 
 def test_a_step_added_by_mistake_can_be_removed_but_only_by_its_own_child(tmp_path):
@@ -689,10 +691,13 @@ def test_a_budget_agreed_on_an_earlier_day_does_not_warn_about_today(tmp_path):
 
 def test_planning_evidence_rounds_scores_with_the_shared_helper(tmp_path):
     """#21: the evidence card had its own rounding macro; it now uses `stores.num`, the rule the
-    work list and Changes use, through a `num` filter."""
+    work list and Changes use, through a `num` filter. The source lines moved into the shared
+    `_source_facts.html` (#129); neither template rounds on its own."""
     from pathlib import Path
     from fridgesheet.web import app as webapp
-    src = (Path(webapp.__file__).parent / "templates" / "_planning_evidence.html").read_text(encoding="utf-8")
+    templates = Path(webapp.__file__).parent / "templates"
+    assert "round(" not in (templates / "_planning_evidence.html").read_text(encoding="utf-8")
+    src = (templates / "_source_facts.html").read_text(encoding="utf-8")
     assert "round(" not in src and "| num" in src
     seed(tmp_path).close()
     env = app_for(tmp_path).app.state.fridgesheet.extra["env"]

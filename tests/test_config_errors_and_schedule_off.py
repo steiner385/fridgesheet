@@ -138,10 +138,9 @@ def _doc(home):
 
 
 def test_cli_remove_records_enabled_like_the_page_does(cli_home):
-    """`install` is gone (2026-09-25 in-app scheduler): a schedule is turned on from the
-    Schedules page and read by the server's own clock, so the CLI's one remaining job here is
-    turning one off -- and `record_enabled` must write `enabled = false` the same way the page
-    does, or `doctor`'s scheduler check keeps calling it on."""
+    """The server's own clock reads config.toml (2026-09-25 in-app scheduler), so `remove`
+    turns a schedule off there -- and `record_enabled` must write `enabled = false` the same
+    way the page does, or `doctor`'s scheduler check keeps calling it on."""
     home = cli_home
     (home / "config.toml").write_text('[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Mon"]\n')
     with pytest.raises(SystemExit) as e:
@@ -189,16 +188,29 @@ def test_schedule_remove_all_is_refused_with_show(monkeypatch, capsys, tmp_path)
     assert e.value.code == 2 and "--all" in capsys.readouterr().err
 
 
-def test_schedule_install_is_no_longer_a_valid_action(monkeypatch, capsys, tmp_path):
-    """`install` went away with the OS scheduler (2026-09-25 in-app scheduler): a schedule is
-    turned on from the Schedules page, not installed by the CLI. argparse refuses the action
-    before `cmd_schedule` ever runs."""
-    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
-
+def test_schedule_install_turns_a_schedule_on_in_config_toml_and_nothing_else(cli_home, capsys):
+    """`install` is the terminal's Save (#154, in the in-app scheduler): `[reports.<key>]` or
+    `[refresh]` says on, the clock does the rest, and there is no OS task to create."""
+    home = cli_home
+    (home / "config.toml").write_text('[reports.open-work]\nenabled = false\ntime = "14:00"\ndays = ["Mon"]\n')
     with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install"])
-    assert e.value.code == 2
-    assert "invalid choice" in capsys.readouterr().err
+        cli.main(["schedule", "install", "open-work"])
+    assert e.value.code == 0
+    assert _doc(home)["reports"]["open-work"] == {"enabled": True, "time": "14:00", "days": ["Mon"]}
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "install", "data-refresh"])
+    assert e.value.code == 0
+    assert _doc(home)["refresh"]["enabled"] is True
+    out = capsys.readouterr().out
+    assert "open-work: turned on in config.toml" in out and "data-refresh: turned on in config.toml" in out
+    assert "data-refresh: next" in out            # the same next/last lines `show` prints
+
+
+def test_schedule_install_refuses_a_key_that_is_not_a_report(cli_home, capsys):
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "install", "web"])
+    assert e.value.code == 1 and "web" in capsys.readouterr().err
+    assert not (cli_home / "config.toml").exists()
 
 
 def test_schedule_show_lists_next_and_last(tmp_path, monkeypatch, capsys):

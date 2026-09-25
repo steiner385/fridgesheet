@@ -39,8 +39,20 @@ def test_windows_leftovers_never_include_the_web_task():
 
 
 def test_windows_remove_task_tolerates_one_already_gone():
-    _, run = _run({("/Delete", "/TN"): (1, "", "ERROR: The system cannot find the file specified.")})
+    # Gone is `/Query`'s exit code, not `/Delete`'s words: a German Windows says "Das System
+    # kann die angegebene Datei nicht finden." (#151).
+    calls, run = _run({("/Delete", "/TN"): (1, "", "FEHLER: Das System kann die angegebene Datei nicht finden."),
+                       ("/Query", "/TN"): (1, "", "FEHLER: Das System kann die angegebene Datei nicht finden.")})
     win.remove_task("Fridge Sheet - data-refresh", run)
+    assert calls[-1][:4] == ["schtasks", "/Query", "/TN", "Fridge Sheet - data-refresh"]
+
+
+def test_windows_remove_task_raises_when_the_task_is_still_registered_whatever_the_words():
+    # A German-worded failure with the task still there (`/Query` succeeds) is a real failure.
+    _, run = _run({("/Delete", "/TN"): (1, "", "FEHLER: Zugriff verweigert."),
+                   ("/Query", "/TN"): (0, "", "")})
+    with pytest.raises(SchedulingError, match="Zugriff verweigert"):
+        win.remove_task("Fridge Sheet - data-refresh", run)
 
 
 MARK = lin.MARKER

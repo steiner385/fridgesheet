@@ -67,7 +67,6 @@ PHRASES: dict[str, dict[str, str]] = {
     "a.keep_following":      {"early": "No, keep checking", "middle": "Not settled, keep following up", "older": "Not settled, keep following up"},
     "where.followed_up_then_graded": {"early": "Graded since you checked", "middle": "Graded since you started following up", "older": "Graded since you started following up"},
     "where.following_up":    {"early": "Checking on it since {when}", "middle": "Following up since {when}", "older": "Following up since {when}"},
-    "a.ask_teacher":         {"early": "Ask the teacher", "middle": "Ask the teacher", "older": "Ask the teacher"},
     "a.hac_right_done":      {"early": "HAC is right, it's done", "middle": "HAC is right, it's done", "older": "HAC is right, it's done"},
     "a.hac_right":           {"early": "HAC is right", "middle": "HAC is right", "older": "HAC is right"},
     "a.zero_right":          {"early": "The zero is right", "middle": "The zero is right", "older": "The zero is right"},
@@ -95,8 +94,6 @@ PHRASES: dict[str, dict[str, str]] = {
     "facts.not_done":        {"early": "{school}.", "middle": "{school}.", "older": "{school}."},
     "facts.past_credit":     {"early": "{school}, and the late date has passed.", "middle": "{school}, and the late-work window has closed.", "older": "{school}, and the late-work window has closed."},
     "a.handed_in_behind":    {"early": "I handed it in", "middle": "It's handed in", "older": "It's handed in"},
-    "a.let_go":              {"early": "Let it go", "middle": "Let it go", "older": "Let it go"},
-    "a.too_late":            {"early": "Too late to submit", "middle": "Too late to submit", "older": "Too late to submit"},
     "where.too_late":        {"early": "Too late to submit, {when}", "middle": "Marked too late to submit on {when}", "older": "Marked too late to submit on {when}"},
     "where.past_credit":     {"early": "{school} · late date passed", "middle": "{school} · past the late-work window", "older": "{school} · past the late-work window"},
     "where.teacher_grading": {"early": "Handed in, waiting", "middle": "Handed in, not graded", "older": "Handed in, not graded"},
@@ -136,6 +133,18 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.tab_all":        {"early": "Everything the school lists. What needs your answer is at the top.",
                             "middle": "Everything the school lists, with what needs your answer at the top.",
                             "older": "Everything the school lists, with what needs your answer at the top."},
+    # --- the record: what each gradebook holds about one item, as the facts it holds
+    # (`_source_facts.html`, and the email to the teacher). One line per source, each a
+    # submission fact and a grade fact. The detail card and the check-in card used to say these
+    # in different words ("nothing submitted" / "no submission recorded"); now one partial, one
+    # row here (#46, #129). Lowercase: they follow "Canvas:" on the line. ------------------------
+    "record.missing":      {"early": "the teacher hasn't got it", "middle": "marked missing", "older": "marked missing"},
+    "record.handed_in":    {"early": "handed in {when}", "middle": "handed in {when}", "older": "handed in {when}"},
+    "record.handed_in_late": {"early": "handed in {when}, late", "middle": "handed in {when}, late", "older": "handed in {when}, late"},
+    "record.offline":      {"early": "nothing to hand in online", "middle": "nothing to submit online", "older": "nothing to submit online"},
+    "record.nothing":      {"early": "nothing handed in", "middle": "nothing handed in", "older": "nothing submitted"},
+    "record.grade":        {"early": "grade {grade}", "middle": "grade {grade}", "older": "grade {grade}"},
+    "record.no_grade":     {"early": "no grade", "middle": "no grade posted", "older": "no grade posted"},
     # --- who each surface speaks to (kids' UX audit F7). Assignments is the child's page and says
     # "you" to the child; the check-in and the plan are "we"; the two fields only a helping adult
     # fills in say so beside their label. The questions heading is swapped out of band after an
@@ -170,6 +179,36 @@ PHRASES: dict[str, dict[str, str]] = {
                          "middle": "Fridge Sheet has no earlier HAC grades from this class to go on, so it allows {days} days.",
                          "older": "Fridge Sheet has no earlier HAC grades from this class to go on, so it allows {days} days."},
 }
+
+#: The family's answers (`stores/flags.py` FLAGS), each in the three forms a page needs:
+#: the *button* that sets it ("Let it go"), the *state* it leaves the item in ("let go": the
+#: row badge, the filter, the record's "Your answer", the change log, the flag menu's status
+#: line) and the *confirm* line after saving ("Let go"). One row per flag, and every surface
+#: reads it: the same answer was a badge saying "ignore", a menu saying "Let it go", a
+#: confirmation saying "Ignored", a filter saying "let go" and a record saying "let it go"
+#: (#129). The stored name is a column value, never a word on a page. Keyed into PHRASES as
+#: `flag.<flag>.<form>`, so a tier could say one differently; none does today.
+FLAG_FORMS = ("button", "state", "confirm")
+FLAG_LABELS: dict[str, tuple[str, str, str]] = {
+    "done":        ("It's done", "done", "Marked done"),
+    "excused":     ("Excused", "excused", "Marked excused"),
+    "ignore":      ("Let it go", "let go", "Let go"),
+    "too_late":    ("Too late to submit", "too late to submit", "Marked too late to submit"),
+    "follow_up":   ("Follow up", "following up", "Following up"),
+    "ask_teacher": ("Ask the teacher", "asked the teacher", "Asked the teacher"),
+}
+PHRASES.update({f"flag.{flag}.{form}": {"early": words, "middle": words, "older": words}
+                for flag, forms in FLAG_LABELS.items() for form, words in zip(FLAG_FORMS, forms)})
+
+
+def flag_label(flag: str, form: str = "state", tier: str = "") -> str:
+    """A flag in family words: its button, its state or its confirmation, for `tier`. A flag
+    the table does not know is shown with its underscore spaced, never dropped."""
+    if form not in FLAG_FORMS:
+        raise ValueError(f"unknown flag form {form!r}; one of {', '.join(FLAG_FORMS)}")
+    if flag not in FLAG_LABELS:
+        return (flag or "").replace("_", " ")
+    return phrase(f"flag.{flag}.{form}", tier)
 
 
 def phrase(word: str, tier: str, *, table: dict[str, dict[str, str]] | None = None) -> str:

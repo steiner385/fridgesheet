@@ -131,3 +131,36 @@ def test_the_sheet_says_a_canvas_end_of_day_deadline_out_loud():
 def test_the_sheet_shows_no_time_for_a_hac_only_row():
     from fridgesheet.sheet import fmt_due
     assert fmt_due(_at(23, 59), from_canvas=False) == "Sat 9/26"
+
+
+# --- the household's own zone (#122) -------------------------------------------------------
+
+def test_a_central_household_sees_due_today_on_its_own_day():
+    """Canvas says 04:59Z. In Central time that is 11:59 PM on the 26th -- the evening a kid
+    there still has for it. Read in Eastern, as every district was while the zone was a
+    constant, it was 12:59 AM on the 27th: tomorrow on paper, tonight in fact. The conversion
+    is `Canvas.local`'s and the words are `open_items._status`'s; both take the zone from
+    Settings, so a Central household configured as one (`[general] timezone`, or simply a PC
+    whose clock is Central) sees its own day."""
+    from fridgesheet import canvas, open_items
+    from fridgesheet.config import Settings
+
+    local = canvas.Canvas(ctx=None, settings=Settings(timezone="America/Chicago")).local("2026-09-27T04:59:00Z")
+    assert local == "2026-09-26T23:59:00-05:00"
+    due = datetime.fromisoformat(local)
+    now = datetime(2026, 9, 26, 20, 0, tzinfo=ZoneInfo("America/Chicago"))
+    assert open_items._status({"state": "unsubmitted"}, due, now) == "DUE TODAY"
+    assert due_time(due, from_canvas=True) == "11:59pm"
+
+
+def test_a_household_zone_that_is_not_the_computers_reaches_the_dates_the_same_way(monkeypatch):
+    """The default zone is the computer's; a configured one wins over it everywhere the dates
+    are read, not only where a test happened to pass `timezone=` by hand."""
+    from fridgesheet import config, host
+    from fridgesheet.web import db
+
+    monkeypatch.setattr(host, "local_timezone", lambda: "America/Los_Angeles")
+    s = config.Settings()
+    assert s.timezone == "America/Los_Angeles"
+    config.settings_from_doc({"general": {"timezone": "America/Chicago"}}, s)
+    assert db.now_iso(ZoneInfo(s.timezone)).endswith(("-05:00", "-06:00"))

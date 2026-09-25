@@ -104,7 +104,10 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   releases_page=updates.RELEASES_PAGE, linux_update_how=LINUX_UPDATE_HOW,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
                   entries=entries, skip_problems=skip_problems, env_notes=actions.env_overrides(),
-                  source_rules=source_rules, SOURCE_LABELS=sources.LABELS)
+                  source_rules=source_rules, SOURCE_LABELS=sources.LABELS,
+                  # "Where you are" (#122): a blank Time zone box means this computer's zone,
+                  # so the page names it -- or says it could not be read and what is assumed.
+                  local_tz=host.local_timezone(), fallback_tz=host.FALLBACK_TIMEZONE, zones=actions.US_ZONES)
 
 
 @router.get("/settings")
@@ -122,7 +125,7 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
          update_pin: str = Form(""), clear_update_pin: str | None = Form(None),
          sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
-         conn: sqlite3.Connection = Db, state=State):
+         timezone: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
     # LAN -- but it is unsatisfiable on a headless host, where the account running the server
@@ -146,7 +149,8 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
                               port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
                               update_pin=update_pin, clear_update_pin=bool(clear_update_pin),
                               has_update_pin=bool(state.settings.web_update_pin_hash),
-                              sources_assignments=sources_assignments, sources_grades=sources_grades)
+                              sources_assignments=sources_assignments, sources_grades=sources_grades,
+                              timezone=timezone)
     lines: list[str] = []
     try:
         result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))

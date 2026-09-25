@@ -109,7 +109,7 @@ def test_flag_round_trip_updates_the_detail_and_the_list(tmp_path):
     assert "Lab notebook" not in c.get("/kids/Alex").text               # handled items leave the open list
     assert "Lab notebook" in c.get("/kids/Alex?show=all").text
     r = c.post(f"/items/{qid}/flag", data={"flag": "clear"})
-    assert "No flag" in r.text
+    assert "Answer cleared" in r.text
     assert "Lab notebook" in c.get("/kids/Alex").text
     assert c.post(f"/items/{qid}/flag", data={"flag": "bogus"}).status_code == 400
 

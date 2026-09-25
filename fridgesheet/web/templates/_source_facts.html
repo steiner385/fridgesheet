@@ -1,0 +1,12 @@
+{# What each gradebook holds about one item, as the facts it holds and as of when: one line
+   per source, each a submission fact and a grade fact, in the reader's words (`record.*`).
+   The detail card's record (`_record.html`) and the check-in's school evidence
+   (`_planning_evidence.html`) both include this, so the same item reads identically on both
+   (#46, #129). Wants `item` (an ItemView) and reads `tier` when the page set one. #}
+{% set t = tier | default('') %}
+{% macro of(obs, points) %}{{ obs.score | num }}{% if points %} of {{ points | num }}{% endif %}{% endmacro %}
+{% macro stamp(checked, as_of) %}{% if checked %} <small>checked {{ checked | wd_md_time }}{% if as_of %} · changed {{ as_of | wd_md_time }}{% endif %}</small>{% elif as_of %} <small>as of {{ as_of | wd_md_time }}</small>{% endif %}{% endmacro %}
+<div class="sources">
+  {% if item.canvas %}{% set c = item.canvas %}<div class="source"><span class="src">Canvas{{ stamp(item.canvas_checked, item.canvas_as_of) }}</span><span>{% if c.missing %}{{ 'record.missing' | words(t) }}{% if c.submitted_at %} · {% endif %}{% endif %}{% if c.submitted_at %}{{ ('record.handed_in_late' if c.late else 'record.handed_in') | words(t, {'when': c.submitted_at | wd_md_time}) }}{% elif not c.missing %}{{ ('record.offline' if item.kind in ('paper', 'in class') else 'record.nothing') | words(t) }}{% endif %} · {% if c.score is not none %}{{ of(c, item.points) }}{% elif c.grade %}{{ 'record.grade' | words(t, {'grade': c.grade}) }}{% else %}{{ 'record.no_grade' | words(t) }}{% endif %}</span></div>{% endif %}
+  {% if item.hac %}<div class="source"><span class="src">HAC{{ stamp(item.hac_checked, item.hac_as_of) }}</span><span>{% if item.hac.score is not none %}{{ of(item.hac, item.points) }}{% else %}{{ 'record.no_grade' | words(t) }}{% endif %}</span></div>{% endif %}
+</div>

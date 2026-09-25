@@ -13,12 +13,18 @@ working.
 """
 from __future__ import annotations
 
+import functools
 import getpass
+import logging
 import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+log = logging.getLogger("fridgesheet.host")
 
 IS_WINDOWS: bool = sys.platform == "win32"
 
@@ -64,6 +70,119 @@ def current_user() -> str:
         return getpass.getuser()
     except Exception:       # noqa: BLE001  no password-database entry; not worth dying for
         return ""
+
+
+#: The zone the app assumes when this computer's cannot be read: the district it was written
+#: for. `config.default_timezone` applies it, and `local_timezone` warns once when it does.
+FALLBACK_TIMEZONE = "America/New_York"
+
+#: Windows zone keys (`TimeZoneKeyName` in the registry, the same words `time.tzname` shows
+#: on an English Windows) to the IANA names `zoneinfo` and `tzdata` know. Windows keeps its
+#: own vocabulary and Python's `zoneinfo` cannot read it, so a map is the only bridge without
+#: a new dependency; this one covers the zones a household using this app plausibly has --
+#: the Americas, and a few beyond for a laptop that came from elsewhere. Anything not here
+#: is None, and the fallback says so in the log.
+WINDOWS_ZONES: dict[str, str] = {
+    "Eastern Standard Time": "America/New_York",
+    "US Eastern Standard Time": "America/Indiana/Indianapolis",
+    "Central Standard Time": "America/Chicago",
+    "Mountain Standard Time": "America/Denver",
+    "US Mountain Standard Time": "America/Phoenix",
+    "Pacific Standard Time": "America/Los_Angeles",
+    "Alaskan Standard Time": "America/Anchorage",
+    "Aleutian Standard Time": "America/Adak",
+    "Hawaiian Standard Time": "Pacific/Honolulu",
+    "Atlantic Standard Time": "America/Halifax",
+    "Newfoundland Standard Time": "America/St_Johns",
+    "Canada Central Standard Time": "America/Regina",
+    "SA Western Standard Time": "America/Puerto_Rico",
+    "Central Standard Time (Mexico)": "America/Mexico_City",
+    "Samoa Standard Time": "Pacific/Apia",
+    "UTC": "UTC",
+    "Coordinated Universal Time": "UTC",
+    "GMT Standard Time": "Europe/London",
+    "W. Europe Standard Time": "Europe/Berlin",
+    "Romance Standard Time": "Europe/Paris",
+    "Central Europe Standard Time": "Europe/Budapest",
+    "India Standard Time": "Asia/Kolkata",
+    "Tokyo Standard Time": "Asia/Tokyo",
+    "AUS Eastern Standard Time": "Australia/Sydney",
+}
+
+
+def is_timezone(name: str) -> bool:
+    """Whether `zoneinfo` knows `name`: the one judge of a zone name in this app -- config.toml's,
+    the environment's, the Settings page's and detection's answers all pass through here, so
+    no caller keeps a list of zones of its own."""
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, OSError):    # unknown, "" or something path-like
+        return False
+    return True
+
+
+def _windows_zone_name() -> str | None:
+    """The zone Windows is set to, by its own name. The registry's `TimeZoneKeyName` is the
+    canonical key whatever the display language; `time.tzname` is the same words on an
+    English Windows and the translated ones elsewhere, so it is only the fallback."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\TimeZoneInformation") as k:
+            return str(winreg.QueryValueEx(k, "TimeZoneKeyName")[0]) or None
+    except Exception:       # noqa: BLE001  not Windows, or a registry that will not answer
+        pass
+    import time
+    return time.tzname[0] if time.tzname and time.tzname[0] else None
+
+
+def detect_timezone(*, environ: dict | None = None, is_windows: bool | None = None,
+                    localtime: Path = Path("/etc/localtime"), timezone_file: Path = Path("/etc/timezone"),
+                    windows_zone=None) -> str | None:
+    """This computer's IANA zone name, or None when it cannot be read.
+
+    `TZ` first on either platform, when it names a zone (`:America/Chicago` and
+    `America/Chicago` alike; a POSIX rule such as `EST5EDT,M3.2.0` is not a name and falls
+    through). Then, on Linux, the target of the `/etc/localtime` symlink -- what glibc itself
+    follows -- and Debian's `/etc/timezone` for an image that copied the file instead of
+    linking it. On Windows, the registry's zone key through `WINDOWS_ZONES`. Every answer is
+    checked with `is_timezone` before it is believed. No `tzlocal`: this is the whole of what
+    that package does that this app needs.
+    """
+    env = os.environ if environ is None else environ
+    raw = (env.get("TZ") or "").strip().lstrip(":")
+    if raw and is_timezone(raw):
+        return raw
+    if IS_WINDOWS if is_windows is None else is_windows:
+        name = (windows_zone or _windows_zone_name)()
+        zone = WINDOWS_ZONES.get(name or "")
+        return zone if zone and is_timezone(zone) else None
+    try:
+        target = os.readlink(localtime).replace("\\", "/")
+    except OSError:                     # not a symlink, or not there
+        target = ""
+    if "zoneinfo/" in target:
+        name = target.split("zoneinfo/", 1)[1]
+        for prefix in ("posix/", "right/"):
+            name = name.removeprefix(prefix)
+        if is_timezone(name):
+            return name
+    try:
+        name = timezone_file.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        name = ""
+    return name if name and is_timezone(name) else None
+
+
+@functools.cache
+def local_timezone() -> str | None:
+    """`detect_timezone()` once per process, warning once when it comes up empty: the app then
+    assumes `FALLBACK_TIMEZONE` (config.default_timezone), and a household elsewhere should
+    hear that it did rather than find its sheet a day off."""
+    zone = detect_timezone()
+    if zone is None:
+        log.warning("could not read this computer's time zone; assuming %s until [general] timezone in "
+                    "config.toml (the Settings page) or FRIDGESHEET_TIMEZONE says otherwise", FALLBACK_TIMEZONE)
+    return zone
 
 
 class NotSupported(RuntimeError):

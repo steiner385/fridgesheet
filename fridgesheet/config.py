@@ -69,6 +69,34 @@ def _validate_refresh_time(field_name: str, value) -> None:
         raise ConfigError(f"[refresh] {field_name} must be HH:MM (24-hour), got {value!r}")
 
 
+def default_timezone() -> str:
+    """What `Settings.timezone` is until config.toml says otherwise: FRIDGESHEET_TIMEZONE, else
+    this computer's own zone, else America/New_York -- the district this app was written for,
+    with `host.local_timezone`'s warning (#122). Nothing is validated here: `load_settings`
+    refuses a bad name with a `ConfigError`, and a bare `Settings()` is not the place to raise
+    one. The time zone was a constant before this, and every household outside Eastern time
+    saw "today", DUE TODAY and its schedules an hour or more off."""
+    return os.environ.get("FRIDGESHEET_TIMEZONE", "").strip() or host.local_timezone() or host.FALLBACK_TIMEZONE
+
+
+def _validate_timezone(where: str, value) -> str:
+    """A zone name `zoneinfo` knows, stripped. Raises ConfigError otherwise -- the same posture
+    as a `time` that is not a time (#144): the pages show the line, the CLI prints it."""
+    name = str(value).strip()
+    if not host.is_timezone(name):
+        raise ConfigError(f"{where} must be a time zone name like America/Chicago, got {name!r}")
+    return name
+
+
+def configured_timezone(doc: dict) -> str:
+    """`[general] timezone` as config.toml has it, "" when it is not set -- what the Settings
+    page's box shows and edits, as distinct from the zone in force (which may be the
+    computer's own, or the environment's)."""
+    raw = doc.get("general")
+    general = raw if isinstance(raw, dict) else {}
+    return str(general.get("timezone", "") or "").strip()
+
+
 def _default_home() -> Path:
     """~/.fridgesheet on Linux, %LOCALAPPDATA%\\fridgesheet on Windows; FRIDGESHEET_HOME wins."""
     if os.environ.get("FRIDGESHEET_HOME"):
@@ -212,7 +240,9 @@ class Settings:
     canvas_base: str = "https://lakota.instructure.com"
     hac_base: str = "https://hac.lakotainline.com/HomeAccess"
     onelogin_host: str = "lakota.onelogin.com"
-    timezone: str = "America/New_York"
+    #: IANA name. This computer's zone unless `[general] timezone` or FRIDGESHEET_TIMEZONE
+    #: says otherwise (`default_timezone`); every "today", due time and schedule reads it.
+    timezone: str = field(default_factory=default_timezone)
     headless: bool = True
     user_agent: str = ""
     cache_ttl_minutes: int = 180
@@ -375,6 +405,12 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     prn = raw_prn if isinstance(raw_prn, dict) else {}
     kids = raw_kids if isinstance(raw_kids, dict) else {}
     s.username = str(acct.get("username", s.username))
+    # `[general] timezone`, the Settings page's "Where you are" (#122). Absent or blank keeps
+    # the default: this computer's zone. A name that is not a zone is a ConfigError, like a
+    # bad `time` -- a household whose every date is off is worse than a page that says why.
+    tz = configured_timezone(doc)
+    if tz:
+        s.timezone = _validate_timezone("[general] timezone", tz)
     s.printer = str(prn.get("printer", s.printer))
     s.sheets_archive = str(prn.get("archive", s.sheets_archive))
     nick = kids.get("nicknames") or {}
@@ -450,6 +486,10 @@ def load_settings() -> Settings:
     s.canvas_base = os.environ.get("FRIDGESHEET_CANVAS_BASE", s.canvas_base).rstrip("/")
     s.hac_base = os.environ.get("FRIDGESHEET_HAC_BASE", s.hac_base).rstrip("/")
     s.onelogin_host = os.environ.get("FRIDGESHEET_ONELOGIN_HOST", s.onelogin_host)
+    # The environment wins over config.toml, as for the printer below; the Settings page says
+    # so beside the box (actions.env_overrides). A blank variable is no override.
+    if os.environ.get("FRIDGESHEET_TIMEZONE", "").strip():
+        s.timezone = _validate_timezone("FRIDGESHEET_TIMEZONE", os.environ["FRIDGESHEET_TIMEZONE"])
     s.headless = os.environ.get("FRIDGESHEET_HEADLESS", "1") not in ("0", "false", "no")
     s.user_agent = os.environ.get("FRIDGESHEET_USER_AGENT", s.user_agent)
     raw_ttl = os.environ.get("FRIDGESHEET_CACHE_TTL_MINUTES")

@@ -5,17 +5,19 @@ One transaction per snapshot. Students, courses and items are upserted by stable
 an observation is appended only when the source's view of an item (or a course's grade)
 differs from the last one recorded, so the observation tables are change logs.
 A HAC row that names the same work as a Canvas assignment in the matched course becomes
-that assignment's second source rather than its own item.
+that assignment's second source rather than its own item: rows and assignments are paired
+one to one by title, the same title first and the closest wording next (`matching.pair_titles`,
+#132), then by due date and points for the titles that share too few words. A row that pairs
+with nothing is its own HAC-only item -- a retake whose near twin is already taken included,
+which used to be dropped.
 
 Real HAC data collides: one student's course can list the same normalised assignment name
 twice with different due dates -- genuinely different assignments (Task 1's spike over live
-data found this in a participation category). `matching.hac_item_key` gives the plain
-`hac:<short course>:<norm name>` key (the same one the sheet uses, so a flag set in the app
-finds the row it was set on); `record` detects, per HAC-only course, when two or more
-rows share that base key within one snapshot and disambiguates every one of them (not just the
-second, so the key never depends on row order) by appending the row's own due date. Two
-colliding rows that also share a due date are the same row scraped twice, not two assignments:
-the first is kept and the rest are skipped entirely -- no item, no observation, not counted.
+data found this in a participation category). `matching.hac_only_key` therefore keys every
+HAC-only row by its title and its due date, `hac:<short course>:<norm name>:<YYYY-MM-DD>`
+(the same key the sheet uses, so a flag set in the app finds the row it was set on), and
+`open_items.hac_only_keys` skips a second row with one title and one date -- the same row
+scraped twice -- entirely: no item, no observation, not counted.
 """
 from __future__ import annotations
 
@@ -25,7 +27,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..matching import hac_item_key, match_course, norm_name, same_item, short_course
+from .. import collector
+from ..matching import match_course, pair_titles, short_course, twin_by_date_and_points
 from ..open_items import ASSESSMENT_WORDS, hac_excused, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
 from . import db
 
@@ -38,6 +41,27 @@ class IngestResult:
     items: int                       # items this snapshot created, not items it saw
     observations: int
     grades: int
+    carried: tuple[str, ...] = ()    # Canvas classes served from an older pull, "Alex's Algebra I" (#140)
+    missing: tuple[str, ...] = ()    # Canvas classes that failed with nothing older to serve
+
+    def note(self) -> str:
+        """What the log line and the run message add when a class did not answer, or ""."""
+        parts = []
+        if self.carried:
+            parts.append(f"{n_classes(len(self.carried))} carried from an older pull: {', '.join(self.carried)}")
+        if self.missing:
+            parts.append(f"{n_classes(len(self.missing))} not fetched: {', '.join(self.missing)}")
+        return "; ".join(parts)
+
+
+def n_classes(n: int) -> str:
+    return f"{n} class" if n == 1 else f"{n} classes"
+
+
+def course_label(fault: dict) -> str:
+    """"Alex's Algebra I" -- the kid and the class, short, the way the header names them."""
+    name = fault.get("name")
+    return f"{fault['kid']}'s {short_course(name) if name else 'course ' + str(fault['course_id'])}"
 
 
 def item_key_canvas(assignment_id) -> str:
@@ -63,37 +87,6 @@ def _upsert_course(conn, student_id: int, source: str, external_id, name: str, t
     return conn.execute("SELECT id FROM courses WHERE student_id = ? AND source = ? AND name = ?", (student_id, source, name)).fetchone()[0]
 
 
-def _twin_by_date_and_points(row: dict, name: str, twins: list, attached: set[int], tz) -> int | None:
-    """The Canvas twin of a HAC row whose *title* the word matcher could not pair.
-
-    On a real gradebook three pairs slipped past `same_item`: "Concert Contract" / "Concert
-    Contract Due", "Community Health" / "Ch. 1 - Community Health", "WK #1 HW" / "Week 1 Skill
-    of the Week: Summary". Each was then a HAC-only item *and* a Canvas-only item, so the
-    kid's record counted the work twice -- once as done (HAC had the grade) and once as
-    unknown (Canvas had no submission). A teacher who enters the same assignment in both
-    systems gives it the same due date and the same points, so when exactly one unclaimed
-    Canvas item in the paired course matches on both, and the two titles agree on every
-    number they contain (`Quiz 1` must still never pair with `Quiz 2`), that is the twin.
-    Exactly one: two same-day ten-point worksheets with unrelated titles stay apart.
-    """
-    due = parse_hac_date(row.get("due"), tz)
-    points = row.get("points")
-    if due is None or points is None:
-        return None
-    digits = {w for w in norm_name(name).split() if w.isdigit()}
-
-    def numbers_agree(other: str) -> bool:
-        # Only two titles that *both* carry numbers have to agree on them. "Ch. 1 - Community
-        # Health" against "Community Health" is one assignment; a title with no number imposes
-        # no constraint. "Week 1" against "Week 2" stays two.
-        theirs = {w for w in norm_name(other).split() if w.isdigit()}
-        return not digits or not theirs or digits == theirs
-
-    found = [iid for iid, n, d, p in twins
-             if iid not in attached and d == due.date().isoformat() and p == points and numbers_agree(n)]
-    return found[0] if len(found) == 1 else None
-
-
 def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kind: str, points, due: str | None,
                  assigned: str | None, is_assessment: bool, refresh_id: int,
                  present: frozenset[str] = frozenset(), *, unlock_at: str | None = None, lock_at: str | None = None) -> tuple[int, bool]:
@@ -101,7 +94,7 @@ def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kin
 
     An item is identified by student, course and key together, never by key alone: two kids
     in like-named classes, and one kid in two sections of one course, share
-    `hac:<short course>:<norm name>`, and siblings in one section share `canvas:<id>`.
+    `hac:<short course>:<norm name>:<due>`, and siblings in one section share `canvas:<id>`.
 
     When the school renames a class mid-year it becomes a second `courses` row, so an item
     this student already carries under that key -- and that no row in this refresh has
@@ -196,15 +189,21 @@ def _hac_values(row: dict) -> dict:
 def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None = None) -> IngestResult:
     now = now or datetime.now(tz)
     sources = snapshot.get("sources") or {}
+    carried, missing = collector.course_faults(snapshot)
     n_students = n_courses = n_items = n_obs = n_grades = 0
     with conn:
         # IMMEDIATE takes the write lock up front: a deferred transaction that reads first and
         # writes later can only fail with SQLITE_BUSY when the web worker got there in between,
         # and a whole snapshot is too much work to throw away.
         conn.execute("BEGIN IMMEDIATE")
-        cur = conn.execute("INSERT INTO refreshes(started_at, finished_at, sources, ok) VALUES (?, ?, ?, ?)",
+        # `ok` reads the sources alone: a refresh in which one Canvas class was carried from an
+        # older pull is still a good refresh for the 24-hour rule (#140) -- the household's
+        # data is complete, one class of it is just older, and the header says which. The
+        # carried class's record is in the snapshot, so its items are seen in this refresh below.
+        cur = conn.execute("INSERT INTO refreshes(started_at, finished_at, sources, ok, carried) VALUES (?, ?, ?, ?, ?)",
                            (snapshot.get("fetched_at") or now.isoformat(), now.isoformat(), json.dumps(sources),
-                            int(all(v == "ok" for v in sources.values()))))
+                            int(all(v == "ok" for v in sources.values())),
+                            json.dumps({"carried": carried, "missing": missing}) if carried or missing else None))
         refresh_id = cur.lastrowid
         for key, entry in (snapshot.get("students") or {}).items():
             student_id = _upsert_student(conn, key, entry.get("name") or key)
@@ -253,26 +252,36 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hid, peer_cid))
                 n_grades += _observe_grade(conn, refresh_id, hid, h.get("marking_period_avg"), None, None, None, h.get("last_updated"))
                 twins = canvas_items_by_course.get(peer_cid, []) if peer_cid is not None else []
-                attached_twins: set[int] = set()
+                rows = h.get("assignments") or []
+                # Each row's Canvas twin by title, one to one and best first (`matching.pair_titles`,
+                # the rule the sheet reads too): "Unit 3 Test Retake" gets the retake's row and
+                # "Unit 3 Test" the test's, whichever HAC lists first (#132). A Canvas item takes
+                # at most one HAC observation per refresh -- item_observations is unique on
+                # (refresh_id, item_id, source) -- and the one-to-one pairing is what keeps it so.
+                pairs = pair_titles([n for _iid, n, _d, _p in twins], [r.get("name") or "" for r in rows])
+                twin_of = {hi: twins[ci][0] for ci, hi in pairs.items()}
+                attached_twins: set[int] = set(twin_of.values())
                 unmatched = []
-                for row in h.get("assignments") or []:
+                for i, row in enumerate(rows):
                     name = row.get("name") or ""
-                    twin = next((iid for iid, n, _d, _p in twins if same_item(name, n)), None)
+                    twin = twin_of.get(i)
                     if twin is None:
-                        twin = _twin_by_date_and_points(row, name, twins, attached_twins, tz)
-                    if twin is not None and twin not in attached_twins:
-                        # Attach the first row that names the same work as a Canvas twin. A
-                        # Canvas item takes at most one HAC observation per refresh (mirroring
-                        # open_items, which does the same with `next(...)`), so a later row
-                        # matching an already-attached twin is dropped, not made a HAC-only item
-                        # -- otherwise two same-named HAC rows both matching one Canvas
-                        # assignment would collide on item_observations' (refresh_id, item_id,
-                        # source) uniqueness and roll back the whole snapshot.
-                        attached_twins.add(twin)
+                        # Titles typed too differently to pair: the same due date and points,
+                        # when exactly one free Canvas item has them (`matching.twin_by_date_and_points`).
+                        free = [t for t in twins if t[0] not in attached_twins]
+                        hac_due = parse_hac_date(row.get("due"), tz)
+                        at = twin_by_date_and_points(name, hac_due.date() if hac_due else None, row.get("points"),
+                                                     [(n, d, p) for _iid, n, d, p in free])
+                        if at is not None:
+                            twin = free[at][0]
+                            attached_twins.add(twin)
+                    if twin is not None:
                         n_obs += _observe(conn, refresh_id, twin, "hac", _hac_values(row))
-                    elif twin is None:
+                    else:
+                        # No free twin: the row is its own item, never dropped. A second
+                        # same-titled row whose twin is taken is a second piece of work.
                         unmatched.append(row)
-                # The rest become HAC-only items, keyed per the collision rule above.
+                # The rest become HAC-only items, keyed by title and due date (module docstring).
                 for row, item_key in _hac_only_rows(unmatched, h["name"], tz):
                     name = row.get("name") or ""
                     due = parse_hac_date(row.get("due"), tz)
@@ -284,4 +293,5 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                                                     present)
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "hac", _hac_values(row))
-    return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades)
+    return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades,
+                        tuple(course_label(c) for c in carried), tuple(course_label(m) for m in missing))

@@ -43,7 +43,7 @@ The Schedules page (one row per report, built-in or saved) and `fridgesheet sche
 - CLI: `fridgesheet schedule show|remove <report>`, `fridgesheet schedule remove --all`
 - `fridgesheet/web/clock.py`, `fridgesheet/schedule_plan.py` (the clock and the plan it acts on)
 - `fridgesheet/web/routes/schedules.py`, `fridgesheet/web/schedules.py` (the Schedules page, `config.toml` persistence only)
-- `fridgesheet/web/db.py` `schedule_fires` table (schema 6, the last slot each schedule fired)
+- `fridgesheet/web/db.py` `schedule_fires` table (schema 8, the last slot each schedule fired)
 - `fridgesheet/host/scheduling.py`, `fridgesheet/host/scheduling_linux.py`, `fridgesheet/host/scheduling_windows.py` (leftover removal only)
 - `systemd/fridgesheet-print-sheet.{service,timer}`, `systemd/fridgesheet-refresh.{service,timer}` (the hand-written units the app must never touch)
 - README.md §6 ("Printing a report on a schedule")
