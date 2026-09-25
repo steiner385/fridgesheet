@@ -125,6 +125,45 @@
    below has a Save of its own (#186). #}
 <p class="field-help seam">Save above keeps the cards above it. Each card below saves on its own.</p>
 {% include "_update_button.html" %}
+<script>
+// After a successful POST /settings/update: the server is about to be killed by the
+// installer it starts, so this poll has to outlive it -- it works only because this script
+// is already loaded and running in the browser by the time that happens; nothing after the
+// POST depends on the server that handled it still being there. It is registered here, once
+// per page, rather than inside `_update_button.html`, which "Check for updates now" can swap
+// in any number of times. The version to wait for comes from the form that made the request.
+document.body.addEventListener('htmx:afterRequest', function (e) {
+  if (!e.detail.pathInfo || e.detail.pathInfo.requestPath !== '/settings/update') return;
+  if (e.detail.xhr.status !== 200) return;
+  var latest = e.detail.elt && e.detail.elt.dataset ? e.detail.elt.dataset.latest : '';
+  var deadline = Date.now() + 10 * 60 * 1000;
+  (function poll() {
+    // Checked first, on every iteration, so a timeout is reached the same way whether the
+    // last attempt failed to connect or succeeded and just reported the old version --
+    // see the two branches below.
+    if (Date.now() > deadline) {
+      var job = document.getElementById('update-job');
+      if (job) job.textContent = 'This is taking longer than expected. Open Fridge Sheet from your desktop shortcut.';
+      return;
+    }
+    fetch('/health', {cache: 'no-store'})
+      .then(function (r) { return r.json(); })
+      .then(function (h) {
+        // The server answered -- with the old version, most likely, still running until
+        // the installer reaches it. Normal mid-update; keep polling.
+        if (latest && h.version === latest) { location.reload(); return; }
+        setTimeout(poll, 3000);
+      })
+      .catch(function () {
+        // fetch rejects when there is nothing to connect to: the old server has exited
+        // and the new one has not opened its port yet. Just as normal mid-update as the
+        // old-version reply above -- neither case ends the poll early, only the deadline
+        // checked at the top of this function does.
+        setTimeout(poll, 3000);
+      });
+  })();
+});
+</script>
 {% if source_rules %}
 <section class="card">
 <h3>Gradebook overrides</h3>

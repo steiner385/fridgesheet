@@ -579,6 +579,32 @@ def test_the_button_renders_when_nothing_blocks_it(tmp_path, monkeypatch):
     assert "Update to 9.9.9" in body
 
 
+def test_check_now_brings_the_update_button_with_it(tmp_path, monkeypatch):
+    """The button block used to render only on a full page load, so "Check for updates now"
+    finding a release left the parent reloading the page to see the form. The check's
+    response carries the block out of band instead, into the anchor the page always has."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the card's Windows guards, not the Linux line (#145)
+    c = _app_with_update(tmp_path, pin=updatepin.hash_pin("2468"), tag="v0.1.0")
+    body = c.get("/settings").text
+    assert 'action="/settings/update"' not in body and 'id="update-action"' in body
+    c.app.state.fridgesheet.extra["update_fetch"] = _release_fetch("v9.9.9")
+    r = c.post("/settings/update/check")
+    assert r.status_code == 200 and "Fridge Sheet 9.9.9 is available" in r.text
+    assert 'id="update-action" hx-swap-oob="true"' in r.text
+    assert 'action="/settings/update"' in r.text and "Update to 9.9.9" in r.text
+
+
+def test_check_now_does_not_route_around_the_guards(tmp_path, monkeypatch):
+    """Same swap, same guards: with no PIN set the out-of-band block comes back empty -- the
+    check must not route around `_update_button.html`'s refusals. The reason is not in it:
+    it sits in the Updates card beside the PIN field (#145), which a check does not change."""
+    monkeypatch.setattr(host, "IS_WINDOWS", True)   # the card's Windows guards, not the Linux line (#145)
+    c = _app_with_update(tmp_path, tag="v9.9.9")
+    r = c.post("/settings/update/check")
+    assert r.status_code == 200 and 'id="update-action" hx-swap-oob="true"' in r.text
+    assert 'action="/settings/update"' not in r.text
+
+
 RULE = '\n[[sources.rule]]\nkid = "Alex"\ncourse = "Band"\nassignments = "hac"\n'
 
 

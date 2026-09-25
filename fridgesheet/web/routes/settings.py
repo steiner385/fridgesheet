@@ -56,24 +56,18 @@ def config_problem(state, e: config.ConfigError) -> str:
             "with a text editor, then reload this page.")
 
 
-def _page(request, conn, state, form, messages=(), errors=()):
-    # The port this process answers on, not the one config.toml holds for the next start (#9).
-    port = state.settings.web_port
-    # `form` is None when config.toml does not read (#144): the page still renders, with the
-    # error, and without a form whose placeholders a Save would write over the parent's file.
-    allow_lan = form.allow_lan if form is not None else state.settings.web_allow_lan
-    lan_url = actions.lan_url(port) if allow_lan else None
-    # The one network call the page makes that is not to a school system: once a day, cached
-    # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
-    update = updates.check(state, now=state.now())
-    tailnet_url = _tailnet_url(port) if allow_lan else None
-    # The refusals that keep the update button from starting something it can already
-    # predict will go wrong -- see `_update_button.html`. The platform comes right after the
-    # checkbox (#145): `POST /settings/update` answers 409 off Windows whatever else is set,
-    # so on Linux no PIN would help and the card says how a checkout updates instead.
-    # `info.installed` is only asked for once the earlier guards pass: on most machines and
-    # most page loads (checks off, Linux, or no PIN set yet) that avoids a real `systemctl
-    # --user`/`schtasks` shell-out for a question the page was not going to act on anyway.
+def _update_gate(state, update) -> tuple[bool, str]:
+    """Whether the update button may be offered, and if not, the line that says why.
+
+    The refusals that keep the button from starting something it can already predict will
+    go wrong -- see `_update_button.html`. Shared by the page and by the "check now" swap,
+    so a check that finds a release offers (or declines) the button under the same rules
+    a fresh page load would. The platform comes right after the checkbox (#145): `POST
+    /settings/update` answers 409 off Windows whatever else is set, so on Linux no PIN would
+    help and the card says how a checkout updates instead. `info.installed` is only asked
+    for once the earlier guards pass: on most machines and most page loads (checks off,
+    Linux, or no PIN set yet) that avoids a real `systemctl --user`/`schtasks` shell-out for
+    a question the page was not going to act on anyway."""
     reason = ""
     if not state.settings.web_check_updates:
         reason = "Update checks are turned off."
@@ -89,7 +83,21 @@ def _page(request, conn, state, form, messages=(), errors=()):
             reason = ("Fridge Sheet is not set up to start on its own on this computer, so an "
                       "update could leave it closed. Install it again from the desktop shortcut "
                       "first (issue #39).")
-    update_ready = bool(update and update.available and not reason)
+    return bool(update and update.available and not reason), reason
+
+
+def _page(request, conn, state, form, messages=(), errors=()):
+    # The port this process answers on, not the one config.toml holds for the next start (#9).
+    port = state.settings.web_port
+    # `form` is None when config.toml does not read (#144): the page still renders, with the
+    # error, and without a form whose placeholders a Save would write over the parent's file.
+    allow_lan = form.allow_lan if form is not None else state.settings.web_allow_lan
+    lan_url = actions.lan_url(port) if allow_lan else None
+    # The one network call the page makes that is not to a school system: once a day, cached
+    # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
+    update = updates.check(state, now=state.now())
+    tailnet_url = _tailnet_url(port) if allow_lan else None
+    update_ready, reason = _update_gate(state, update)
     try:
         source_rules = actions.load_sources(state.home).rules
     except config.ConfigError:
@@ -232,7 +240,12 @@ def check_for_updates_now(request: Request, conn: sqlite3.Connection = Db, state
     if not state.settings.web_check_updates:
         raise HTTPException(409, "Update checks are turned off in Settings.")
     update = updates.check(state, now=state.now(), force=True)
-    return render_partial(request, conn, "_update_status.html", update=update, is_windows=host.IS_WINDOWS,
+    # The status line, plus the update button block swapped out of band: a check that finds
+    # a release used to leave the parent reloading the page to get the form it had just
+    # earned. Same guards as the page (`_update_gate`), not a shortcut around them.
+    update_ready, reason = _update_gate(state, update)
+    return render_partial(request, conn, "_update_check.html", update=update,
+                          update_ready=update_ready, update_blocked_reason=reason, is_windows=host.IS_WINDOWS,
                           releases_page=updates.RELEASES_PAGE, linux_update_how=LINUX_UPDATE_HOW)
 
 
