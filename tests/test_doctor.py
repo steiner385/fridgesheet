@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from fridgesheet import cli, doctor, host
-from fridgesheet.config import ReportConfig, Settings
+from fridgesheet.config import RefreshConfig, ReportConfig, Settings
 from fridgesheet.host import ScheduleInfo, printing, scheduling
 
 
@@ -102,7 +102,8 @@ def test_printers_probe_fails_when_it_cannot_print(monkeypatch, tmp_path):
         doctor._printers(Settings(home=tmp_path, printer="Den"), tmp_path)
 
     monkeypatch.setattr(printing, "default_printer", lambda: None)
-    with pytest.raises(RuntimeError, match="no printer is configured and Windows has no default printer"):
+    # Not "Windows": this probe runs on Linux too (#150), where CUPS is what has no default.
+    with pytest.raises(RuntimeError, match="no printer is configured and this computer has no default printer"):
         doctor._printers(Settings(home=tmp_path), tmp_path)
 
     monkeypatch.setattr(printing, "default_printer", lambda: "Office")
@@ -122,6 +123,32 @@ def test_scheduler_probe_reports_last_result_when_scheduled(monkeypatch, tmp_pat
     monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("task-scheduler", True, "2026-09-15 14:00", "printed"))
     detail = doctor._scheduler(Settings(home=tmp_path), tmp_path)
     assert detail == "task-scheduler: next run 2026-09-15 14:00; last result printed"
+
+
+def test_scheduler_probe_flags_a_data_refresh_that_is_on_but_not_installed(monkeypatch, tmp_path):
+    """#150: the probe looked at open-work only. The data refresh keeps every scheduled report
+    (which runs `--no-refresh`) current, so a missing refresh task is just as much a failure."""
+    installed = {"open-work"}
+    monkeypatch.setattr(scheduling, "describe",
+                        lambda key: ScheduleInfo("systemd", key in installed, "Wed 14:00" if key in installed else None, None))
+    s = Settings(home=tmp_path)
+    s.refresh = RefreshConfig(enabled=True)
+    with pytest.raises(RuntimeError, match=r"the data refresh is on in config.toml but no task is installed"):
+        doctor._scheduler(s, tmp_path)
+    installed.add(host.DATA_REFRESH_KEY)
+    assert "data refresh scheduled" in doctor._scheduler(s, tmp_path)
+
+
+def test_scheduler_probe_flags_a_saved_report_that_is_on_but_not_installed(monkeypatch, tmp_path):
+    installed = set()
+    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("systemd", key in installed, None, None))
+    s = Settings(home=tmp_path)
+    s.reports["view:3"] = ReportConfig(enabled=True)
+    s.reports["view:4"] = ReportConfig(enabled=False)             # off: nothing to check
+    with pytest.raises(RuntimeError, match=r"\[reports\.view:3\] is on in config.toml but no task is installed"):
+        doctor._scheduler(s, tmp_path)
+    installed.add("view:3")
+    assert "1 saved report scheduled" in doctor._scheduler(s, tmp_path)
 
 
 def test_credential_probe_round_trips_on_windows(monkeypatch, tmp_path):

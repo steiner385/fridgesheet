@@ -167,10 +167,13 @@ function drawChart(el) {
           var ymd = w.split("-");
           return new Date(Number(ymd[0]), Number(ymd[1]) - 1, Number(ymd[2])).getTime() / 1000;
         });
-        series = [xs, data.not_done, data.unknown, data.late, data.on_time];
+        // One line per count `/trends/weekly.json` sends and the table beside the chart shows --
+        // "On paper" was once left out here, so the chart and its table disagreed (#150).
+        series = [xs, data.not_done, data.unknown, data.late, data.done_offline, data.on_time];
         opts = { title: el.dataset.title, width: width, height: plotHeight,
                  series: [{}, { label: "Not done", stroke: "#b3261e" }, { label: "Unknown", stroke: "#8a6d3b" },
-                          { label: "Late", stroke: "#b8860b" }, { label: "On time", stroke: "#2e7d32" }] };
+                          { label: "Late", stroke: "#b8860b" }, { label: "On paper", stroke: "#1f5fa8" },
+                          { label: "On time", stroke: "#2e7d32" }] };
       } else {
         if (!data.series.length) { el.innerHTML = '<p class="muted">No grades recorded yet.</p>'; return; }
         var times = {};

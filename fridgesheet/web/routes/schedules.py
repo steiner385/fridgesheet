@@ -41,7 +41,11 @@ def _page(request, conn, state, *, messages=(), errors=()):
         errors = [*errors, *([] if problem in errors else [problem])]     # a POST may have said it already
     printers = actions.printer_names(state.extra)
     return render(request, conn, "schedules.html", current="schedules",
-                  rows=rows, days=DAYS, refresh=refresh,
+                  rows=rows, days=DAYS,
+                  # Not `refresh`: that is the last refresh `_header.html` reads from the
+                  # page context, and passing the schedule under the same name blanked the
+                  # header's "Refreshed <time>" on this one page (#141).
+                  refresh_schedule=refresh,
                   printer_options={r.key: _printer_options(printers, r.printer) for r in rows},
                   messages=list(messages), errors=list(errors))
 
