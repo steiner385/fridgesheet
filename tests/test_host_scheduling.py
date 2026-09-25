@@ -650,6 +650,7 @@ def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
     from fridgesheet import cli
     from fridgesheet.config import Settings
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
+    (tmp_path / "login-ok.txt").write_text("ok")       # `install` gates on a passed login (#154)
     monkeypatch.setattr(scheduling, "describe", lambda key, run=None: scheduling.ScheduleInfo("systemd", True, "Tue 14:00", None))
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "show"])

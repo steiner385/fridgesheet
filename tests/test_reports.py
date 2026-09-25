@@ -138,6 +138,7 @@ def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
 
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
     monkeypatch.setattr("fridgesheet.host.scheduling", FakeScheduling)
+    (tmp_path / "login-ok.txt").write_text("ok")       # `install` gates on a passed login (#154)
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", "view:1"])
     assert e.value.code == 0

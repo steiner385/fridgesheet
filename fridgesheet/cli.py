@@ -102,6 +102,11 @@ def cmd_set_credentials(args) -> int:
 
 
 def cmd_check(args) -> int:
+    """Sign in headless to Canvas and HAC, the way a scheduled run will. A pass counts the
+    same as the Settings page's Test login: it leaves the stamp the Schedules page and
+    `schedule install` gate on (`web.actions.record_login`, #154), and a failure takes it
+    away, so a terminal-only setup can finish without ever opening the web app."""
+    from .web import actions
     s = load_settings()
     ok = True
     with browser(s) as ctx:
@@ -112,6 +117,7 @@ def cmd_check(args) -> int:
             except Exception as e:
                 ok = False
                 print(f"  {name}: FAILED - {e}")
+    actions.record_login(s.home, ok)
     return 0 if ok else 1
 
 
@@ -392,9 +398,16 @@ def cmd_schedule(args) -> int:
             return 2
         return _cmd_schedule_remove_all()
     from . import host, refresh_schedule
-    from .web import schedules as page
+    from .web import actions, schedules as page
     s = load_settings()
     key = args.report
+    if args.action == "install" and not args.force and not actions.login_passed(s.home):
+        # The Schedules page's own gate (#154): a timer installed before any login has
+        # passed fires and fails every run. Not applied to `remove` or `show`, which need
+        # no login, and not to `--force`, for whoever knows better.
+        print("Nothing installed: no login check has passed yet. Run `fridgesheet check` "
+              "(or Test login on the Settings page) first, or pass --force.", file=sys.stderr)
+        return 1
     try:
         if args.action == "install":
             if key == host.DATA_REFRESH_KEY:
@@ -445,6 +458,9 @@ def cmd_schedule(args) -> int:
 
 
 def cmd_web(args) -> int:
+    """Run the web app in the foreground and open a browser on it -- `--no-browser` on a
+    machine with no desktop (a headless server, an SSH session), where there is none to open;
+    the app is then reached through an SSH tunnel or, once allowed, from another device."""
     from .web import server
     return server.run(load_settings(), host=args.host, port=args.port, open_browser=not args.no_browser)
 
@@ -589,11 +605,17 @@ def main(argv=None) -> None:
                      help="with `remove`: every report's schedule, not just `report` -- what the uninstaller runs, "
                           "and the only way to remove a schedule left behind by a saved report that "
                           "no longer exists (`remove view:N` refuses a key that does not resolve)")
+    sc2.add_argument("--force", action="store_true",
+                     help="with `install`: install even though no login check (`fridgesheet check` or "
+                          "Test login on the Settings page) has passed yet")
     sc2.set_defaults(fn=cmd_schedule)
-    w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser")
+    w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser "
+                                   "(use that on a machine with no desktop)")
     w.add_argument("--host", default=None, help="bind address (default: config.toml [web], 127.0.0.1)")
     w.add_argument("--port", type=int, default=None, help="port (default: config.toml [web], 8433)")
-    w.add_argument("--no-browser", action="store_true")
+    w.add_argument("--no-browser", action="store_true",
+                   help="do not open a browser: for a machine with no desktop (a headless server, an SSH "
+                        "session); reach the app through an SSH tunnel or from another device instead")
     w.set_defaults(fn=cmd_web)
     sv = sub.add_parser("service", help="install, remove or show the always-on web server (systemd user unit / Windows logon task)")
     sv.add_argument("action", choices=["install", "remove", "show"])

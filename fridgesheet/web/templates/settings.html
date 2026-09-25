@@ -15,6 +15,9 @@
       <label>OneLogin username <input name="username" value="{{ form.username }}" autocomplete="username"></label>
       <label>OneLogin password <input name="password" type="password" autocomplete="current-password" placeholder="leave blank to keep the stored one"></label>
     </div>
+    {# The environment supplies the login (FRIDGESHEET_ONELOGIN_* or the 1Password references):
+       the store is never read, Save asks for neither box, and the note says so (#154). #}
+    {% if env_notes.password %}<p class="field-help env-note">{{ env_notes.password }}</p>{% endif %}
     <p class="field-help">{% if loopback %}The password is stored in this computer's credential store, never in a file.{% else %}The password is stored in the credential store on the computer running Fridge Sheet, never in a file.{% endif %}</p>
     {% if not loopback %}<details class="field-help"><summary>You are not on that computer</summary>
       This page has no HTTPS, so the password crosses your network in the clear on its way

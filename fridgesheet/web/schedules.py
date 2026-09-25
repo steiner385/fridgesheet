@@ -14,13 +14,16 @@ from pathlib import Path
 from typing import Callable
 
 from .. import config, host, refresh_schedule, reports as registry, runner
-from .actions import _settings_for, _table          # one copy of each (#7)
+from .actions import LOGIN_STAMP, _settings_for, _table, login_passed   # one copy of each (#7, #154)
 
 log = logging.getLogger("fridgesheet.web.schedules")
 
 CONFIG_NAME = "config.toml"
-LOGIN_STAMP = "login-ok.txt"
 REFRESH_TITLE = "Data refresh"
+#: The line a save that could not install answers with. `fridgesheet check` passes the same
+#: gate as the button (#154), so a parent at a terminal is told so too.
+NO_LOGIN_YET = ("Saved, but nothing is installed yet: run Test login on the Settings page (or "
+                "`fridgesheet check` in a terminal) first, then save this schedule again.")
 
 
 @dataclass(frozen=True)
@@ -230,9 +233,8 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
         log(messages[-1])
         return Outcome(True, messages)
 
-    if not (home / LOGIN_STAMP).exists():
-        messages.append("Saved, but nothing is installed yet: run Test login on the Settings page first, "
-                        "then save this schedule again.")
+    if not login_passed(home):
+        messages.append(NO_LOGIN_YET)
         log(messages[-1])
         return Outcome(True, messages)
 
@@ -373,9 +375,8 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
         log(messages[-1])
         return Outcome(True, messages)
 
-    if not (home / LOGIN_STAMP).exists():
-        messages.append("Saved, but nothing is installed yet: run Test login on the Settings page first, "
-                        "then save this schedule again.")
+    if not login_passed(home):
+        messages.append(NO_LOGIN_YET)
         log(messages[-1])
         return Outcome(True, messages)
 
