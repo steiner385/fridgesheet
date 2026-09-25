@@ -1,8 +1,10 @@
 """#144: a config.toml that does not read is a message, never a 500 or a traceback.
-#146: a schedule can always be turned off, and the CLI keeps config.toml in step with the host.
+#146: a schedule can always be turned off, and the CLI keeps config.toml in step with the
+server's own clock (web/clock.py reads config.toml fresh every tick, so `remove` needs to do
+nothing but write the file).
 
-The pages call no OS scheduler at all; the CLI's scheduler is `FakeScheduling`, monkeypatched
-over `fridgesheet.host.scheduling`, so nothing reaches systemctl or schtasks."""
+Neither the pages nor the CLI call an OS scheduler any more: the server's own clock replaced
+it (2026-09-25 in-app scheduler), so nothing here reaches systemctl or schtasks."""
 from __future__ import annotations
 
 import tomllib
@@ -11,9 +13,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from fridgesheet import cli, config, host
-from fridgesheet.host import scheduling as _real_scheduling  # noqa: F401  makes `fridgesheet.host.scheduling` patchable
 from fridgesheet.web import app as webapp, schedules
-from tests.web_fixtures import LOCAL_HOST_HEADERS, FakeScheduling, seed
+from tests.web_fixtures import LOCAL_HOST_HEADERS, seed
 
 BAD_TIME = '[reports.open-work]\ntime = "25:99"\n'
 
@@ -121,12 +122,9 @@ def test_an_enabled_schedule_still_needs_a_day(tmp_path):
 
 @pytest.fixture
 def cli_home(tmp_path, monkeypatch):
-    sched = FakeScheduling()
     monkeypatch.setattr(cli, "load_settings", lambda: config.Settings(home=tmp_path)
                         if not (tmp_path / "config.toml").exists() else _settings(tmp_path))
-    monkeypatch.setattr("fridgesheet.host.scheduling", sched)
-    sched.display_name = lambda key: f"fridgesheet-{key}"
-    return tmp_path, sched
+    return tmp_path
 
 
 def _settings(home):
@@ -139,48 +137,27 @@ def _doc(home):
     return tomllib.loads((home / "config.toml").read_text())
 
 
-def test_cli_install_and_remove_record_enabled_like_the_page_does(cli_home):
-    home, sched = cli_home
-    with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install", "open-work"])
-    assert e.value.code == 0 and sched.installed[0]["key"] == "open-work"
-    assert _doc(home)["reports"]["open-work"]["enabled"] is True
+def test_cli_remove_records_enabled_like_the_page_does(cli_home):
+    """`install` is gone (2026-09-25 in-app scheduler): a schedule is turned on from the
+    Schedules page and read by the server's own clock, so the CLI's one remaining job here is
+    turning one off -- and `record_enabled` must write `enabled = false` the same way the page
+    does, or `doctor`'s scheduler check keeps calling it on."""
+    home = cli_home
+    (home / "config.toml").write_text('[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Mon"]\n')
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "open-work"])
-    assert e.value.code == 0 and sched.removed == ["open-work"]
+    assert e.value.code == 0
     assert _doc(home)["reports"]["open-work"]["enabled"] is False
 
 
-def test_cli_install_keeps_everything_else_in_the_table(cli_home):
-    home, sched = cli_home
-    (home / "config.toml").write_text('[reports.open-work]\ntime = "15:10"\ndays = ["Tue"]\ndays_ahead = 7\n')
-    with pytest.raises(SystemExit):
-        cli.main(["schedule", "install", "open-work"])
-    assert sched.installed[0]["times"] == ["15:10"] and sched.installed[0]["days"] == ["Tue"]
-    assert _doc(home)["reports"]["open-work"] == {"time": "15:10", "days": ["Tue"], "days_ahead": 7, "enabled": True}
-
-
-def test_a_failed_cli_install_leaves_the_config_alone(cli_home, monkeypatch):
-    home, _ = cli_home
-    failing = FakeScheduling(fail="systemctl said no")
-    failing.display_name = lambda key: key
-    monkeypatch.setattr("fridgesheet.host.scheduling", failing)
-    with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install", "open-work"])
-    assert e.value.code == 1
-    assert not (home / "config.toml").exists()
-
-
-def test_cli_install_data_refresh_installs_what_the_page_would(cli_home):
-    home, sched = cli_home
-    (home / "config.toml").write_text('[refresh]\nevery_hours = 4\nstart = "08:00"\nend = "16:00"\ndays = ["Sat"]\n')
-    with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install", "data-refresh"])
-    assert e.value.code == 0
-    got = sched.installed[0]
-    assert got["key"] == host.DATA_REFRESH_KEY and got["times"] == ["08:00", "12:00", "16:00"] and got["days"] == ["Sat"]
-    assert got["title"] == "Data refresh"
-    assert _doc(home)["refresh"]["enabled"] is True
+def test_cli_remove_data_refresh_turns_off_what_the_page_would(cli_home):
+    """`data-refresh` is the one escape hatch through the report-key gate `remove` otherwise
+    applies (it is not a report, `[refresh]` not `[reports.<key>]`) -- see
+    `test_host_scheduling.py::test_schedule_remove_data_refresh_is_an_escape_hatch` for the
+    key-resolution side of this; this pins that it actually turns `[refresh]` off."""
+    home = cli_home
+    (home / "config.toml").write_text('[refresh]\nenabled = true\nevery_hours = 4\nstart = "08:00"\nend = "16:00"\ndays = ["Sat"]\n')
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "data-refresh"])
-    assert e.value.code == 0 and _doc(home)["refresh"]["enabled"] is False
+    assert e.value.code == 0
+    assert _doc(home)["refresh"]["enabled"] is False

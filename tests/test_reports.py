@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("reportlab")
 
-from fridgesheet import cli, host, reports  # noqa: E402
+from fridgesheet import cli, config, host, reports  # noqa: E402
 from fridgesheet.config import Settings  # noqa: E402
 from fridgesheet.reports.base import BuildContext, ReportError  # noqa: E402
 from fridgesheet.web import db, views  # noqa: E402
@@ -106,43 +106,33 @@ def test_available_never_fails_because_of_the_database(tmp_path):
     assert [r.key for r in reports.available(tmp_path)] == ["open-work"]
 
 
-def test_schedule_install_resolves_a_saved_report(tmp_path, monkeypatch):
-    """`fridgesheet schedule install view:1` used to fail with "unknown report" because the
-    command called the registry's `get` instead of `resolve` (#35).
+def test_schedule_show_lists_a_saved_report(tmp_path, monkeypatch, capsys):
+    """`fridgesheet schedule show` names a saved view report by key -- coverage that the CLI's
+    read of the plan resolves a saved report the same way the Schedules page does, replacing
+    the old `schedule install view:1` regression test (#35) for a command that no longer
+    exists: schedules are turned on from the Schedules page and read by `schedule show`.
 
     The idiom is `tests/test_print_sheet.py:185`: `cli.main` ends in `sys.exit`, so the exit
     code arrives as `SystemExit`, and `load_settings` is patched rather than the environment
     (`config.DEFAULT_HOME` is computed at import, so setting FRIDGESHEET_HOME here is too
     late to take effect).
     """
-    import fridgesheet.host.scheduling  # noqa: F401  the patches below name it by path; run alone, nothing had imported it
     conn = db.open_db(tmp_path)
     store.create(conn, "Weekly summary", views.defaults().to_json(), now="2026-09-16T08:00:00-04:00")
     conn.close()
-    installed = {}
+    doc = {"reports": {"view:1": {"enabled": True, "time": "16:00", "days": list(host.DAY_NAMES)}}}
+    config.save_config_doc(tmp_path / "config.toml", doc)
 
-    class FakeScheduling:
-        SchedulingError = host.SchedulingError
-        @staticmethod
-        def command_for(key):
-            return ("/py", f"run {key}", "/wd")
-        @staticmethod
-        def install(key, times, days, exe, args, workdir, **kw):
-            installed.update(key=key, times=list(times), days=list(days), title=kw.get("title"))
-        @staticmethod
-        def display_name(key):
-            return f"fridgesheet-{key}.{{service,timer}}"
-        @staticmethod
-        def describe(key):
-            return host.ScheduleInfo("systemd", True, "Fri 16:00", None)
+    def _load():
+        s = Settings(home=tmp_path)
+        config.settings_from_doc(doc, s)
+        return s
 
-    monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
-    monkeypatch.setattr("fridgesheet.host.scheduling", FakeScheduling)
+    monkeypatch.setattr(cli, "load_settings", _load)
     with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install", "view:1"])
+        cli.main(["schedule", "show"])
     assert e.value.code == 0
-    assert installed["key"] == "view:1" and installed["title"] == "Weekly summary"
-    assert installed["times"] == ["16:00"]          # the view report's own default_time
+    assert "view:1: next" in capsys.readouterr().out
 
 
 @needs_pdftotext

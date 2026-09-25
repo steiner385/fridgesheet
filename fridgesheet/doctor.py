@@ -16,7 +16,6 @@ from . import host
 from .config import Settings
 
 REPORT_NAME = "doctor.txt"
-REPORT_KEY = "open-work"
 
 
 @dataclass(frozen=True)
@@ -146,33 +145,27 @@ def _print_engine(s: Settings, home: Path) -> str:
 
 
 def _scheduler(s: Settings, home: Path) -> str:
-    from .host import scheduling
-    info = scheduling.describe(REPORT_KEY)
-    if s.report_config(REPORT_KEY).enabled and not info.installed:
-        raise RuntimeError(
-            "scheduled printing is on in config.toml but no task is installed; "
-            "Save from the app after a passing Test login"
-        )
-    state = f"next run {info.next_run}" if info.installed else "not scheduled"
-    detail = f"{info.managed_by}: {state}"
-    if info.last_result:
-        detail += f"; last result {info.last_result}"
-    # The data refresh and every saved report's schedule are tasks too (#150): one that is on
-    # in config.toml with nothing installed fails silently, and a scheduled report runs
-    # `--no-refresh`, so a missing refresh task leaves the page on the wall going stale.
-    if s.refresh.enabled:
-        if not scheduling.describe(host.DATA_REFRESH_KEY).installed:
-            raise RuntimeError("the data refresh is on in config.toml but no task is installed; "
-                               "Save it again on the Schedules page")
-        detail += "; data refresh scheduled"
-    saved = [k for k, rc in s.reports.items() if k not in (REPORT_KEY, host.DATA_REFRESH_KEY) and rc.enabled]
-    for key in saved:
-        if not scheduling.describe(key).installed:
-            raise RuntimeError(f"[reports.{key}] is on in config.toml but no task is installed; "
-                               "Save it again on the Schedules page")
-    if saved:
-        detail += f"; {len(saved)} saved report{'s' if len(saved) != 1 else ''} scheduled"
-    return detail
+    """The server's own clock fires schedules (web/clock.py). From a terminal there is no clock
+    to ask, so this names what is next and says schedules need the server; inside the server a
+    clock that has stopped ticking is a FAIL, and so is a schedule that is on but cannot run."""
+    from datetime import datetime
+    from . import schedule_plan
+    from .web import clock
+    schedules, problems = clock.configured(home, settings=s)
+    if problems:
+        raise RuntimeError("; ".join(f"{k}: {v}" for k, v in sorted(problems.items())))
+    if not schedules:
+        return "no schedules are on"
+    now = datetime.now(ZoneInfo(s.timezone))
+    nxt = min(((schedule_plan.next_run(x, now), x.key) for x in schedules if schedule_plan.next_run(x, now)),
+              default=(None, ""))
+    detail = f"{len(schedules)} on; next: {nxt[1]} {nxt[0]:%a %H:%M}" if nxt[0] else f"{len(schedules)} on"
+    running = clock.current()
+    if running is None:
+        return detail + "; schedules run only while the web server is running"
+    if running.stale(now):
+        raise RuntimeError(clock.PAUSED)
+    return "scheduler running; " + detail
 
 
 def _describe_service():

@@ -218,58 +218,6 @@ def history(home: Path, now: datetime = NOW) -> sqlite3.Connection:
     return conn
 
 
-class FakeScheduling:
-    """A scheduler that records every call and answers `describe` from a dict.
-
-    Stands in for `host.scheduling` wherever a test would otherwise reach systemctl or
-    schtasks. `info` maps a report key to the `ScheduleInfo` `describe` should return;
-    `fail` makes `install`/`remove` raise `SchedulingError` with that message, and
-    `not_supported` makes them raise `NotSupported` instead -- whichever of the two the
-    caller's `save()` actually reaches (only one of `install`/`remove` runs per call).
-    `describe_error`, if given, is an exception instance `describe()` raises instead of
-    answering from `info`.
-
-    Only the CLI's `schedule install/remove` tests still use it: the web pages call no OS
-    scheduler at all since the server's own clock replaced it.
-    """
-    SchedulingError = host.SchedulingError
-    NotSupported = host.NotSupported
-
-    def __init__(self, info=None, fail=None, not_supported=None, describe_error=None):
-        self.installed, self.removed = [], []
-        self._info, self._fail, self._not_supported = info or {}, fail, not_supported
-        self._describe_error = describe_error
-
-    def _maybe_fail(self):
-        if self._not_supported:
-            raise host.NotSupported(self._not_supported)
-        if self._fail:
-            raise host.SchedulingError(self._fail)
-
-    def command_for(self, key):
-        return ("/py", f"run {key}", "/wd")
-
-    def install(self, key, times, days, exe, args, workdir, **kw):
-        self._maybe_fail()
-        self.installed.append({"key": key, "times": list(times), "days": list(days), **kw})
-
-    def remove(self, key, **kw):
-        self._maybe_fail()
-        self.removed.append(key)
-
-    def describe(self, key):
-        if self._describe_error is not None:
-            raise self._describe_error
-        return self._info.get(key, host.ScheduleInfo("systemd", False, None, None))
-
-    def blocking_name(self, key):
-        """The Linux unit name a real `scheduling_linux` would name in an unmanageable-row
-        refusal: `LEGACY_TIMERS[key]` for the one key that has a hand-written unit under a
-        different name, `fridgesheet-<safe_key(key)>.timer` for everything else."""
-        from fridgesheet.host import scheduling_linux
-        return scheduling_linux.blocking_name(key)
-
-
 def canvas_grades_later(conn: sqlite3.Connection, name: str, score: float) -> None:
     """Record a Canvas grade for `name` in a refresh after the seed's, as a teacher who later
     scored it in Canvas would. Quiz 1 then has a Canvas score (not MISSING) *and* HAC's 28/30,

@@ -251,20 +251,19 @@ def test_schedule_remove_data_refresh_is_an_escape_hatch(monkeypatch, capsys, tm
     `[refresh]` table is already gone, only the blunt `schedule remove --all`. `data-refresh` is
     admitted by exact name, not by loosening the gate itself: it is a fixed, reserved key
     (`host.RESERVED_KEYS`) a report can never be saved under, so this costs nothing the gate
-    was protecting."""
+    was protecting.
+
+    `remove` no longer touches an OS scheduler at all (2026-09-25 in-app scheduler): it just
+    resolves the key and writes `config.toml`, which is all this test now pins -- the key must
+    not be refused the way a non-report string is."""
     from fridgesheet import cli
     from fridgesheet.config import Settings
     monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
 
-    removed = []
-    monkeypatch.setattr(scheduling, "remove", lambda key, **kw: removed.append(key))
-    monkeypatch.setattr(scheduling, "describe",
-                        lambda key, **kw: scheduling.ScheduleInfo("systemd", False, None, None))
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "remove", "data-refresh"])
     assert e.value.code == 0
-    assert removed == ["data-refresh"]
-    assert "not scheduled" in capsys.readouterr().out
+    assert "data-refresh: turned off in config.toml" in capsys.readouterr().out
 
 
 def test_schedule_removal_keys_always_includes_the_data_refresh_key(tmp_path):
@@ -378,22 +377,35 @@ def test_schedule_remove_all_stops_outright_on_not_supported(monkeypatch, capsys
     assert calls == ["data-refresh"]       # stopped at the first key, sorted first -- the rest never attempted
 
 
-def test_schedule_remove_all_is_refused_with_install_or_show(monkeypatch, capsys, tmp_path):
+def test_schedule_remove_all_is_refused_with_show(monkeypatch, capsys, tmp_path):
     """`--all` only makes sense with `remove`; the uninstaller is the only caller, and pairing
-    it with `install` or `show` would either schedule everything at once or say nothing
-    useful."""
+    it with `show` would say nothing useful. (`install` is no longer a `schedule` action at
+    all -- argparse refuses it outright, pinned separately below.)"""
     from fridgesheet import cli, config
     monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
 
     def boom(*a, **k):
-        raise AssertionError("scheduling.install must not run: the --all/install guard should "
-                             "have returned before this, and a regression here must not fall "
-                             "through to a real schtasks/systemctl call")
-    monkeypatch.setattr(scheduling, "install", boom)
+        raise AssertionError("_cmd_schedule_remove_all must not run: the --all/show guard "
+                             "should have returned before this, and a regression here must not "
+                             "fall through to a real schtasks/systemctl call")
+    monkeypatch.setattr(cli, "_cmd_schedule_remove_all", boom)
 
     with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install", "--all"])
+        cli.main(["schedule", "show", "--all"])
     assert e.value.code == 2 and "--all" in capsys.readouterr().err
+
+
+def test_schedule_install_is_no_longer_a_valid_action(monkeypatch, capsys, tmp_path):
+    """`install` went away with the OS scheduler (2026-09-25 in-app scheduler): a schedule is
+    turned on from the Schedules page, not installed by the CLI. argparse refuses the action
+    before `cmd_schedule` ever runs."""
+    from fridgesheet import cli, config
+    monkeypatch.setattr(config, "DEFAULT_HOME", tmp_path)
+
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "install"])
+    assert e.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
 
 
 def test_schedule_remove_all_never_creates_a_home_or_database_that_was_not_there(monkeypatch, tmp_path):
@@ -646,21 +658,25 @@ def test_command_for_source_and_frozen(monkeypatch, tmp_path):
     assert exe.endswith("FridgeSheet.exe") and args == "run open-work --no-refresh --trigger schedule" and wd == r"C:\App"
 
 
-def test_schedule_cli_show_and_not_supported(monkeypatch, capsys, tmp_path):
-    from fridgesheet import cli
-    from fridgesheet.config import Settings
-    monkeypatch.setattr(cli, "load_settings", lambda: Settings(home=tmp_path))
-    monkeypatch.setattr(scheduling, "describe", lambda key, run=None: scheduling.ScheduleInfo("systemd", True, "Tue 14:00", None))
+def test_schedule_show_lists_next_and_last(tmp_path, monkeypatch, capsys):
+    """`schedule show` (no key needed -- it lists every schedule) reads the same plan the
+    clock acts on (`clock.configured` / `schedule_plan.next_run`), not an OS scheduler: a
+    freshly-enabled schedule has a next run but has never fired on a schedule yet."""
+    from fridgesheet import cli, config
+    doc = {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}}}
+    config.save_config_doc(tmp_path / "config.toml", doc)
+
+    def _load():
+        s = config.Settings(home=tmp_path)
+        config.settings_from_doc(doc, s)
+        return s
+
+    monkeypatch.setattr(cli, "load_settings", _load)
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "show"])
-    assert e.value.code == 0 and "systemd" in capsys.readouterr().out
-
-    def unsupported(*a, **k):
-        raise NotSupported("managed by systemd; see README section 6")
-    monkeypatch.setattr(scheduling, "install", unsupported)
-    with pytest.raises(SystemExit) as e:
-        cli.main(["schedule", "install"])
-    assert e.value.code == 2 and "systemd" in capsys.readouterr().err
+    assert e.value.code == 0
+    out = capsys.readouterr().out
+    assert "open-work: next" in out and "has not run on a schedule yet" in out
 
 
 # --- multi-time schedules and the reserved data-refresh key ----------------------------
