@@ -170,3 +170,20 @@ def test_evening_due_date_stays_in_its_day_for_bucketing():
     # Must be the correct week label (9/14, the Monday of the week containing 9/20),
     # not the incorrect UTC-shifted week (9/21)
     assert points[0][0] == "9/14"
+
+
+def test_chart_config_is_one_shape_for_every_chart_type():
+    data = views.ChartData(type="stacked_bar", x_label="Due", y_label="Count", series=[
+        views.ChartSeries(label="MISSING", points=[("9/8", 2.0), ("9/15", 0.0)]),
+        views.ChartSeries(label="LATE", points=[("9/8", 0.0), ("9/15", 1.0)]),
+    ])
+    cfg = views.chart_config(data)
+    assert cfg["type"] == "bar"
+    assert cfg["data"]["labels"] == ["9/8", "9/15"]
+    assert [ds["label"] for ds in cfg["data"]["datasets"]] == ["MISSING", "LATE"]
+    assert cfg["data"]["datasets"][0]["data"] == [2.0, 0.0]
+    assert cfg["options"]["scales"]["x"]["stacked"] is True
+
+    line = views.chart_config(views.ChartData(type="line", x_label="Seen", y_label="Value",
+                                              series=[views.ChartSeries(label="Value", points=[("9/8", 91.2)])]))
+    assert line["type"] == "line" and line["options"]["scales"]["x"]["stacked"] is False

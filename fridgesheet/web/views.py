@@ -582,6 +582,39 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]
     return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out), "; ".join(notes)
 
 
+_CHART_JS_TYPE = {"line": "line", "bar": "bar", "stacked_bar": "bar"}
+_SERIES_COLORS = ("#1f5fa8", "#b3261e", "#2e7d32", "#6b3fa0", "#b8860b", "#00707f")
+
+
+def chart_config(data: ChartData) -> dict:
+    """A Chart.js `type`/`data`/`options` object, built once -- the live web preview and the
+    headless PDF capture (`chart_render.py`) both draw from this, so neither can disagree with
+    the other about what a chart looks like."""
+    labels: list[str] = []
+    for s in data.series:
+        for label, _ in s.points:
+            if label not in labels:
+                labels.append(label)
+    datasets = []
+    for i, s in enumerate(data.series):
+        by_label = dict(s.points)
+        color = _SERIES_COLORS[i % len(_SERIES_COLORS)]
+        datasets.append({"label": s.label, "data": [by_label.get(l) for l in labels],
+                         "borderColor": color, "backgroundColor": color, "fill": False})
+    stacked = data.type == "stacked_bar"
+    return {
+        "type": _CHART_JS_TYPE[data.type],
+        "data": {"labels": labels, "datasets": datasets},
+        "options": {
+            "animation": False,
+            "scales": {
+                "x": {"stacked": stacked, "title": {"display": True, "text": data.x_label}},
+                "y": {"stacked": stacked, "title": {"display": True, "text": data.y_label}},
+            },
+        },
+    }
+
+
 def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nicknames: dict, prefs=None,
           window: dict | None = None) -> Rendered:
     """Definition to rows. Raises `ViewError` when the definition does not validate."""
