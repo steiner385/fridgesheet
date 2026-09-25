@@ -47,8 +47,10 @@ try {
     $p = Start-Process -FilePath $exe -ArgumentList "run","open-work","--dry-run","--no-refresh","--force" -Wait -PassThru -WindowStyle Hidden
     Get-Content (Join-Path $smokeHome "print-sheet.log") -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
     if ($p.ExitCode -ne 0) { throw "dry run failed (exit $($p.ExitCode))" }
-    $pdf = Get-ChildItem (Join-Path $smokeHome "sheets\*\sheet.pdf") -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $pdf) { throw "no sheet.pdf under $smokeHome\sheets" }
+    # A dry run keeps the day's printed sheet.pdf untouched and builds sheet-preview.pdf
+    # beside it (#143), so that is the file this step proves.
+    $pdf = Get-ChildItem (Join-Path $smokeHome "sheets\*\sheet-preview.pdf") -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $pdf) { throw "no sheet-preview.pdf under $smokeHome\sheets" }
     Write-Host "  built $($pdf.FullName) ($($pdf.Length) bytes)"
 
     # 2b. the scheduled task: task.xml must come out of the frozen bundle and schtasks must accept it
