@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, Response
 
 from ... import reports as registry
 from ...naming import safe_name
-from .. import db, schedules, views
+from .. import charts, db, schedules, views
 from ..app import Db, State, render, render_partial
 from ..stores import reports as store, students
 
@@ -141,7 +141,7 @@ def _chart_json(rendered) -> str | None:
     """`chart_config()`'s output, safe to inline verbatim inside a `<script>` tag."""
     if not (rendered and rendered.chart):
         return None
-    return views.escape_for_script_tag(json.dumps(views.chart_config(rendered.chart)))
+    return charts.escape_for_script_tag(json.dumps(charts.chart_config(rendered.chart)))
 
 
 @router.post("/reports/preview")
