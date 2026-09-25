@@ -2,6 +2,8 @@
 
 The sheet on the fridge: a parent's daily list of open school work, pulled from **Canvas** (assignments, due dates, missing/late flags) and **Home Access Center** (official grades) for every kid in the house, decided once by [one definition of done](docs/outcomes.md), and printed or shown on a browser app. It started for one district (the Windows build is still called "Fridge Sheet") and works for any district that runs those two systems behind OneLogin. It also serves the same data to Claude as a local MCP server, so weekly check-in reports can be built without driving Chrome.
 
+**Using it?** Start with the [user guide](docs/user-guide.md): setup, every page, the printed sheet, schedules and troubleshooting, for parents rather than developers. This README is the developer and operator reference.
+
 The Python package and the Linux install path still carry the old name, `fridgesheet` / `~/fridgesheet`; those rename in a later release with a migration for existing installs.
 
 Design goals:
