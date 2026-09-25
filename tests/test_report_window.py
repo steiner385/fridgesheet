@@ -112,3 +112,29 @@ def test_window_start_reads_the_custom_range():
     d = views.Definition(window="custom", date_from="2026-09-01", date_to="2026-09-15")
     start = views.window_start(d, NOW)
     assert start is not None and (start.month, start.day) == (9, 1)
+
+
+def test_a_custom_range_bounds_items_by_due_date(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    names = _names(c, _save(tmp_path, window="custom", date_from="2026-09-10", date_to="2026-09-14"))
+    assert "Homework 4" not in names           # due 8/20, before the range
+    assert "Reading log" not in names          # due 9/20, after the range
+    assert "Lab notebook" in names             # due 9/10, the range's first day
+
+
+def test_a_custom_range_bounds_changes_by_when_they_happened(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="changes", columns=["at", "kid", "what"],
+               window="custom", date_from="2026-01-01", date_to="2026-09-01")
+    body = c.get(f"/reports/{rid}/view").text
+    assert "No rows matched this report." in body   # every seeded change happens after 9/1
+
+
+def test_the_preview_names_a_custom_range(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, window="custom", date_from="2026-09-01", date_to="2026-09-15")
+    body = c.get(f"/reports/{rid}/view").text
+    assert "Custom range" in body and "9/1" in body and "9/15" in body

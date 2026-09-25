@@ -243,6 +243,24 @@ def _on_or_after(v: datetime | None, start: datetime | None) -> bool:
     return a >= b
 
 
+def window_end(d: Definition, now: datetime) -> datetime | None:
+    """Where this report's rows stop, or None for "through now" -- every window but "custom"
+    already means that; a preset window has no far side. Inclusive of the whole end day."""
+    if d.window != "custom":
+        return None
+    td = _parse_plain_date(d.date_to)
+    return datetime.combine(td, datetime.min.time(), tzinfo=now.tzinfo) + timedelta(days=1) if td else None
+
+
+def _on_or_before(v: datetime | None, end: datetime | None) -> bool:
+    if end is None:
+        return True
+    if v is None:
+        return False
+    a, b = reconcile.comparable(v, end)
+    return a < b
+
+
 def _date(v, now: datetime | None = None, *, with_time: bool = False) -> str:
     """"9/8", with the year when it is not `now`'s (a report can reach back past New Year,
     and "6/2" alone does not say which June), and with the time for a change (#94)."""
@@ -313,12 +331,12 @@ def _keys(source: str, row: dict, raw: dict) -> dict:
 
 def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict]]:
     out = []
-    start = window_start(d, now)
+    start, end = window_start(d, now), window_end(d, now)
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
         for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs, **(window or {})):
-            if not _on_or_after(v.due, start):
+            if not _on_or_after(v.due, start) or not _on_or_before(v.due, end):
                 continue
             row = {
                 "kid": nicknames.get(s["key"], s["key"]), "course": v.course_short, "name": v.name,
@@ -333,11 +351,14 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> li
 
 def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict]]:
     out = []
+    end = window_end(d, now)
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
         for series in trends_store.grade_series(conn, student_id=s["id"], since=window_start(d, now), prefs=prefs):
             for at, value in series.points:
+                if not _on_or_before(at, end):
+                    continue
                 row = {"kid": nicknames.get(s["key"], s["key"]), "course": series.course_short,
                        "source": series.source, "official": "yes" if series.official else "", "label": series.label,
                        "value": _num(value), "at": _date(at, now)}
@@ -353,6 +374,7 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
     keys = {s["key"] for s in visible}
     # "Any time" is the year the feed keeps; a chosen window starts where it says (#94).
     start = window_start(d, now) or now - timedelta(days=365)
+    end = window_end(d, now)
     # A scoped report asks the store for each of its kids, so the cap applies to their events,
     # not to every kid's with the others dropped afterwards (#6).
     if d.scope:
@@ -365,7 +387,7 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
         events, dropped = list(feed), feed.dropped
     out = []
     for e in events:
-        if e.student_key not in keys or (d.scope and e.student_key not in d.scope):
+        if e.student_key not in keys or (d.scope and e.student_key not in d.scope) or not _on_or_before(e.at, end):
             continue
         row = {"at": _date(e.at, now, with_time=True), "kid": nicknames.get(e.student_key, e.student_key),
                "what": e.label, "item": e.item_name or "", "course": e.course_short or "",
@@ -433,5 +455,11 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         groups.sort(key=lambda g: order[g.label])
     elif slim:
         groups = [Group("", [{c.id: r[c.id] for c in columns} for r in slim])]
-    label = next((l for k, l, _ in WINDOWS if k == d.window), "") if d.window != "all" else ""
+    if d.window == "custom":
+        fd, td = _parse_plain_date(d.date_from), _parse_plain_date(d.date_to)
+        label = f"Custom range ({dates.md(fd)}–{dates.md(td)})" if fd and td else "Custom range"
+    elif d.window != "all":
+        label = next((l for k, l, _ in WINDOWS if k == d.window), "")
+    else:
+        label = ""
     return Rendered(d.title, columns, groups, truncated, label)
