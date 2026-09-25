@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -212,6 +212,44 @@ ALTER TABLE item_observations ADD COLUMN lock_reason TEXT;
 """
 
 
+def _migrate_v5(conn: sqlite3.Connection) -> None:
+    """When the observation's missing mark, and its score, first appeared: the refresh that
+    began the current run of each, carried forward across rewrites for other fields. An
+    observation is rewritten whenever any field changes -- the availability window closing,
+    say -- and its own refresh_id then read as "Canvas marked it missing after HAC's grade"
+    (#131). NULL when not missing / no score. One transaction with the backfill, so the version
+    only moves once every existing row carries them."""
+    conn.execute("ALTER TABLE item_observations ADD COLUMN missing_since INTEGER REFERENCES refreshes(id)")
+    conn.execute("ALTER TABLE item_observations ADD COLUMN scored_since INTEGER REFERENCES refreshes(id)")
+    _backfill_since(conn)
+
+
+def since_fields(last: sqlite3.Row | None, refresh_id: int, missing, score) -> tuple[int | None, int | None]:
+    """`missing_since` and `scored_since` for a new observation, given the one before it: the
+    run continues when the mark is still set (the score still the same), else it starts here.
+    Shared by ingest and the v5 backfill so an upgraded file reads as if it had always kept them."""
+    missing_since = scored_since = None
+    if missing:
+        carried = last is not None and last["missing"]
+        missing_since = (last["missing_since"] or last["refresh_id"]) if carried else refresh_id
+    if score is not None:
+        carried = last is not None and last["score"] == score
+        scored_since = (last["scored_since"] or last["refresh_id"]) if carried else refresh_id
+    return missing_since, scored_since
+
+
+def _backfill_since(conn: sqlite3.Connection) -> None:
+    rows = conn.execute("SELECT id, item_id, source, refresh_id, missing, score FROM item_observations "
+                        "ORDER BY item_id, source, refresh_id, id").fetchall()
+    last: dict[tuple[int, str], dict] = {}
+    for r in rows:
+        key = (r["item_id"], r["source"])
+        missing_since, scored_since = since_fields(last.get(key), r["refresh_id"], r["missing"], r["score"])
+        conn.execute("UPDATE item_observations SET missing_since = ?, scored_since = ? WHERE id = ?", (missing_since, scored_since, r["id"]))
+        last[key] = {"refresh_id": r["refresh_id"], "missing": r["missing"], "score": r["score"],
+                     "missing_since": missing_since, "scored_since": scored_since}
+
+
 def db_path(home: Path) -> Path:
     return home / DB_NAME
 
@@ -287,6 +325,12 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 4:
         conn.executescript("BEGIN;\n" + _SCHEMA_V4 + "\nUPDATE schema_version SET version = 4;\nCOMMIT;")
         v = 4
+    if v < 5:
+        with conn:
+            conn.execute("BEGIN")
+            _migrate_v5(conn)
+            conn.execute("UPDATE schema_version SET version = 5")
+        v = 5
     return v
 
 
