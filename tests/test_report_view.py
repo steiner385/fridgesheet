@@ -6,8 +6,9 @@ from datetime import date
 
 import pytest
 
-from fridgesheet import config, reports, runner
+from fridgesheet import config, reports, runner, sheet
 from fridgesheet.reports import ReportError
+from fridgesheet.web import views
 from fridgesheet.web import db
 from fridgesheet.web.stores import reports as reportstore
 from tests.conftest import needs_pdftotext
@@ -193,3 +194,19 @@ def test_a_scheduled_view_report_follows_the_assignments_source(tmp_path):
     built = reports.resolve(f"view:{rid}", tmp_path).build({}, ctx)
     quiz = next(r for r in built.rows["rows"] if r["name"] == "Quiz 1")
     assert quiz["status"] == "28/30"
+
+
+def test_build_table_pdf_embeds_a_chart_image_when_given_one(tmp_path):
+    png_bytes = _tiny_png()          # a minimal real PNG -- reportlab's Image flowable opens it with PIL
+    rendered = views.Rendered("Recap", [views.Column("name", "Name", "text")],
+                              [views.Group("", [{"name": "Quiz 1"}])])
+    out = tmp_path / "r.pdf"
+    pages = sheet.build_table_pdf(rendered, out, title="Recap", printed_at=NOW, chart_png=png_bytes)
+    assert pages >= 1 and out.exists()
+
+
+def _tiny_png() -> bytes:
+    """A 1x1 white PNG, small enough to inline here rather than shipping a fixture file."""
+    import base64
+    return base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")

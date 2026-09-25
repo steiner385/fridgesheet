@@ -11,6 +11,7 @@ change with the tier (kids' UX audit F11).
 """
 from __future__ import annotations
 
+import io
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -21,7 +22,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
 from .open_items import MARKED_FLAGS, Diff, Item, OpenWork
@@ -252,7 +253,8 @@ GROUP_HEAD = ParagraphStyle("gh", fontName="Helvetica-Bold", fontSize=11, leadin
 
 
 def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetime,
-                    orientation: str = "portrait", per_kid_sections: bool = False, note: str | None = None) -> int:
+                    orientation: str = "portrait", per_kid_sections: bool = False, note: str | None = None,
+                    chart_png: bytes | None = None) -> int:
     """A view report: a title, then one table per group, each with a repeating header row.
 
     Deliberately plain beside the open-work sheet's bespoke layout -- a report the parent
@@ -263,6 +265,8 @@ def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetim
     cols = rendered.columns
     col_width = width / max(1, len(cols))
     story: list = [Paragraph(_esc(title), H1), Paragraph(long_date(printed_at), SM), Spacer(1, 8)]
+    if chart_png:
+        story += [Image(io.BytesIO(chart_png), width=width, height=width * 500 / 1400), Spacer(1, 10)]
     if not rendered.groups:
         story.append(Paragraph("No rows matched this report.", CELL))
     for g in rendered.groups:
