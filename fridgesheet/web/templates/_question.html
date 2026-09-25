@@ -4,12 +4,13 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set vd = item.verdict %}
 {% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
-<div class="q card" id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% endif %}>
+{% set asked_again = reopened is defined and reopened %}
+<div class="q card" id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>
   <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}{% set at = item | due_at(tier) %}<span>due {{ item.due | wd_md }}{% if at %} {{ at }}{% endif %}</span>{% endif %}</div>
   {% if ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>
   {% else %}<p class="facts">{{ item | standing(tier) }}</p>{% endif %}
   {% set pk = vd | pace_key %}
-  {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
+  {% if vd.state == 'question' or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
   {% include "_answers.html" %}
   {# Fridge Sheet's own count behind a grace period (spec 4.6) stays on the card, inside the
      record: seventeen words of app reasoning on every card of a fresh install (kids' UX audit F12). #}

@@ -1,9 +1,12 @@
 """Answering a question card (spec 5 and 6.1)."""
 from __future__ import annotations
 
+import json
+import re
+
 from fridgesheet.web import db
 from fridgesheet.web.stores import flags
-from tests.web_fixtures import app_for, seed
+from tests.web_fixtures import app_for, seed, snapshot
 
 
 def _id(conn, name):
@@ -282,3 +285,72 @@ def test_undo_on_an_edited_step_says_the_step_stays(tmp_path):
     assert "answer undone" not in r.text and "edited" in r.text and "stays" in r.text
     assert f'check-in/step?step_id={step["id"]}' in r.text                 # a way to the step
     assert f'hx-post="/items/{vid}/undo"' not in r.text                    # no undo of an undo
+
+
+# "Not right?" on a settled line (#123) ------------------------------------------------------
+
+def _not_right(c, body, iid):
+    """Press the settled line's "Not right?" the way htmx would: its verb, its URL, its values."""
+    decided = body[body.index("Settled by the records"):]
+    button = re.search(rf'<button[^>]*hx-(get|post)="(/items/{iid}/[^"]+)"[^>]*>Not right\?</button>', decided)
+    assert button, "the settled line offers Not right?"
+    verb, url = button.groups()
+    vals = re.search(r"hx-vals='([^']*)'", button.group(0))
+    data = json.loads(vals.group(1)) if vals else {}
+    return c.get(url, params=data) if verb == "get" else c.post(url, data=data)
+
+
+def _followed_up_then_graded(tmp_path):
+    """Lab notebook: the family chose to follow up on 9/1 with a reason; Canvas has graded it
+    since. Good news answers a follow-up, so it is settled by the records."""
+    snap = snapshot()
+    lab = next(a for a in snap["students"]["Alex"]["canvas"]["courses"][0]["assignments"] if a["name"] == "Lab notebook")
+    lab.update(state="graded", score=9.0, grade="9")
+    conn = seed(tmp_path, snap)
+    lid = _id(conn, "Lab notebook")
+    flags.set_flag(conn, lid, "follow_up", now="2026-09-01T08:00:00-04:00", text="asked in class Friday")
+    conn.close()
+    return app_for(tmp_path), lid
+
+
+def test_not_right_on_a_settled_follow_up_keeps_the_familys_reason(tmp_path):
+    c, lid = _followed_up_then_graded(tmp_path)
+    page = c.get("/kids/Alex").text
+    assert "Lab notebook" in page[page.index("Settled by the records"):]
+    r = _not_right(c, page, lid)
+    assert r.status_code == 200
+    conn = db.open_db(tmp_path)
+    active = flags.active(conn, lid)
+    assert (active["flag"], active["set_at"], active["text"]) == ("follow_up", "2026-09-01T08:00:00-04:00", "asked in class Friday")
+    conn.close()
+    # Nothing was undone, so nothing says so; the family is asked instead, with the answers.
+    assert "answer undone" not in r.text
+    assert 'value="confirm"' in r.text and 'value="done"' in r.text
+
+
+def test_an_old_not_right_post_to_undo_does_not_erase_the_reason_or_claim_an_undo(tmp_path):
+    """A page loaded before this fix posts `prev=follow_up` to /undo with no date."""
+    c, lid = _followed_up_then_graded(tmp_path)
+    r = c.post(f"/items/{lid}/undo", data={"prev": "follow_up"})
+    assert r.status_code == 200 and "answer undone" not in r.text
+    conn = db.open_db(tmp_path)
+    active = flags.active(conn, lid)
+    assert (active["set_at"], active["text"]) == ("2026-09-01T08:00:00-04:00", "asked in class Friday")
+    conn.close()
+
+
+def test_not_right_on_a_line_the_records_settled_alone_asks_the_family(tmp_path):
+    """Quiz 1: HAC's 28/30 beats Canvas's automatic missing, no flag. Not right? used to do
+    nothing and say "answer undone"; it now puts the question to the family with its answers."""
+    conn = seed(tmp_path)
+    qid = _id(conn, "Quiz 1")
+    conn.close()
+    c = app_for(tmp_path)
+    r = _not_right(c, c.get("/kids/Alex").text, qid)
+    assert r.status_code == 200
+    assert "answer undone" not in r.text
+    assert f'id="q-{qid}"' in r.text
+    assert 'value="done"' in r.text and 'value="ask_teacher"' in r.text
+    conn = db.open_db(tmp_path)
+    assert flags.active(conn, qid) is None          # nothing recorded until the family answers
+    conn.close()

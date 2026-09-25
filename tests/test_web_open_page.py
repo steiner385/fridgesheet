@@ -1,6 +1,7 @@
 """The Open work page: still fixable and coming due, per kid, and the store behind it."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from fridgesheet import config, late_rules
@@ -69,7 +70,7 @@ def test_open_page_shows_each_kid_in_two_sections(tmp_path):
     assert "Essay draft" not in body                                  # submitted: nothing to do
     # The trailer counts what the tables leave out, the way the sheet does, and links to it.
     assert "Not shown:" in body
-    assert 'href="/kids/Alex?show=all&amp;outcome=not_done">1 past the late-work window or more than 14 days overdue (10 pts)</a>' in body
+    assert 'href="/kids/Alex?show=past_window">1 past the late-work window or more than 14 days overdue (10 pts)</a>' in body
     # Sam has nothing coming due, and says so rather than showing an empty table.
     assert body.index("Cell diagram") > sam and body.index("Safety quiz") > sam
     assert "Nothing coming due" in body
@@ -84,7 +85,7 @@ def test_open_page_says_nice_work_when_a_kid_has_nothing_open(tmp_path):
     body = app_for(tmp_path).get("/open").text
     sam = body.index('id="Sam"')
     assert body.index("Nothing open. Nice work.") > sam
-    assert "2 handled" in body and 'href="/kids/Sam?show=all&amp;flagged=handled"' in body
+    assert "2 handled" in body and 'href="/kids/Sam?show=handled"' in body
 
 
 def test_days_ahead_setting_governs_the_web_window(tmp_path):
@@ -120,3 +121,44 @@ def test_the_credit_text_reaches_the_page_and_the_column(tmp_path):
     conn.close()
     assert w.fixable, "the fixture must have fixable work for this to mean anything"
     assert all(v.credit == "50% after the window" for v in w.fixable)
+
+
+def _not_shown_links(body, key):
+    """The "Not shown" trailer's links for one kid, as (href, count)."""
+    section = body[body.index(f'id="{key}"'):]
+    section = section[:section.index("</section>")]
+    trailer = section[section.index("Not shown:"):]
+    return [(href.replace("&amp;", "&"), int(n)) for href, n in re.findall(r'<a href="([^"]+)">(\d+) ', trailer)]
+
+
+def test_the_not_shown_links_open_exactly_the_set_they_count(tmp_path):
+    """#125: "1 past the late-work window" opened every not-done item, fixable ones included,
+    and "N handled" opened every handled item ever."""
+    when = datetime(2026, 9, 26, 14, 0, tzinfo=NOW.tzinfo)
+    conn = seed(tmp_path)
+    ids = {r["name"]: r["id"] for r in conn.execute("SELECT id, name FROM items")}
+    flags.set_flag(conn, ids["Participation"], "done", now="2026-09-20T08:00:00-04:00")   # open, handled
+    flags.set_flag(conn, ids["Essay draft"], "done", now="2026-09-20T08:00:00-04:00")     # handed in: not open work
+    conn.close()
+    c = app_for(tmp_path, now=when)
+    body = c.get("/open").text
+    checked = 0
+    for key in ("Alex", "Sam"):
+        for href, n in _not_shown_links(body, key):
+            rows = set(re.findall(r'id="row-(\d+)"', c.get(href).text))
+            assert len(rows) == n, (key, href, rows)
+            checked += 1
+    assert checked >= 3, "the fixture must give both links something to count"
+
+
+def test_the_past_window_and_handled_filters_match_open_works_lists(tmp_path):
+    when = datetime(2026, 9, 26, 14, 0, tzinfo=NOW.tzinfo)
+    conn = seed(tmp_path)
+    sam = students.by_key(conn, "Sam")
+    flags.set_flag(conn, conn.execute("SELECT id FROM items WHERE name = 'Cell diagram'").fetchone()["id"], "excused",
+                   now="2026-09-20T08:00:00-04:00")
+    w = items.open_work(conn, sam, now=when, rules=RULES, days_ahead=14)
+    for show, expected in (("past_window", w.past_window), ("handled", w.handled)):
+        got = items.list_items(conn, sam, now=when, rules=RULES, show=show, days_ahead=14)
+        assert [v.id for v in got] == [v.id for v in expected], show
+    conn.close()

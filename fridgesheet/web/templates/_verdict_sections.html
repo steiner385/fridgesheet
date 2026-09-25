@@ -11,7 +11,8 @@
 {% endif %}
 {% macro decided_line(item, tier) %}
     <div class="line" id="q-{{ item.id }}"><span class="tick" aria-hidden="true">✓</span><span><b>{{ item.name }}</b> <span class="muted">{{ ('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts) }}</span></span>
-      <button type="button" class="link" hx-post="/items/{{ item.id }}/undo" hx-vals='{"prev": "{{ item.flag or '' }}"}' hx-target="#q-{{ item.id }}" hx-swap="outerHTML" aria-label="Not right? {{ item.name }}">Not right?</button></div>
+      {# Not right? asks the family, with the item's own answers; it writes nothing and undoes nothing (#123). #}
+      <button type="button" class="link" hx-get="/items/{{ item.id }}/reopen" hx-target="#q-{{ item.id }}" hx-swap="outerHTML" aria-label="Not right? {{ item.name }}">Not right?</button></div>
 {% endmacro %}
 {% if decided or decided_earlier %}
 <section class="decided" aria-labelledby="d-head">

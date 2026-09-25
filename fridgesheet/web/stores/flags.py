@@ -17,7 +17,10 @@ def active(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM flags WHERE item_id = ? AND cleared_at IS NULL", (item_id,)).fetchone()
 
 
-def set_flag(conn: sqlite3.Connection, item_id: int, flag: str, *, now: str, text: str = "") -> int:
+def set_flag(conn: sqlite3.Connection, item_id: int, flag: str, *, now: str, text: str | None = None) -> int:
+    """`text=None` is a one-tap answer, which carries no reason: the same flag again keeps the
+    reason the family already gave, rather than erasing it (#123). The flag menu passes its
+    text box, so an emptied box there still empties the reason."""
     if flag not in FLAGS:
         raise ValueError(f"unknown flag {flag!r}; one of {', '.join(FLAGS)}")
     with conn:
@@ -27,10 +30,11 @@ def set_flag(conn: sqlite3.Connection, item_id: int, flag: str, *, now: str, tex
         same = conn.execute("SELECT id FROM flags WHERE item_id = ? AND cleared_at IS NULL AND flag = ?",
                             (item_id, flag)).fetchone()
         if same is not None:
-            conn.execute("UPDATE flags SET text = ? WHERE id = ?", (text, same["id"]))
+            if text is not None:
+                conn.execute("UPDATE flags SET text = ? WHERE id = ?", (text, same["id"]))
             return same["id"]
         conn.execute("UPDATE flags SET cleared_at = ? WHERE item_id = ? AND cleared_at IS NULL", (now, item_id))
-        cur = conn.execute("INSERT INTO flags(item_id, flag, text, set_at) VALUES (?, ?, ?, ?)", (item_id, flag, text, now))
+        cur = conn.execute("INSERT INTO flags(item_id, flag, text, set_at) VALUES (?, ?, ?, ?)", (item_id, flag, text or "", now))
         return cur.lastrowid
 
 

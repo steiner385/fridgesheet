@@ -4,12 +4,13 @@ from __future__ import annotations
 import re
 import sqlite3
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ... import dates
-from ..app import Db, State, render, render_partial
+from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import flags, items, plans, students
 from .. import db, phrasing, tiers, verdicts
 from . import checkin
@@ -129,17 +130,38 @@ def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str 
         ctx.update(item=v, slot=_slot(slot, item_id), undone=True, plan_panel=True)
         return render_partial(request, conn, "_question.html", **ctx)
     now = db.now_iso(state.tz)
+    before = _answer_of(conn, item_id)
     if prev and prev_set_at:
         flags.restore(conn, item_id, prev, set_at=prev_set_at, now=now)
-    else:
+    elif not (before and before[0] == prev):
+        # With no date to restore, the flag already in place is left exactly as it is: setting
+        # it again would say "undone" over a reason it had just erased (#123).
         _apply(conn, item_id, prev or "clear", now)
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), undone=True)
+    # "Answer undone" only when an answer was: nothing is announced that did not happen.
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id),
+                          undone=_answer_of(conn, item_id) != before)
+
+
+def _answer_of(conn, item_id) -> tuple | None:
+    """The family's standing answer on an item, as the page would show it: flag, date, reason."""
+    row = flags.active(conn, item_id)
+    return (row["flag"], row["set_at"], row["text"]) if row else None
+
+
+@router.get("/items/{item_id}/reopen")
+def reopen(item_id: int, request: Request, slot: str = "", conn: sqlite3.Connection = Db, state=State):
+    """"Not right?" on a line the records settled: the item's question card, with the answers
+    its verdict carries, in place of the line. Nothing is written until the family answers, so
+    nothing is announced as undone; the answer they give is recorded, and undone, the usual way."""
+    s, v = _view(conn, state, item_id)
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), reopened=True)
 
 
 @router.get("/questions")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     kid = request.query_params.get("kid") or None
+    let_go_ids = _ids(request.query_params.get("let_go", ""))
     now, rules, prefs = state.now(), state.rules(), state.sources()
     groups = []
     for s in students.visible(conn):
@@ -152,19 +174,56 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
             "asked": [v for v in views if v.verdict.kind == "asked"],
             "past_credit": [v for v in views if v.verdict.kind == "past_credit"],
             "twins": items.near_twins(conn, views),
+            # Just let go by the bar, and still let go: what its one Undo would put back (#124).
+            "let_go": [v for v in views if v.id in let_go_ids and _let_go_by_bar(conn, v.id)] if kid == s["key"] else [],
         })
     return render(request, conn, "questions.html", current="questions", groups=groups, kid=kid)
+
+
+#: The reason the bar writes, which is also how its Undo knows a let-go is still the bar's.
+LET_GO_TEXT = "past the late-work window"
+
+
+def _ids(raw: str) -> set[int]:
+    return {int(x) for x in (raw or "").split(",") if x.strip().isdigit()}
+
+
+def _let_go_by_bar(conn, item_id: int) -> sqlite3.Row | None:
+    row = flags.active(conn, item_id)
+    return row if row is not None and row["flag"] == "ignore" and row["text"] == LET_GO_TEXT else None
 
 
 @router.post("/questions/let-go")
 def let_go(request: Request, kid: str = Form(...), conn: sqlite3.Connection = Db, state=State):
     """Ignore every one of one kid's past-credit items, after the page's confirm. One kid at a
-    time: a button that hides a whole household's work in one click hides a problem."""
-    s = next((s for s in students.visible(conn) if s["key"] == kid), None)
-    if s is None:
-        raise HTTPException(404, f"no student {kid!r}")
+    time: a button that hides a whole household's work in one click hides a problem. The page
+    it lands on names what went and offers one Undo for exactly those items."""
+    s = student_or_404(conn, kid)
     now = db.now_iso(state.tz)
+    done = []
     for v in items.list_items(conn, s, now=state.now(), rules=state.rules(), show="all", prefs=state.sources()):
         if v.verdict.kind == "past_credit":
-            flags.set_flag(conn, v.id, "ignore", now=now, text="past the late-work window")
-    return RedirectResponse(f"/questions?kid={kid}", status_code=303)
+            flags.set_flag(conn, v.id, "ignore", now=now, text=LET_GO_TEXT)
+            done.append(str(v.id))
+    return RedirectResponse(f"/questions?{urlencode({'kid': kid, 'let_go': ','.join(done)})}", status_code=303)
+
+
+@router.post("/questions/let-go/undo")
+def let_go_undo(request: Request, kid: str = Form(...), ids: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+    """Put back what the bar let go: each of these items of this kid's that is still let go by
+    the bar returns to the answer it had before (none, for past-credit work), and an item the
+    family has answered since keeps that answer."""
+    s = student_or_404(conn, kid)
+    now = db.now_iso(state.tz)
+    for item_id in _ids(ids):
+        owner = students.owner_of_item(conn, item_id)
+        row = _let_go_by_bar(conn, item_id) if owner is not None and owner["id"] == s["id"] else None
+        if row is None:
+            continue
+        before = conn.execute("SELECT flag, set_at FROM flags WHERE item_id = ? AND cleared_at = ? AND id < ? ORDER BY id DESC LIMIT 1",
+                              (item_id, row["set_at"], row["id"])).fetchone()
+        if before is not None:
+            flags.restore(conn, item_id, before["flag"], set_at=before["set_at"], now=now)
+        else:
+            flags.clear(conn, item_id, now=now)
+    return RedirectResponse(f"/questions?{urlencode({'kid': kid})}", status_code=303)
