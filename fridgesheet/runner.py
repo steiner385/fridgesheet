@@ -5,6 +5,10 @@ Files under the app home:
     no-print-days.txt        one YYYY-MM-DD (or YYYY-MM-DD..YYYY-MM-DD) per line, optional comment
     late-rules.toml          the late-work register (see late_rules)
     <output_dir>/<day>/      sheet.pdf, rows.json, printed.txt   (open-work: sheets/<day>/)
+                             -- the day's real sheet, written only by a run with none of
+                             --dry-run, --kid, --date. Those write sheet-preview.pdf (or
+                             sheet-<kid>.pdf) beside it and never rows.json or the archive
+                             copy, so the printed sheet and tomorrow's diff survive them (#143)
     print-sheet.log          every report's runs: the outcome line, plus an INFO line for an
                              ingested refresh; also stderr when the process has one
     fridgesheet.db                the app's database (see web/db.py), with its -wal/-shm sidecars
@@ -171,6 +175,24 @@ def archive_copy(pdf: Path, archive_root: str, day: date, name: str) -> Path | N
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(pdf, dest)
     return dest
+
+
+def build_variant(opts: RunOptions) -> str:
+    """What this build is instead of the day's sheet, or "" when it is the day's sheet.
+
+    The real sheet -- the one the schedule prints, `Print now` prints, a plain `run` prints --
+    is the only build that may write `sheet.pdf`, `rows.json` and the archive copy. A dry run
+    or a `--date` build is a "preview"; a `--kid` build is that kid's, whether or not it
+    prints, because its rows are one child's and must never become what tomorrow's whole
+    sheet is compared against. The kid prefix is user-typed and reaches a file name, so it is
+    reduced the way a saved report's name is (`naming.safe_name`).
+    """
+    if opts.kid:
+        from .naming import safe_name
+        return safe_name(opts.kid, fallback="kid")
+    if opts.dry_run or opts.date:
+        return "preview"
+    return ""
 
 
 def data_as_of(snap: dict) -> datetime:
@@ -444,16 +466,20 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
             at = now if not opts.date else datetime.combine(day, now.timetz())
             options = {**rc_cfg.options, **{k: v for k, v in opts.options.items() if v is not None}}
             day_dir.mkdir(parents=True, exist_ok=True)
+            variant = build_variant(opts)
             ctx = BuildContext(settings=settings, home=home, day=day, now=at, out_dir=day_dir, kid=opts.kid, nicknames=settings.nicknames,
                                prev_rows=prev_rows, prev_label=prev_label, stale_note=stale_note, options=options, data_as_of=as_of,
-                               flags=_load_flags(db_conn, log))
+                               flags=_load_flags(db_conn, log), variant=variant)
             try:
                 built = report.build(snap, ctx)
             except ReportError as e:
                 return finish("FAIL", str(e), 1)
-            (day_dir / "rows.json").write_text(json.dumps(built.rows, indent=1))
             summary = f"{built.summary} data={md(as_of)} {as_of:%H:%M}" + (f" NOTE refresh failed: {refresh_error}" if refresh_error else "")
-            if settings.sheets_archive:
+            # rows.json and the archive copy are the day's sheet's alone (#143): a side build
+            # has its own PDF name (see `build_variant`) and leaves both of them untouched.
+            if not variant:
+                (day_dir / "rows.json").write_text(json.dumps(built.rows, indent=1))
+            if settings.sheets_archive and not variant:
                 archive_name = report.archive_name(day)
                 try:
                     dest = archive_copy(built.pdf, settings.sheets_archive, day, archive_name)

@@ -66,6 +66,9 @@ class FakeActions:
     def print_now(self, *, home, log, settings, date=None, report_key="open-work", refresh=False):
         self.calls.append(("print", date, report_key, refresh)); log("printing"); return 0
 
+    def reprint(self, *, home, log, settings, run_id, pdf, report_key):
+        self.calls.append(("reprint", run_id, pdf, report_key)); log("reprinting"); return 0
+
     def run_doctor(self, *, home, log, settings):
         self.calls.append("doctor"); log("OK    python: 3.12"); return True
 

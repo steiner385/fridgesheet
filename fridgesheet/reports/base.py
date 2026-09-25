@@ -32,6 +32,15 @@ class BuildContext:
     # student key -> {item key -> active flag}, from the database; item keys only identify an
     # item within one student, so each kid gets their own map.
     flags: dict[str, dict[str, str]] = field(default_factory=dict)
+    #: "" when this build is the day's real sheet; otherwise what it is instead -- "preview"
+    #: for a dry run or a `--date` build, the kid for a `--kid` one (`runner.build_variant`).
+    #: Reports put it in the PDF's name through `pdf_path`, so a side build never lands on
+    #: the file the scheduled run printed (#143).
+    variant: str = ""
+
+    def pdf_path(self, stem: str) -> Path:
+        """`<out_dir>/<stem>.pdf` for the real sheet, `<stem>-<variant>.pdf` for a side build."""
+        return self.out_dir / (f"{stem}-{self.variant}.pdf" if self.variant else f"{stem}.pdf")
 
 
 @dataclass

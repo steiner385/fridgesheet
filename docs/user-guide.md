@@ -276,7 +276,7 @@ The app and this guide use a few words that overlap. They mean:
 |---|---|
 | **Refresh now** | Pulls Canvas and HAC (1–3 minutes). |
 | **Refresh data first** | A checkbox that applies only to the next two buttons. Unticked, they use the last refresh and take seconds. |
-| **Preview today's sheet** | Builds today's PDF and links it. Prints nothing. |
+| **Preview today's sheet** | Builds today's PDF as a separate `sheet-preview.pdf` and links it. Prints nothing and leaves the printed sheet alone. |
 | **Print now** | Asks, then prints today's sheet. |
 
 Progress streams into a job card under the buttons; when it finishes you get OK/FAIL, a
@@ -615,9 +615,9 @@ The **Open Work Sheet** is built in. You can build your own on **Reports**.
 **Runs** — the last 100 sheets and reports built or printed: when, which, *Started by*
 (you, the schedule, the command line), OK/FAIL/SKIP and why, the PDF, and **Reprint**.
 
-> **Reprint** rebuilds the sheet from *today's* data rather than reprinting the exact PDF
-> that ran that day, and a Preview or PDF-only run later the same day replaces that day's
-> PDF. If you need the exact paper copy, keep the archive folder ([§13](#13-settings)) and print from there ([#143](https://github.com/steiner385/fridgesheet/issues/143)).
+**Reprint** sends that row's stored PDF to the printer again, exactly as it was — it does
+not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own file
+([§19](#19-files-backup-and-privacy)), so it never replaces the sheet a day printed.
 
 **Changes** — everything that moved: *New, Grade posted, Grade changed, Now missing,
 Cleared, You answered, You cleared a flag, Class average*. Choose the window (*Since
@@ -642,7 +642,7 @@ One form with one **Save** at the bottom, then separate editors below it.
 | **Printing and the report window** | **Printer**, **Days ahead**, **Overdue days** (1–60, for the Open Work Sheet), **Archive folder** (a second copy of every PDF, e.g. a Google Drive folder, filed as `2026-27/2026-09-11 Open Work.pdf`), **Nicknames**. |
 | **Gradebook sources** | **Assignment scores come from** (default Canvas) and **Class averages come from** (default HAC). |
 | **Network** | **Port** (default 8433), **Allow other devices on this network** ([§16](#16-using-it-on-a-phone-or-tablet)). |
-| **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **New update PIN**. |
+| **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
 
 Buttons: **Save**, **Test login**.
 
@@ -827,8 +827,10 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | `fridgesheet self-update [--check]` | Windows only: install the newest release. |
 | `fridgesheet serve` | The MCP server for Claude ([§18](#18-using-it-from-claude-mcp)). |
 
-Note that `run --dry-run`, `--kid` and `--date` write the same day's `sheet.pdf` as the real
-run, so running them after the day's print replaces that day's PDF.
+`run --dry-run`, `--kid` and `--date` build a side file (`sheet-preview.pdf`, or
+`sheet-<kid>.pdf`) beside the day's sheet and never touch `sheet.pdf`, what it was compared
+against, or the archive copy — so running them after the day's print changes nothing on
+paper. A dry run prints nothing and shows no notification, but it is still listed on Runs.
 
 **Linux desktop shortcuts** (`desktop/`): *Kids' Sheet (PDF only)* and *Kids' Sheet (Send
 to Printer)* — see the README.
@@ -858,7 +860,7 @@ The data folder is `%LOCALAPPDATA%\fridgesheet` on Windows and `~/.fridgesheet` 
 | `late-rules.toml`, `no-print-days.txt` | The two files edited on Settings. |
 | `fridgesheet.db` (+ `-wal`, `-shm`) | Everything the app remembers: history, answers, notes, plans, check-ins, reports, runs. **Back up all three together, with the app stopped.** Deleting it loses history, not sheets. |
 | `cache/snapshot.json` | The latest refresh. |
-| `sheets/<date>/` | Each day's `sheet.pdf`, what was on it, and whether it printed. |
+| `sheets/<date>/` | Each day's `sheet.pdf`, what was on it (`rows.json`), and whether it printed (`printed.txt`) — written only by the day's real run. A Preview, dry run, `--kid` or `--date` build writes `sheet-preview.pdf` or `sheet-<kid>.pdf` beside them instead (the newest preview replaces the last). |
 | `reports/` | Saved reports' PDFs. |
 | `browser-profile/` | Sign-in cookies. Treat it like a password. |
 | `print-sheet.log` | One line per run. |
@@ -904,11 +906,14 @@ Start with **Diagnostics → Run diagnostics**. Any `FAIL` line is where to look
 
 **Updating (Windows).** Once a day the app checks GitHub; *Fridge Sheet X is available*
 appears in the header and on Settings. Either download and run the new installer over the
-old one, or set an **Update PIN** on Settings and use **Update to X** (shown when the
+old one, or set an **Update PIN** on Settings (at least 4 characters; a **Remove the
+update PIN** box appears once one is stored) and use **Update to X** (shown when the
 background task is installed). The PIN only guards the button — it crosses the network
 unencrypted. From a console: `FridgeSheet.exe self-update`.
 
-**Updating (Linux).** `git pull && pip install -e .`, then restart the web service.
+**Updating (Linux).** `git pull && pip install -e .`, then restart the web service. The
+Settings card says the same and offers no button, because the release asset is a Windows
+installer.
 
 **Uninstall (Windows).** Settings → Apps → Fridge Sheet → **Uninstall**. It removes every
 task it installed and leaves your data folder and the Credential Manager entry

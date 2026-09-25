@@ -68,11 +68,15 @@
     {% include "_update_status.html" %}
     <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label><br>
        <span class="field-help">The only thing this app talks to besides the school systems; it sends nothing.</span></p>
+    {# Why there is no update button, said here beside the PIN field it may be about -- not
+       under the card, where "Set an update PIN below" pointed the wrong way (#145). #}
+    {% if update_blocked_reason %}<p class="muted">{{ update_blocked_reason }}</p>{% endif %}
     <div class="settings-grid">
-      <label>New update PIN <input type="password" name="update_pin" autocomplete="new-password"
-             placeholder="leave blank to keep the stored one"></label>
+      <label>{{ 'New update PIN' if form.has_update_pin else 'Update PIN' }} <input type="password" name="update_pin" autocomplete="new-password"
+             placeholder="{{ 'leave blank to keep the stored one' if form.has_update_pin else 'at least 4 characters' }}"></label>
     </div>
-    <p class="field-help">Needed to update Fridge Sheet from this page. It is stored as a
+    {% if form.has_update_pin %}<p><label><input type="checkbox" name="clear_update_pin"> Remove the update PIN</label></p>{% endif %}
+    <p class="field-help">Needed to update Fridge Sheet from this page (at least 4 characters). It is stored as a
        hash, never read back, and it crosses your network in the clear -- this page has no
        HTTPS.</p>
   </section>

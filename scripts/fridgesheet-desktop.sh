@@ -20,8 +20,16 @@ LOCAL_PDF="$HOME_DIR/sheets/$TODAY/sheet.pdf"
 notify() { command -v notify-send >/dev/null && notify-send -a "Fridge Sheet" "$1" "$2" 2>/dev/null || true; }
 pause() { echo; read -r -n 1 -s -p "Press any key to close this window." || true; echo; }
 last_log() { tail -n 1 "$LOG" 2>/dev/null || true; }
-# The archive copy (Google Drive) if the run made one, else the local file.
-saved_pdf() { local p; p="$(last_log | sed -n 's/.* saved=\(.*\.pdf\).*/\1/p')"; [ -n "$p" ] && [ -f "$p" ] && echo "$p" || echo "$LOCAL_PDF"; }
+# The archive copy (Google Drive) if the run made one; else the file the log says it built
+# (a dry run's is sheet-preview.pdf, beside the day's sheet -- #143); else the local sheet.
+saved_pdf() {
+  local p
+  p="$(last_log | sed -n 's/.* saved=\(.*\.pdf\).*/\1/p')"
+  [ -n "$p" ] && [ -f "$p" ] && { echo "$p"; return; }
+  p="$(last_log | sed -n 's/.* built \(.*\.pdf\) .*/\1/p')"
+  [ -n "$p" ] && [ -f "$p" ] && { echo "$p"; return; }
+  echo "$LOCAL_PDF"
+}
 open_pdf() {
   if command -v evince >/dev/null; then
     setsid -f evince "$1" </dev/null >/dev/null 2>&1

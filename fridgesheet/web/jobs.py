@@ -17,9 +17,9 @@ from typing import Iterator
 
 from . import actions as _actions
 
-KINDS = ("refresh", "preview", "print", "doctor", "login", "update")
+KINDS = ("refresh", "preview", "print", "reprint", "doctor", "login", "update")
 LABELS = {"refresh": "Refreshing", "preview": "Building today's sheet", "print": "Printing",
-          "doctor": "Running diagnostics", "login": "Testing the login",
+          "reprint": "Printing again", "doctor": "Running diagnostics", "login": "Testing the login",
           "update": "Updating Fridge Sheet"}
 #: Kinds `POST /jobs/{kind}` (the open, unauthenticated route) may start on its own authority.
 #: `update` downloads a release asset and executes it as an installer -- the one job kind that
@@ -186,6 +186,13 @@ class Worker:
                 rc = self.actions.print_now(home=home, log=log, settings=settings, date=job.params.get("date"),
                                             report_key=job.params.get("report", "open-work"),
                                             refresh=job.params.get("refresh_first", False))
+                outcome, message = ("OK" if rc == 0 else "FAIL"), (job.lines[-1] if job.lines else "")
+            elif job.kind == "reprint":
+                # The stored PDF of one run, to the printer (#143): the route resolved the
+                # file (`safe_pdf`) before submitting, so the card can link it either way.
+                job.pdf = Path(job.params["pdf"])
+                rc = self.actions.reprint(home=home, log=log, settings=settings, run_id=job.params["run_id"],
+                                          pdf=job.params["pdf"], report_key=job.params.get("report", "open-work"))
                 outcome, message = ("OK" if rc == 0 else "FAIL"), (job.lines[-1] if job.lines else "")
             elif job.kind == "doctor":
                 ok = self.actions.run_doctor(home=home, log=log, settings=settings)

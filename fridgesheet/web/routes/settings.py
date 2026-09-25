@@ -17,6 +17,11 @@ from ...host import selfupdate_linux
 router = APIRouter()
 log = logging.getLogger("fridgesheet.web.settings")
 
+#: What the Updates card says instead of a button off Windows (#145): a Linux install is a
+#: source checkout, and `selfupdate_linux.NOT_WINDOWS` is what the route would answer anyway.
+LINUX_UPDATE_HOW = ("Updating from this page is only for the Windows install. Here, update the checkout with "
+                    "`git pull && pip install -e .` and restart the service.")
+
 
 def _lan_qr(lan_url: str | None) -> str | None:
     """The QR beside the LAN URL. A drawing failure is a lost convenience, never a reason to
@@ -66,14 +71,18 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
     tailnet_url = _tailnet_url(port) if allow_lan else None
-    # The two refusals that keep the update button from starting something it can already
-    # predict will go wrong -- see `_update_button.html`. `info.installed` is only asked for
-    # once the first two guards pass: on most machines and most page loads (checks off, or no
-    # PIN set yet) that avoids a real `systemctl --user`/`schtasks` shell-out for a question
-    # the page was not going to act on anyway.
+    # The refusals that keep the update button from starting something it can already
+    # predict will go wrong -- see `_update_button.html`. The platform comes right after the
+    # checkbox (#145): `POST /settings/update` answers 409 off Windows whatever else is set,
+    # so on Linux no PIN would help and the card says how a checkout updates instead.
+    # `info.installed` is only asked for once the earlier guards pass: on most machines and
+    # most page loads (checks off, Linux, or no PIN set yet) that avoids a real `systemctl
+    # --user`/`schtasks` shell-out for a question the page was not going to act on anyway.
     reason = ""
     if not state.settings.web_check_updates:
         reason = "Update checks are turned off."
+    elif not host.IS_WINDOWS:
+        reason = LINUX_UPDATE_HOW
     elif not state.settings.web_update_pin_hash:
         reason = "Set an update PIN below to update from this page."
     else:
@@ -93,7 +102,8 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
-                  update_ready=update_ready, update_blocked_reason=reason,
+                  update_ready=update_ready, update_blocked_reason=reason, is_windows=host.IS_WINDOWS,
+                  releases_page=updates.RELEASES_PAGE, linux_update_how=LINUX_UPDATE_HOW,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
                   entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
                   source_rules=source_rules, SOURCE_LABELS=sources.LABELS)
@@ -112,7 +122,8 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
 def save(request: Request, username: str = Form(""), password: str = Form(""), printer: str = Form(""),
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
-         update_pin: str = Form(""), sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
+         update_pin: str = Form(""), clear_update_pin: str | None = Form(None),
+         sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
          conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
     # defensible when the app ran on the parent's own desktop and merely inconvenient over the
@@ -135,7 +146,8 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
     form = actions.FormValues(username=username, password=password, printer=printer, days_ahead=days_ahead,
                               overdue_days=overdue_days, nicknames=nicknames, archive=archive,
                               port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
-                              update_pin=update_pin,
+                              update_pin=update_pin, clear_update_pin=bool(clear_update_pin),
+                              has_update_pin=bool(state.settings.web_update_pin_hash),
                               sources_assignments=sources_assignments, sources_grades=sources_grades)
     lines: list[str] = []
     try:
@@ -207,7 +219,8 @@ def check_for_updates_now(request: Request, conn: sqlite3.Connection = Db, state
     if not state.settings.web_check_updates:
         raise HTTPException(409, "Update checks are turned off in Settings.")
     update = updates.check(state, now=state.now(), force=True)
-    return render_partial(request, conn, "_update_status.html", update=update)
+    return render_partial(request, conn, "_update_status.html", update=update, is_windows=host.IS_WINDOWS,
+                          releases_page=updates.RELEASES_PAGE, linux_update_how=LINUX_UPDATE_HOW)
 
 
 @router.post("/settings/update")
@@ -233,7 +246,9 @@ def start_update(request: Request, pin: str = Form(""), conn: sqlite3.Connection
     until = attempts.locked_until(state.now())
     if until is not None:
         raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes.")
-    if not updatepin.verify(pin, stored):
+    # Trimmed, as `actions.save` trimmed it before hashing (#145): a phone keyboard's trailing
+    # space must not fail the check and count towards the lockout.
+    if not updatepin.verify(pin.strip(), stored):
         attempts.record_failure(state.now())
         raise HTTPException(403, "That PIN is not right.")
     attempts.clear()

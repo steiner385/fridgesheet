@@ -85,5 +85,5 @@ def test_the_reprint_confirm_names_the_printer(tmp_path):
     conn.commit()
     conn.close()
     c = _client(tmp_path, shared="Shared Laser", open_work="Kitchen Inkjet")
-    confirms = _confirms(c.get("/runs").text, "/jobs/print")
+    confirms = _confirms(c.get("/runs").text, "/jobs/reprint")   # Reprint prints the stored PDF (#143)
     assert confirms and all(x.endswith("on Kitchen Inkjet?") for x in confirms), confirms
