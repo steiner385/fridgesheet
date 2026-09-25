@@ -170,7 +170,10 @@ def test_vendored_assets_match_their_recorded_hashes():
     static = Path(webapp.__file__).parent / "static"
     table = (static / "VENDOR.md").read_text(encoding="utf-8")
     rows = re.findall(r"^\| (\S+\.(?:js|css)) \|.*`([0-9a-f]{64})` \|$", table, re.M)
-    assert len(rows) == 4
+    # Every vendored file is recorded and every recorded file exists: app.js and app.css are
+    # ours, everything else under static/ that is script or style came from upstream.
+    vendored = {p.name for p in static.iterdir() if p.suffix in (".js", ".css") and not p.name.startswith("app.")}
+    assert {name for name, _ in rows} == vendored == {"htmx.min.js", "chart.umd.min.js", "chartjs-adapter-date-fns.bundle.min.js"}
     for name, sha in rows:
         assert hashlib.sha256((static / name).read_bytes()).hexdigest() == sha, name
 

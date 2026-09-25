@@ -1,4 +1,4 @@
-"""The Trends page and the JSON its charts read."""
+"""The Trends page and the chart configs it inlines."""
 from __future__ import annotations
 
 import re
@@ -150,50 +150,39 @@ def test_one_refresh_only_still_renders(tmp_path):
     assert r.status_code == 200 and "Trends" in r.text
 
 
-# The chart holder's *sizing* contract, pinned the way `test_packaging.py` pins the installer
-# text: none of it can be exercised here (there is no browser in this suite), and all of it is
-# load-bearing. Each assertion below stands for a defect that shipped once:
-#
-#   - an inline `style="height:NNNpx"` on `.chart` clipped the holder to the plot alone, so
-#     uPlot's title and legend -- drawn as *siblings* of the sized plot -- printed 72px/42px
-#     over whatever followed the chart. `.chart` must have no fixed height at all (app.css
-#     says the same in prose); the holder grows to fit title + plot + legend.
-#   - `data-height` is what app.js passes to uPlot as the plot height. Drop it from a holder
-#     and `drawChart` silently falls back to 220, so the grade chart -- the one the page gives
-#     260 to -- renders 40px shorter with nothing anywhere saying so.
-def test_chart_holders_carry_their_plot_height_and_no_inline_height():
-    """`_chart.html` is the only place a chart holder is emitted; `style="height` there is the
-    exact overflow bug, and `data-height` is the only channel the per-chart height travels."""
-    tmpl = (TEMPLATES / "_chart.html").read_text(encoding="utf-8")
-    assert 'data-height="{{ height|default(220) }}"' in tmpl
-    assert "style=" not in tmpl, "a chart holder sized in CSS overflows uPlot's title and legend"
+def test_page_renders_both_charts_and_the_summary(tmp_path):
+    history(tmp_path).close()
+    body = app_for(tmp_path).get("/trends").text
+    assert body.count("data-chart-canvas") == len(chart_configs(body)) >= 2
+    assert "chart.umd.min.js" in body and "chartjs-adapter-date-fns.bundle.min.js" in body
+    assert "On-time" in body and "%" in body
+    assert "Open the longest" in body and "Quiz 1" in body
+
+
+def test_uplot_is_gone():
+    """Two charting libraries was one too many: everything draws through charts.chart_config."""
+    assert not (STATIC / "uplot.min.js").exists() and not (STATIC / "uplot.min.css").exists()
+    assert not (TEMPLATES / "_chart.html").exists()
+    for p in [*TEMPLATES.glob("*.html"), STATIC / "app.js", STATIC / "app.css", STATIC / "VENDOR.md"]:
+        assert "uplot" not in p.read_text(encoding="utf-8").lower(), p.name
+    js = (STATIC / "app.js").read_text(encoding="utf-8")
+    assert js.count("function attachCharts") == 1 and "typeof uPlot" not in js
 
 
 def test_the_content_column_can_shrink_below_its_content():
     """A bare `1fr` track is `minmax(auto, 1fr)`: it never narrows past its content's
-    min-content width. After the first draw a chart holder's content is a fixed-width
-    `<canvas>`, so the column froze at its widest-ever size -- `chartWidth` kept reporting the
-    old width, app.js's `w !== c.u.width` stayed false, `setSize` never fired, and narrowing
-    the window left the page horizontally scrollable with the rail off-screen, permanently (a
-    phone rotated to landscape and back needs a reload). Measured in Chromium at 1400 -> 900 ->
+    min-content width. After the first draw a chart holder's content is a `<canvas>` with a
+    fixed pixel width, so the column froze at its widest-ever size and narrowing the window
+    left the page horizontally scrollable with the rail off-screen, permanently (a phone
+    rotated to landscape and back needs a reload). Measured in Chromium at 1400 -> 900 ->
     700 -> 390: holders of 1050/630/674/364 with `scrollWidth == innerWidth` at every step;
     with a bare `1fr`, 1050 at all four and `scrollWidth` up to 1320 against a 900 viewport.
-    Both grid declarations need the explicit zero minimum -- the phone width uses the second."""
+    Chart.js's own resize detection can only follow a track that is allowed to shrink. Both
+    grid declarations need the explicit zero minimum -- the phone width uses the second."""
     css = (STATIC / "app.css").read_text(encoding="utf-8")
     tracks = re.findall(r"\.shell\s*\{[^}]*grid-template-columns:\s*([^;}]+)", css)
     assert len(tracks) == 2, "expected the wide layout and the max-width:800px override"
     assert [t.strip() for t in tracks] == ["220px minmax(0, 1fr)", "minmax(0, 1fr)"]
-
-
-def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
-    """#9: `drawChart` marks the holder drawn at once but only registers the uPlot when its JSON
-    arrives. An htmx swap in between removes the holder and prunes; the late continuation then
-    drew into the detached node and pushed it into CHARTS. It now checks first."""
-    js = (STATIC / "app.js").read_text(encoding="utf-8")
-    body = js[js.index("function drawChart"):js.index("// One shared resize listener")]
-    then = body[body.index(".then(function (data)"):]
-    guard = then.index("if (!document.contains(el)) return;")
-    assert guard < then.index("el.innerHTML") and guard < then.index("CHARTS.push")
 
 
 def test_an_unknown_kid_on_trends_says_the_kid_is_not_known(tmp_path):
