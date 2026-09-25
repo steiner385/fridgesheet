@@ -29,9 +29,12 @@ Fridge Sheet is a small web app that runs on your own PC. The shortcut starts it
 
 ## What happens every day
 
-At the time you chose, on school days, Windows Task Scheduler runs Fridge Sheet in the background while you are **logged in** (a locked screen is fine; a signed-out or powered-off PC skips that day, and the next day's run does not print the old sheet). It refreshes Canvas and Home Access Center, builds the sheet, prints it two-sided, and shows a small notification saying it printed, or why it did not. If the refresh fails, it prints from the last good data if that is under a day old and says so on the sheet. If your printer cannot print two-sided, the sheet comes out on separate pages.
+Two tasks do the work, both run by Windows Task Scheduler in the background while you are **logged in** (a locked screen is fine; a signed-out or powered-off PC skips that run, and a report run caught up the next day does not print the old sheet).
 
-If the data goes older than 24 hours, every page carries a banner saying how old it is and when the last good refresh was. That is the same ceiling at which a scheduled print refuses to run, so the banner and the missing sheet always agree about why.
+- **The data refresh** (every 3 hours between 06:00 and 21:00 unless you changed it) signs in to Canvas and Home Access Center and saves what it finds. This is what keeps the app's pages current, and it is the only thing that pulls from the school.
+- **The report** (at the time you chose, on the days you ticked) does not refresh: it builds the sheet from whatever the last refresh found, prints it two-sided, and shows a small notification saying it printed, or why it did not. If the last refresh is more than 24 hours old it refuses to print rather than put stale work on the fridge, and the notification says so. If your printer cannot print two-sided, the sheet comes out on separate pages.
+
+That is why saving a report schedule turns the data refresh on if it was off, why the Schedules page warns when a report is scheduled and the refresh is not, and why Diagnostics fails that combination. If the data goes older than 24 hours, every page carries a banner saying how old it is and when the last good refresh was. That is the same ceiling at which a scheduled print refuses to run, so the banner and the missing sheet always agree about why.
 
 ## Your files
 

@@ -46,6 +46,7 @@ def _page(request, conn, state, *, messages=(), errors=()):
                   # page context, and passing the schedule under the same name blanked the
                   # header's "Refreshed <time>" on this one page (#141).
                   refresh_schedule=refresh,
+                  refresh_warning=schedules.refresh_warning(rows, refresh),
                   printer_options={r.key: _printer_options(printers, r.printer) for r in rows},
                   messages=list(messages), errors=list(errors))
 
