@@ -266,7 +266,9 @@ def pdf_text(path: Path, *, raw: bool = False) -> str:
     if not shutil.which("pdftotext"):
         raise RuntimeError("pdftotext (poppler-utils) is not installed")
     args = ["pdftotext", *([] if raw else ["-layout"]), str(path), "-"]
-    return subprocess.run(args, capture_output=True, text=True, check=True).stdout
+    # pdftotext writes UTF-8 whatever the locale; `text=True` would decode it as cp1252 on
+    # Windows and turn the em dash in "IN CLASS — CHECK" into mojibake (#137's CI run).
+    return subprocess.run(args, capture_output=True, encoding="utf-8", check=True).stdout
 
 
 TABLE_HEAD = ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)
