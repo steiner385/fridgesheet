@@ -33,11 +33,9 @@
 <table class="items"><tr><th>Seen</th><th>Canvas current</th><th>Canvas final</th><th>HAC average</th><th>Letter</th></tr>
 {% for g in history %}<tr><td>{{ g.started_at | wd_md_time }}</td><td>{{ g.current if g.current is not none else '' }}</td><td>{{ g.final if g.final is not none else '' }}</td><td>{{ g.average if g.average is not none else '' }}</td><td>{{ g.letter or '' }}</td></tr>{% else %}<tr><td colspan="5" class="muted">Nothing yet.</td></tr>{% endfor %}
 </table>
-<link rel="stylesheet" href="/static/uplot.min.css">
-<script src="/static/uplot.min.js" defer></script>
-{% with url = "/trends/grades.json?course=" ~ course.id, kind = "lines", title = "This class" %}
-{% include "_chart.html" %}
-{% endwith %}
+{% include "_chart_scripts.html" %}
+{% if grade_chart_json %}{% with config = grade_chart_json, height = 220, label = "This class's grade over time" %}{% include "_chart_canvas.html" %}{% endwith %}
+{% else %}<p class="muted">No grades recorded yet.</p>{% endif %}
 <h3>Notes</h3>
 {% set target_type = "course" %}{% set target_id = course.id %}
 {% include "_notes.html" %}

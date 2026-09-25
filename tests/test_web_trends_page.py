@@ -22,14 +22,53 @@ def test_empty_database_says_nothing_yet(tmp_path):
     assert r.status_code == 200 and "Not enough history yet" in r.text
 
 
-def test_grades_json_has_one_series_per_course_and_source(tmp_path):
+def grade_configs(body: str) -> list[dict]:
+    return [c for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"]
+
+
+def test_the_grade_chart_has_one_stepped_series_per_course_and_source_on_a_time_axis(tmp_path):
     history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/grades.json").json()
-    labels = {s["label"] for s in data["series"]}
-    assert "Honors English 9 (HAC average)" in labels and "Honors English 9 (Canvas current)" in labels
-    hac = next(s for s in data["series"] if s["label"].endswith("(HAC average)") and s["label"].startswith("Honors"))
-    assert [v for _, v in hac["points"]] == [85.0, 88.0]
-    assert all(isinstance(t, (int, float)) for t, _ in hac["points"])       # epoch seconds for uPlot
+    cfgs = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
+    assert len(cfgs) == 1 and cfgs[0]["type"] == "line"
+    labels = {d["label"] for d in cfgs[0]["data"]["datasets"]}
+    assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
+    hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    assert [p["y"] for p in hac["data"]] == [85.0, 88.0]
+    assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
+    assert hac["stepped"] == "after" and hac["borderWidth"] == 3
+    assert cfgs[0]["options"]["plugins"]["title"]["text"] == "Grade per class"
+
+
+def test_the_all_kids_view_draws_one_titled_grade_chart_per_kid(tmp_path):
+    """Three kids' classes in one legend was 28 series (#40 item 12)."""
+    history(tmp_path).close()
+    c = app_for(tmp_path)
+    everyone = grade_configs(c.get("/trends").text)
+    assert len(everyone) >= 2
+    assert "Alex — grade per class" in {cfg["options"]["plugins"]["title"]["text"] for cfg in everyone}
+    assert len(grade_configs(c.get("/trends?kid=Sam").text)) == 1
+
+
+def test_a_kid_with_no_grade_points_in_the_window_gets_the_sentence_not_a_canvas(tmp_path):
+    """The first refresh records a grade point, so an empty window is the way to have none:
+    one week, looked at three weeks after the only refresh."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path, now=NOW + timedelta(weeks=3)).get("/trends?kid=Alex&weeks=1").text
+    assert grade_configs(body) == [] and "No grades recorded yet." in body
+
+
+def test_a_grade_series_label_cannot_close_the_script_tag():
+    from fridgesheet.web.routes.trends import chart_json, grade_chart
+    from fridgesheet.web.stores.trends import GradeSeries
+    evil = GradeSeries(1, "</script><script>alert(1)</script>", "hac", "</script> (HAC average)",
+                       points=[(NOW, 90.0)], official=True)
+    text = chart_json(grade_chart([evil], title="Grade per class"))
+    assert "</script>" not in text and "\\u003c/script" in text
+
+
+def test_the_grades_json_endpoint_is_gone(tmp_path):
+    history(tmp_path).close()
+    assert app_for(tmp_path).get("/trends/grades.json").status_code == 404
 
 
 def test_the_weekly_chart_is_a_stacked_bar_in_the_tables_column_order(tmp_path):
@@ -60,15 +99,13 @@ def test_the_weekly_json_endpoint_is_gone(tmp_path):
     assert app_for(tmp_path).get("/trends/weekly.json?weeks=4").status_code == 404
 
 
-def test_kid_filter_applies_to_page_and_json(tmp_path):
+def test_kid_filter_applies_to_the_page_and_its_chart(tmp_path):
     history(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/trends?kid=Sam").text
     assert "Science 7" in body and "Honors English 9" not in body
-    data = c.get("/trends/grades.json?kid=Sam").json()
-    assert all("Science 7" in s["label"] for s in data["series"])
+    assert all("Science 7" in d["label"] for cfg in grade_configs(body) for d in cfg["data"]["datasets"])
     assert c.get("/trends?kid=Nobody").status_code == 404
-    assert c.get("/trends/grades.json?kid=Nobody").status_code == 404
 
 
 def test_weeks_parameter_is_bounded(tmp_path):
@@ -84,16 +121,13 @@ def test_weeks_parameter_also_narrows_the_grade_chart(tmp_path):
     c = app_for(tmp_path)
 
     def total_points(weeks):
-        data = c.get(f"/trends/grades.json?weeks={weeks}").json()
-        return sum(len(s["points"]) for s in data["series"])
+        return sum(len(d["data"]) for cfg in grade_configs(c.get(f"/trends?weeks={weeks}").text) for d in cfg["data"]["datasets"])
 
     assert total_points(1) < total_points(16)
 
 
-def test_grades_json_with_no_weeks_returns_all_history(tmp_path):
-    """An absent `weeks` means all history, not the same default window a chart with a Weeks
-    selector would use -- `course.html`'s embed has no selector and must not silently drop
-    old grades."""
+def test_the_course_page_chart_shows_all_history_not_a_default_window(tmp_path):
+    """`course.html`'s chart has no Weeks selector and must not silently drop old grades."""
     old_now = NOW - timedelta(weeks=20)                            # ~5 months back
     old_snap = snapshot()
     old_snap["students"]["Alex"]["hac"]["classes"][0]["marking_period_avg"] = 70.0
@@ -102,35 +136,12 @@ def test_grades_json_with_no_weeks_returns_all_history(tmp_path):
     conn = history(tmp_path)                                       # the standard 3-day fixture, layered on top
     cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
     conn.close()
-
-    data = app_for(tmp_path).get(f"/trends/grades.json?course={cid}").json()
-    points = [p for s in data["series"] for p in s["points"]]
-    eight_weeks_ago = (NOW - timedelta(weeks=8)).timestamp()
-    assert any(t < eight_weeks_ago for t, _ in points)
-
-
-def test_weeks_selector_url_carries_the_chosen_weeks_for_the_grade_chart_too(tmp_path):
-    history(tmp_path).close()
-    body = app_for(tmp_path).get("/trends?weeks=4").text
-    assert 'data-chart="/trends/grades.json?weeks=4' in body
-
-
-def test_a_course_filter_that_is_not_a_course_matches_nothing(tmp_path):
-    """`?course=abc` names no course, so it answers with no series -- it must not fall through
-    to "every class in the house", which is what a course-page chart would then draw."""
-    history(tmp_path).close()
-    c = app_for(tmp_path)
-    assert c.get("/trends/grades.json?course=abc").json() == {"series": []}
-    assert c.get("/trends/grades.json?course=999999").json() == {"series": []}
-    assert c.get("/trends/grades.json").json()["series"]                  # the unfiltered call still answers
-
-
-def test_course_page_gains_a_grade_chart(tmp_path):
-    conn = history(tmp_path)
-    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
-    conn.close()
-    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert 'data-chart="/trends/grades.json?course=' in body and "uplot.min.js" in body
+    cfgs = grade_configs(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert len(cfgs) == 1 and cfgs[0]["options"]["plugins"]["title"]["text"] == "This class"
+    points = [p for d in cfgs[0]["data"]["datasets"] for p in d["data"]]
+    eight_weeks_ago = (NOW - timedelta(weeks=8)).timestamp() * 1000
+    assert any(p["x"] < eight_weeks_ago for p in points)
+    assert all("Honors English 9" in d["label"] for d in cfgs[0]["data"]["datasets"])   # this course, not the house
 
 
 def test_one_refresh_only_still_renders(tmp_path):
@@ -158,15 +169,6 @@ def test_chart_holders_carry_their_plot_height_and_no_inline_height():
     assert "style=" not in tmpl, "a chart holder sized in CSS overflows uPlot's title and legend"
 
 
-def test_course_page_chart_holder_also_carries_a_height(tmp_path):
-    conn = history(tmp_path)
-    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
-    conn.close()
-    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    holder, = re.findall(r'<div class="chart"[^>]*>', body)
-    assert 'data-height="220"' in holder and 'style="height' not in body
-
-
 def test_the_content_column_can_shrink_below_its_content():
     """A bare `1fr` track is `minmax(auto, 1fr)`: it never narrows past its content's
     min-content width. After the first draw a chart holder's content is a fixed-width
@@ -181,19 +183,6 @@ def test_the_content_column_can_shrink_below_its_content():
     tracks = re.findall(r"\.shell\s*\{[^}]*grid-template-columns:\s*([^;}]+)", css)
     assert len(tracks) == 2, "expected the wide layout and the max-width:800px override"
     assert [t.strip() for t in tracks] == ["220px minmax(0, 1fr)", "minmax(0, 1fr)"]
-
-
-def test_the_all_kids_view_draws_one_grade_chart_per_kid(tmp_path):
-    """Three kids' classes in one legend was 28 series (#40 item 12). "all" now shows the
-    chart each kid's own view shows, one under the other; a kid's view still shows one."""
-    history(tmp_path).close()
-    c = app_for(tmp_path)
-    everyone = c.get("/trends").text
-    assert everyone.count('data-chart="/trends/grades.json') >= 2
-    assert 'grades.json?weeks=8&amp;kid=Alex' in everyone or 'grades.json?weeks=8&kid=Alex' in everyone
-    assert 'data-title="Alex — grade per class"' in everyone
-    one = c.get("/trends?kid=Sam").text
-    assert one.count('data-chart="/trends/grades.json') == 1
 
 
 def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
