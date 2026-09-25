@@ -64,7 +64,8 @@ def _kid(snap: dict, student: str) -> tuple[str, dict]:
 def refresh(kids: list[str] | None = None, hac: bool = True, canvas: bool = True) -> dict:
     """Re-pull Canvas and/or HAC now (logs in if a session expired) and return the source status.
     Use before building a report so numbers are current. Takes ~1-3 minutes. A source that
-    fails keeps its data from the last good pull; `stale` says which and how old. A scheduled
+    fails keeps its data from the last good pull; `stale` says which and how old. So does a
+    single Canvas class that fails: `carried` names it and the pull it comes from. A scheduled
     print or refresh already in progress is waited for a few minutes; if it is still running,
     the status of the snapshot on disk comes back with `refresh` saying nothing was pulled."""
     s = _settings()
@@ -78,8 +79,10 @@ def refresh(kids: list[str] | None = None, hac: bool = True, canvas: bool = True
 @mcp.tool()
 def status() -> dict:
     """Snapshot age, whether each source (Canvas, HAC) was reachable on the last pull, which
-    sources are being served from an older pull (`stale`, with that pull's time), and whether
-    a run holds run.lock right now (`run_in_progress`: reads answer from this snapshot)."""
+    sources are being served from an older pull (`stale`, with that pull's time), which
+    Canvas classes are (`carried`, with that pull's time and why) or could not be pulled at
+    all (`missing`), and whether a run holds run.lock right now (`run_in_progress`: reads
+    answer from this snapshot)."""
     return collector.summary(_settings(), collector.load_snapshot(_settings()))
 
 

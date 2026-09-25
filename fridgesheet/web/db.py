@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -224,6 +224,16 @@ def _migrate_v5(conn: sqlite3.Connection) -> None:
     _backfill_since(conn)
 
 
+_SCHEMA_V6 = """
+-- Canvas classes this refresh could not pull, when one class fails on its own (#140): JSON
+-- {"carried": [{kid, course_id, name, reason, fetched_at}], "missing": [{kid, course_id, reason}]}
+-- as `collector.course_faults` lists them, NULL when every class answered. A carried class is
+-- served from an older pull and its refresh still counts as good (`ok`); a missing one had
+-- nothing older to serve. The header reads it to say so beside "Canvas OK".
+ALTER TABLE refreshes ADD COLUMN carried TEXT;
+"""
+
+
 def since_fields(last: sqlite3.Row | None, refresh_id: int, missing, score) -> tuple[int | None, int | None]:
     """`missing_since` and `scored_since` for a new observation, given the one before it: the
     run continues when the mark is still set (the score still the same), else it starts here.
@@ -331,6 +341,9 @@ def migrate(conn: sqlite3.Connection) -> int:
             _migrate_v5(conn)
             conn.execute("UPDATE schema_version SET version = 5")
         v = 5
+    if v < 6:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V6 + "\nUPDATE schema_version SET version = 6;\nCOMMIT;")
+        v = 6
     return v
 
 

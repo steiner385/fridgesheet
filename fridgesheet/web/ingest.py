@@ -25,6 +25,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
+from .. import collector
 from ..matching import hac_item_key, match_course, norm_name, same_item, short_course
 from ..open_items import ASSESSMENT_WORDS, hac_excused, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
 from . import db
@@ -38,6 +39,27 @@ class IngestResult:
     items: int                       # items this snapshot created, not items it saw
     observations: int
     grades: int
+    carried: tuple[str, ...] = ()    # Canvas classes served from an older pull, "Alex's Algebra I" (#140)
+    missing: tuple[str, ...] = ()    # Canvas classes that failed with nothing older to serve
+
+    def note(self) -> str:
+        """What the log line and the run message add when a class did not answer, or ""."""
+        parts = []
+        if self.carried:
+            parts.append(f"{n_classes(len(self.carried))} carried from an older pull: {', '.join(self.carried)}")
+        if self.missing:
+            parts.append(f"{n_classes(len(self.missing))} not fetched: {', '.join(self.missing)}")
+        return "; ".join(parts)
+
+
+def n_classes(n: int) -> str:
+    return f"{n} class" if n == 1 else f"{n} classes"
+
+
+def course_label(fault: dict) -> str:
+    """"Alex's Algebra I" -- the kid and the class, short, the way the header names them."""
+    name = fault.get("name")
+    return f"{fault['kid']}'s {short_course(name) if name else 'course ' + str(fault['course_id'])}"
 
 
 def item_key_canvas(assignment_id) -> str:
@@ -196,15 +218,21 @@ def _hac_values(row: dict) -> dict:
 def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None = None) -> IngestResult:
     now = now or datetime.now(tz)
     sources = snapshot.get("sources") or {}
+    carried, missing = collector.course_faults(snapshot)
     n_students = n_courses = n_items = n_obs = n_grades = 0
     with conn:
         # IMMEDIATE takes the write lock up front: a deferred transaction that reads first and
         # writes later can only fail with SQLITE_BUSY when the web worker got there in between,
         # and a whole snapshot is too much work to throw away.
         conn.execute("BEGIN IMMEDIATE")
-        cur = conn.execute("INSERT INTO refreshes(started_at, finished_at, sources, ok) VALUES (?, ?, ?, ?)",
+        # `ok` reads the sources alone: a refresh in which one Canvas class was carried from an
+        # older pull is still a good refresh for the 24-hour rule (#140) -- the household's
+        # data is complete, one class of it is just older, and the header says which. The
+        # carried class's record is in the snapshot, so its items are seen in this refresh below.
+        cur = conn.execute("INSERT INTO refreshes(started_at, finished_at, sources, ok, carried) VALUES (?, ?, ?, ?, ?)",
                            (snapshot.get("fetched_at") or now.isoformat(), now.isoformat(), json.dumps(sources),
-                            int(all(v == "ok" for v in sources.values()))))
+                            int(all(v == "ok" for v in sources.values())),
+                            json.dumps({"carried": carried, "missing": missing}) if carried or missing else None))
         refresh_id = cur.lastrowid
         for key, entry in (snapshot.get("students") or {}).items():
             student_id = _upsert_student(conn, key, entry.get("name") or key)
@@ -284,4 +312,5 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                                                     present)
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "hac", _hac_values(row))
-    return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades)
+    return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades,
+                        tuple(course_label(c) for c in carried), tuple(course_label(m) for m in missing))

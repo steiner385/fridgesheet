@@ -1,7 +1,9 @@
 <header class="status">
   {% if refresh %}
     <span>Refreshed {{ refresh.started_at | wd_md_time }}</span>
-    {% for name, state in sources %}<span class="{{ 'ok' if state == 'ok' else 'bad' }}">{{ name }} {{ 'OK' if state == 'ok' else state | truncate(80) }}</span>{% endfor %}
+    {# A class Canvas would not give up is named beside "Canvas OK" rather than hidden behind
+       it: the source answered, one class of it is served from an older pull (#140). #}
+    {% for name, state in sources %}<span class="{{ 'ok' if state == 'ok' else 'bad' }}">{{ name }} {{ 'OK' if state == 'ok' else state | truncate(80) }}{% if name == 'Canvas' and canvas_note %} ({{ canvas_note }}){% endif %}</span>{% endfor %}
   {% else %}
     <span>No refresh yet</span>
   {% endif %}

@@ -303,6 +303,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
     return {
         "request": request, "settings": state.settings, "now": state.now(), "refresh": r,
         "sources": [(k.upper() if k == "hac" else k.capitalize(), v) for k, v in sources],
+        "canvas_note": staleness.canvas_note(r, state.tz),        # "1 class carried from ...", or "" (#140)
         "last_run": (last_run := runs.latest(conn)), "last_run_what": runs.describe(last_run) if last_run else None,
         "students": students.visible(conn), "version": version(),
         "warnings": state.warnings(),
