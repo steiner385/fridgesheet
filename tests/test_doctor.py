@@ -225,6 +225,17 @@ def test_web_server_probe(monkeypatch, tmp_path):
     assert "service state unknown" in doctor._web_server(s, tmp_path)
 
 
+def test_timezone_probe_names_the_computers_clock_when_it_is_another_zone(monkeypatch, tmp_path):
+    """On Windows a task fires on the PC's clock (#122): a household zone that is not the PC's
+    is worth a word here, since the Schedules page shows next runs in the PC's time."""
+    assert doctor._timezone(Settings(timezone="America/New_York"), tmp_path) == "America/New_York"
+    monkeypatch.setattr(host, "local_timezone", lambda: "America/Los_Angeles")
+    assert doctor._timezone(Settings(timezone="America/Chicago"), tmp_path) == \
+        "America/Chicago (this computer's clock is America/Los_Angeles)"
+    with pytest.raises(Exception):
+        doctor._timezone(Settings(timezone="Eastern"), tmp_path)
+
+
 def test_no_print_days_probe_reports_the_lines_it_cannot_read(tmp_path):
     """#147: `parse_skip_days` leaves out a reversed range or an impossible date. A hand-edited
     file is exactly the one nobody re-reads, so the doctor names each line it had to drop."""

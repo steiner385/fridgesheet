@@ -237,6 +237,20 @@ def test_window_uses_the_configured_report_time(env):
     assert len(calls["print"]) == 1
 
 
+def test_the_print_window_is_read_on_the_households_clock(env):
+    """A Central household's 14:00 window opens at 14:00 Central (#122). `now` arrives however
+    the caller built it -- the CLI's clock is the process's own -- and the runner reads it on
+    the configured zone's clock, so a Chicago family whose PC was left in Eastern does not
+    print an hour early, and the sheet's date is the household's date."""
+    s, calls, refresh, print_pdf, toast = env
+    s.timezone = "America/Chicago"
+    s.reports["open-work"] = ReportConfig(enabled=True, time="14:00")
+    _run(s, runner.RunOptions(), now=FRI_2PM.replace(hour=14, minute=30), refresh=refresh, print_pdf=print_pdf, toast=toast)
+    assert calls["print"] == [] and "before 14:00" in (s.home / runner.LOG_NAME).read_text()      # 13:30 Central
+    _run(s, runner.RunOptions(), now=FRI_2PM.replace(hour=15, minute=1), refresh=refresh, print_pdf=print_pdf, toast=toast)
+    assert len(calls["print"]) == 1                                                             # 14:01 Central
+
+
 def test_config_options_feed_the_report_and_cli_overrides_win(env):
     s, calls, refresh, print_pdf, toast = env
     s.reports["open-work"] = ReportConfig(options={"days_ahead": 1})

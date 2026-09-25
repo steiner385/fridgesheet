@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -813,3 +814,68 @@ def test_windows_next_run_survives_a_localised_header():
 def test_windows_next_run_is_none_rather_than_a_crash_for_output_it_cannot_place(out):
     info = scheduling_windows.describe("open-work", run=lambda c, **k: _R(0, out))
     assert info == scheduling.ScheduleInfo("task-scheduler", True, None, None)
+
+
+# --- the household's zone on a PC whose clock is elsewhere (#122) ------------------------------
+# Task Scheduler's StartBoundary is the PC's local time, full stop; a systemd timer can name a
+# zone, a task cannot. So a task is written at the PC-local hour that *is* the household's
+# configured hour, and a conversion that crosses midnight moves the day with it.
+
+def test_pc_local_times_converts_the_households_hour_to_this_pcs_clock():
+    conv = scheduling_windows.pc_local_times
+    today = date(2026, 9, 26)
+    assert conv(["14:00"], "America/Chicago", pc_zone="America/Los_Angeles", today=today) == [("12:00", 0)]
+    assert conv(["22:00"], "America/Los_Angeles", pc_zone="America/New_York", today=today) == [("01:00", 1)]
+    assert conv(["01:00"], "America/New_York", pc_zone="America/Los_Angeles", today=today) == [("22:00", -1)]
+    assert conv(["06:00", "14:00"], "America/Chicago", pc_zone="America/New_York", today=today) == [("07:00", 0), ("15:00", 0)]
+    # Nothing to convert: the zones agree, no zone was configured, or the PC's cannot be read.
+    assert conv(["14:00"], "America/Chicago", pc_zone="America/Chicago", today=today) == [("14:00", 0)]
+    assert conv(["14:00"], "", pc_zone="America/Chicago", today=today) == [("14:00", 0)]
+    assert conv(["14:00"], "America/Chicago", pc_zone=None, today=today) == [("14:00", 0)]
+
+
+def test_windows_install_writes_the_task_at_this_pcs_hour_for_the_households_time(monkeypatch):
+    seen = {}
+
+    def run(cmd, **kw):
+        seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_text(encoding="utf-16")
+        return _R(0, "SUCCESS")
+
+    monkeypatch.setattr(scheduling_windows, "local_timezone", lambda: "America/Los_Angeles")
+    scheduling_windows.install("open-work", ["14:00"], ["Mon"], "x", "run open-work", ".", run=run, timezone="America/Chicago")
+    assert "<StartBoundary>2026-01-01T12:00:00</StartBoundary>" in seen["xml"] and "<Monday />" in seen["xml"]
+    # The issue's own repro, the other way round: a Pacific household's 22:00 on a PC whose
+    # clock is Eastern is 01:00 -- the next morning, so Friday's run is written on Saturday.
+    monkeypatch.setattr(scheduling_windows, "local_timezone", lambda: "America/New_York")
+    scheduling_windows.install("open-work", ["22:00"], ["Fri"], "x", "run open-work", ".", run=run, timezone="America/Los_Angeles")
+    assert "<StartBoundary>2026-01-01T01:00:00</StartBoundary>" in seen["xml"]
+    assert "<Saturday />" in seen["xml"] and "<Friday />" not in seen["xml"]
+
+
+def test_windows_install_leaves_the_hour_alone_when_the_zones_agree_or_the_pc_cannot_say(monkeypatch):
+    seen = {}
+
+    def run(cmd, **kw):
+        seen["xml"] = Path(cmd[cmd.index("/XML") + 1]).read_text(encoding="utf-16")
+        return _R(0, "SUCCESS")
+
+    monkeypatch.setattr(scheduling_windows, "local_timezone", lambda: "America/Chicago")
+    scheduling_windows.install("open-work", ["14:00"], ["Mon"], "x", "run open-work", ".", run=run, timezone="America/Chicago")
+    assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in seen["xml"]
+    monkeypatch.setattr(scheduling_windows, "local_timezone", lambda: None)
+    scheduling_windows.install("open-work", ["14:00"], ["Mon"], "x", "run open-work", ".", run=run, timezone="America/Chicago")
+    assert "<StartBoundary>2026-01-01T14:00:00</StartBoundary>" in seen["xml"]
+
+
+def test_windows_describe_says_the_next_run_is_on_this_pcs_clock_when_the_zones_differ(monkeypatch):
+    """schtasks reports the next run in the PC's time. That is the household's time too, except
+    when the configured zone is another one -- then the line says whose clock it is."""
+    def run(cmd, **kw):
+        return _R(0, '"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result"\n'
+                     '"PC","\\Fridge Sheet - open-work","9/15/2026 12:00:00 PM","Ready","Interactive only","N/A","0"\n')
+
+    monkeypatch.setattr(scheduling_windows, "local_timezone", lambda: "America/Los_Angeles")
+    info = scheduling_windows.describe("open-work", run=run, timezone="America/Chicago")
+    assert info.next_run == "9/15/2026 12:00:00 PM (this PC's clock, America/Los_Angeles)"
+    assert scheduling_windows.describe("open-work", run=run, timezone="America/Los_Angeles").next_run == "9/15/2026 12:00:00 PM"
+    assert scheduling_windows.describe("open-work", run=run).next_run == "9/15/2026 12:00:00 PM"

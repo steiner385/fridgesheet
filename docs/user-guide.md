@@ -69,7 +69,8 @@ credential store (Windows Credential Manager or the GNOME keyring), never in a f
 - A OneLogin **parent** account *without* multi-factor sign-in. If a code is sent to your
   phone each time you sign in, automatic refreshes cannot work.
 - A computer that is on, and signed in, at the times you want it to print.
-- The app assumes US Eastern time (see [Known issues](#known-issues-worth-knowing)).
+- That computer's clock set to your time zone — or your zone picked under **Settings →
+  Where you are** ([§13](#13-settings)). Due times, "today" and schedules all follow it.
 
 ---
 
@@ -150,7 +151,7 @@ The defaults are Lakota Local Schools'. For another district:
 | The HAC tile on your OneLogin portal, if it isn't called "Home Access" or "HAC" | `.env`: `FRIDGESHEET_HAC_APP_PATTERN=…` (a name to look for), or pin it with `FRIDGESHEET_HAC_ONELOGIN_APP_URL=…` |
 | School holidays | **Settings → Days the sheet does not print** — replace Lakota's dates. |
 | Quarter end dates | **Settings → Late-work rules → Quarters** — replace Lakota's dates. |
-| Time zone | Fixed to US Eastern for now ([#122](https://github.com/steiner385/fridgesheet/issues/122)). Outside Eastern time, due times show and schedules fire in Eastern: in Central time, a sheet you want at 2 pm needs **15:00**. |
+| Time zone | This computer's, unless **Settings → Where you are → Time zone** says otherwise (or `FRIDGESHEET_TIMEZONE=America/Chicago` in `.env`). Due times, "today", the print window and schedules follow it: a sheet you want at 2 pm is **14:00**, wherever you are. |
 
 If **Test login** fails, run `fridgesheet login` on a machine with a screen: it opens a
 visible browser so you can watch where sign-in stops. A district whose OneLogin form differs
@@ -649,6 +650,7 @@ One form with one **Save** at the bottom, then separate editors below it.
 |---|---|
 | **School login** | **OneLogin username**, **OneLogin password** (blank keeps the stored one). |
 | **Printing and the report window** | **Printer**, **Days ahead**, **Overdue days** (1–60, for the Open Work Sheet), **Archive folder** (a second copy of every PDF, e.g. a Google Drive folder, filed as `2026-27/2026-09-11 Open Work.pdf`), **Nicknames**. |
+| **Where you are** | **Time zone** — blank means this computer's zone, which the page names; pick a US zone from the list or type any name such as `America/Chicago`. Due times, "today", the print window and schedules follow it. On Windows a scheduled task fires on the PC's clock, so the app writes it converted from this zone when the two differ (the Schedules page's next run is then in the PC's time). |
 | **Gradebook sources** | **Assignment scores come from** (default Canvas) and **Class averages come from** (default HAC). |
 | **Network** | **Port** (default 8433), **Allow other devices on this network** ([§16](#16-using-it-on-a-phone-or-tablet)). |
 | **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
@@ -694,9 +696,9 @@ Some settings live only in files in the data folder ([§19](#19-files-backup-and
 - `config.toml`: `[kids] grades`, `[web] extra_hosts`, per-report options,
   `[[sources.rule]]` (also editable per class).
 - `.env`: district addresses (`FRIDGESHEET_CANVAS_BASE`, `FRIDGESHEET_HAC_BASE`,
-  `FRIDGESHEET_ONELOGIN_HOST`), and overrides such as `FRIDGESHEET_PRINTER`. A value in the
-  environment or `.env` **beats** the same setting on the Settings page, and the page does
-  not show it.
+  `FRIDGESHEET_ONELOGIN_HOST`), and overrides such as `FRIDGESHEET_PRINTER` and
+  `FRIDGESHEET_TIMEZONE`. A value in the environment or `.env` **beats** the same setting on
+  the Settings page, and the page says so beside the box.
 
 ### Where the password can come from
 
@@ -901,7 +903,6 @@ Start with **Diagnostics → Run diagnostics**. Any `FAIL` line is where to look
 
 ### Known issues worth knowing
 
-- The app assumes US Eastern time for due dates, "today" and schedules ([#122](https://github.com/steiner385/fridgesheet/issues/122)).
 - Work due at exactly midnight reads *Due tomorrow* the evening before ([#139](https://github.com/steiner385/fridgesheet/issues/139)).
 - A class whose Canvas page failed to load during a refresh drops out until the next good refresh, with no warning ([#140](https://github.com/steiner385/fridgesheet/issues/140)).
 - Two assignments with nearly the same title ("Unit 3 Test", "Unit 3 Test Retake") can be paired wrongly ([#132](https://github.com/steiner385/fridgesheet/issues/132)).
