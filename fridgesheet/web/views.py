@@ -386,7 +386,7 @@ def _keys(source: str, row: dict, raw: dict) -> dict:
     return out
 
 
-def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict]]:
+def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict, dict]]:
     out = []
     start, end = window_start(d, now), window_end(d, now)
     for s in students_store.visible(conn):
@@ -402,11 +402,12 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> li
                 "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
                 "notes": _num(v.notes), "cases": verdicts.standing(v, "") if v.verdict.state in ("question", "decided", "waiting") else "",
             }
-            out.append((row, _keys("items", row, {"due": v.due, "points": v.points, "notes": v.notes})))
+            raw = {"due": v.due, "points": v.points, "notes": v.notes}
+            out.append((row, _keys("items", row, raw), raw))
     return out
 
 
-def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict]]:
+def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict, dict]]:
     out = []
     end = window_end(d, now)
     for s in students_store.visible(conn):
@@ -419,11 +420,12 @@ def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict
                 row = {"kid": nicknames.get(s["key"], s["key"]), "course": series.course_short,
                        "source": series.source, "official": "yes" if series.official else "", "label": series.label,
                        "value": _num(value), "at": _date(at, now)}
-                out.append((row, _keys("grades", row, {"at": at, "value": value})))
+                raw = {"at": at, "value": value}
+                out.append((row, _keys("grades", row, raw), raw))
     return out
 
 
-def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dict, dict]], int]:
+def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dict, dict, dict]], int]:
     """Rows, plus how many events the store's own cap left out of the feed entirely -- a count
     `build` folds into `Rendered.truncated` so a household past the cap is told, not just shown
     fewer rows than it has."""
@@ -449,7 +451,8 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
         row = {"at": _date(e.at, now, with_time=True), "kid": nicknames.get(e.student_key, e.student_key),
                "what": e.label, "item": e.item_name or "", "course": e.course_short or "",
                "source": e.source or "", "detail": e.detail}
-        out.append((row, _keys("changes", row, {"at": e.at})))
+        raw = {"at": e.at}
+        out.append((row, _keys("changes", row, raw), raw))
     return out, dropped
 
 
@@ -469,8 +472,20 @@ def _keep(row: dict, f: dict) -> bool:
     return b in a
 
 
-def _bucket_start(dt: datetime, bucket: str):
-    d = dt.date()
+def _local_date(v, now: datetime):
+    """The same local calendar day a table cell already shows for `v` (`_date`'s own timezone
+    conversion, without the display formatting) -- a chart must bucket on the day the table
+    prints, not the day UTC would print, or an evening-due item drifts into the next day, week
+    or month for the chart alone."""
+    d = _as_datetime(v)
+    if d is None:
+        return None
+    if d.tzinfo is not None and now.tzinfo is not None:
+        d = d.astimezone(now.tzinfo)
+    return d.date()
+
+
+def _bucket_start(d, bucket: str):
     if bucket == "day":
         return d
     if bucket == "month":
@@ -478,48 +493,76 @@ def _bucket_start(dt: datetime, bucket: str):
     return dates.week_start(d)
 
 
-def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict]]) -> tuple[ChartData | None, str]:
+def _bucket_range(lo, hi, bucket: str) -> list:
+    """Every bucket start from `lo` to `hi` inclusive, stepped by `bucket` -- the full calendar
+    range a zero-filled chart needs, not just the bucket starts that happen to hold a row."""
+    out = [lo]
+    while out[-1] < hi:
+        if bucket == "day":
+            out.append(out[-1] + timedelta(days=1))
+        elif bucket == "month":
+            y, m = out[-1].year, out[-1].month
+            out.append(date(y + (m == 12), m % 12 + 1, 1))
+        else:
+            out.append(out[-1] + timedelta(weeks=1))
+    return out
+
+
+def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]], now: datetime) -> tuple[ChartData | None, str]:
     """The chart half of `build()`'s output, from the exact rows the table already kept -- a
     chart can never show a point the table doesn't. `spec.x`/`spec.y`/`spec.series` need not be
-    among the report's displayed columns; `row` always carries every column of the source.
+    among the report's displayed columns; `row` always carries every column of the source, and
+    `raw` always carries the unformatted value behind each one.
+
+    Bucketing uses each row's raw value converted to `now`'s local day (`_local_date`), the
+    same day the table cell for that column already shows -- not `keys`' UTC-normalized sort
+    value, which a chart bucketing on it would disagree with the table about for any evening
+    due date.
 
     A row with no `x` value cannot be plotted and is dropped from the chart only. A row whose
     `y` column is blank is excluded from its bucket's average, not treated as a zero -- a
-    missing grade observation must not pull a trend line down. `bar`/`stacked_bar` buckets are
-    zero-filled so the x-axis is even (`weekly_counts`' convention); `line` buckets are left
-    absent when nothing landed in them (`grade_series`' convention) -- a flat stretch is the
-    absence of points, not a plotted dip to zero.
+    missing grade observation must not pull a trend line down. `bar`/`stacked_bar` buckets
+    span the full calendar range so the x-axis is even, including buckets with zero rows from
+    every series (`weekly_counts`' convention); `line` buckets are left absent when nothing
+    landed in them (`grade_series`' convention) -- a flat stretch is the absence of points, not
+    a plotted dip to zero.
     """
     known = COLUMNS[source]
     dropped = 0
+    blank_y = 0
     buckets: dict = {}
-    for row, keys in kept:
-        x_iso = keys.get(spec.x, "")
-        if not x_iso:
+    for row, _, raw in kept:
+        x_local = _local_date(raw.get(spec.x), now)
+        if x_local is None:
             dropped += 1
             continue
         if spec.y and row.get(spec.y, "") == "":
+            blank_y += 1
             continue
-        y = float(row[spec.y]) if spec.y else 1.0
-        label = row.get(spec.series, "") if spec.series else (known[spec.y].label if spec.y else "Count")
-        bstart = _bucket_start(datetime.fromisoformat(x_iso), spec.bucket)
+        try:
+            y = float(row[spec.y]) if spec.y else 1.0
+        except (TypeError, ValueError):
+            blank_y += 1
+            continue
+        label = (row.get(spec.series, "") or "(none)") if spec.series else (known[spec.y].label if spec.y else "Count")
+        bstart = _bucket_start(x_local, spec.bucket)
         buckets.setdefault(bstart, {}).setdefault(label, []).append(y)
     if not buckets:
         return None, ""
-    starts = sorted(buckets)
+    zero_fill = spec.type in ("bar", "stacked_bar")
+    starts = _bucket_range(min(buckets), max(buckets), spec.bucket) if zero_fill else sorted(buckets)
     overflow = max(0, len(starts) - MAX_CHART_POINTS)
     starts = starts[-MAX_CHART_POINTS:]
     labels_seen: list[str] = []
     for s in starts:
-        for label in buckets[s]:
+        for label in buckets.get(s, {}):
             if label not in labels_seen:
                 labels_seen.append(label)
-    zero_fill = spec.type in ("bar", "stacked_bar")
     series_out = []
     for label in labels_seen:
         points = []
         for s in starts:
-            values = buckets[s].get(label)
+            values = buckets.get(s, {}).get(label)
             if values is None:
                 if zero_fill:
                     points.append((dates.md(s), 0.0))
@@ -530,6 +573,8 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict]]) -> 
     notes = []
     if dropped:
         notes.append(f"{dropped} row(s) with no date are not charted")
+    if blank_y:
+        notes.append(f"{blank_y} row(s) with no value are not charted")
     if overflow:
         notes.append(f"Chart shows the most recent {MAX_CHART_POINTS} of {MAX_CHART_POINTS + overflow}; "
                      "choose a coarser bucket or a shorter range to see the rest")
@@ -567,7 +612,7 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
     if d.group_by:
         seen: dict[str, Group] = {}
         order: dict[str, object] = {}
-        for r, (_, key) in zip(slim, kept):
+        for r, (_, key, _raw) in zip(slim, kept):
             label = r.get(d.group_by, "")
             g = seen.get(label)
             if g is None:
@@ -587,5 +632,5 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         label = next((l for k, l, _ in WINDOWS if k == d.window), "")
     else:
         label = ""
-    chart, chart_note = _chart_data(d.source, d.chart, kept) if d.chart else (None, "")
+    chart, chart_note = _chart_data(d.source, d.chart, kept, now) if d.chart else (None, "")
     return Rendered(d.title, columns, groups, truncated, label, chart=chart, chart_note=chart_note)
