@@ -274,10 +274,19 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> li
         for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs, **(window or {})):
             if not _on_or_after(v.due, start) or not _on_or_before(v.due, end):
                 continue
-            row = { ... unchanged ... }
+            row = {
+                "kid": nicknames.get(s["key"], s["key"]), "course": v.course_short, "name": v.name,
+                "status": v.status, "due": _date(v.due, now), "points": _num(v.points), "kind": v.kind,
+                "sources": " + ".join(v.sources), "flag": (v.flag or "").replace("_", " "),
+                "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
+                "notes": _num(v.notes), "cases": verdicts.standing(v, "") if v.verdict.state in ("question", "decided", "waiting") else "",
+            }
             out.append((row, _keys("items", row, {"due": v.due, "points": v.points, "notes": v.notes})))
     return out
 ```
+
+(the `row = {...}` literal above is unchanged from the current file — only the `if not
+_on_or_after(...)` line and the `start, end = ...` line are new.)
 
 ```python
 # _grade_rows (line 311-322): filter each point by `end` too
