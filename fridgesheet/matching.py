@@ -8,6 +8,8 @@ import json
 import logging
 import os
 import re
+from datetime import date
+from typing import Sequence
 
 log = logging.getLogger("fridgesheet.matching")
 
@@ -17,8 +19,9 @@ def norm_name(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
 
-def same_item(a: str, b: str) -> bool:
-    """Whether two titles from Canvas and HAC name the same piece of work.
+def title_score(a: str, b: str) -> float | None:
+    """How well two titles from Canvas and HAC name the same piece of work: None when they do
+    not, 1.0 for the same title, else the share of words they have in common.
 
     Teachers rarely type the title identically in both gradebooks -- Canvas' "MakeMusic Cloud
     Assignment #1" is HAC's "MakeMusic Assignment #1" -- so exact matching let real duplicates
@@ -27,12 +30,47 @@ def same_item(a: str, b: str) -> bool:
     """
     ta, tb = set(norm_name(a).split()), set(norm_name(b).split())
     if not ta or not tb:
-        return False
+        return None
     if ta == tb:
-        return True
+        return 1.0
     if {x for x in ta if x.isdigit()} != {x for x in tb if x.isdigit()}:
-        return False
-    return len(ta & tb) / len(ta | tb) >= 0.7
+        return None
+    score = len(ta & tb) / len(ta | tb)
+    return score if score >= 0.7 else None
+
+
+def same_item(a: str, b: str) -> bool:
+    """Whether two titles from Canvas and HAC could name the same piece of work (`title_score`)."""
+    return title_score(a, b) is not None
+
+
+def pair_titles(canvas: Sequence[str], hac: Sequence[str]) -> dict[int, int]:
+    """Which HAC row each Canvas assignment pairs with, as {canvas index: hac index}, one to one.
+
+    "Unit 3 Test Retake" shares three words of four with "Unit 3 Test", enough for `same_item`,
+    and taking the first row over the bar paired the retake with the test's HAC row and left
+    the retake's own grade with nowhere to go (#132). So: the same title wins outright (a score
+    of 1.0), otherwise the closest wording, and a row on either side is paired at most once --
+    the pairs are taken best first, so the answer does not depend on the order either gradebook
+    lists its rows in. A HAC row left over is the caller's to keep as a HAC-only item, never to
+    drop. One rule for the database (`web.ingest`) and the printed sheet (`open_items`), so a
+    flag set on the screen is set on the row the paper prints. A dead tie between two
+    candidates goes to the one listed first.
+    """
+    scored = []
+    for i, a in enumerate(canvas):
+        for j, b in enumerate(hac):
+            s = title_score(a, b)
+            if s is not None:
+                scored.append((-s, i, j))
+    pairs: dict[int, int] = {}
+    taken: set[int] = set()
+    for _, i, j in sorted(scored):
+        if i in pairs or j in taken:
+            continue
+        pairs[i] = j
+        taken.add(j)
+    return pairs
 
 
 # HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1-2027-Hoch"
@@ -132,13 +170,29 @@ def rule_course_matches(pattern: str, course: str, peer: str | None = None) -> b
 
 
 def hac_item_key(course: str, name: str) -> str:
-    """The stable key for a HAC row with no Canvas twin: `hac:<short course>:<norm name>`.
+    """The title half of a HAC-only item's key: `hac:<short course>:<norm name>`. The key
+    itself is `hac_only_key`, which adds the due date.
 
     One definition for the sheet (`open_items`) and the database (`web.ingest`). They had
     their own, differing in whether the assignment name was normalised, so a flag set on a
     HAC-only item in the app never matched the row it was set on and never reached the paper.
     """
     return f"hac:{short_course(course)}:{norm_name(name)}"
+
+
+def hac_only_key(course: str, name: str, due: date | None) -> str:
+    """The stable key for a HAC row with no Canvas twin:
+    `hac:<short course>:<norm name>:<YYYY-MM-DD>`, or `:unknown` for a row with no due date.
+
+    The date is always there, not only when two rows share a title. A lone row used to take
+    the bare `hac_item_key`, and the day a second same-titled row appeared -- a weekly
+    "Participation" -- every row with that title was re-keyed to the dated form, so the first
+    became a new item and its flag, notes and history stayed behind on the old one (#136).
+    Two rows with one title and one due date are the same row scraped twice (`open_items.
+    hac_only_keys`). A title the teacher edits still re-keys the row: nothing in HAC identifies
+    an assignment but its title and its date.
+    """
+    return f"{hac_item_key(course, name)}:{due.isoformat() if due else 'unknown'}"
 
 
 def _expand(s: str) -> str:

@@ -67,7 +67,7 @@ def test_first_ingest_creates_everything_and_links_hac_to_canvas(tmp_path):
     assert (r.students, r.courses) == (2, 2)                       # one Canvas + one HAC course for Alex
     assert r.items == 3                                             # Quiz 1 (linked), Essay draft, Reading log (HAC-only)
     keys = {row["key"] for row in conn.execute("SELECT key FROM items")}
-    assert keys == {"canvas:77", "canvas:78", "hac:Honors English 9:reading log"}
+    assert keys == {"canvas:77", "canvas:78", "hac:Honors English 9:reading log:2026-09-11"}
     latest = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])
     quiz = conn.execute("SELECT id FROM items WHERE key='canvas:77'").fetchone()[0]
     assert set(latest[quiz]) == {"canvas", "hac"}                   # "Quiz #1" in HAC attached to Canvas' "Quiz 1"
@@ -171,8 +171,10 @@ def test_hac_only_collision_gets_dated_keys(tmp_path):
     assert keys2 == keys
 
 
-def test_hac_only_non_colliding_keeps_base_key(tmp_path):
-    """No name collision among the HAC-only rows: each keeps the plain base key."""
+def test_hac_only_non_colliding_rows_carry_their_dates_too(tmp_path):
+    """No name collision among the HAC-only rows, and each key still carries its due date: a
+    lone row used to keep the bare key, and was re-keyed -- flag, notes and history orphaned --
+    the day a second row with its title appeared (#136)."""
     conn = db.open_db(tmp_path)
     snap = _snap_hac_only([
         _employability("09/04/2026", "08/31/2026"),
@@ -181,7 +183,7 @@ def test_hac_only_non_colliding_keeps_base_key(tmp_path):
     ])
     r = ingest.record(conn, snap, tz=TZ, now=T1)
     keys = {row["key"] for row in conn.execute("SELECT key FROM items")}
-    assert keys == {"hac:Honors English 9:employability", "hac:Honors English 9:reading log"}
+    assert keys == {"hac:Honors English 9:employability:2026-09-04", "hac:Honors English 9:reading log:2026-09-11"}
     assert r.items == 2
 
 
@@ -246,8 +248,8 @@ def test_two_kids_in_like_named_classes_keep_separate_items(tmp_path):
     rows = conn.execute("""SELECT s.key AS kid, i.key AS item FROM items i JOIN students s ON s.id = i.student_id
                            ORDER BY s.key, i.key""").fetchall()
     assert [(x["kid"], x["item"]) for x in rows] == [
-        ("Alex", "canvas:77"), ("Alex", "hac:Honors English 9:reading log"),
-        ("Sam", "canvas:77"), ("Sam", "hac:Honors English 9:reading log")]
+        ("Alex", "canvas:77"), ("Alex", "hac:Honors English 9:reading log:2026-09-11"),
+        ("Sam", "canvas:77"), ("Sam", "hac:Honors English 9:reading log:2026-09-11")]
     assert conn.execute("SELECT count(*) FROM item_observations").fetchone()[0] == 4     # every observation landed
 
 
@@ -265,8 +267,8 @@ def test_one_kid_in_two_sections_of_one_course_keeps_separate_items(tmp_path):
     rows = conn.execute("""SELECT c.name AS course, i.key AS item FROM items i JOIN courses c ON c.id = i.course_id
                            ORDER BY c.name""").fetchall()
     assert [(x["course"], x["item"]) for x in rows] == [
-        ("Honors English 9 - 1", "hac:Honors English 9:reading log"),
-        ("Honors English 9 - 3", "hac:Honors English 9:reading log")]
+        ("Honors English 9 - 1", "hac:Honors English 9:reading log:2026-09-11"),
+        ("Honors English 9 - 3", "hac:Honors English 9:reading log:2026-09-11")]
     ingest.record(conn, snap, tz=TZ, now=T2)                                # a second refresh adds neither
     assert conn.execute("SELECT count(*) FROM items").fetchone()[0] == 2
 
@@ -310,10 +312,10 @@ def test_published_is_observed_and_defaults_to_published(tmp_path):
 
 def test_two_hac_rows_matching_one_canvas_twin_attach_only_the_first(tmp_path):
     """A Canvas item gets at most one HAC observation per refresh: when two HAC rows both name
-    the same work as one Canvas assignment (a collision open_items already resolves with
-    `next(...)`), the first attaches and the second is dropped -- not turned into a HAC-only
-    item, and not a second write to the same (refresh_id, item_id, 'hac') observation, which
-    would violate item_observations' UNIQUE constraint and roll back the whole snapshot."""
+    the same work as one Canvas assignment, the first attaches and the second becomes its own
+    HAC-only item (#132: a row with no free twin is never dropped) -- not a second write to the
+    same (refresh_id, item_id, 'hac') observation, which would violate item_observations'
+    UNIQUE constraint and roll back the whole snapshot."""
     conn = db.open_db(tmp_path)
     snap = {
         "fetched_at": T1.isoformat(), "fetched_at_epoch": T1.timestamp(),
@@ -341,12 +343,15 @@ def test_two_hac_rows_matching_one_canvas_twin_attach_only_the_first(tmp_path):
         },
     }
     r = ingest.record(conn, snap, tz=TZ, now=T1)                    # must not raise sqlite3.IntegrityError
-    assert conn.execute("SELECT count(*) FROM items").fetchone()[0] == 1   # canvas:77 only, no HAC-only item
-    assert r.items == 1
+    keys = sorted(row["key"] for row in conn.execute("SELECT key FROM items"))
+    assert keys == ["canvas:77", "hac:Honors English 9:quiz 1:2026-09-12"]   # the second row is its own item
+    assert r.items == 2
     quiz_id = conn.execute("SELECT id FROM items WHERE key='canvas:77'").fetchone()[0]
     scores = [row["score"] for row in conn.execute(
         "SELECT score FROM item_observations WHERE item_id=? AND source='hac'", (quiz_id,))]
     assert scores == [28.0]                                          # the first row's values only
+    other = conn.execute("SELECT o.score FROM item_observations o JOIN items i ON i.id = o.item_id WHERE i.key LIKE 'hac:%'").fetchone()
+    assert other["score"] == 15.0
 
 
 def test_the_teacher_of_record_supplies_both_the_name_and_the_address(tmp_path):
