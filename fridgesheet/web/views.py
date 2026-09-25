@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date as _date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .. import dates
 from ..open_items import school_year_start
@@ -146,12 +146,11 @@ def _as_bool(v) -> bool:
     return bool(v)
 
 
-def _parse_plain_date(s: str) -> _date | None:
+def _parse_plain_date(s: str) -> date | None:
     """`date_from`/`date_to` as a plain date, or `None` when blank or unreadable -- callers
     treat `None` as "this custom range cannot be resolved", never as `datetime.min`."""
-    from datetime import date as date_
     try:
-        return date_.fromisoformat(s) if s else None
+        return date.fromisoformat(s) if s else None
     except ValueError:
         return None
 
