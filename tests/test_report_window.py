@@ -137,4 +137,4 @@ def test_the_preview_names_a_custom_range(tmp_path):
     c = _client(tmp_path)
     rid = _save(tmp_path, window="custom", date_from="2026-09-01", date_to="2026-09-15")
     body = c.get(f"/reports/{rid}/view").text
-    assert "Custom range" in body and "9/1" in body and "9/15" in body
+    assert "custom range" in body and "9/1" in body and "9/15" in body

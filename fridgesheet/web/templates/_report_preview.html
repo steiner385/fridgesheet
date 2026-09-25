@@ -2,7 +2,7 @@
   {% for p in problems %}<p class="warn">{{ p }}</p>{% endfor %}
   {% if rendered %}
   <h2>{{ rendered.title }}</h2>
-  {% if rendered.window %}<p class="muted">Rows from: {{ rendered.window if rendered.window.startswith('Custom') else rendered.window | lower }}</p>{% endif %}
+  {% if rendered.window %}<p class="muted">Rows from: {{ rendered.window | lower }}</p>{% endif %}
   {% set n = rendered.groups | map(attribute="rows") | map("length") | sum %}
   <p class="muted">{{ n }} row{{ 's' if n != 1 }}{% if rendered.truncated %} shown, {{ rendered.truncated }} more left out{% endif %} · check this before printing a long one.</p>
   {% for g in rendered.groups %}
