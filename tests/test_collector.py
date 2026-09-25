@@ -14,6 +14,10 @@ from fridgesheet.config import Settings
 from fridgesheet.session import LoginRequired
 
 
+#: Canvas course id -> the exception `FakeCanvas.course` raises for it (reset per test).
+COURSE_FAIL: dict = {}
+
+
 class FakeCanvas:
     def __init__(self, ctx, s):
         pass
@@ -25,6 +29,8 @@ class FakeCanvas:
         ]
 
     def course(self, cid):
+        if cid in COURSE_FAIL:
+            raise COURSE_FAIL[cid]
         return {"id": cid, "name": f"Course {cid}"}
 
     def course_grade(self, cid, uid):
@@ -64,7 +70,8 @@ def settings(tmp_path):
 @pytest.fixture
 def fake_sites(monkeypatch):
     """Stub the browser boundary. Each source's `fail` can be set to an exception to raise."""
-    state = {"canvas_fail": None, "hac_fail": None}
+    COURSE_FAIL.clear()
+    state = {"canvas_fail": None, "hac_fail": None, "course_fail": COURSE_FAIL}
 
     @contextmanager
     def fake_browser(s, **kw):
@@ -236,4 +243,110 @@ def test_summary_of_an_old_snapshot_without_stale_key(settings):
     legacy = {"fetched_at": "2026-09-01T06:00:00-04:00", "fetched_at_epoch": 0, "sources": {"canvas": "ok", "hac": "ok"}, "students": {"Alex": {}}}
     out = collector.summary(settings, legacy)
     assert out["stale"] == {}
+    assert out["carried"] == [] and out["missing"] == []
     assert out["fresh"] is False
+
+
+# --- one Canvas course failing on its own (#140) -------------------------------------------
+# Canvas refuses observers on some endpoints for some courses, so a 403 on one class leaves
+# the source "ok" with that class recorded under `errors` -- and, before this, absent from
+# the snapshot, so its open work vanished from every page until the next good pull.
+
+
+def test_a_failed_course_is_carried_from_the_previous_snapshot(settings, fake_sites):
+    prev = _seed(settings, fake_sites)
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+
+    snap = collector.collect(settings)
+
+    assert snap["sources"]["canvas"] == "ok"      # the source answered; one class did not
+    assert snap["stale"] == {}                     # so nothing is stale at the source level
+    sam = snap["students"]["Sam"]["canvas"]
+    assert sam["courses"] == prev["students"]["Sam"]["canvas"]["courses"]
+    assert sam["carried"] == {"20": {"name": "Course 20", "reason": "403 Forbidden",
+                                     "fetched_at": prev["fetched_at"], "fetched_at_epoch": prev["fetched_at_epoch"]}}
+    assert sam["errors"] == [{"course_id": 20, "error": "403 Forbidden"}]
+    assert "carried" not in snap["students"]["Alex"]["canvas"]
+    assert snap["students"]["Alex"]["canvas"]["courses"][0]["id"] == 10   # the other class was refreshed
+
+
+def test_the_carried_course_is_what_gets_written_to_disk(settings, fake_sites):
+    prev = _seed(settings, fake_sites)
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+
+    collector.collect(settings)
+
+    on_disk = json.loads((settings.cache_dir / "snapshot.json").read_text())
+    assert on_disk["students"]["Sam"]["canvas"]["courses"] == prev["students"]["Sam"]["canvas"]["courses"]
+    assert on_disk["students"]["Sam"]["canvas"]["carried"]["20"]["fetched_at"] == prev["fetched_at"]
+
+
+def test_repeated_course_failure_keeps_the_original_good_time(settings, fake_sites):
+    prev = _seed(settings, fake_sites)
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+    collector.collect(settings)
+
+    snap = collector.collect(settings)   # second consecutive failure of the same class
+
+    assert snap["students"]["Sam"]["canvas"]["courses"] == prev["students"]["Sam"]["canvas"]["courses"]
+    assert snap["students"]["Sam"]["canvas"]["carried"]["20"]["fetched_at"] == prev["fetched_at"]
+
+
+def test_a_course_carried_from_a_carried_source_keeps_that_pull_time(settings, fake_sites):
+    """Yesterday Canvas was down as a whole (carried per source); today it answers but one
+    class 403s. That class's copy is from the pull before the outage, and says so."""
+    first = _seed(settings, fake_sites)
+    fake_sites["canvas_fail"] = RuntimeError("canvas down")
+    collector.collect(settings)
+    fake_sites["canvas_fail"] = None
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+
+    snap = collector.collect(settings)
+
+    assert snap["stale"] == {}
+    assert snap["students"]["Sam"]["canvas"]["carried"]["20"]["fetched_at"] == first["fetched_at"]
+
+
+def test_course_failure_with_nothing_to_carry_records_the_error_only(settings, fake_sites):
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+
+    snap = collector.collect(settings)
+
+    sam = snap["students"]["Sam"]["canvas"]
+    assert sam["courses"] == [] and "carried" not in sam
+    assert sam["errors"] == [{"course_id": 20, "error": "403 Forbidden"}]
+
+
+def test_course_recovery_replaces_the_carried_copy_and_clears_the_marker(settings, fake_sites):
+    _seed(settings, fake_sites)
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+    collector.collect(settings)
+    fake_sites["course_fail"].clear()
+
+    snap = collector.collect(settings)
+
+    sam = snap["students"]["Sam"]["canvas"]
+    assert [c["id"] for c in sam["courses"]] == [20]
+    assert "carried" not in sam and "errors" not in sam
+
+
+def test_summary_reports_carried_and_missing_courses(settings, fake_sites):
+    prev = _seed(settings, fake_sites)
+    fake_sites["course_fail"][20] = RuntimeError("403 Forbidden")
+    snap = collector.collect(settings)
+
+    out = collector.summary(settings, snap)
+
+    assert out["sources"]["canvas"] == "ok" and out["stale"] == {}
+    assert out["carried"] == [{"kid": "Sam", "course_id": "20", "name": "Course 20", "reason": "403 Forbidden", "fetched_at": prev["fetched_at"]}]
+    assert out["missing"] == []
+
+
+def test_summary_names_a_failed_course_that_had_nothing_to_carry(settings, fake_sites):
+    fake_sites["course_fail"][10] = RuntimeError("403 Forbidden")
+    snap = collector.collect(settings)
+
+    out = collector.summary(settings, snap)
+
+    assert out["carried"] == []
+    assert out["missing"] == [{"kid": "Alex", "course_id": "10", "reason": "403 Forbidden"}]

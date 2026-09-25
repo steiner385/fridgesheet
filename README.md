@@ -11,7 +11,7 @@ Design goals:
 - **Claude never sees a password.** Logins happen inside this server's process. Credentials come from the OS keyring at the moment they're typed and are not written anywhere.
 - **Log in rarely.** One persistent Chromium profile holds the OneLogin, Canvas and HAC cookies; a login only happens when a site bounces us to a login page.
 - **One pull, many tools.** A refresh writes a JSON snapshot; the tools read from it (cache TTL 3 h by default), so Thursday's report doesn't hit the sites more than once.
-- **A bad pull never erases a good one.** If Canvas or HAC fails (or is skipped) on a refresh, that source's data is carried over from the last successful pull and `status()` reports it as `stale` with the time it was actually fetched.
+- **A bad pull never erases a good one.** If Canvas or HAC fails (or is skipped) on a refresh, that source's data is carried over from the last successful pull and `status()` reports it as `stale` with the time it was actually fetched. The same holds one class at a time: when Canvas refuses a single course (a 403 on one class is common for observer accounts), that class keeps its record from the previous snapshot, `status()` lists it under `carried` with the pull it comes from and the error, and the web status bar says so beside "Canvas OK" ("1 class carried from Tue 9/15 6:05 AM: Alex's Algebra I (403 Forbidden)"). Such a refresh still counts as a good one for the 24-hour rule: the data is complete, one class of it is just older. A class that fails with nothing older to serve is listed under `missing` and named as "not fetched".
 - **No one has to be present.** Everything runs unattended, including the scheduled refresh and the weekday 2 PM printed sheet (section 6).
 - **Other parents can install it.** A Windows build ("Fridge Sheet") with a browser app and a per-user installer: see [docs/windows.md](docs/windows.md) and "Releasing" below.
 
@@ -256,7 +256,7 @@ Every count, filter and colour that says whether an assignment was done comes fr
 | `upcoming(student, days=14)` | Unsubmitted items due in the window, Eastern time, with DUE TODAY / DUE TOMORROW / DUE <weekday> statuses |
 | `assignments(student, course=None)` | Full Canvas assignment list with flags |
 | `hac_classwork(student, course=None)` | Raw HAC rows and category subtotals |
-| `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, `stale` (sources served from an older pull, with that pull's time) and `run_in_progress` (a scheduled print or refresh holds `run.lock`, so reads answer from the snapshot on disk) / pull now, under that same lock |
+| `status()` / `refresh(kids, hac, canvas)` | Snapshot age, source health, `stale` (sources served from an older pull, with that pull's time), `carried` / `missing` (single Canvas classes served from an older pull, or not pulled at all) and `run_in_progress` (a scheduled print or refresh holds `run.lock`, so reads answer from the snapshot on disk) / pull now, under that same lock |
 
 All dates are `America/New_York` ISO strings (Canvas `due_at` is UTC and is converted).
 

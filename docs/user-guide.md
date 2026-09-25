@@ -213,7 +213,9 @@ so a child sitting at the screen sees less.
 The **status bar** at the top of every page says:
 
 - **Refreshed** *time*, and **Canvas OK** / **HAC OK** — or the error from the last
-  attempt. "No refresh yet" before the first one.
+  attempt. "No refresh yet" before the first one. When Canvas answered but refused one
+  class, it reads **Canvas OK (1 class carried from** *time*: *kid's class (error)***)** —
+  that class is shown from the pull named, and nothing has been lost.
 - **Last run** with an OK/FAIL badge — the last sheet or report built or printed (links to
   Runs).
 - A badge while a job (refresh, build, print) is running.
@@ -888,7 +890,7 @@ Start with **Diagnostics → Run diagnostics**. Any `FAIL` line is where to look
 | *Fridge Sheet only answers at http://127.0.0.1:8433/* | You used another address (a computer name, a port-forward). Use `127.0.0.1`, or the address/QR from Settings on a phone ([§16](#16-using-it-on-a-phone-or-tablet)). |
 | The shortcut does nothing / browser can't connect | The app didn't start. On Windows, paste `%LOCALAPPDATA%\fridgesheet` into File Explorer's address bar and open `app.log` in Notepad; the last lines say why. On Linux: `journalctl --user -u fridgesheet-web`. Signing out and in, or running the shortcut again, restarts it. |
 | An assignment appears twice | Canvas and HAC titles didn't pair. Look under **Questions → Can't pair these**. Answer the duplicate *Let it go*. |
-| A class's work vanished after a refresh | One Canvas course can fail on its own without a warning ([#140](https://github.com/steiner385/fridgesheet/issues/140)); refresh again. |
+| The status bar says *Canvas OK (1 class carried from …)* | Canvas refused that one class on the last refresh (the error is in the parentheses). Its work is still shown, from the pull named; it will be current again the next time the class answers. *1 class not fetched* means there was no earlier copy to show — refresh again. |
 | Settings or Schedules shows an error page | A hand edit made `config.toml` invalid (e.g. `time = "25:99"`). Fix or remove the line. |
 | The keyring prompt hangs a refresh (Linux) | The login keyring is locked; sign in to the desktop. |
 

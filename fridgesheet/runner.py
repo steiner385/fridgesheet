@@ -283,7 +283,9 @@ def _ingest(conn, snap: dict, tz, log) -> None:
     try:
         from .web import ingest
         r = ingest.record(conn, snap, tz=tz)
-        log("INFO", f"ingested refresh {r.refresh_id}: {r.items} new items, {r.observations} changes, {r.grades} grade changes")
+        note = r.note()      # a Canvas class carried from an older pull, or not fetched (#140)
+        log("INFO", f"ingested refresh {r.refresh_id}: {r.items} new items, {r.observations} changes, {r.grades} grade changes"
+            + (f"; {note}" if note else ""))
     except Exception as e:
         log("WARN", f"could not ingest the snapshot into the database: {type(e).__name__}: {str(e)[:120]}")
 
