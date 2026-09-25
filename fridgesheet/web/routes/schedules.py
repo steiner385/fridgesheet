@@ -5,9 +5,10 @@ import sqlite3
 
 from fastapi import APIRouter, Request
 
-from ... import host
+from ... import config, host
 from .. import actions, schedules
 from ..app import Db, State, render
+from .settings import config_problem
 
 router = APIRouter()
 
@@ -29,13 +30,29 @@ def _printer_options(printers: list[str], current: str) -> list[tuple[str, str, 
 
 
 def _page(request, conn, state, *, messages=(), errors=()):
-    rows = schedules.rows(state.home, scheduling=state.extra.get("scheduling"))
+    try:
+        rows = schedules.rows(state.home, scheduling=state.extra.get("scheduling"))
+        refresh = schedules.refresh_row(state.home, scheduling=state.extra.get("scheduling"))
+    except config.ConfigError as e:
+        # A config.toml that does not read is a line on the page, not a 500 (#144). No rows:
+        # a Save from values that could not be read would write guesses over the parent's file.
+        rows, refresh = [], None
+        problem = config_problem(state, e)
+        errors = [*errors, *([] if problem in errors else [problem])]     # a POST may have said it already
     printers = actions.printer_names(state.extra)
     return render(request, conn, "schedules.html", current="schedules",
-                  rows=rows, days=DAYS,
-                  refresh=schedules.refresh_row(state.home, scheduling=state.extra.get("scheduling")),
+                  rows=rows, days=DAYS, refresh=refresh,
                   printer_options={r.key: _printer_options(printers, r.printer) for r in rows},
                   messages=list(messages), errors=list(errors))
+
+
+def _reload(state) -> list[str]:
+    """`state.reload()`, with a file that no longer reads as the page's error rather than a 500."""
+    try:
+        state.reload()
+    except config.ConfigError as e:
+        return [config_problem(state, e)]
+    return []
 
 
 @router.get("/schedules")
@@ -49,17 +66,19 @@ async def save(request: Request, conn: sqlite3.Connection = Db, state=State):
     declared as a parameter -- FastAPI would give back only the last one."""
     form = await request.form()
     lines: list[str] = []
-    out = schedules.save(
-        form.get("key", ""),
-        enabled=bool(form.get("enabled")),
-        time=form.get("time", ""),
-        days=[d for d in form.getlist("days") if d],
-        printer=form.get("printer", ""),
-        prints=bool(form.get("prints")),
-        home=state.home, log=lines.append, scheduling=state.extra.get("scheduling"))
-    if out.ok:
-        state.reload()
-    return _page(request, conn, state, messages=out.messages, errors=out.errors)
+    try:
+        out = schedules.save(
+            form.get("key", ""),
+            enabled=bool(form.get("enabled")),
+            time=form.get("time", ""),
+            days=[d for d in form.getlist("days") if d],
+            printer=form.get("printer", ""),
+            prints=bool(form.get("prints")),
+            home=state.home, log=lines.append, scheduling=state.extra.get("scheduling"))
+    except config.ConfigError as e:
+        return _page(request, conn, state, errors=[config_problem(state, e)])
+    reload_errors = _reload(state) if out.ok else []
+    return _page(request, conn, state, messages=out.messages, errors=[*out.errors, *reload_errors])
 
 
 def _int_or(value, default: int) -> int:
@@ -75,13 +94,15 @@ def _int_or(value, default: int) -> int:
 @router.post("/schedules/refresh")
 async def save_refresh(request: Request, conn: sqlite3.Connection = Db, state=State):
     form = await request.form()
-    out = schedules.save_refresh(
-        enabled=bool(form.get("enabled")),
-        every_hours=_int_or(form.get("every_hours"), 3),
-        start=str(form.get("start") or "06:00"),
-        end=str(form.get("end") or "21:00"),
-        days=[str(d) for d in form.getlist("days")],
-        home=state.home, log=lambda _m: None,
-        scheduling=state.extra.get("scheduling"))
-    state.reload()
-    return _page(request, conn, state, messages=out.messages, errors=out.errors)
+    try:
+        out = schedules.save_refresh(
+            enabled=bool(form.get("enabled")),
+            every_hours=_int_or(form.get("every_hours"), 3),
+            start=str(form.get("start") or "06:00"),
+            end=str(form.get("end") or "21:00"),
+            days=[str(d) for d in form.getlist("days")],
+            home=state.home, log=lambda _m: None,
+            scheduling=state.extra.get("scheduling"))
+    except config.ConfigError as e:
+        return _page(request, conn, state, errors=[config_problem(state, e)])
+    return _page(request, conn, state, messages=out.messages, errors=[*out.errors, *_reload(state)])

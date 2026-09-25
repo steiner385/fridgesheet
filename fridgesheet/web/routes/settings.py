@@ -44,6 +44,13 @@ def _tailnet_url(port: int) -> str | None:
         return None
 
 
+def config_problem(state, e: config.ConfigError) -> str:
+    """The line a page shows for a config.toml that does not read (#144). `e` already names
+    the file and the setting (`[reports.open-work] time must be HH:MM ...`); this adds what to do."""
+    return (f"config.toml could not be read: {e}. Fix that setting in {state.home / 'config.toml'} "
+            "with a text editor, then reload this page.")
+
+
 def _page(request, conn, state, form, messages=(), errors=()):
     # The status line's `describe` comes from `state.extra["scheduling"]` when one is there --
     # the same seam `schedules.rows` uses. Without it every /settings render shells out to the
@@ -51,11 +58,14 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # says rather than on its fake.
     # The port this process answers on, not the one config.toml holds for the next start (#9).
     port = state.settings.web_port
-    lan_url = actions.lan_url(port) if form.allow_lan else None
+    # `form` is None when config.toml does not read (#144): the page still renders, with the
+    # error, and without a form whose placeholders a Save would write over the parent's file.
+    allow_lan = form.allow_lan if form is not None else state.settings.web_allow_lan
+    lan_url = actions.lan_url(port) if allow_lan else None
     # The one network call the page makes that is not to a school system: once a day, cached
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
-    tailnet_url = _tailnet_url(port) if form.allow_lan else None
+    tailnet_url = _tailnet_url(port) if allow_lan else None
     # The two refusals that keep the update button from starting something it can already
     # predict will go wrong -- see `_update_button.html`. `info.installed` is only asked for
     # once the first two guards pass: on most machines and most page loads (checks off, or no
@@ -75,6 +85,10 @@ def _page(request, conn, state, form, messages=(), errors=()):
                       "update could leave it closed. Install it again from the desktop shortcut "
                       "first (issue #39).")
     update_ready = bool(update and update.available and not reason)
+    try:
+        source_rules = actions.load_sources(state.home).rules
+    except config.ConfigError:
+        source_rules = []                   # the same error is already on the page, from `form`
     return render(request, conn, "settings.html", current="settings", form=form, messages=list(messages), errors=list(errors),
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
@@ -82,12 +96,16 @@ def _page(request, conn, state, form, messages=(), errors=()):
                   update_ready=update_ready, update_blocked_reason=reason,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
                   entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
-                  source_rules=actions.load_sources(state.home).rules, SOURCE_LABELS=sources.LABELS)
+                  source_rules=source_rules, SOURCE_LABELS=sources.LABELS)
 
 
 @router.get("/settings")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
-    return _page(request, conn, state, actions.load_form(state.home))
+    try:
+        form = actions.load_form(state.home)
+    except config.ConfigError as e:
+        return _page(request, conn, state, None, errors=[config_problem(state, e)])
+    return _page(request, conn, state, form)
 
 
 @router.post("/settings")
@@ -120,15 +138,18 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
                               update_pin=update_pin,
                               sources_assignments=sources_assignments, sources_grades=sources_grades)
     lines: list[str] = []
-    result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
+    try:
+        result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))
+    except config.ConfigError as e:         # a file that does not parse is not written over (#144)
+        return _page(request, conn, state, None, errors=[config_problem(state, e)])
     if result.ok:
         try:
             state.reload()
+            form = actions.load_form(state.home)
         except config.ConfigError as e:
             # Written, but config.toml has something the form does not own that no longer
             # reads (#4): say so on the page rather than a 500.
             return _page(request, conn, state, form, errors=[f"Saved, but the settings could not be re-read: {e}"])
-        form = actions.load_form(state.home)
         return _page(request, conn, state, form, messages=result.messages)
     return _page(request, conn, state, form, errors=result.messages)
 
