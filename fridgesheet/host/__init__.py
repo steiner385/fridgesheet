@@ -109,10 +109,14 @@ def safe_key(key: str) -> str:
     return _UNSAFE.sub("-", key).strip("-.") or "report"
 
 
-def check_schedule(time: str, days: list[str]) -> None:
-    """Raise `SchedulingError` unless this is a schedule both platforms can install."""
+def check_schedule(time: str, days: list[str], *, require_days: bool = True) -> None:
+    """Raise `SchedulingError` unless this is a schedule both platforms can install.
+
+    `require_days=False` is for a schedule being turned *off* (#146): no days is then a fine
+    thing to save, but the time and any day named are still checked, because they are written
+    to config.toml and a bad time there would break every later read of the file."""
     bad = [d for d in days if d not in DAY_NAMES]
-    if not days:
+    if not days and require_days:
         raise SchedulingError("no days configured for the schedule")
     if bad:
         raise SchedulingError(f"unknown day name(s) {bad!r}; use {', '.join(DAY_NAMES)}")
@@ -120,7 +124,7 @@ def check_schedule(time: str, days: list[str]) -> None:
         raise SchedulingError(f"time must be HH:MM (24-hour), got {time!r}")
 
 
-def check_schedule_times(times: list[str], days: list[str]) -> None:
+def check_schedule_times(times: list[str], days: list[str], *, require_days: bool = True) -> None:
     """`check_schedule` for a schedule with several times a day.
 
     Every time is validated before any caller writes a file, so one bad time never leaves a
@@ -129,7 +133,7 @@ def check_schedule_times(times: list[str], days: list[str]) -> None:
     if not times:
         raise SchedulingError("no times configured for the schedule")
     for t in times:
-        check_schedule(t, days)
+        check_schedule(t, days, require_days=require_days)
 
 
 #: The app's own data-refresh schedule. Deliberately *not* "refresh": on Linux that would

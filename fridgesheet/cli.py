@@ -383,16 +383,30 @@ def cmd_schedule(args) -> int:
             print("--all only works with `schedule remove`", file=sys.stderr)
             return 2
         return _cmd_schedule_remove_all()
+    from . import host, refresh_schedule
+    from .web import schedules as page
     s = load_settings()
     key = args.report
     try:
         if args.action == "install":
-            r = reports.resolve(key, s.home)       # a saved view report is schedulable too (#35)
-            rc = s.report_config(key, r.default_time)
-            exe, a, wd = scheduling.command_for(key)
-            scheduling.install(key, [rc.time], rc.days, exe, a, wd, title=r.title,
-                               home=str(s.home), timezone=s.timezone)
-            print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {rc.time}")
+            if key == host.DATA_REFRESH_KEY:
+                # `[refresh]`, installed by the very call the Schedules page makes (#146) --
+                # this used to fall through to `reports.resolve` and answer "unknown report".
+                rc = s.refresh
+                times = refresh_schedule.refresh_times(rc.start, rc.end, rc.every_hours)
+                host.check_schedule_times(times, rc.days)
+                page.install_refresh(times, rc.days, home=s.home, timezone=s.timezone, scheduling=scheduling)
+                print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {','.join(times)}")
+            else:
+                r = reports.resolve(key, s.home)       # a saved view report is schedulable too (#35)
+                rc = s.report_config(key, r.default_time)
+                exe, a, wd = scheduling.command_for(key)
+                scheduling.install(key, [rc.time], rc.days, exe, a, wd, title=r.title,
+                                   home=str(s.home), timezone=s.timezone)
+                print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {rc.time}")
+            # Only once the host has it: config.toml says on exactly when a task is there, the
+            # way the Schedules page leaves it (#146).
+            page.record_enabled(s.home, key, True)
         elif args.action == "remove":
             # `data-refresh` is the one escape hatch through the report-key gate below: it is
             # not a report (`reports.resolve` would raise `ReportError` for it, same as any
@@ -402,10 +416,13 @@ def cmd_schedule(args) -> int:
             # Without it, a parent whose refresh schedule outlived its `[refresh]` config had
             # no single-key way to remove just that task; `schedule remove --all` was the only
             # door, and it removes every report's schedule too.
-            if key != scheduling.DATA_REFRESH_KEY:
+            if key != host.DATA_REFRESH_KEY:
                 reports.resolve(key, s.home)      # the same gate `install` has: `remove web` is
             scheduling.remove(key)                # not a report, and on Windows it names the
                                                   # web server's own logon task
+            # Off in config.toml too, or `doctor` fails "on in config.toml but no task is
+            # installed" (#146). A table that was never written already reads as off.
+            page.record_enabled(s.home, key, False, create=False)
             print(f"Removed {scheduling.display_name(key)}")
         info = scheduling.describe(key)
         state = f"next run {info.next_run}" if info.installed else "not scheduled"
@@ -586,7 +603,14 @@ def main(argv=None) -> None:
     ps.add_argument("--reprint", action="store_true", help="print again even if this date already has a printed sheet")
     ps.set_defaults(fn=cmd_print_sheet)
     args = p.parse_args(argv)
-    sys.exit(args.fn(args))
+    try:
+        code = args.fn(args)
+    except ConfigError as e:
+        # A config.toml that does not read is the parent's to fix, and the message already
+        # names the file and the setting: one line, not a traceback (#144).
+        print(f"fridgesheet: {e}", file=sys.stderr)
+        code = 2
+    sys.exit(code)
 
 
 def legacy_main(argv=None) -> None:

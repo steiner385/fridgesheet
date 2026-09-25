@@ -444,7 +444,13 @@ def load_settings() -> Settings:
     s.onelogin_host = os.environ.get("FRIDGESHEET_ONELOGIN_HOST", s.onelogin_host)
     s.headless = os.environ.get("FRIDGESHEET_HEADLESS", "1") not in ("0", "false", "no")
     s.user_agent = os.environ.get("FRIDGESHEET_USER_AGENT", s.user_agent)
-    s.cache_ttl_minutes = int(os.environ.get("FRIDGESHEET_CACHE_TTL_MINUTES", s.cache_ttl_minutes))
+    raw_ttl = os.environ.get("FRIDGESHEET_CACHE_TTL_MINUTES")
+    if raw_ttl is not None:
+        try:
+            s.cache_ttl_minutes = int(raw_ttl)
+        except ValueError:            # same posture as FRIDGESHEET_WEB_PORT below (#144)
+            log.warning("FRIDGESHEET_CACHE_TTL_MINUTES must be a whole number of minutes, got %r; using %s",
+                        raw_ttl, s.cache_ttl_minutes)
     s.sheets_archive = os.environ.get("FRIDGESHEET_SHEETS_ARCHIVE", s.sheets_archive).strip()
     s.printer = os.environ.get("FRIDGESHEET_PRINTER", s.printer).strip()
     env_host = os.environ.get("FRIDGESHEET_WEB_HOST")

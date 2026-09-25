@@ -20,6 +20,7 @@ log = logging.getLogger("fridgesheet.web.schedules")
 
 CONFIG_NAME = "config.toml"
 LOGIN_STAMP = "login-ok.txt"
+REFRESH_TITLE = "Data refresh"
 
 
 @dataclass(frozen=True)
@@ -203,7 +204,9 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     if refusal:
         return Outcome(False, errors=[refusal])
     try:
-        host.check_schedule(time, days)
+        # Turning a schedule off never needs a day ticked (#146): unticking the switch along
+        # with every day used to be refused, and the OS task stayed.
+        host.check_schedule(time, days, require_days=bool(enabled))
     except host.SchedulingError as e:
         return Outcome(False, errors=[str(e)])
 
@@ -296,7 +299,7 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
         from ..host import scheduling
     try:
         times = refresh_schedule.refresh_times(start, end, every_hours)
-        host.check_schedule_times(times, days)
+        host.check_schedule_times(times, days, require_days=bool(enabled))     # off needs no day (#146)
     except (config.ConfigError, host.SchedulingError) as e:
         return Outcome(False, errors=[str(e)])
 
@@ -326,11 +329,8 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
         log(messages[-1])
         return Outcome(True, messages)
 
-    s = _settings_for(home)
-    exe, args, workdir = scheduling.command_for(host.DATA_REFRESH_KEY)
     try:
-        scheduling.install(host.DATA_REFRESH_KEY, times, days, exe, args, workdir,
-                           title="Data refresh", home=str(home), timezone=s.timezone)
+        install_refresh(times, days, home=home, timezone=_settings_for(home).timezone, scheduling=scheduling)
     except host.NotSupported as e:
         return Outcome(True, messages + [str(e)])
     except host.SchedulingError as e:
@@ -338,3 +338,34 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
     messages.append(f"Refreshing at {', '.join(times)} on {', '.join(days)}.")
     log(messages[-1])
     return Outcome(True, messages)
+
+
+def install_refresh(times: list[str], days: list[str], *, home: Path, timezone: str, scheduling) -> None:
+    """Install the data-refresh task. The one call both this page and `fridgesheet schedule
+    install data-refresh` make, so the CLI's task cannot differ from the page's (#146)."""
+    exe, args, workdir = scheduling.command_for(host.DATA_REFRESH_KEY)
+    scheduling.install(host.DATA_REFRESH_KEY, times, days, exe, args, workdir,
+                       title=REFRESH_TITLE, home=str(home), timezone=timezone)
+
+
+def record_enabled(home: Path, key: str, enabled: bool, *, create: bool = True) -> None:
+    """Write just the `enabled` switch for `key` -- `[refresh]` for the data-refresh key,
+    `[reports.<key>]` for a report -- leaving every other value in the table alone.
+
+    For the CLI, which installs and removes schedules without this page (#146): without it
+    `fridgesheet reports` said "disabled" while the timer ran, and `doctor` failed after a CLI
+    remove because config.toml still said on. `create=False` skips a table that does not
+    exist yet, where the absent switch already reads as off."""
+    path = home / CONFIG_NAME
+    doc = config.load_config_doc(path)
+    if key == host.DATA_REFRESH_KEY:
+        if not create and not isinstance(doc.get("refresh"), dict):
+            return
+        tbl = _table(doc, "refresh")
+    else:
+        reports = doc.get("reports")
+        if not create and not (isinstance(reports, dict) and isinstance(reports.get(key), dict)):
+            return
+        tbl = _table(_table(doc, "reports"), key)
+    tbl["enabled"] = bool(enabled)
+    config.save_config_doc(path, doc)
