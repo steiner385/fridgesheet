@@ -2,8 +2,10 @@
 {% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Plan a step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
 {% set tier = student.key | tier_of %}
-{% set back = return_to if return_to is defined and return_to else base ~ '#plan' %}
-<p><a href="{{ back }}">← {{ 'Back' if return_to is defined and return_to else student.key | nickname ~ '’s check-in' }}</a></p>
+{# Back to the tab the form was opened from, by name (#128); any other page is just "Back". #}
+{% set tab = tab if tab is defined else none %}
+{% set back = back if back is defined and back else base ~ '#plan' %}
+<p><a href="{{ back }}">← {{ student.key | nickname ~ '’s plan' if tab == 'plan' else 'Back' if return_to is defined and return_to and tab != 'check-in' else student.key | nickname ~ '’s check-in' }}</a></p>
 {% if step_id %}<h2>Edit a step</h2><p>Change what was agreed, mark it complete, or put it back.</p>
 {% elif item_id %}<h2>Plan a step</h2><p>What happened, and what would help move this forward?</p>
 {% else %}<h2>Add a task</h2><p>Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment.</p>{% endif %}
@@ -13,7 +15,7 @@
   <h3>Saved meanwhile</h3>
   <p>{{ latest.next_step }} · <strong>{{ latest.owner }}</strong> · {{ states[latest.state] }} · {{ latest.planned_for | wd_md }}{% if latest.recorded_by %} · recorded by {{ latest.recorded_by }}{% endif %}</p>
   {% if latest.family_account %}<p class="family-account">{{ latest.family_account }}</p>{% endif %}
-  <p class="muted">Your words are still in the form below. Save again to keep yours, or <a href="{{ base }}/step?step_id={{ step_id }}">open the latest version</a> to start from theirs.</p>
+  <p class="muted">Your words are still in the form below. Save again to keep yours, or <a href="{{ base }}/step?step_id={{ step_id }}{% if return_to is defined and return_to %}&amp;return_to={{ return_to | urlencode }}{% endif %}">open the latest version</a> to start from theirs.</p>
 </div>
 {% endif %}
 {% if view %}<div class="card"><p class="eyebrow">{{ view.course_short }}</p>{% include "_planning_evidence.html" %}</div>{% endif %}
@@ -40,7 +42,7 @@
 </form>
 {% if step_id %}
 <form class="remove-step" method="post" action="{{ base }}/step/{{ step_id }}/delete" data-confirm="Remove this step? Agreements already saved keep their copy.">
-  <button class="danger">Remove this step</button> <span class="muted">For a step added by mistake. Finished work belongs under “Step complete” instead.</span>
+  {% if return_to is defined and return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}<button class="danger">Remove this step</button> <span class="muted">For a step added by mistake. Finished work belongs under “Step complete” instead.</span>
 </form>
 {% endif %}
 {% endblock %}

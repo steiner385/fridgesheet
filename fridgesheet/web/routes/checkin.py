@@ -7,7 +7,7 @@ review queue is built from the first; everything saved is the second and third.
 from __future__ import annotations
 
 from datetime import date, datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
@@ -28,6 +28,34 @@ QUEUES = (QUESTIONS, WAITING, TO_DO)
 
 def root(key):
     return f"/kids/{quote(key, safe='')}/check-in"
+
+
+def plan_root(key):
+    return f"/kids/{quote(key, safe='')}/plan"
+
+
+def _tab(key, return_to: str | None) -> str | None:
+    """Which of this kid's tabs the step form was opened from (#128): "plan" or "check-in",
+    else None. Those two pages are named, and saved back to with their "Saved." line; any
+    other page is returned to exactly as it was."""
+    path = urlsplit(return_to).path if return_to else ""
+    return {plan_root(key): "plan", root(key): "check-in"}.get(path)
+
+
+def _back(key, return_to: str | None) -> str | None:
+    """Where the form's back link and Cancel go: the tab itself (not a stale `?saved=1`), or
+    the page it came from, or None for the check-in's plan panel."""
+    tab = _tab(key, return_to)
+    return plan_root(key) if tab == "plan" else root(key) + "#plan" if tab == "check-in" else return_to
+
+
+def _after_save(key, return_to: str | None) -> str:
+    """Where a save or a removal lands: back on the tab it was opened from, saying so."""
+    if _tab(key, return_to) == "plan":
+        return plan_root(key) + "?saved=1"
+    if return_to is None or _tab(key, return_to) == "check-in":
+        return root(key) + "?saved=1#plan"
+    return return_to
 
 
 def _id(value: str | None) -> int | None:
@@ -173,7 +201,8 @@ def _form_context(conn, student, state, item_id=None, step_id=None, default_stat
 def step_form(key: str, request: Request, item_id: str | None = None, step_id: str | None = None, conn=Db, state=State):
     ctx = _form_context(conn, student_or_404(conn, key), state, _id(item_id), _id(step_id),
                         default_state=request.query_params.get("state", "planned"))
-    ctx["return_to"] = safe_return(request.query_params.get("return_to"))
+    ctx["return_to"] = return_to = safe_return(request.query_params.get("return_to"))
+    ctx.update(back=_back(key, return_to), tab=_tab(key, return_to))
     return render(request, conn, "plan_step.html", **ctx)
 
 
@@ -209,6 +238,7 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
     values = {k: str(form.get(k, "")).strip() for k in (*plans.FIELDS, "request_key", "revision")}
     # Where the family came from (#48): saving returns there, not always to the check-in.
     ctx["return_to"] = return_to = safe_return(str(form.get("return_to", "")))
+    ctx.update(back=_back(key, return_to), tab=_tab(key, return_to))
     try:
         for k, label in (("title", "Assignment or task"), ("next_step", "Agreed next step"), ("owner", "Who will do this")):
             if not values[k] or len(values[k]) > 500:
@@ -243,15 +273,16 @@ async def save_step(key: str, request: Request, item_id: str | None = None, step
     except ValueError as exc:
         ctx.update(values=values, error=str(exc))
         return render(request, conn, "plan_step.html", status_code=422, **ctx)
-    return RedirectResponse(return_to or root(key) + "?saved=1#plan", status_code=303)
+    return RedirectResponse(_after_save(key, return_to), status_code=303)
 
 
 @router.post("/kids/{key}/check-in/step/{step_id}/delete")
-def delete_step(key: str, step_id: int, conn=Db):
+async def delete_step(key: str, step_id: int, request: Request, conn=Db):
     student = student_or_404(conn, key)
+    form = await request.form()
     if not plans.delete(conn, student["id"], step_id):
         raise HTTPException(404, "No such plan step")
-    return RedirectResponse(root(key) + "?saved=1#plan", status_code=303)
+    return RedirectResponse(_after_save(key, safe_return(str(form.get("return_to", "")))), status_code=303)
 
 
 @router.post("/kids/{key}/check-in/finish")

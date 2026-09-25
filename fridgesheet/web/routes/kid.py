@@ -72,6 +72,14 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
                   OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
 
 
+def card_for(raw: str | None, item_id: int) -> str | None:
+    """The question card an item detail replaced (#126): "q-<id>" from a question list or
+    "qc-<id>" from a check-in, for this item only. The detail takes over that card's id, and
+    its Close fetches the card back into it; anything else is a detail in a table row, which
+    app.js closes by hiding the row."""
+    return raw if raw in (f"q-{item_id}", f"qc-{item_id}") else None
+
+
 @router.get("/items/{item_id}")
 def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, state=State):
     now, rules = state.now(), state.rules()
@@ -81,7 +89,7 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
         raise HTTPException(404, "no such item")
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=None,
-                          notes=notes.for_target(conn, "item", item_id))
+                          notes=notes.for_target(conn, "item", item_id), card=card_for(request.query_params.get("card"), item_id))
 
 
 @router.get("/kids/{key}/courses/{course_id}")

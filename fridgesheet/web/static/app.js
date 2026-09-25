@@ -1,7 +1,8 @@
 // Detail rows (#53), registered first so a row is visible before the focus handler below
 // reaches into it: each item row is followed by a hidden `tr.detail`, so a screen reader's row
 // count is the real one. Loading a detail shows its row and marks the item link expanded;
-// the card's Close button hides it again and puts focus back on the link.
+// the card's Close button hides it again and puts focus back on the link. A detail opened from
+// a question card is not in a row: its Close is an hx-get that puts the card back (#126).
 function detailLink(cell) {
   return document.querySelector('[hx-target="#' + cell.id + '"]');
 }
@@ -61,6 +62,17 @@ function errorText(xhr) {
   if (!text || text.length > 300 || text.charAt(0) === "<") text = "The app could not do that (error " + (xhr ? xhr.status : "?") + ").";
   return text;
 }
+// A 409 that comes back as HTML is a card meant to be shown -- the job card saying "Busy: …
+// is still running" (#142) -- not a refusal: htmx's default responseHandling swaps no 4xx, and
+// errorText would have turned it into "could not do that (error 409)". A 409 with a JSON
+// `detail` ("Already in the plan for …") stays an error, said next to the button as above.
+document.addEventListener("htmx:beforeSwap", function (e) {
+  var xhr = e.detail.xhr;
+  if (!xhr || xhr.status !== 409) return;
+  if (!/^text\/html/i.test(xhr.getResponseHeader("Content-Type") || "")) return;
+  e.detail.shouldSwap = true;
+  e.detail.isError = false;
+});
 document.addEventListener("htmx:responseError", function (e) {
   var near = e.detail.elt && e.detail.elt.isConnected ? e.detail.elt : e.detail.target;
   if (!near || !near.parentNode) return;

@@ -96,6 +96,14 @@ def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = 
                           slot=_slot(slot, item_id))
 
 
+@router.get("/items/{item_id}/question")
+def question_card(item_id: int, request: Request, slot: str = "", conn: sqlite3.Connection = Db, state=State):
+    """One question card as it now stands: what an item detail's Close puts back when the
+    detail was opened from that card (#126), so a note or flag added meanwhile shows on it."""
+    s, v = _view(conn, state, item_id)
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id))
+
+
 @router.post("/items/{item_id}/undo")
 def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str = Form(""), slot: str = Form(""),
          step_id: str = Form(""), conn: sqlite3.Connection = Db, state=State):

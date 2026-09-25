@@ -14,6 +14,6 @@
   {# Fridge Sheet's own count behind a grace period (spec 4.6) stays on the card, inside the
      record: seventeen words of app reasoning on every card of a fresh install (kids' UX audit F12). #}
   <details class="more"><summary>See the record</summary>{% if pk %}<p class="facts app-count">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% include "_record.html" %}</details>
-  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a> · <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">Plan a step</a></p>{% endif %}
+  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ qid }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a> · <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">Plan a step</a></p>{% endif %}
 </div>
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}
