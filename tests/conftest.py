@@ -212,6 +212,16 @@ def _no_real_scheduler(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_background_clock(monkeypatch):
+    """No test may start a real background clock. `server.run` now starts one beside the jobs
+    worker (`web/clock.py`); `tests/test_web_server.py` (and maybe others) call the real
+    `server.run` with a fake `serve`, so without this they would get a live ticking thread no
+    test asked for -- and, once a later task adds it, the OS-cleanup thread beside it."""
+    from fridgesheet.web import clock
+    monkeypatch.setattr(clock, "start_background", lambda state: None)
+
+
+@pytest.fixture(autouse=True)
 def _no_github(monkeypatch):
     """`web.updates` asks GitHub for the latest release once a day. No test may make that call:
     it is slow, it is flaky, and a suite that passes only with a network is not a suite. The

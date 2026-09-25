@@ -104,8 +104,14 @@ class AppState:
         """What the header says is wrong with a hand-edited file: the late-rules.toml message
         `rules()` left in `extra["warnings"]`, plus every line of no-print-days.txt the sheet
         has to ignore (#147) -- re-read each page, like the rules, so the warning goes away
-        the moment the file is fixed."""
-        return list(self.extra.get("warnings") or []) + actions.no_print_days_problems(self.home)
+        the moment the file is fixed. And the scheduler's own heartbeat: a clock that has
+        stopped ticking says so here."""
+        out = list(self.extra.get("warnings") or []) + actions.no_print_days_problems(self.home)
+        running = self.extra.get("clock")
+        if running is not None and running.stale(self.now()):
+            from .clock import PAUSED
+            out.append(PAUSED)
+        return out
 
     def sources(self) -> SourcePrefs:
         """Which gradebook is authoritative per kid and class. Read from settings, which
