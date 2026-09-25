@@ -6,7 +6,8 @@ import io
 import json
 import tomllib
 
-from fridgesheet.web import db, schedules
+from fridgesheet.web import db, schedules, views
+from fridgesheet.web.routes.reports import _chart_json
 from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling, app_for, seed, snapshot
 
@@ -289,3 +290,106 @@ def test_csv_quotes_a_comma_keeps_non_ascii_and_never_breaks_the_filename(tmp_pa
     filename = disposition.split('filename="', 1)[1].split('"', 1)[0]      # the ASCII fallback; `filename*` follows
     assert filename.startswith("Bad rm -rf name ") and filename.endswith(".csv")
     assert not any(ch in filename for ch in '";/\\\r\n')
+
+
+def test_the_builder_saves_a_custom_range(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={"title": "Recap", "source": "items", "columns": ["kid", "name"],
+                                     "window": "custom", "date_from": "2026-09-01", "date_to": "2026-09-15"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    assert 'name="date_from" value="2026-09-01"' in body and 'name="date_to" value="2026-09-15"' in body
+
+
+def test_the_builder_shows_the_custom_range_problem(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={"title": "Recap", "source": "items", "columns": ["kid", "name"],
+                                     "window": "custom", "date_from": "2026-09-15", "date_to": "2026-09-01"})
+    assert "on or before" in r.text
+
+
+def test_a_saved_chart_report_shows_a_canvas_and_its_config(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name", "due"],
+               chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    body = c.get(f"/reports/{rid}/view").text
+    assert "data-report-chart" in body and "data-chart-config" in body
+    assert '"type": "bar"' in body or '"type":"bar"' in body
+
+
+def test_a_table_only_report_shows_no_chart_markup(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="items", columns=["kid", "name"])
+    body = c.get(f"/reports/{rid}/view").text
+    assert "data-report-chart" not in body
+
+
+def test_chart_json_escapes_a_label_that_would_close_the_script_tag():
+    """A series label can come straight from a course or assignment name -- untrusted the same
+    way `sheet.py`'s `_esc()` and the CSV formula-injection guard already treat those names.
+    Inlined into `<script type="application/json">` with a bare `json.dumps`, a label of
+    literal `</script>` would close the element early in the browser's HTML parser; `_chart_json`
+    must escape it so the string is safe to inline as-is."""
+    evil = "</script><script>alert(1)</script>"
+    chart = views.ChartData(type="bar", x_label="Due", y_label="Count",
+                            series=[views.ChartSeries(label=evil, points=[("W1", 3.0)])],
+                            labels=("W1",))
+    rendered = views.Rendered(title="T", columns=[], groups=[], chart=chart)
+    out = _chart_json(rendered)
+    assert "</script>" not in out
+    assert "<script>" not in out
+    # still valid, round-tripping JSON once the escapes are undone by JSON.parse
+    assert json.loads(out.replace("\\u003c", "<").replace("\\u003e", ">"))["data"]["datasets"][0]["label"] == evil
+
+
+def test_the_builder_saves_a_chart(tmp_path):
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={
+        "title": "Recap", "source": "items", "columns": ["kid", "name", "due"],
+        "chart_type": "stacked_bar", "chart_x": "due", "chart_series": "status", "chart_bucket": "week"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    # The template's `{{ 'selected' if ... }}` with no `else` renders nothing when false, so a
+    # true condition is the only way this exact substring appears (report_builder.html, Step 3).
+    assert '<option value="stacked_bar" selected>' in body
+    assert '<option value="due" selected>' in body
+    assert '<option value="status" selected>' in body
+    assert '<option value="week" selected>' in body
+    assert '<span id="chartFields" >' in body            # visible: a chart is set
+    assert '<select name="chart_series" >' in body        # stacked_bar: enabled, not disabled
+
+
+def test_a_non_stacked_chart_disables_the_series_field(tmp_path):
+    """A hidden-but-enabled <select> still submits its value on save. A parent who switches an
+    existing stacked_bar chart (with a series) to "line" must not have that stale series value
+    silently resurrected on Save -- so the series control is `disabled` whenever it is `hidden`,
+    not just visually hidden."""
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/new", data={
+        "title": "Recap", "source": "items", "columns": ["kid", "name", "due"],
+        "chart_type": "line", "chart_x": "due", "chart_bucket": "week"})
+    assert r.status_code == 200 and "Saved." in r.text
+    body = c.get("/reports/1").text
+    assert '<select name="chart_series" disabled>' in body
+
+    r2 = c.get("/reports/new").text                       # no chart at all: also disabled
+    assert '<select name="chart_series" disabled>' in r2
+
+
+def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):
+    """"due" and "status" belong to items, not grades -- the redrawn builder must not carry a
+    now-invalid chart forward silently."""
+    seed(tmp_path).close()
+    c = _client(tmp_path)
+    r = c.post("/reports/builder", data={
+        "title": "Recap", "source": "grades", "columns": ["value"],
+        "chart_type": "stacked_bar", "chart_x": "due", "chart_series": "status", "chart_bucket": "week"})
+    assert r.status_code == 200
+    assert '<span id="chartFields" hidden>' in r.text     # hidden: the chart was dropped
+    assert '<option value="stacked_bar" selected>' not in r.text

@@ -74,7 +74,7 @@ def test_grade_change_events_say_which_is_official(tmp_path):
 
 def test_report_builder_grades_rows_carry_official(tmp_path):
     conn = history(tmp_path)
-    rows = [r for r, _ in views._grade_rows(conn, views.Definition(source="grades"), now=NOW, nicknames={})]
+    rows = [r for r, _, _ in views._grade_rows(conn, views.Definition(source="grades"), now=NOW, nicknames={})]
     assert {r["source"]: r["official"] for r in rows if r["course"] == "Honors English 9"} == {"hac": "yes", "canvas": ""}
     assert "official" in views.DEFAULT_COLUMNS["grades"]
 

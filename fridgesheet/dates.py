@@ -5,11 +5,19 @@ Python on Windows raises ValueError on them. %a %A %B %p are portable and stay.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 def md(d: date) -> str:
     return f"{d.month}/{d.day}"
+
+
+def md_year(d: date, now: date | datetime) -> str:
+    """"9/8", with the year added when it is not `now`'s -- `md`'s own reasoning (a value can
+    reach back past a year boundary, and "9/8" alone would not say which September), applied
+    to a bare date rather than a formatted-for-display datetime."""
+    now_date = now.date() if isinstance(now, datetime) else now
+    return md(d) + (f"/{d.year}" if d.year != now_date.year else "")
 
 
 def wd_md(d: date) -> str:
@@ -63,3 +71,11 @@ def long_date(d: date) -> str:
 
 def parse_iso(s: str | None) -> datetime | None:
     return datetime.fromisoformat(s) if s else None
+
+
+def week_start(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def month_start(d: date) -> date:
+    return d.replace(day=1)

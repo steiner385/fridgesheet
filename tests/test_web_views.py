@@ -147,6 +147,33 @@ def test_sort_is_applied_in_order(tmp_path):
     conn.close()
 
 
+def test_a_chart_needs_a_real_date_column_of_its_source():
+    ok = views.Definition(title="x", source="grades", columns=("value",),
+                          chart=views.ChartSpec(type="line", x="at", y="value"))
+    assert views.validate(ok) == []
+    bad_x = views.Definition(title="x", source="grades", columns=("value",),
+                             chart=views.ChartSpec(type="line", x="value", y="value"))
+    assert any("date" in p for p in views.validate(bad_x))
+
+
+def test_a_stacked_bar_chart_needs_a_series_column():
+    d = views.Definition(title="x", source="items", columns=("name",),
+                        chart=views.ChartSpec(type="stacked_bar", x="due"))
+    assert any("series" in p for p in views.validate(d))
+    fixed = views.Definition(title="x", source="items", columns=("name",),
+                            chart=views.ChartSpec(type="stacked_bar", x="due", series="status"))
+    assert views.validate(fixed) == []
+
+
+def test_a_chart_round_trips_through_json():
+    d = views.from_json(json.dumps({"source": "items", "chart": {
+        "type": "bar", "x": "due", "y": None, "series": "status", "bucket": "day"}}))
+    assert d.chart == views.ChartSpec(type="bar", x="due", series="status", bucket="day")
+    back = json.loads(d.to_json())["chart"]
+    assert back == {"type": "bar", "x": "due", "y": None, "series": "status", "bucket": "day"}
+    assert views.from_json(json.dumps({"source": "items"})).chart is None       # stored before this feature
+
+
 def test_the_open_work_starter_sorts_dates_in_real_order(tmp_path):
     """The shipped starter sorts `due asc`. Sorted as display text, "9/8" lands after "9/20" and
     the printed sheet disagrees with the Kid page about what is most overdue."""

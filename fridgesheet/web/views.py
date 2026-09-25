@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from .. import dates
 from ..open_items import school_year_start
@@ -25,8 +25,12 @@ ORIENTATIONS = ("portrait", "landscape")
 #: "school_year" starts on the school year's first day. "Any time" is what every report did
 #: before this existed: every item and grade point, and for changes the year the feed keeps.
 WINDOWS = (("all", "Any time", None), ("7d", "The last 7 days", 7), ("30d", "The last 30 days", 30),
-           ("90d", "The last 90 days", 90), ("school_year", "This school year", None))
+           ("90d", "The last 90 days", 90), ("school_year", "This school year", None),
+           ("custom", "Custom range", None))
 WINDOW_KEYS = tuple(k for k, _, _ in WINDOWS)
+CHART_TYPES = ("line", "bar", "stacked_bar")
+BUCKETS = ("day", "week", "month")
+MAX_CHART_POINTS = 60          # a chart is illustrative, not exhaustive
 DIRS = ("asc", "desc")
 MAX_ROWS = 2000
 
@@ -40,6 +44,15 @@ class Column:
     id: str
     label: str
     kind: str                       # text | number | date | bool
+
+
+@dataclass(frozen=True)
+class ChartSpec:
+    type: str
+    x: str                      # a date column of the source
+    y: str | None = None        # a number column, or None = count of rows
+    series: str | None = None   # splits the chart into lines/segments; required for stacked_bar
+    bucket: str = "week"
 
 
 def _cols(*specs: tuple[str, str, str]) -> dict[str, Column]:
@@ -79,24 +92,42 @@ class Definition:
     filters: tuple[dict, ...] = ()
     group_by: str | None = None
     sort: tuple[dict, ...] = ()
-    chart: None = None
+    chart: ChartSpec | None = None
     orientation: str = "portrait"
     per_kid_sections: bool = False
     window: str = "all"
+    date_from: str = ""              # ISO "YYYY-MM-DD", used only when window == "custom"
+    date_to: str = ""
 
     def to_json(self) -> str:
         return json.dumps({
             "title": self.title, "source": self.source, "scope": list(self.scope),
             "columns": list(self.columns), "filters": [dict(f) for f in self.filters],
-            "group_by": self.group_by, "sort": [dict(s) for s in self.sort], "chart": None,
+            "group_by": self.group_by, "sort": [dict(s) for s in self.sort],
+            "chart": ({"type": self.chart.type, "x": self.chart.x, "y": self.chart.y,
+                      "series": self.chart.series, "bucket": self.chart.bucket} if self.chart else None),
             "orientation": self.orientation, "per_kid_sections": self.per_kid_sections,
-            "window": self.window,
+            "window": self.window, "date_from": self.date_from, "date_to": self.date_to,
         }, indent=1)
 
 
 def defaults(source: str = "items") -> Definition:
     src = source if source in SOURCES else "items"
     return Definition(source=src, columns=tuple(DEFAULT_COLUMNS[src]))
+
+
+def _chart_from(raw: dict) -> ChartSpec | None:
+    """Whatever shape `chart` has in the stored JSON, built as-is -- except a chart with no
+    `type` at all, which reads as "no chart configured" rather than reaching `validate()` for
+    a precise diagnosis (unlike `filters`/`sort`, which preserve any shape so `validate()` can
+    name the specific defect)."""
+    c = raw.get("chart")
+    if not isinstance(c, dict) or not c.get("type"):
+        return None
+    return ChartSpec(type=str(c.get("type", "")), x=str(c.get("x", "")),
+                     y=(str(c["y"]) if c.get("y") else None),
+                     series=(str(c["series"]) if c.get("series") else None),
+                     bucket=str(c.get("bucket") or "week"))
 
 
 def from_json(text: str) -> Definition:
@@ -123,9 +154,12 @@ def from_json(text: str) -> Definition:
             filters=tuple(dict(f) for f in seq("filters", ()) if isinstance(f, dict)),
             group_by=raw["group_by"] if isinstance(raw.get("group_by"), str) else None,
             sort=tuple(dict(s) for s in seq("sort", ()) if isinstance(s, dict)),
+            chart=_chart_from(raw),
             orientation=str(raw.get("orientation", d.orientation)),
             per_kid_sections=_as_bool(raw.get("per_kid_sections", False)),
             window=str(raw.get("window", d.window)),
+            date_from=str(raw.get("date_from", "")),
+            date_to=str(raw.get("date_to", "")),
         )
     except (TypeError, ValueError) as e:
         raise ViewError(f"the definition has a field of the wrong shape: {e}") from None
@@ -141,11 +175,26 @@ def _as_bool(v) -> bool:
     return bool(v)
 
 
+def _parse_plain_date(s: str) -> date | None:
+    """`date_from`/`date_to` as a plain date, or `None` when blank or unreadable -- callers
+    treat `None` as "this custom range cannot be resolved", never as `datetime.min`."""
+    try:
+        return date.fromisoformat(s) if s else None
+    except ValueError:
+        return None
+
+
 def validate(d: Definition) -> list[str]:
     """Every problem with the definition, one sentence each. Empty means it can be built."""
     problems: list[str] = []
     if d.window not in WINDOW_KEYS:
         problems.append(f"Unknown window {d.window!r}; choose one of {', '.join(WINDOW_KEYS)}.")
+    elif d.window == "custom":
+        fd, td = _parse_plain_date(d.date_from), _parse_plain_date(d.date_to)
+        if fd is None or td is None:
+            problems.append("A custom range needs both a start and an end date.")
+        elif fd > td:
+            problems.append("The custom range's start date must be on or before its end date.")
     if not d.title.strip():
         problems.append("The title cannot be empty.")
     if d.source not in SOURCES:
@@ -181,6 +230,20 @@ def validate(d: Definition) -> list[str]:
             problems.append(f"{s.get('dir')!r} is not a sort direction; use asc or desc.")
     if d.orientation not in ORIENTATIONS:
         problems.append(f"Unknown orientation {d.orientation!r}; use portrait or landscape.")
+    if d.chart is not None:
+        ch = d.chart
+        if ch.type not in CHART_TYPES:
+            problems.append(f"Unknown chart type {ch.type!r}; choose one of {', '.join(CHART_TYPES)}.")
+        if ch.bucket not in BUCKETS:
+            problems.append(f"Unknown chart bucket {ch.bucket!r}; choose one of {', '.join(BUCKETS)}.")
+        if ch.x not in known or known[ch.x].kind != "date":
+            problems.append("The chart's date field must be one of the source's date columns.")
+        if ch.y is not None and (ch.y not in known or known[ch.y].kind != "number"):
+            problems.append("The chart's value field must be one of the source's number columns.")
+        if ch.type == "stacked_bar" and ch.series is None:
+            problems.append("A stacked/grouped bar chart needs a series column.")
+        if ch.series is not None and ch.series not in known:
+            problems.append(f"{ch.series!r} is not a column of the {d.source} source.")
     return problems
 
 
@@ -191,12 +254,29 @@ class Group:
 
 
 @dataclass
+class ChartSeries:
+    label: str
+    points: list[tuple[str, float]] = field(default_factory=list)   # (bucket label, value)
+
+
+@dataclass
+class ChartData:
+    type: str
+    x_label: str
+    y_label: str
+    series: list[ChartSeries] = field(default_factory=list)
+    labels: tuple[str, ...] = ()
+
+
+@dataclass
 class Rendered:
     title: str
     columns: list[Column]
     groups: list[Group] = field(default_factory=list)
     truncated: int = 0               # rows dropped by MAX_ROWS
     window: str = ""                 # "The last 7 days" when the report is limited to one; "" for any time
+    chart: ChartData | None = None
+    chart_note: str = ""
 
 
 def _num(v) -> str:
@@ -205,6 +285,9 @@ def _num(v) -> str:
 
 def window_start(d: Definition, now: datetime) -> datetime | None:
     """Where this report's rows begin, or None for "any time" (#94)."""
+    if d.window == "custom":
+        fd = _parse_plain_date(d.date_from)
+        return datetime.combine(fd, datetime.min.time(), tzinfo=now.tzinfo) if fd else None
     if d.window == "school_year":
         return school_year_start(now)
     days = next((n for k, _, n in WINDOWS if k == d.window), None)
@@ -218,6 +301,24 @@ def _on_or_after(v: datetime | None, start: datetime | None) -> bool:
         return False                     # an undated row belongs to "any time" only
     a, b = reconcile.comparable(v, start)
     return a >= b
+
+
+def window_end(d: Definition, now: datetime) -> datetime | None:
+    """Where this report's rows stop, or None for "through now" -- every window but "custom"
+    already means that; a preset window has no far side. Inclusive of the whole end day."""
+    if d.window != "custom":
+        return None
+    td = _parse_plain_date(d.date_to)
+    return datetime.combine(td, datetime.min.time(), tzinfo=now.tzinfo) + timedelta(days=1) if td else None
+
+
+def _on_or_before(v: datetime | None, end: datetime | None) -> bool:
+    if end is None:
+        return True
+    if v is None:
+        return False
+    a, b = reconcile.comparable(v, end)
+    return a < b
 
 
 def _date(v, now: datetime | None = None, *, with_time: bool = False) -> str:
@@ -288,14 +389,14 @@ def _keys(source: str, row: dict, raw: dict) -> dict:
     return out
 
 
-def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict]]:
+def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> list[tuple[dict, dict, dict]]:
     out = []
-    start = window_start(d, now)
+    start, end = window_start(d, now), window_end(d, now)
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
         for v in items_store.list_items(conn, s, now=now, rules=rules, show="all", prefs=prefs, **(window or {})):
-            if not _on_or_after(v.due, start):
+            if not _on_or_after(v.due, start) or not _on_or_before(v.due, end):
                 continue
             row = {
                 "kid": nicknames.get(s["key"], s["key"]), "course": v.course_short, "name": v.name,
@@ -304,25 +405,30 @@ def _item_rows(conn, d, *, now, rules, nicknames, prefs=None, window=None) -> li
                 "open": _yes(v.overdue or v.upcoming), "actionable": _yes(v.actionable),
                 "notes": _num(v.notes), "cases": verdicts.standing(v, "") if v.verdict.state in ("question", "decided", "waiting") else "",
             }
-            out.append((row, _keys("items", row, {"due": v.due, "points": v.points, "notes": v.notes})))
+            raw = {"due": v.due, "points": v.points, "notes": v.notes}
+            out.append((row, _keys("items", row, raw), raw))
     return out
 
 
-def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict]]:
+def _grade_rows(conn, d, *, now, nicknames, prefs=None) -> list[tuple[dict, dict, dict]]:
     out = []
+    end = window_end(d, now)
     for s in students_store.visible(conn):
         if d.scope and s["key"] not in d.scope:
             continue
         for series in trends_store.grade_series(conn, student_id=s["id"], since=window_start(d, now), prefs=prefs):
             for at, value in series.points:
+                if not _on_or_before(at, end):
+                    continue
                 row = {"kid": nicknames.get(s["key"], s["key"]), "course": series.course_short,
                        "source": series.source, "official": "yes" if series.official else "", "label": series.label,
                        "value": _num(value), "at": _date(at, now)}
-                out.append((row, _keys("grades", row, {"at": at, "value": value})))
+                raw = {"at": at, "value": value}
+                out.append((row, _keys("grades", row, raw), raw))
     return out
 
 
-def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dict, dict]], int]:
+def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dict, dict, dict]], int]:
     """Rows, plus how many events the store's own cap left out of the feed entirely -- a count
     `build` folds into `Rendered.truncated` so a household past the cap is told, not just shown
     fewer rows than it has."""
@@ -330,6 +436,7 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
     keys = {s["key"] for s in visible}
     # "Any time" is the year the feed keeps; a chosen window starts where it says (#94).
     start = window_start(d, now) or now - timedelta(days=365)
+    end = window_end(d, now)
     # A scoped report asks the store for each of its kids, so the cap applies to their events,
     # not to every kid's with the others dropped afterwards (#6).
     if d.scope:
@@ -342,12 +449,13 @@ def _change_rows(conn, d, *, now, nicknames, prefs=None) -> tuple[list[tuple[dic
         events, dropped = list(feed), feed.dropped
     out = []
     for e in events:
-        if e.student_key not in keys or (d.scope and e.student_key not in d.scope):
+        if e.student_key not in keys or (d.scope and e.student_key not in d.scope) or not _on_or_before(e.at, end):
             continue
         row = {"at": _date(e.at, now, with_time=True), "kid": nicknames.get(e.student_key, e.student_key),
                "what": e.label, "item": e.item_name or "", "course": e.course_short or "",
                "source": e.source or "", "detail": e.detail}
-        out.append((row, _keys("changes", row, {"at": e.at})))
+        raw = {"at": e.at}
+        out.append((row, _keys("changes", row, raw), raw))
     return out, dropped
 
 
@@ -365,6 +473,161 @@ def _keep(row: dict, f: dict) -> bool:
     if op == "is not":
         return a != b
     return b in a
+
+
+def _local_date(v, now: datetime):
+    """The same local calendar day a table cell already shows for `v` (`_date`'s own timezone
+    conversion, without the display formatting) -- a chart must bucket on the day the table
+    prints, not the day UTC would print, or an evening-due item drifts into the next day, week
+    or month for the chart alone."""
+    d = _as_datetime(v)
+    if d is None:
+        return None
+    if d.tzinfo is not None and now.tzinfo is not None:
+        d = d.astimezone(now.tzinfo)
+    return d.date()
+
+
+def _bucket_start(d, bucket: str):
+    if bucket == "day":
+        return d
+    if bucket == "month":
+        return dates.month_start(d)
+    return dates.week_start(d)
+
+
+def _bucket_range(lo, hi, bucket: str) -> list:
+    """Every bucket start from `lo` to `hi` inclusive, stepped by `bucket` -- the full calendar
+    range a zero-filled chart needs, not just the bucket starts that happen to hold a row."""
+    out = [lo]
+    while out[-1] < hi:
+        if bucket == "day":
+            out.append(out[-1] + timedelta(days=1))
+        elif bucket == "month":
+            y, m = out[-1].year, out[-1].month
+            out.append(date(y + (m == 12), m % 12 + 1, 1))
+        else:
+            out.append(out[-1] + timedelta(weeks=1))
+    return out
+
+
+def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]], now: datetime) -> tuple[ChartData | None, str]:
+    """The chart half of `build()`'s output, from the exact rows the table already kept -- a
+    chart can never show a point the table doesn't. `spec.x`/`spec.y`/`spec.series` need not be
+    among the report's displayed columns; `row` always carries every column of the source, and
+    `raw` always carries the unformatted value behind each one.
+
+    Bucketing uses each row's raw value converted to `now`'s local day (`_local_date`), the
+    same day the table cell for that column already shows -- not `keys`' UTC-normalized sort
+    value, which a chart bucketing on it would disagree with the table about for any evening
+    due date.
+
+    A row with no `x` value cannot be plotted and is dropped from the chart only. A row whose
+    `y` column is blank is excluded from its bucket's average, not treated as a zero -- a
+    missing grade observation must not pull a trend line down. `bar`/`stacked_bar` buckets
+    span the full calendar range so the x-axis is even, including buckets with zero rows from
+    every series (`weekly_counts`' convention); `line` buckets are left absent when nothing
+    landed in them (`grade_series`' convention) -- a flat stretch is the absence of points, not
+    a plotted dip to zero.
+    """
+    known = COLUMNS[source]
+    dropped = 0
+    blank_y = 0
+    buckets: dict = {}
+    for row, _, raw in kept:
+        x_local = _local_date(raw.get(spec.x), now)
+        if x_local is None:
+            dropped += 1
+            continue
+        if spec.y and row.get(spec.y, "") == "":
+            blank_y += 1
+            continue
+        try:
+            y = float(row[spec.y]) if spec.y else 1.0
+        except (TypeError, ValueError):
+            blank_y += 1
+            continue
+        label = (row.get(spec.series, "") or "(none)") if spec.series else (known[spec.y].label if spec.y else "Count")
+        bstart = _bucket_start(x_local, spec.bucket)
+        buckets.setdefault(bstart, {}).setdefault(label, []).append(y)
+    notes = []
+    if dropped:
+        notes.append(f"{dropped} row(s) with no date are not charted")
+    if blank_y:
+        notes.append(f"{blank_y} row(s) with no value are not charted")
+    if not buckets:
+        return None, "; ".join(notes)
+    zero_fill = spec.type in ("bar", "stacked_bar")
+    starts = _bucket_range(min(buckets), max(buckets), spec.bucket) if zero_fill else sorted(buckets)
+    overflow = max(0, len(starts) - MAX_CHART_POINTS)
+    starts = starts[-MAX_CHART_POINTS:]
+    labels_seen: list[str] = []
+    for s in starts:
+        for label in buckets.get(s, {}):
+            if label not in labels_seen:
+                labels_seen.append(label)
+    series_out = []
+    for label in labels_seen:
+        points = []
+        for s in starts:
+            values = buckets.get(s, {}).get(label)
+            if values is None:
+                if zero_fill:
+                    points.append((dates.md_year(s, now), 0.0))
+                continue
+            value = (sum(values) / len(values)) if spec.y else float(len(values))
+            points.append((dates.md_year(s, now), value))
+        series_out.append(ChartSeries(label=label, points=points))
+    if overflow:
+        notes.append(f"Chart shows the most recent {MAX_CHART_POINTS} of {MAX_CHART_POINTS + overflow}; "
+                     "choose a coarser bucket or a shorter range to see the rest")
+    y_label = known[spec.y].label if spec.y else "Count"
+    return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out,
+                     labels=tuple(dates.md_year(s, now) for s in starts)), "; ".join(notes)
+
+
+_CHART_JS_TYPE = {"line": "line", "bar": "bar", "stacked_bar": "bar"}
+_SERIES_COLORS = ("#1f5fa8", "#b3261e", "#2e7d32", "#6b3fa0", "#b8860b", "#00707f")
+
+
+def escape_for_script_tag(json_text: str) -> str:
+    """A JSON string, safe to inline verbatim inside an HTML <script> tag.
+
+    A chart series/axis/bucket label can come from a course or assignment name -- untrusted
+    the same way sheet.py's _esc() and the CSV formula-injection guard already treat those
+    names -- so a label of literal `</script>` must not be able to close the element early.
+    `json.dumps` alone does not guard against that; the escapes below live inside JSON string
+    values, which `JSON.parse` unescapes transparently, so the value round-trips unchanged.
+    Both the live web preview (`routes/reports.py`) and the headless PDF capture
+    (`chart_render.py`) share this, so neither can drift out of sync about what's safe.
+    """
+    return (json_text.replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+                     .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))
+
+
+def chart_config(data: ChartData) -> dict:
+    """A Chart.js `type`/`data`/`options` object, built once -- the live web preview and the
+    headless PDF capture (`chart_render.py`) both draw from this, so neither can disagree with
+    the other about what a chart looks like."""
+    labels = list(data.labels)
+    datasets = []
+    for i, s in enumerate(data.series):
+        by_label = dict(s.points)
+        color = _SERIES_COLORS[i % len(_SERIES_COLORS)]
+        datasets.append({"label": s.label, "data": [by_label.get(l) for l in labels],
+                         "borderColor": color, "backgroundColor": color, "fill": False})
+    stacked = data.type == "stacked_bar" and data.y_label == "Count"
+    return {
+        "type": _CHART_JS_TYPE[data.type],
+        "data": {"labels": labels, "datasets": datasets},
+        "options": {
+            "animation": False,
+            "scales": {
+                "x": {"stacked": stacked, "title": {"display": True, "text": data.x_label}},
+                "y": {"stacked": stacked, "title": {"display": True, "text": data.y_label}},
+            },
+        },
+    }
 
 
 def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nicknames: dict, prefs=None,
@@ -397,7 +660,7 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
     if d.group_by:
         seen: dict[str, Group] = {}
         order: dict[str, object] = {}
-        for r, (_, key) in zip(slim, kept):
+        for r, (_, key, _raw) in zip(slim, kept):
             label = r.get(d.group_by, "")
             g = seen.get(label)
             if g is None:
@@ -410,5 +673,12 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         groups.sort(key=lambda g: order[g.label])
     elif slim:
         groups = [Group("", [{c.id: r[c.id] for c in columns} for r in slim])]
-    label = next((l for k, l, _ in WINDOWS if k == d.window), "") if d.window != "all" else ""
-    return Rendered(d.title, columns, groups, truncated, label)
+    if d.window == "custom":
+        fd, td = _parse_plain_date(d.date_from), _parse_plain_date(d.date_to)
+        label = f"Custom range ({dates.md_year(fd, now)}–{dates.md_year(td, now)})" if fd and td else "Custom range"
+    elif d.window != "all":
+        label = next((l for k, l, _ in WINDOWS if k == d.window), "")
+    else:
+        label = ""
+    chart, chart_note = _chart_data(d.source, d.chart, kept, now) if d.chart else (None, "")
+    return Rendered(d.title, columns, groups, truncated, label, chart=chart, chart_note=chart_note)

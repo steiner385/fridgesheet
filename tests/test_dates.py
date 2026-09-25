@@ -35,3 +35,22 @@ def test_no_glibc_only_strftime_codes_remain_in_the_package():
     pkg = Path(dates.__file__).parent
     offenders = [p.name for p in pkg.rglob("*.py") if re.search(r"%-[a-zA-Z]", p.read_text(encoding="utf-8"))]
     assert offenders == []
+
+
+def test_week_start_is_the_monday_of_that_week():
+    assert dates.week_start(date(2026, 9, 16)) == date(2026, 9, 14)     # a Wednesday
+    assert dates.week_start(date(2026, 9, 14)) == date(2026, 9, 14)     # already a Monday
+
+
+def test_month_start_is_the_first_of_that_month():
+    assert dates.month_start(date(2026, 9, 16)) == date(2026, 9, 1)
+
+
+def test_md_year_omits_the_year_when_it_matches_now():
+    assert dates.md_year(date(2026, 9, 8), date(2026, 12, 1)) == "9/8"
+    assert dates.md_year(date(2026, 9, 8), datetime(2026, 12, 1, 9, 0)) == "9/8"
+
+
+def test_md_year_adds_the_year_when_it_does_not_match_now():
+    assert dates.md_year(date(2025, 9, 8), date(2026, 12, 1)) == "9/8/2025"
+    assert dates.md_year(date(2025, 9, 8), datetime(2026, 12, 1, 9, 0)) == "9/8/2025"

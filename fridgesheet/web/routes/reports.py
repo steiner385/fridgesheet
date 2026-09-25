@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 import sqlite3
+from dataclasses import replace
 from datetime import date as _date
 
 from urllib.parse import quote
@@ -28,13 +30,18 @@ def definition_from_form(form) -> views.Definition:
     filters = [{"field": f, "op": o, "value": v} for f, o, v in
                zip(form.getlist("filter_field"), form.getlist("filter_op"), form.getlist("filter_value")) if f]
     group_by = form.get("group_by") or None
+    chart_type = form.get("chart_type") or None
+    chart = views.ChartSpec(type=chart_type, x=form.get("chart_x", ""),
+                            y=form.get("chart_y") or None, series=form.get("chart_series") or None,
+                            bucket=form.get("chart_bucket") or "week") if chart_type else None
     return views.from_json(views.Definition(
         title=form.get("title", ""), source=form.get("source", "items"),
         scope=tuple(form.getlist("scope")), columns=tuple(form.getlist("columns")),
-        filters=tuple(filters), group_by=group_by, sort=tuple(sort),
+        filters=tuple(filters), group_by=group_by, sort=tuple(sort), chart=chart,
         orientation=form.get("orientation", "portrait"),
         per_kid_sections=bool(form.get("per_kid_sections")),
         window=form.get("window", "all"),
+        date_from=form.get("date_from", ""), date_to=form.get("date_to", ""),
     ).to_json())
 
 
@@ -65,8 +72,9 @@ def _builder(request, conn, state, *, report=None, d=None, problems=(), messages
     cols = views.COLUMNS.get(d.source) or views.COLUMNS["items"]
     return render(request, conn, "report_builder.html", current="reports", report=report,
                   d=d, cols=cols, SOURCES=views.SOURCES, OPS=views.OPS,
-                  ORIENTATIONS=views.ORIENTATIONS, WINDOWS=views.WINDOWS, problems=list(problems), messages=list(messages),
-                  kids=students.visible(conn))
+                  ORIENTATIONS=views.ORIENTATIONS, WINDOWS=views.WINDOWS,
+                  CHART_TYPES=views.CHART_TYPES, BUCKETS=views.BUCKETS,
+                  problems=list(problems), messages=list(messages), kids=students.visible(conn))
 
 
 @router.get("/reports/new")
@@ -103,16 +111,37 @@ async def rebuild(request: Request, conn: sqlite3.Connection = Db, state=State):
     form = await request.form()
     d = definition_from_form(form)
     known = views.COLUMNS.get(d.source) or {}
+
+    def _fits(ch):
+        if ch is None or ch.x not in known:
+            return None
+        if ch.y is not None and ch.y not in known:
+            ch = replace(ch, y=None)
+        if ch.series is not None and ch.series not in known:
+            ch = replace(ch, series=None)
+        if ch.type == "stacked_bar" and ch.series is None:
+            return None                  # can no longer satisfy validate()'s own rule
+        return ch
+
     d = views.Definition(
         title=d.title, source=d.source, scope=d.scope,
         columns=tuple(c for c in d.columns if c in known) or tuple(views.DEFAULT_COLUMNS.get(d.source, ())),
         filters=tuple(f for f in d.filters if f.get("field") in known),
         group_by=d.group_by if d.group_by in known else None,
         sort=tuple(s for s in d.sort if s.get("column") in known),
-        orientation=d.orientation, per_kid_sections=d.per_kid_sections, window=d.window)
+        chart=_fits(d.chart),
+        orientation=d.orientation, per_kid_sections=d.per_kid_sections, window=d.window,
+        date_from=d.date_from, date_to=d.date_to)
     rid = form.get("report_id")
     report = store.by_id(conn, int(rid)) if rid and str(rid).isdigit() else None
     return _builder(request, conn, state, report=report, d=d)
+
+
+def _chart_json(rendered) -> str | None:
+    """`chart_config()`'s output, safe to inline verbatim inside a `<script>` tag."""
+    if not (rendered and rendered.chart):
+        return None
+    return views.escape_for_script_tag(json.dumps(views.chart_config(rendered.chart)))
 
 
 @router.post("/reports/preview")
@@ -126,7 +155,8 @@ async def preview(request: Request, conn: sqlite3.Connection = Db, state=State):
             rendered = views.build(conn, d, now=state.now(), rules=state.rules(), nicknames=state.settings.nicknames, prefs=state.sources(), window=state.window())
         except views.ViewError as e:
             problems = [str(e)]
-    return render_partial(request, conn, "_report_preview.html", rendered=rendered, problems=problems)
+    return render_partial(request, conn, "_report_preview.html", rendered=rendered, problems=problems,
+                          chart_json=_chart_json(rendered))
 
 
 @router.get("/reports/{report_id}/view")
@@ -134,7 +164,8 @@ def view(report_id: int, request: Request, conn: sqlite3.Connection = Db, state=
     """A standalone, browser-printable rendering of the report -- what a parent clicking its
     name from the list wants to read, not the builder that produced it."""
     row, d, rendered = _rendered_or_400(conn, state, report_id)
-    return render(request, conn, "report_view.html", report=row, rendered=rendered, now=state.now())
+    return render(request, conn, "report_view.html", report=row, rendered=rendered, now=state.now(),
+                  chart_json=_chart_json(rendered))
 
 
 @router.get("/reports/{report_id}")

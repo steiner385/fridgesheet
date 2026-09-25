@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 
-from fridgesheet import config, reports, runner
+from fridgesheet import config, reports, runner, sheet
 from fridgesheet.reports import ReportError
+from fridgesheet.web import views
 from fridgesheet.web import db
 from fridgesheet.web.stores import reports as reportstore
 from tests.conftest import needs_pdftotext
@@ -149,6 +151,13 @@ def test_build_writes_a_pdf_and_rows(tmp_path):
     assert any(row["name"] == "Quiz 1" for row in built.rows["rows"])
     n = len(built.rows["rows"])
     assert built.summary.endswith(f"{n} rows") and built.summary[0].isdigit()
+    # No chart is configured on this report, so the PDF must carry no embedded image XObject --
+    # not just an absent "Chart unavailable" note (test_a_chart_bearing_report_embeds_the_chart
+    # checks the positive case: a real image marker present when a chart IS configured). Bare
+    # "/Image" is not a safe negative check on its own: reportlab always lists /ImageB /ImageC
+    # /ImageI in a page's /ProcSet whether or not any image is actually embedded.
+    raw = built.pdf.read_bytes()
+    assert b"/Subtype/Image" not in raw and b"/Subtype /Image" not in raw
 
 
 def test_build_refuses_a_broken_definition(tmp_path):
@@ -193,3 +202,63 @@ def test_a_scheduled_view_report_follows_the_assignments_source(tmp_path):
     built = reports.resolve(f"view:{rid}", tmp_path).build({}, ctx)
     quiz = next(r for r in built.rows["rows"] if r["name"] == "Quiz 1")
     assert quiz["status"] == "28/30"
+
+
+def test_build_table_pdf_embeds_a_chart_image_when_given_one(tmp_path):
+    png_bytes = _tiny_png()          # a minimal real PNG -- reportlab's Image flowable opens it with PIL
+    rendered = views.Rendered("Recap", [views.Column("name", "Name", "text")],
+                              [views.Group("", [{"name": "Quiz 1"}])])
+    out = tmp_path / "r.pdf"
+    pages = sheet.build_table_pdf(rendered, out, title="Recap", printed_at=NOW, chart_png=png_bytes)
+    assert pages >= 1 and out.exists()
+
+
+def _tiny_png() -> bytes:
+    """A 1x1 white PNG, small enough to inline here rather than shipping a fixture file."""
+    import base64
+    return base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+
+
+@needs_pdftotext
+def test_a_chart_bearing_report_embeds_the_chart(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
+    assert "Chart unavailable" not in sheet.pdf_text(built.pdf)
+    raw = built.pdf.read_bytes()
+    assert b"/Image" in raw or b"/Subtype/Image" in raw or b"/Subtype /Image" in raw
+
+
+@needs_pdftotext
+def test_a_broken_chart_renderer_still_produces_a_built_report(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    with patch("fridgesheet.reports.view.chart_render.render_chart_png", side_effect=RuntimeError("no chromium")):
+        built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
+    assert "Chart unavailable" in sheet.pdf_text(built.pdf)
+
+
+@needs_pdftotext
+def test_malformed_chart_bytes_still_produce_a_built_report(tmp_path):
+    """`render_chart_png` is expected to always return real image bytes, but if it ever didn't,
+    `sheet.build_table_pdf`'s `Image()` construction would raise `PIL.UnidentifiedImageError`
+    from outside the render-failure try block -- unless the bytes are validated as a decodable
+    image before that block ends."""
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    with patch("fridgesheet.reports.view.chart_render.render_chart_png", return_value=b"not a real image"):
+        built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
+    assert "Chart unavailable" in sheet.pdf_text(built.pdf)
