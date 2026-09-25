@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import subprocess
 
-from fridgesheet.host import scheduling_linux as lin, scheduling_windows as win
+import pytest
+
+from fridgesheet.host import SchedulingError, scheduling_linux as lin, scheduling_windows as win
 
 
 def _run(answers):
@@ -80,3 +82,69 @@ def test_remove_os_leftovers_reports_what_it_could_not_remove(tmp_path, monkeypa
     (name, error, command), = got.failed
     assert name == "Fridge Sheet - data-refresh" and "denied" in error
     assert command == 'schtasks /Delete /TN "Fridge Sheet - data-refresh" /F'
+
+
+# --- what remove_timer / _ours / remove_task still guard -----------------------------------
+
+def _marked_pair(d, stem="fridgesheet-open-work"):
+    (d / f"{stem}.timer").write_text(MARK)
+    (d / f"{stem}.service").write_text(MARK)
+
+
+@pytest.mark.parametrize("err", ["Failed to disable unit: Unit fridgesheet-open-work.timer does not exist.",
+                                 "Unit fridgesheet-open-work.timer not loaded."])
+def test_linux_remove_timer_tolerates_a_unit_systemd_no_longer_knows(tmp_path, err):
+    _marked_pair(tmp_path)
+    _, run = _run({("--user", "disable"): (1, "", err)})
+    lin.remove_timer("fridgesheet-open-work.timer", run, tmp_path)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_linux_remove_timer_raises_on_any_other_refusal_and_keeps_the_files(tmp_path):
+    _marked_pair(tmp_path)
+    _, run = _run({("--user", "disable"): (1, "", "Failed to connect to bus: No such file or directory")})
+    with pytest.raises(SchedulingError, match="Failed to connect to bus"):
+        lin.remove_timer("fridgesheet-open-work.timer", run, tmp_path)
+    assert len(list(tmp_path.iterdir())) == 2
+
+
+@pytest.mark.parametrize("exc", [FileNotFoundError("systemctl"), subprocess.TimeoutExpired("systemctl", 60)])
+def test_linux_remove_timer_names_a_systemctl_that_is_missing_or_hangs(tmp_path, exc):
+    _marked_pair(tmp_path)
+
+    def run(argv, **kw):
+        raise exc
+    with pytest.raises(SchedulingError, match="systemctl --user disable --now fridgesheet-open-work.timer"):
+        lin.remove_timer("fridgesheet-open-work.timer", run, tmp_path)
+
+
+def test_linux_a_timer_that_is_not_utf8_is_never_ours(tmp_path):
+    (tmp_path / "fridgesheet-odd.timer").write_bytes(b"\xff\xfe\x00[Timer]\n")
+    assert lin._ours(tmp_path / "fridgesheet-odd.timer") is False
+    assert lin.leftovers(tmp_path) == []
+
+
+def test_linux_remove_timer_refuses_an_unmarked_timer_before_any_systemctl(tmp_path):
+    (tmp_path / "fridgesheet-print-sheet.timer").write_text("[Timer]\n")
+    calls, run = _run({})
+    with pytest.raises(SchedulingError, match="not written by this app"):
+        lin.remove_timer("fridgesheet-print-sheet.timer", run, tmp_path)
+    assert calls == []
+    assert (tmp_path / "fridgesheet-print-sheet.timer").exists()
+
+
+def test_linux_the_web_servers_unit_is_never_ours_even_marked(tmp_path):
+    (tmp_path / "fridgesheet-web.service").write_text(MARK + "[Service]\n")
+    (tmp_path / "fridgesheet-web.timer").write_text(MARK + "[Timer]\n")
+    assert lin._ours(tmp_path / "fridgesheet-web.service") is False
+    _, run = _run({})
+    lin.remove_timer("fridgesheet-web.timer", run, tmp_path)
+    assert [p.name for p in tmp_path.iterdir()] == ["fridgesheet-web.service"]
+
+
+@pytest.mark.parametrize("name", ["Fridge Sheet - WEB", "Fridge Sheet - Web", " fridge sheet - web "])
+def test_windows_remove_task_refuses_the_web_task_in_any_casing_before_any_schtasks(name):
+    calls, run = _run({})
+    with pytest.raises(SchedulingError, match="refusing"):
+        win.remove_task(name, run)
+    assert calls == []

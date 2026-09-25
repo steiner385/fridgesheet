@@ -47,6 +47,11 @@ def _notices(state, rows, refresh) -> list[str]:
             out.append("Schedules run only while Fridge Sheet is running. To keep it running after you "
                        "sign out: fridgesheet service install")
     for name, error, command in state.extra.get("leftovers") or []:
+        if not command:
+            # The listing itself failed (`remove_os_leftovers`): there is no task to name and
+            # no command to offer, only that the check could not be made.
+            out.append(f"Fridge Sheet could not check for old scheduled tasks from an earlier version: {error}")
+            continue
         out.append(f"An old scheduled task from an earlier version is still there: {name} ({error}). "
                    f"Remove it with: {command}")
     return out

@@ -189,3 +189,16 @@ def test_a_leftover_that_could_not_be_removed_is_named_with_its_command(tmp_path
         ("Fridge Sheet - data-refresh", "Access is denied.", 'schtasks /Delete /TN "Fridge Sheet - data-refresh" /F')]
     body = c.get("/schedules").text
     assert "Fridge Sheet - data-refresh" in body and "schtasks /Delete" in body
+
+
+def test_a_leftover_listing_that_failed_says_so_in_plain_words(tmp_path):
+    """A failed listing has no task name and no command: it gets its own line, never
+    "Remove it with: " followed by nothing."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["leftovers"] = [
+        ("the list of scheduled tasks", "schtasks /Query failed: Access is denied.", "")]
+    body = c.get("/schedules").text
+    assert "could not check for old scheduled tasks from an earlier version" in body
+    assert "Access is denied." in body
+    assert "Remove it with" not in body and "the list of scheduled tasks" not in body
