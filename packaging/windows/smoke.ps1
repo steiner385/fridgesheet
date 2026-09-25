@@ -53,8 +53,10 @@ try {
     if (-not $pdf) { throw "no sheet-preview.pdf under $smokeHome\sheets" }
     Write-Host "  built $($pdf.FullName) ($($pdf.Length) bytes)"
 
-    # 2b. the scheduled task: task.xml must come out of the frozen bundle and schtasks must accept it
-    $p = Start-Process -FilePath $exe -ArgumentList "schedule","install" -Wait -PassThru -WindowStyle Hidden
+    # 2b. the scheduled task: task.xml must come out of the frozen bundle and schtasks must accept it.
+    # --force: `schedule install` refuses until a login check has passed (#154), and this home
+    # has never seen one; the flag is the documented way past that gate.
+    $p = Start-Process -FilePath $exe -ArgumentList "schedule","install","--force" -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { Get-Content (Join-Path $smokeHome "app.log") -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }; throw "schedule install failed (exit $($p.ExitCode))" }
     $q = & schtasks /Query /TN "Fridge Sheet - open-work" 2>&1
     if ($LASTEXITCODE -ne 0) { throw "task not found after install: $q" }
