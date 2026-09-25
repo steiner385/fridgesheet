@@ -45,7 +45,6 @@ def test_a_passing_check_writes_the_stamp_test_login_writes(monkeypatch, tmp_pat
     stamp = tmp_path / actions.LOGIN_STAMP
     assert stamp.is_file()
     datetime.fromisoformat(stamp.read_text())        # the same shape Test login writes
-    assert actions.login_passed(tmp_path)              # ... and the gate the page applies reads it
 
 
 def test_a_failed_check_removes_the_stamp(monkeypatch, tmp_path, capsys):
@@ -55,7 +54,6 @@ def test_a_failed_check_removes_the_stamp(monkeypatch, tmp_path, capsys):
         cli.main(["check"])
     assert e.value.code == 1
     assert not (tmp_path / actions.LOGIN_STAMP).exists()
-    assert not actions.login_passed(tmp_path)
 
 
 def test_check_and_test_login_share_one_stamp_helper(monkeypatch, tmp_path, capsys):
@@ -106,7 +104,7 @@ def test_schedule_install_needs_no_login(cli_home, capsys, key):
     """No stamp, no `--force`: `install` still turns the schedule on. The server's clock fires
     it, and the Schedules page has no login gate either, so the terminal must not have one."""
     home = cli_home
-    assert not actions.login_passed(home)
+    assert not (home / actions.LOGIN_STAMP).exists()
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", key])
     assert e.value.code == 0
@@ -132,6 +130,33 @@ def test_schedule_install_accepts_force_and_ignores_it(cli_home, capsys):
         cli.main(["schedule", "install", "open-work", "--force"])
     assert e.value.code == 0
     assert _enabled(home, "open-work") is True
+
+
+def test_schedule_install_of_a_report_turns_the_refresh_on_too(cli_home, capsys):
+    """The Schedules page's #120/#171 rule, from the terminal: a scheduled report prints from
+    the last refresh and refuses one a day old, so turning a report on with the refresh off
+    turns the refresh on in the same breath and says so, in the page's words."""
+    from fridgesheet.web import schedules as page
+    home = cli_home
+    (home / "config.toml").write_text('[refresh]\nenabled = false\nevery_hours = 2\n')
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "install", "open-work"])
+    assert e.value.code == 0
+    assert _enabled(home, "open-work") is True and _enabled(home, "data-refresh") is True
+    assert _doc(home)["refresh"]["every_hours"] == 2     # the rest of [refresh] is kept
+    out = capsys.readouterr().out
+    s = config.Settings(home=home)
+    config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
+    assert "every 2 hours" in page.refresh_turned_on(s.refresh)
+    assert page.refresh_turned_on(s.refresh) in out and "data-refresh: next" in out
+
+
+def test_schedule_install_of_a_report_leaves_an_on_refresh_alone(cli_home, capsys):
+    home = cli_home
+    (home / "config.toml").write_text('[refresh]\nenabled = true\n')
+    with pytest.raises(SystemExit):
+        cli.main(["schedule", "install", "open-work"])
+    assert "Turned on the data refresh" not in capsys.readouterr().out
 
 
 def test_schedule_remove_and_show_never_ask_for_the_stamp(cli_home, capsys):

@@ -251,6 +251,11 @@ def cmd_schedule(args) -> int:
         on = args.action == "install"
         page.record_enabled(s.home, key, on, create=on)
         print(f"{key}: turned {'on' if on else 'off'} in config.toml")
+        if on and key != host.DATA_REFRESH_KEY and not s.refresh.enabled:
+            # The page's rule (#120): a scheduled report prints from the last refresh and
+            # refuses one a day old, so a report turned on turns the refresh on with it.
+            page.record_enabled(s.home, host.DATA_REFRESH_KEY, True)
+            print(page.refresh_turned_on(s.refresh))
         s = load_settings()                       # read back what was just written
     # Read the same plan the clock acts on: this is what `install` or `remove` just changed,
     # and what `show` (no key given) is here to report on.

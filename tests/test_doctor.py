@@ -134,7 +134,7 @@ def test_scheduler_from_a_terminal_names_the_next_run(tmp_path, monkeypatch):
 
 
 def test_scheduler_fails_when_the_clock_has_stopped(tmp_path, monkeypatch):
-    stopped = SimpleNamespace(stale=lambda now: True)
+    stopped = clock.Clock(SimpleNamespace(home=tmp_path))           # never ticked: stale
     monkeypatch.setattr(clock, "_current", stopped)
     s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": ["Fri"]}},
                                    "refresh": {"enabled": True}})

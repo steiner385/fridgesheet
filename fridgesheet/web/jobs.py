@@ -38,7 +38,9 @@ KEEP = 20                                     # finished jobs kept for /jobs/{id
 #: How long a job may hold the single slot before the next submit takes it away. Longer than
 #: any honest run (a refresh and print is 1-3 minutes) and shorter than the runner's own stale
 #: lock (`runner.LOCK_STALE_SECONDS`, 45 minutes), so a displaced job's `run.lock` is still its
-#: own when the replacement job asks for it.
+#: own when the replacement job asks for it. A scheduled report may first spend up to
+#: `runner.LOCK_WAIT_SECONDS` waiting for `run.lock` (a refresh on the same minute), and that
+#: wait counts against this limit too; `run.lock`, not this timeout, is what prevents a double print.
 JOB_TIMEOUT_SECONDS = 15 * 60
 TIMED_OUT = "timed out after 15 minutes; started again"
 

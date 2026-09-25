@@ -55,8 +55,8 @@ def _database(s: Settings, home: Path) -> str:
 
 def _timezone(s: Settings, home: Path) -> str:
     ZoneInfo(s.timezone)
-    # Worth a word when the household's zone is not the computer's (#122): on Windows a task
-    # fires on the PC's clock, and the Schedules page shows next runs in the PC's time.
+    # Worth a word when the household's zone is not the computer's (#122): schedules fire from
+    # the server in the household's zone, but the log files' timestamps are the PC's clock.
     pc_zone = host.local_timezone()
     if pc_zone and pc_zone != s.timezone:
         return f"{s.timezone} (this computer's clock is {pc_zone})"
@@ -179,7 +179,7 @@ def _scheduler(s: Settings, home: Path) -> str:
     if running is None:
         return detail + "; schedules run only while the web server is running"
     if running.stale(now):
-        raise RuntimeError(clock.PAUSED)
+        raise RuntimeError(running.paused())
     return "scheduler running; " + detail
 
 

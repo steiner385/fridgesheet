@@ -416,13 +416,6 @@ def record_login(home: Path, ok: bool, *, now: datetime | None = None) -> None:
         stamp.unlink(missing_ok=True)
 
 
-def login_passed(home: Path) -> bool:
-    """Whether a login check has passed since it last failed. Nothing gates on it any more:
-    schedules are config.toml switches the server's clock reads (2026-09-25 in-app scheduler),
-    so neither the Schedules page nor `schedule install` waits for a login."""
-    return (home / LOGIN_STAMP).exists()
-
-
 def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
             run=None, opener=None, today: date | None = None, report_key: str = REPORT_KEY,
             refresh: bool = False) -> Path | None:
@@ -561,7 +554,10 @@ def status_line(home: Path, *, now: datetime) -> str:
         if lines:
             last = lines[-1]
     try:
-        schedules, _ = clock.configured(home)
+        settings = _settings_for(home)
+        schedules, _ = clock.configured(home, settings=settings)
+        # In the household's zone, as the clock builds its slots and the Schedules page shows them.
+        now = now.astimezone(ZoneInfo(settings.timezone))
     except Exception:                                      # noqa: BLE001  a status line never fails a page
         return f"{last} · schedule unknown"
     mine = [s for s in schedules if s.key == REPORT_KEY]

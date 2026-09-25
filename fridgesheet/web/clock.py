@@ -52,12 +52,14 @@ class Clock:
         self._submit = submit or (lambda kind, **p: state.jobs.submit(kind, **p))
         self.last_tick: datetime | None = None
         self.problems: dict[str, str] = {}
+        self.last_error = ""                                  # why the last tick failed, "" if it did not
         self._thread: threading.Thread | None = None
 
     def tick(self, now: datetime) -> str | None:
         schedules, self.problems = configured(self.state.home)
         conn = db.open_db(self.state.home)
         try:
+            fires.forget_all_but(conn, [s.key for s in schedules])   # off now: first sight when back on
             fired = fires.all(conn)
             submitted, tried = None, False
             for s in schedules:
@@ -89,11 +91,20 @@ class Clock:
         does not stamp the heartbeat, so a clock failing every minute shows as paused."""
         try:
             self.tick(now)
-        except Exception:                                      # noqa: BLE001
+        except Exception as e:                                 # noqa: BLE001
             log.exception("clock tick failed")
+            self.last_error = str(e) or type(e).__name__
+        else:
+            self.last_error = ""
 
     def stale(self, now: datetime) -> bool:
         return self.last_tick is None or now - self.last_tick > STALE_AFTER
+
+    def paused(self) -> str:
+        """What the header says when `stale`. A tick that keeps failing (config.toml will not
+        read, say) is still running, so "Restart Fridge Sheet" would not help: name the error,
+        which the parent can fix."""
+        return f"Schedules are paused: {self.last_error}" if self.last_error else PAUSED
 
     def start(self) -> None:
         global _current

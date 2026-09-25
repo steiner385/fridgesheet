@@ -112,3 +112,20 @@ def test_the_web_lock_file_goes_before_the_lock_is_let_go(tmp_path, monkeypatch)
     assert lock2.acquire()
     monkeypatch.setattr(type(lock2.path), "unlink", lambda self, missing_ok=False: (_ for _ in ()).throw(PermissionError("in use")))
     lock2.release()                                         # does not raise
+
+
+def test_a_time_zone_change_reaches_the_clock_without_a_restart(tmp_path):
+    """The in-app scheduler builds its slots from `state.now()`: an app whose clock kept the
+    start-up zone after a Settings save would fire in the old zone while the runner judged
+    the slot in the new one -- fire early, SKIP, record the slot, print nothing."""
+    from zoneinfo import ZoneInfo
+    from fridgesheet.web.app import create_app
+    seed(tmp_path).close()
+    config.save_config_doc(tmp_path / "config.toml", {"general": {"timezone": "America/New_York"}})
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(config.load_config_doc(tmp_path / "config.toml"), s)
+    state = create_app(s, home=tmp_path).state.fridgesheet
+    assert state.now().tzinfo == ZoneInfo("America/New_York")
+    config.save_config_doc(tmp_path / "config.toml", {"general": {"timezone": "America/Los_Angeles"}})
+    state.reload()
+    assert state.now().tzinfo == ZoneInfo("America/Los_Angeles")

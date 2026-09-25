@@ -326,6 +326,15 @@ def test_status_line_reports_last_run_and_next_run(tmp_path):
     assert actions.status_line(tmp_path, now=now).endswith("· not scheduled")
 
 
+def test_status_line_reads_the_schedule_in_the_households_zone(tmp_path):
+    """Slots are the household's wall clock, as the server's clock fires them: 4 PM in New
+    York is 1 PM in Los Angeles, so a 2 PM Friday report there is still to come today."""
+    (tmp_path / "config.toml").write_text('[general]\ntimezone = "America/Los_Angeles"\n'
+                                          '[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Fri"]\n')
+    now = datetime(2026, 9, 25, 16, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert actions.status_line(tmp_path, now=now).endswith("· next run Fri 9/25 2:00 PM")
+
+
 def test_status_line_says_unknown_when_the_plan_cannot_be_read(tmp_path, monkeypatch):
     from fridgesheet.web import clock
 
