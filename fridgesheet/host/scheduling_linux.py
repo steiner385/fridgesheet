@@ -161,12 +161,17 @@ def service_text(key: str, title: str, exe: str, args: str, workdir: str, home: 
 
     `FRIDGESHEET_HOME` is written explicitly so the unit keeps running against the home
     the app was configured with, whatever the environment of the session that fires it.
+    systemd reads `Environment=` under the same quoting rules as `ExecStart=` (whitespace
+    splits, double quotes protect), so the whole `NAME=value` word goes through
+    `systemd_quote`: unquoted, a home with a space assigned its first word and left the rest
+    as a nameless second variable, and the unit failed to load (#151). A plain path is
+    returned as it is, so every unit already on disk keeps the line it has.
     """
     return (
         MARKER +
         f"[Unit]\nDescription=Fridge Sheet: {title}\n\n"
         f"[Service]\nType=oneshot\n"
-        f"Environment=FRIDGESHEET_HOME={home}\n"
+        f"Environment={systemd_quote(f'FRIDGESHEET_HOME={home}')}\n"
         f"ExecStart={systemd_quote(exe)} {args}\n"
         f"WorkingDirectory={workdir}\n"
         f"TimeoutStartSec={TIMEOUT_START_SEC}\n"

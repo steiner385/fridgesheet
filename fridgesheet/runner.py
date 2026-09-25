@@ -342,6 +342,15 @@ class Lock:
     def __init__(self, path: Path):
         self.path, self.held, self.token = path, False, None
 
+    def is_held(self) -> bool:
+        """Present and younger than `LOCK_STALE_SECONDS` -- exactly what `acquire` would refuse.
+        Read-only, for `collector.summary`'s `run_in_progress`; it neither takes nor touches
+        the lock, and an abandoned one reads as not held, as `acquire` treats it."""
+        try:
+            return time.time() - self.path.stat().st_mtime <= LOCK_STALE_SECONDS
+        except FileNotFoundError:
+            return False
+
     def acquire(self) -> bool:
         try:
             if time.time() - self.path.stat().st_mtime > LOCK_STALE_SECONDS:

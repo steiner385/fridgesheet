@@ -145,13 +145,13 @@ def test_windows_remove_and_describe():
         seen.append(cmd)
         if cmd[1] == "/Delete":
             return _R(0)
-        return _R(0, "Folder: \\\nHostName:      PC\nTaskName:      \\Fridge Sheet - open-work\nNext Run Time: 9/15/2026 2:00:00 PM\n"
-                     "Status:        Ready\nLast Run Time: 9/14/2026 2:00:03 PM\nLast Result:   0\n")
+        return _R(0, '"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result"\n'
+                     '"PC","\\Fridge Sheet - open-work","9/15/2026 2:00:00 PM","Ready","Interactive only","9/14/2026 2:00:03 PM","0"\n')
 
     scheduling_windows.remove("open-work", run=run)
     assert seen[0] == ["schtasks", "/Delete", "/TN", "Fridge Sheet - open-work", "/F"]
     info = scheduling_windows.describe("open-work", run=run)
-    assert seen[1] == ["schtasks", "/Query", "/TN", "Fridge Sheet - open-work", "/FO", "LIST", "/V"]
+    assert seen[1] == ["schtasks", "/Query", "/TN", "Fridge Sheet - open-work", "/FO", "CSV", "/V"]
     assert info == scheduling.ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0")
     missing = scheduling_windows.describe("open-work", run=lambda c, **k: _R(1, "", "ERROR: The system cannot find the file specified."))
     assert missing == scheduling.ScheduleInfo("task-scheduler", False, None, None)
@@ -754,3 +754,61 @@ def test_command_for_the_refresh_key_records_the_run_when_frozen(monkeypatch, tm
     assert exe.endswith("FridgeSheet.exe")
     assert args == "refresh --record"          # no "-m fridgesheet.cli" prefix, and no --no-refresh
     assert wd == r"C:\App"
+
+
+def test_windows_remove_decides_absence_by_exit_code_not_by_english_text():
+    """A German Windows answers "Das System kann die angegebene Datei nicht finden."; matching
+    "cannot find the file" made every remove there an error (#151). Whether the task is still
+    registered is `/Query`'s exit code, which no locale changes."""
+    seen = []
+
+    def gone(cmd, **kw):
+        seen.append(cmd)
+        return _R(1, "", "FEHLER: Das System kann die angegebene Datei nicht finden.")
+
+    scheduling_windows.remove("gone", run=gone)                     # not an error
+    assert seen == [["schtasks", "/Delete", "/TN", "Fridge Sheet - gone", "/F"],
+                    ["schtasks", "/Query", "/TN", "Fridge Sheet - gone"]]
+
+    def still_there(cmd, **kw):
+        return _R(1, "", "FEHLER: Zugriff verweigert") if cmd[1] == "/Delete" else _R(0, "x")
+
+    with pytest.raises(scheduling.SchedulingError, match="Zugriff verweigert"):
+        scheduling_windows.remove("open-work", run=still_there)
+
+
+_CSV_HEADER = ('"HostName","TaskName","Next Run Time","Status","Logon Mode","Last Run Time","Last Result",'
+               '"Author","Task To Run","Start In","Comment"\n')
+_CSV_ROW = ('"PC","\\Fridge Sheet - open-work","9/15/2026 2:00:00 PM","Ready","Interactive only",'
+            '"9/14/2026 2:00:03 PM","0","PC\\tony","C:\\Apps\\FridgeSheet.exe run open-work, --no-refresh","C:\\Apps","N/A"\n')
+
+
+def test_windows_describe_reads_next_run_from_csv_by_header():
+    """`/FO CSV` puts commas inside a quoted field, so a `Task To Run` with a comma does not
+    shift the columns; `csv` reads it back as schtasks wrote it."""
+    info = scheduling_windows.describe("open-work", run=lambda c, **k: _R(0, _CSV_HEADER + _CSV_ROW))
+    assert info == scheduling.ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0")
+
+
+def test_windows_next_run_survives_a_localised_header():
+    """schtasks localises the header row but never reorders it: on a German Windows "Next Run
+    Time" is still the third column. Read by name when the name is English, by position when
+    it is not -- never a crash, and never `installed=False` for a task that is there."""
+    german = ('"Hostname","Aufgabenname","Nächste Laufzeit","Status","Anmeldemodus","Letzte Laufzeit","Letztes Ergebnis",'
+              '"Autor","Auszuführende Aufgabe"\n'
+              '"PC","\\Fridge Sheet - open-work","15.09.2026 14:00:00","Bereit","Nur interaktiv","14.09.2026 14:00:03","0",'
+              '"PC\\tony","C:\\Apps\\FridgeSheet.exe run open-work"\n')
+    info = scheduling_windows.describe("open-work", run=lambda c, **k: _R(0, german))
+    assert info == scheduling.ScheduleInfo("task-scheduler", True, "15.09.2026 14:00:00", "0")
+
+
+@pytest.mark.parametrize("out", [
+    "",                                                              # nothing at all
+    '"Aufgabenname"\n"\\Fridge Sheet - open-work"\n',                 # too few columns to place anything
+    _CSV_HEADER,                                                     # a header and no row
+    'Folder: \\\nTaskName: \\Fridge Sheet - open-work\n',            # LIST output after all
+    _CSV_HEADER + _CSV_ROW.replace("9/15/2026 2:00:00 PM", "N/A").replace('"0"', '"N/A"'),   # schtasks' own blank
+])
+def test_windows_next_run_is_none_rather_than_a_crash_for_output_it_cannot_place(out):
+    info = scheduling_windows.describe("open-work", run=lambda c, **k: _R(0, out))
+    assert info == scheduling.ScheduleInfo("task-scheduler", True, None, None)

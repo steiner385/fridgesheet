@@ -101,3 +101,57 @@ def test_bare_refresh_still_does_not_ingest(tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
         cli.main(["refresh"])
     assert called["actions"] is False
+
+
+def test_bare_refresh_runs_under_the_run_lock(tmp_path, monkeypatch):
+    """`run` and `refresh --record` hold run.lock while Chromium is up; bare `refresh` -- the
+    hand-written refresh timer's command -- did not, so it could overlap a scheduled print and
+    two Chromiums fought over the one browser profile (#151)."""
+    from fridgesheet import cli, runner
+    seen = {}
+
+    def collect(s, **kw):
+        seen["locked"] = (tmp_path / runner.LOCK_NAME).is_file()
+        return snapshot()
+
+    monkeypatch.setattr(cli.collector, "collect", collect)
+    monkeypatch.setattr(cli.collector, "summary", lambda *a, **k: {"sources": {"canvas": "ok"}})
+    monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["refresh"])
+    assert exc.value.code == 0 and seen["locked"] is True
+    assert not (tmp_path / runner.LOCK_NAME).exists()              # and let go of afterwards
+
+
+def test_bare_refresh_waits_a_bounded_time_then_says_so_in_one_line(tmp_path, monkeypatch, capsys):
+    import time
+    from fridgesheet import cli, collector, runner
+    (tmp_path / runner.LOCK_NAME).write_text("1 deadbeef")           # a run in progress
+    naps = []
+    monkeypatch.setattr(time, "sleep", naps.append)
+    monkeypatch.setattr(collector, "LOCK_WAIT_SECONDS", 12)
+    monkeypatch.setattr(cli.collector, "collect", lambda *a, **k: pytest.fail("collect must not run over another run"))
+    monkeypatch.setattr(cli, "load_settings", lambda: type("S", (), {"home": tmp_path})())
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["refresh"])
+    assert exc.value.code == 1
+    err = capsys.readouterr().err.strip()
+    assert "\n" not in err and "run.lock" in err
+    assert sum(naps) == 12                                            # it waited the whole allowance, no longer
+    assert (tmp_path / runner.LOCK_NAME).read_text() == "1 deadbeef"  # and did not touch the other run's lock
+
+
+def test_collect_locked_goes_ahead_once_the_other_run_lets_go(tmp_path, monkeypatch):
+    from fridgesheet import collector, runner
+    lock = tmp_path / runner.LOCK_NAME
+    lock.write_text("1 deadbeef")
+    naps = []
+
+    def sleep(n):
+        naps.append(n)
+        lock.unlink()
+
+    monkeypatch.setattr(collector, "collect", lambda s, **kw: {"kw": kw})
+    s = type("S", (), {"home": tmp_path})()
+    assert collector.collect_locked(s, wait_seconds=30, sleep=sleep, include_hac=False) == {"kw": {"include_hac": False}}
+    assert naps == [collector.LOCK_POLL_SECONDS] and not lock.exists()

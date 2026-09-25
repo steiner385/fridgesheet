@@ -138,7 +138,15 @@ def cmd_refresh(args) -> int:
         result = actions.refresh(home=s.home, log=lambda m: print(m), trigger="schedule")
         print(result.message)
         return 0 if result.ok else 1
-    snap = collector.collect(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
+    # Under run.lock, as `run` and `--record` above are: this is what the hand-written refresh
+    # timer runs, and unlocked it could put a second Chromium over the browser profile a
+    # scheduled print was using (#151). A run already in progress is waited for a bounded
+    # time, then one line and exit 1 -- never a pull over the top of it.
+    try:
+        snap = collector.collect_locked(s, include_hac=not args.no_hac, include_canvas=not args.no_canvas, kids_filter=args.kids)
+    except collector.RunInProgress as e:
+        print(str(e), file=sys.stderr)
+        return 1
     print(json.dumps(collector.summary(s, snap), indent=2))
     return 0 if all(v == "ok" for v in snap["sources"].values() if v) else 1
 
@@ -445,7 +453,11 @@ def cmd_service(args) -> int:
     from .host import ServiceError, service
     try:
         if args.action == "install":
-            print(f"Installed {service.SERVICE_NAME}: {service.install_service()}")
+            # The home the timers get (`s.home` in `cmd_schedule`), resolved without reading
+            # config.toml: `Settings.home` is only ever `DEFAULT_HOME`, and a config that does
+            # not parse must not stop the installer from registering the server (#151).
+            from .config import DEFAULT_HOME
+            print(f"Installed {service.SERVICE_NAME}: {service.install_service(home=str(DEFAULT_HOME))}")
         elif args.action == "remove":
             service.remove_service()
             print(f"Removed {service.SERVICE_NAME}")

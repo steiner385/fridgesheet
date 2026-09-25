@@ -29,9 +29,12 @@ else:
     from . import service_linux as _impl
 
 
-def install_service(run=subprocess.run) -> str:
+def install_service(run=subprocess.run, home: str = "") -> str:
+    """`home` is the app home the server must run against, written into the Linux unit as the
+    report timers write it (#151); Task Scheduler carries no environment, so the Windows task
+    accepts it and runs in the logged-in session's own."""
     exe, args, workdir = command_for()
-    note = _impl.install(exe, args, workdir, run=run)
+    note = _impl.install(exe, args, workdir, run=run, home=home)
     # `service_windows.install` returns "" on today's ordinary path and a non-empty note when
     # `/Create` was refused but an already-registered, matching task was started instead of
     # rewritten (graphy, 2026-09-23) -- fold it in so `cmd_service`'s existing

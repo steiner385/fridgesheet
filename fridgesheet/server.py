@@ -17,6 +17,7 @@ except ModuleNotFoundError:  # mcp 1.x
 from . import collector, late_rules, open_items
 from .config import load_settings
 from .matching import match_course as _match
+from .reports.open_work import wanted as _wanted
 from .sources import pick_value
 
 log = logging.getLogger("fridgesheet.server")
@@ -29,17 +30,33 @@ def _settings():
     return load_settings()
 
 
-def _snap(refresh: bool = False) -> dict:
-    snap = collector.load_snapshot(_settings())
-    if refresh or not collector.snapshot_is_fresh(_settings(), snap):
-        snap = collector.collect(_settings())
+def _snap() -> dict:
+    """The snapshot every read answers from, pulled afresh first when it is stale -- under
+    run.lock, as `run` and `refresh --record` pull, so a read never puts a second Chromium
+    over the browser profile a scheduled print is using (#151). While another run holds the
+    lock a read is answered from the snapshot on disk, and `status()` says so
+    (`run_in_progress`): an older number with a reason beats minutes of silence inside a tool
+    call. With no snapshot at all there is nothing to answer from, and the call says that."""
+    s = _settings()
+    snap = collector.load_snapshot(s)
+    if not collector.snapshot_is_fresh(s, snap):
+        try:
+            snap = collector.collect_locked(s, wait_seconds=0)
+        except collector.RunInProgress as e:
+            if snap is None:
+                raise RuntimeError(f"No snapshot to answer from yet: {e}") from None
     return snap
 
 
-def _kid(snap: dict, student: str) -> dict:
-    for name, entry in snap["students"].items():
-        if name.lower() == student.lower() or entry["name"].lower().startswith(student.lower()):
-            return entry
+def _kid(snap: dict, student: str) -> tuple[str, dict]:
+    """The student's key and entry. Found the way `--kid` finds a kid for the printed sheet
+    (`reports.open_work.wanted`): the key or the nickname, then a start of either, then a
+    longer form of the key. The key is what late rules and source rules resolve by everywhere
+    else (#161); the first word of the entry's name, which this used to match on and pass to
+    the rules, is "RIVERA," for a kid only HAC knows (#151)."""
+    for key, entry in snap["students"].items():
+        if _wanted(key, student, _settings().nicknames, snap["students"]):
+            return key, entry
     raise ValueError(f"Unknown student '{student}'. Known: {', '.join(snap['students'])}")
 
 
@@ -47,15 +64,22 @@ def _kid(snap: dict, student: str) -> dict:
 def refresh(kids: list[str] | None = None, hac: bool = True, canvas: bool = True) -> dict:
     """Re-pull Canvas and/or HAC now (logs in if a session expired) and return the source status.
     Use before building a report so numbers are current. Takes ~1-3 minutes. A source that
-    fails keeps its data from the last good pull; `stale` says which and how old."""
-    snap = collector.collect(_settings(), include_hac=hac, include_canvas=canvas, kids_filter=kids)
-    return collector.summary(_settings(), snap)
+    fails keeps its data from the last good pull; `stale` says which and how old. A scheduled
+    print or refresh already in progress is waited for a few minutes; if it is still running,
+    the status of the snapshot on disk comes back with `refresh` saying nothing was pulled."""
+    s = _settings()
+    try:
+        snap = collector.collect_locked(s, include_hac=hac, include_canvas=canvas, kids_filter=kids)
+    except collector.RunInProgress as e:
+        return {**collector.summary(s, collector.load_snapshot(s)), "refresh": f"not run: {e}"}
+    return collector.summary(s, snap)
 
 
 @mcp.tool()
 def status() -> dict:
-    """Snapshot age, whether each source (Canvas, HAC) was reachable on the last pull, and
-    which sources are being served from an older pull (`stale`, with that pull's time)."""
+    """Snapshot age, whether each source (Canvas, HAC) was reachable on the last pull, which
+    sources are being served from an older pull (`stale`, with that pull's time), and whether
+    a run holds run.lock right now (`run_in_progress`: reads answer from this snapshot)."""
     return collector.summary(_settings(), collector.load_snapshot(_settings()))
 
 
@@ -72,8 +96,7 @@ def grades(student: str) -> dict:
     side by side, plus `official` -- the one the family has chosen as authoritative for this kid
     and class ([sources] in config.toml; HAC unless changed), falling back to the other source
     when that one has no average. Canvas can be hidden or partial."""
-    e = _kid(_snap(), student)
-    first = (e["name"].split() or [student])[0]
+    key, e = _kid(_snap(), student)
     out = {"student": e["name"], "classes": []}
     hac_classes = {c["name"]: c for c in (e.get("hac") or {}).get("classes", [])}
     hac_week = {w["class"]: w for w in (e.get("hac") or {}).get("week_view", [])}
@@ -83,7 +106,7 @@ def grades(student: str) -> dict:
         w = _match(c["name"], hac_week) or {}
         seen.add(h.get("name"))
         hac_official = h.get("marking_period_avg", w.get("current_average"))
-        pick = _settings().sources.resolve(first, c["name"], h.get("name")).grades
+        pick = _settings().sources.resolve(key, c["name"], h.get("name")).grades
         official, official_source = pick_value(pick, c["grade"]["current_score"], hac_official)
         out["classes"].append({
             "course": c["name"],
@@ -98,7 +121,7 @@ def grades(student: str) -> dict:
         })
     for name, h in hac_classes.items():  # HAC-only classes (e.g. Hawk Time)
         if name not in seen:
-            pick = _settings().sources.resolve(first, name).grades
+            pick = _settings().sources.resolve(key, name).grades
             official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
             out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None})
     return out
@@ -108,7 +131,7 @@ def grades(student: str) -> dict:
 def assignments(student: str, course: str | None = None, include_graded: bool = True) -> dict:
     """Every Canvas assignment for a student (optionally one course, matched by substring) with due date
     (America/New_York ISO), points, score, and late/missing/excused flags."""
-    e = _kid(_snap(), student)
+    _, e = _kid(_snap(), student)
     courses = ((e.get("canvas") or {}).get("courses") or [])
     if course:
         courses = [c for c in courses if course.lower() in c["name"].lower()]
@@ -123,10 +146,13 @@ def assignments(student: str, course: str | None = None, include_graded: bool = 
 
 def _open_work(student: str, days_ahead: int, include_hac: bool = True):
     snap = _snap()
-    e = _kid(snap, student)
+    key, e = _kid(snap, student)
     now = datetime.now(ZoneInfo(_settings().timezone))
     rules = late_rules.load(_settings().home / "late-rules.toml", household=snap["students"])
-    return e, open_items.open_items(e, e["name"].split()[0], now, days_ahead=days_ahead, rules=rules, include_hac=include_hac, prefs=_settings().sources)
+    # Late rules and source rules resolve by the key, as the sheet and the web do (#161); the
+    # label is the nickname the sheet would print, and is only printed.
+    return e, open_items.open_items(e, _settings().nicknames.get(key, key), now, days_ahead=days_ahead, rules=rules,
+                                    include_hac=include_hac, prefs=_settings().sources, student_key=key)
 
 
 @mcp.tool()
@@ -161,7 +187,7 @@ def upcoming(student: str, days: int = 14) -> dict:
 @mcp.tool()
 def hac_classwork(student: str, course: str | None = None) -> dict:
     """Raw HAC classwork rows (score, points, category) and category subtotals — the official gradebook detail."""
-    e = _kid(_snap(), student)
+    _, e = _kid(_snap(), student)
     classes = (e.get("hac") or {}).get("classes") or []
     if course:
         classes = [c for c in classes if course.lower() in c["name"].lower()]

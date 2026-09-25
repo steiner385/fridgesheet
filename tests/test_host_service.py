@@ -164,11 +164,11 @@ def test_install_service_folds_a_fallback_note_into_its_report(monkeypatch):
     instead of rewritten) becomes visible to whoever reads the install log, without
     `cmd_service` itself needing to know the fallback happened."""
     monkeypatch.setattr(service, "_impl", service_windows)
-    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run: "started the existing task")
+    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run, home: "started the existing task")
     monkeypatch.setattr(service, "command_for", lambda: ("/py", "-m fridgesheet.cli web --no-browser", "/wd"))
     assert service.install_service() == "/py -m fridgesheet.cli web --no-browser (started the existing task)"
 
-    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run: "")
+    monkeypatch.setattr(service_windows, "install", lambda exe, args, workdir, run, home: "")
     assert service.install_service() == "/py -m fridgesheet.cli web --no-browser"
 
 
@@ -179,3 +179,61 @@ def test_cli_service_show_prints_the_state(capsys, monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main(["service", "show"])
     assert e.value.code == 0 and "enabled, active" in capsys.readouterr().out
+
+
+def test_unit_text_carries_the_home_the_timers_run_against():
+    """Every report timer writes `FRIDGESHEET_HOME` into its unit; the web server's did not, so
+    a custom home reached the timers and not the server -- two data folders (#151). Quoted
+    the way `scheduling_linux.service_text` quotes it, so a path with a space loads."""
+    text = service_linux.unit_text("/py", "x", "/wd", home="/home/tony/.fridgesheet")
+    assert "Environment=FRIDGESHEET_HOME=/home/tony/.fridgesheet\n" in text
+    spaced = service_linux.unit_text("/py", "x", "/wd", home="/home/tony/My Data/.fridgesheet")
+    assert 'Environment="FRIDGESHEET_HOME=/home/tony/My Data/.fridgesheet"\n' in spaced
+    assert "FRIDGESHEET_HOME" not in service_linux.unit_text("/py", "x", "/wd")   # nothing known: nothing written
+
+
+def test_linux_install_writes_the_home_into_the_unit(tmp_path):
+    calls, run = _recorder()
+    service_linux.install("/py", "x", "/wd", run=run, unit_dir=tmp_path, home="/data/fs")
+    assert "Environment=FRIDGESHEET_HOME=/data/fs\n" in (tmp_path / "fridgesheet-web.service").read_text()
+
+
+def test_install_service_hands_the_home_to_the_platform(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(service, "_impl", service_linux)
+    monkeypatch.setattr(service_linux, "install", lambda exe, args, workdir, run, home: seen.update(home=home))
+    monkeypatch.setattr(service, "command_for", lambda: ("/py", "x", "/wd"))
+    service.install_service(home="/data/fs")
+    assert seen["home"] == "/data/fs"
+
+
+def test_cli_service_install_names_the_home_the_app_runs_against(monkeypatch, capsys):
+    """The same home the schedule commands write into the timers: the resolved default
+    (`FRIDGESHEET_HOME` or the OS location), without loading config.toml -- a broken config
+    must not stop the installer from registering the server."""
+    from fridgesheet import cli, config
+    from fridgesheet.host import ServiceInfo
+    seen = {}
+    monkeypatch.setattr(service, "install_service", lambda **kw: seen.update(kw) or "/py x")
+    monkeypatch.setattr(service, "describe_service", lambda: ServiceInfo("systemd", True, True, "enabled, active"))
+    with pytest.raises(SystemExit) as e:
+        cli.main(["service", "install"])
+    assert e.value.code == 0 and seen["home"] == str(config.DEFAULT_HOME)
+
+
+def test_windows_remove_decides_absence_by_exit_code_not_by_english_text():
+    """A German Windows answers "Das System kann die angegebene Datei nicht finden."; matching
+    "cannot find the file" made every remove there an error (#151). Whether the task is still
+    registered is `/Query`'s exit code, which no locale changes."""
+    calls = []
+    def gone(argv, **kw):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr="FEHLER: Das System kann die angegebene Datei nicht finden.")
+    service_windows.remove(run=gone)
+    assert calls[1:] == [["schtasks", "/Delete", "/TN", "Fridge Sheet - web", "/F"], ["schtasks", "/Query", "/TN", "Fridge Sheet - web"]]
+
+    def still_there(argv, **kw):
+        rc = 1 if argv[1] == "/Delete" else 0
+        return subprocess.CompletedProcess(argv, rc, stdout="", stderr="FEHLER: Zugriff verweigert")
+    with pytest.raises(service.ServiceError, match="Zugriff verweigert"):
+        service_windows.remove(run=still_there)

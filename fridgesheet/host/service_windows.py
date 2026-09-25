@@ -18,7 +18,6 @@ SHORTCUT = "Fridge Sheet.lnk"
 #: DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW: the server started by
 #: `service install` outlives the installer that ran it, with no console of its own.
 _DETACHED = 0x00000008 | 0x00000200 | CREATE_NO_WINDOW
-_NOT_FOUND = "cannot find the file"
 _WHITESPACE = re.compile(r"\s+")
 
 
@@ -140,12 +139,16 @@ def _startup_fallback(exe: str, args: str, workdir: str, create_err: str, run, s
             f"instead ({lnk}); it does not restart itself if it stops, as the task would")
 
 
-def install(exe: str, args: str, workdir: str, run=subprocess.run, start=None) -> str:
+def install(exe: str, args: str, workdir: str, run=subprocess.run, start=None, home: str = "") -> str:
     """Register the logon task and start it. Returns "" when `/Create` succeeded (today's
     path, unchanged); returns a non-empty note when `/Create` failed but the task already
     registered turned out to be the one this install would have created, so `/Run` alone
     was enough -- see `_fallback_note_or_raise` for why that fallback exists and when it is
-    safe."""
+    safe.
+
+    `home` is accepted and unused, as `scheduling_windows.install` accepts it: a task runs in
+    the logged-in session's own environment. It is in the signature so `service.install_service`
+    is one call on both platforms."""
     xml = render_logon_task_xml(exe, args, workdir)
     fd, path = tempfile.mkstemp(prefix="fridgesheet-web-", suffix=".xml")
     try:
@@ -192,10 +195,14 @@ def _remove_shortcut() -> None:
 
 
 def remove(run=subprocess.run) -> None:
+    """Stop and delete the task. A task that is not there is not an error -- decided by asking
+    `/Query` whether it is still registered (exit code), not by matching "cannot find the
+    file" in `/Delete`'s stderr, which a German Windows writes as "Das System kann die
+    angegebene Datei nicht finden." and which made every remove there an error (#151)."""
     _remove_shortcut()
     _schtasks(["/End", "/TN", NAME], run)                       # stop a running server; absent is fine
     p = _schtasks(["/Delete", "/TN", NAME, "/F"], run)
-    if p.returncode != 0 and _NOT_FOUND not in (p.stderr or ""):
+    if p.returncode != 0 and _schtasks(["/Query", "/TN", NAME], run).returncode == 0:
         raise ServiceError(f"schtasks /Delete failed: {(p.stderr or p.stdout or '').strip()[:300]}")
 
 

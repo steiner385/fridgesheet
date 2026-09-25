@@ -9,13 +9,14 @@ from ..web import tiers
 from .base import Built, BuildContext, ReportError
 
 
-def _wanted(key: str, kid: str | None, names: dict[str, str], keys=()) -> bool:
+def wanted(key: str, kid: str | None, names: dict[str, str], keys=()) -> bool:
     """`--kid`: the student's first name or printed name, or else the start of one ("al" is Alex),
     or else a longer form of the first name ("alexander" is Alex).
 
     Each step applies only when the one before it selects nobody: `--kid Sam` is Sam, not also
     his sister Samantha, whose key it merely begins, and `--kid samant` is Samantha, not Sam
-    (#134). `keys` is every student's key."""
+    (#134). `keys` is every student's key. The MCP server finds a kid by the same steps
+    (`server._kid`), so "Mimi" means the same child everywhere (#151)."""
     if not kid:
         return True
     b = kid.strip().lower()
@@ -49,7 +50,7 @@ class OpenWorkReport:
         rows: dict[str, list[dict]] = {}
         counts = []
         for key, entry in snap["students"].items():
-            if not _wanted(key, ctx.kid, ctx.nicknames, snap["students"]):
+            if not wanted(key, ctx.kid, ctx.nicknames, snap["students"]):
                 continue
             label = ctx.nicknames.get(key, key)
             # Late rules and source rules resolve by the key, as the web does; the label is only printed (#133).

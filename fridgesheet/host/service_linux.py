@@ -9,10 +9,12 @@ from . import ServiceError, ServiceInfo, systemd_quote
 
 UNIT_FILE = "fridgesheet-web.service"
 #: What systemctl says when the unit is simply not there ("Failed to disable unit: Unit file
-#: fridgesheet-web.service does not exist."); anything else is a real failure. Deliberately narrow,
-#: as `service_windows.remove`'s "cannot find the file" is: a user manager that is not running
-#: answers "Failed to connect to bus: No such file or directory", and a remove that printed
-#: "Removed ..." over that left the unit enabled to start the server at the next logon.
+#: fridgesheet-web.service does not exist."); anything else is a real failure. Deliberately narrow:
+#: a user manager that is not running answers "Failed to connect to bus: No such file or
+#: directory", and a remove that printed "Removed ..." over that left the unit enabled to start
+#: the server at the next logon. (`service_windows.remove` no longer matches text at all -- it
+#: asks `/Query` whether the task is still there -- but systemctl has no such exit-code answer
+#: for "disable" against a unit that never existed.)
 _NO_SUCH_UNIT = ("does not exist", "not loaded")
 
 
@@ -20,13 +22,19 @@ def unit_path(unit_dir: Path | None = None) -> Path:
     return (unit_dir or Path.home() / ".config" / "systemd" / "user") / UNIT_FILE
 
 
-def unit_text(exe: str, args: str, workdir: str) -> str:
+def unit_text(exe: str, args: str, workdir: str, home: str = "") -> str:
     # No After=network-online.target: that target doesn't exist in a user manager's unit
     # graph, so it would only document an ordering, not create one. Restart=on-failure with
     # RestartSec=5 already covers a server that starts before the network is up.
+    #
+    # `FRIDGESHEET_HOME` the way `scheduling_linux.service_text` writes it, quoting included:
+    # the report timers carried the home and this unit did not, so a household with a custom
+    # home had its timers writing one data folder and the server reading another (#151).
+    # Nothing known ("") writes nothing, and the server resolves its home as it always did.
+    env = f"Environment={systemd_quote(f'FRIDGESHEET_HOME={home}')}\n" if home else ""
     return (
         "[Unit]\nDescription=Fridge Sheet web app\n\n"
-        f"[Service]\nExecStart={systemd_quote(exe)} {args}\nWorkingDirectory={workdir}\nRestart=on-failure\nRestartSec=5\n\n"
+        f"[Service]\n{env}ExecStart={systemd_quote(exe)} {args}\nWorkingDirectory={workdir}\nRestart=on-failure\nRestartSec=5\n\n"
         "[Install]\nWantedBy=default.target\n"
     )
 
@@ -35,11 +43,12 @@ def _systemctl(args: list[str], run) -> subprocess.CompletedProcess:
     return run(["systemctl", "--user", *args], capture_output=True, text=True, timeout=60)
 
 
-def install(exe: str, args: str, workdir: str, run=subprocess.run, unit_dir: Path | None = None) -> None:
+def install(exe: str, args: str, workdir: str, run=subprocess.run, unit_dir: Path | None = None,
+            home: str = "") -> None:
     path = unit_path(unit_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     fresh = not path.exists()          # an upgrade re-writes a unit that already works; keep it
-    path.write_text(unit_text(exe, args, workdir), encoding="utf-8")
+    path.write_text(unit_text(exe, args, workdir, home), encoding="utf-8")
     for cmd in (["daemon-reload"], ["enable", "--now", UNIT_FILE]):
         p = _systemctl(cmd, run)
         if p.returncode != 0:

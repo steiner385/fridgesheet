@@ -14,6 +14,52 @@ from .session import LoginRequired, browser, ensure_canvas, ensure_hac
 
 log = logging.getLogger("fridgesheet.collector")
 
+#: How long `collect_locked` waits for another run to let go of run.lock before giving up: a
+#: refresh is one to three minutes, so this outlasts one that started just before us without
+#: holding a terminal (or the hand-written refresh timer) for as long as a stuck run would.
+LOCK_WAIT_SECONDS = 5 * 60
+LOCK_POLL_SECONDS = 5
+
+
+class RunInProgress(RuntimeError):
+    """Another run holds run.lock and `collect_locked` gave up waiting. One line, for a
+    terminal or a tool result."""
+
+
+def run_in_progress(s: Settings) -> bool:
+    """Whether a run (a scheduled print, `refresh --record`, the Refresh now button) holds
+    run.lock right now -- the reason a read is being answered from an older snapshot."""
+    from . import runner                                    # runner imports this module
+    return runner.Lock(s.home / runner.LOCK_NAME).is_held()
+
+
+def collect_locked(s: Settings, *, wait_seconds: int | None = None, sleep=None, **kw) -> dict:
+    """`collect` under the runner's run.lock, the lock `run` and `web.actions.refresh` already
+    hold around their own pull: one Chromium at a time over the one browser profile. Bare
+    `refresh` (and so the hand-written refresh timer) and the MCP server used to call
+    `collect` with no lock and could overlap a scheduled print (#151).
+
+    Waits up to `wait_seconds` (`LOCK_WAIT_SECONDS`; 0 for "now or not at all") for the other
+    run to finish, polling every `LOCK_POLL_SECONDS`, then raises `RunInProgress`. Counted by
+    the naps taken, not the clock, so a test's fake `sleep` sees the same bound. `kw` is
+    `collect`'s own keywords."""
+    from . import runner
+    wait = LOCK_WAIT_SECONDS if wait_seconds is None else wait_seconds
+    sleep = sleep or time.sleep
+    lock = runner.Lock(s.home / runner.LOCK_NAME)
+    waited = 0
+    while not lock.acquire():
+        if waited >= wait:
+            raise RunInProgress(f"another run holds {lock.path} (a scheduled print or refresh in progress); "
+                                f"waited {waited} s and gave up -- try again in a few minutes")
+        nap = min(LOCK_POLL_SECONDS, wait - waited)
+        sleep(nap)
+        waited += nap
+    try:
+        return collect(s, **kw)
+    finally:
+        lock.release()
+
 
 def _snapshot_path(s: Settings) -> Path:
     return s.cache_dir / "snapshot.json"
@@ -32,15 +78,18 @@ def snapshot_is_fresh(s: Settings, snap: dict | None) -> bool:
 
 def summary(s: Settings, snap: dict | None) -> dict:
     """What `status`, `refresh` and the CLI report: age, per-source health, which sources
-    are being served from an older pull (and how old), and the kids in the snapshot."""
+    are being served from an older pull (and how old), the kids in the snapshot, and whether
+    a run holds run.lock right now (`run_in_progress`: a read is answered from this snapshot
+    rather than pulling a fresh one over that run's Chromium)."""
     if not snap:
-        return {"snapshot": None, "fresh": False}
+        return {"snapshot": None, "fresh": False, "run_in_progress": run_in_progress(s)}
     return {
         "fetched_at": snap["fetched_at"],
         "fresh": snapshot_is_fresh(s, snap),
         "sources": snap["sources"],
         "stale": {src: {"fetched_at": m["fetched_at"], "reason": m["reason"]} for src, m in (snap.get("stale") or {}).items()},
         "students": list(snap["students"]),
+        "run_in_progress": run_in_progress(s),
     }
 
 
