@@ -25,7 +25,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
-from .open_items import MARKED_FLAGS, Diff, Item, OpenWork
+from .open_items import HANDLED_FLAGS, MARKED_FLAGS, Diff, Item, OpenWork
 from .web import phrasing
 
 RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
@@ -105,11 +105,24 @@ def _checkbox() -> Table:
     return Table([[""]], colWidths=[11], rowHeights=[11], style=[("BOX", (0, 0), (-1, -1), 0.75, colors.black)])
 
 
+def marker(flag: str) -> str:
+    """The status column's marker for a follow-up or ask-the-teacher item: the answer's own
+    button, in capitals, from the one label table (#129)."""
+    return phrasing.flag_label(flag, "button").upper()
+
+
+def handled_words() -> str:
+    """"done, excused, let go or too late to submit": the answers that take an item off the
+    sheet, in the words the app uses for them, for the Handled trailer."""
+    states = [phrasing.flag_label(f, "state") for f in HANDLED_FLAGS]
+    return ", ".join(states[:-1]) + f" or {states[-1]}"
+
+
 def _status_cell(it: Item, tier: str = "") -> Paragraph:
     style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, colors.black))
     text = _esc(status_word(it.status, tier))
     if it.flag in MARKED_FLAGS:
-        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{"FOLLOW UP" if it.flag == "follow_up" else "ASK TEACHER"}</font>'
+        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{_esc(marker(it.flag))}</font>'
     if it.overdue and it.late_until:
         credit = f"{it.credit} " if it.credit and it.credit != "?" else ""
         text += f'<br/><font name="Helvetica" size="8" color="#555555">{_esc(credit)}until {wd_md(it.late_until)}</font>'
@@ -187,7 +200,7 @@ def _tail_lines(ks: KidSheet, overdue_days: int) -> list:
         out.append(Paragraph(f"<b>Cleared since last sheet:</b> {names}{more}", SM))
     if ks.work.handled:
         n = len(ks.work.handled)
-        out.append(Paragraph(f"Handled: {n} item{'s' if n != 1 else ''} marked done, excused or ignored in the app", NOTE))
+        out.append(Paragraph(f"Handled: {n} item{'s' if n != 1 else ''} marked {handled_words()} in the app", NOTE))
     if ks.work.dropped:
         n = len(ks.work.dropped)
         pts = fmt_pts(sum((i.points or 0) for i in ks.work.dropped))

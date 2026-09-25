@@ -184,7 +184,8 @@ def _filters(state: AppState) -> dict:
         return (item.due_part if tier == "early" else item.due_time) or ""
 
     def mailto_body(item) -> str:
-        """The facts a parent cites when writing to a teacher, as plain text (#73)."""
+        """The facts a parent cites when writing to a teacher, as plain text (#73), in the
+        record's own words (`record.*`, the adult tier: the teacher is the reader)."""
         def score(o):
             if o["score"] is None:
                 return ""
@@ -194,10 +195,15 @@ def _filters(state: AppState) -> dict:
         if item.due:
             lines.append("Due: " + wd_md(item.due) + (f" {item.due_time}" if item.due_time else ""))
         if c is not None:
-            said = "marked missing" if c["missing"] else ("handed in " + wd_md_time(c["submitted_at"]) if c["submitted_at"] else "nothing submitted")
+            if c["missing"]:
+                said = verdicts.words("record.missing", "")
+            elif c["submitted_at"]:
+                said = verdicts.words("record.handed_in_late" if c["late"] else "record.handed_in", "", {"when": wd_md_time(c["submitted_at"])})
+            else:
+                said = verdicts.words("record.offline" if item.kind in ("paper", "in class") else "record.nothing", "")
             lines.append("Canvas: " + ", ".join(x for x in (said, score(c)) if x))
         if h is not None:
-            lines.append("HAC: " + (score(h) or "no grade"))
+            lines.append("HAC: " + (score(h) or verdicts.words("record.no_grade", "")))
         if item.canvas_path:
             lines.append(state.settings.canvas_base + item.canvas_path)
         return "\n".join(lines)
@@ -214,6 +220,9 @@ def _filters(state: AppState) -> dict:
     return {"wd_md_time": wd_md_time, "md": md, "time12": time12, "nickname": nickname, "printer_name": printer_name,
             "wd_md": wd_md, "trigger_words": runs.trigger_label, "tier_of": tier_of, "phrase": phrase,
             "say": lambda key, tier, values=None: verdicts.say(key, tier, values),
+            "words": lambda key, tier, values=None: verdicts.words(key, tier, values),
+            # A flag in family words (`phrasing.FLAG_LABELS`, #129): `'ignore' | flag_label('state', tier)`.
+            "flag_label": lambda flag, form="state", tier="": phrasing.flag_label(flag or "", form, tier),
             "standing": lambda item, tier: verdicts.standing(item, tier),
             "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
             "pace_key": verdicts.pace_key}

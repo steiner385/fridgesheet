@@ -271,9 +271,11 @@ main.wide { max-width: 1600px; }
 .q .answers form, .review-card .answers form { display: inline; margin: 0; }
 .q .more { margin-top: 10px; font-size: var(--type-small); }
 .record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: var(--type-small); }
-.record div { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }
-.record .src { color: var(--muted); }
-.record .src small { color: var(--muted); }
+/* One source line of the record (`_source_facts.html`), wherever the record is shown. */
+.source { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }
+.school-evidence .source { margin: 6px 0; }
+.sources .src { color: var(--muted); }
+.sources .src small { color: var(--muted); }
 .done-line { display: flex; align-items: center; gap: 10px; background: #edf6ee; border-radius: 10px; padding: 10px 16px; margin-bottom: 10px; }
 .done-line .tick { color: var(--ok); font-weight: 700; }
 .done-line form { margin-left: auto; }
@@ -343,7 +345,7 @@ details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 
 .sources-hint { font-size: var(--type-small); margin: -8px 0 16px; }
 .record .sources-hint { margin: 0 0 6px; }
 .count:empty { display: none; }
-.record .src small { font-size: inherit; }
+.sources .src small { font-size: inherit; }
 th .arrow { font-size: var(--type-small); }
 @media (pointer: coarse) {
   .lines .line > button, .lines .line > form button, .qmark, .q details.more > summary, .q .more a, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }

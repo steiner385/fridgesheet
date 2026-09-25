@@ -1,16 +1,15 @@
-{# The school record, stated as facts the sources actually hold. Never a verdict on the child. #}
-{% macro score(obs, points) %}{{ obs.score | num }}{% if points %}/{{ points | num }}{% endif %}{% endmacro %}
+{# The school record, stated as facts the sources actually hold. Never a verdict on the child.
+   The source lines are `_source_facts.html`, the same partial the detail card's record shows,
+   so the same item reads identically here and there (#46, #129). #}
 <div class="school-evidence">
   {% set at = view | due_at(tier | default('')) %}
   <p><strong>School record</strong>{% if view.due %} · due {{ view.due | wd_md }}{% if at %} {{ at }}{% endif %}{% else %} · no due date listed{% endif %}</p>
-  {% if view.canvas %}
-  <p>Canvas: {% if view.canvas.missing %}<strong>marked missing</strong> · {% endif %}{% if view.canvas.submitted_at %}submitted {{ view.canvas.submitted_at | wd_md_time }}{% if view.canvas.late %} (late){% endif %}{% elif view.kind in ('paper', 'in class') %}paper / in-class work; no online submission expected{% else %}no submission recorded{% endif %} · {% if view.canvas.score is not none %}{{ score(view.canvas, view.points) }}{% elif view.canvas.grade %}grade {{ view.canvas.grade }}{% else %}no grade posted{% endif %}</p>
-  {% endif %}
-  {% if view.hac %}<p>HAC: {% if view.hac.score is not none %}{{ score(view.hac, view.points) }}{% else %}no grade posted{% endif %}</p>{% endif %}
+  {% with item=view %}{% include "_source_facts.html" %}{% endwith %}
   {% if view.grade_zero %}<p class="review-note">{{ 'copy.zero_note' | say(tier | default('')) }}</p>{% endif %}
   {% if view.verdict.state in ('question', 'decided') %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% if view.verdict.state == 'waiting' %}<p class="review-note">{{ ('facts.' ~ view.verdict.kind) | say(tier | default(''), view.verdict.facts) }}</p>{% endif %}
   {% set pk = view.verdict | pace_key %}{% if pk %}<details class="quiet"><summary>How long Fridge Sheet waits</summary><p class="review-note app-count">{{ pk | say(tier | default(''), view.verdict.pace) }}</p></details>{% endif %}
   {% if view.latest_note %}<p>Latest note ({{ view.latest_note.at | wd_md }}): {{ view.latest_note.body }}</p>{% endif %}
-  {% if view.flag %}<p>Your answer: {{ {"done": "it's done", "excused": "excused", "ignore": "let it go", "follow_up": "following up", "ask_teacher": "asked the teacher", "too_late": "too late to submit"}.get(view.flag, view.flag) }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}
+  {# The answer as it stands: the one label table's state column (#129). #}
+  {% if view.flag %}<p>Your answer: {{ view.flag | flag_label('state', tier | default('')) }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}
 </div>

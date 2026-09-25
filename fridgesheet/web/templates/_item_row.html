@@ -6,7 +6,8 @@
     {% set at = v | due_at(tier) %}
     <td class="due">{{ v.due | md if v.due else '' }}{% if at %} <span class="at">{{ at }}</span>{% endif %}{% if v.due_relative %}<small class="rel">{{ v.due_relative }}</small>{% endif %}</td>
     <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML" aria-expanded="false" aria-controls="detail-{{ v.id }}">{{ v.name }}</a>
-        {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag.replace('_', ' ') }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
+        {# The answer as it stands ("let go 9/12"): the one label table, never the stored name (#129). #}
+        {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag | flag_label('state', tier) }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
         {% if v.asks %}<a class="qmark" href="{{ q_base | default('') }}#q-{{ v.id }}" aria-label="Question about {{ v.name }}">question</a>{% endif %}
         {% if v.step %}<span class="badge plan">in plan</span>{% endif %}
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
