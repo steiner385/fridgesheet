@@ -266,7 +266,9 @@ def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetim
     col_width = width / max(1, len(cols))
     story: list = [Paragraph(_esc(title), H1), Paragraph(long_date(printed_at), SM), Spacer(1, 8)]
     if chart_png:
-        story += [Image(io.BytesIO(chart_png), width=width, height=width * 500 / 1400), Spacer(1, 10)]
+        from reportlab.lib.utils import ImageReader
+        img_w, img_h = ImageReader(io.BytesIO(chart_png)).getSize()
+        story += [Image(io.BytesIO(chart_png), width=width, height=width * img_h / img_w), Spacer(1, 10)]
     if not rendered.groups:
         story.append(Paragraph("No rows matched this report.", CELL))
     for g in rendered.groups:

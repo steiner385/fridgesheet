@@ -117,8 +117,10 @@ def defaults(source: str = "items") -> Definition:
 
 
 def _chart_from(raw: dict) -> ChartSpec | None:
-    """Whatever shape `chart` has in the stored JSON, built as-is -- `validate()` is where a
-    malformed chart is named precisely, the same discipline `filters`/`sort` already follow."""
+    """Whatever shape `chart` has in the stored JSON, built as-is -- except a chart with no
+    `type` at all, which reads as "no chart configured" rather than reaching `validate()` for
+    a precise diagnosis (unlike `filters`/`sort`, which preserve any shape so `validate()` can
+    name the specific defect)."""
     c = raw.get("chart")
     if not isinstance(c, dict) or not c.get("type"):
         return None
@@ -548,8 +550,13 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]
         label = (row.get(spec.series, "") or "(none)") if spec.series else (known[spec.y].label if spec.y else "Count")
         bstart = _bucket_start(x_local, spec.bucket)
         buckets.setdefault(bstart, {}).setdefault(label, []).append(y)
+    notes = []
+    if dropped:
+        notes.append(f"{dropped} row(s) with no date are not charted")
+    if blank_y:
+        notes.append(f"{blank_y} row(s) with no value are not charted")
     if not buckets:
-        return None, ""
+        return None, "; ".join(notes)
     zero_fill = spec.type in ("bar", "stacked_bar")
     starts = _bucket_range(min(buckets), max(buckets), spec.bucket) if zero_fill else sorted(buckets)
     overflow = max(0, len(starts) - MAX_CHART_POINTS)
@@ -566,22 +573,17 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]
             values = buckets.get(s, {}).get(label)
             if values is None:
                 if zero_fill:
-                    points.append((dates.md(s), 0.0))
+                    points.append((dates.md_year(s, now), 0.0))
                 continue
             value = (sum(values) / len(values)) if spec.y else float(len(values))
-            points.append((dates.md(s), value))
+            points.append((dates.md_year(s, now), value))
         series_out.append(ChartSeries(label=label, points=points))
-    notes = []
-    if dropped:
-        notes.append(f"{dropped} row(s) with no date are not charted")
-    if blank_y:
-        notes.append(f"{blank_y} row(s) with no value are not charted")
     if overflow:
         notes.append(f"Chart shows the most recent {MAX_CHART_POINTS} of {MAX_CHART_POINTS + overflow}; "
                      "choose a coarser bucket or a shorter range to see the rest")
     y_label = known[spec.y].label if spec.y else "Count"
     return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out,
-                     labels=tuple(dates.md(s) for s in starts)), "; ".join(notes)
+                     labels=tuple(dates.md_year(s, now) for s in starts)), "; ".join(notes)
 
 
 _CHART_JS_TYPE = {"line": "line", "bar": "bar", "stacked_bar": "bar"}
@@ -614,7 +616,7 @@ def chart_config(data: ChartData) -> dict:
         color = _SERIES_COLORS[i % len(_SERIES_COLORS)]
         datasets.append({"label": s.label, "data": [by_label.get(l) for l in labels],
                          "borderColor": color, "backgroundColor": color, "fill": False})
-    stacked = data.type == "stacked_bar"
+    stacked = data.type == "stacked_bar" and data.y_label == "Count"
     return {
         "type": _CHART_JS_TYPE[data.type],
         "data": {"labels": labels, "datasets": datasets},
@@ -673,7 +675,7 @@ def build(conn: sqlite3.Connection, d: Definition, *, now: datetime, rules, nick
         groups = [Group("", [{c.id: r[c.id] for c in columns} for r in slim])]
     if d.window == "custom":
         fd, td = _parse_plain_date(d.date_from), _parse_plain_date(d.date_to)
-        label = f"Custom range ({dates.md(fd)}–{dates.md(td)})" if fd and td else "Custom range"
+        label = f"Custom range ({dates.md_year(fd, now)}–{dates.md_year(td, now)})" if fd and td else "Custom range"
     elif d.window != "all":
         label = next((l for k, l, _ in WINDOWS if k == d.window), "")
     else:

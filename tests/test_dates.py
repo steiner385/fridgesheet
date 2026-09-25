@@ -44,3 +44,13 @@ def test_week_start_is_the_monday_of_that_week():
 
 def test_month_start_is_the_first_of_that_month():
     assert dates.month_start(date(2026, 9, 16)) == date(2026, 9, 1)
+
+
+def test_md_year_omits_the_year_when_it_matches_now():
+    assert dates.md_year(date(2026, 9, 8), date(2026, 12, 1)) == "9/8"
+    assert dates.md_year(date(2026, 9, 8), datetime(2026, 12, 1, 9, 0)) == "9/8"
+
+
+def test_md_year_adds_the_year_when_it_does_not_match_now():
+    assert dates.md_year(date(2025, 9, 8), date(2026, 12, 1)) == "9/8/2025"
+    assert dates.md_year(date(2025, 9, 8), datetime(2026, 12, 1, 9, 0)) == "9/8/2025"

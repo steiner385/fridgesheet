@@ -10,8 +10,8 @@
     <canvas data-report-chart width="700" height="260"></canvas>
     <script type="application/json" data-chart-config>{{ chart_json | safe }}</script>
   </div>
-  {% if rendered.chart_note %}<p class="muted">{{ rendered.chart_note }}</p>{% endif %}
   {% endif %}
+  {% if rendered.chart_note %}<p class="muted">{{ rendered.chart_note }}</p>{% endif %}
   {% for g in rendered.groups %}
     {% if g.label %}<h3>{{ g.label }}</h3>{% endif %}
     <table class="items">

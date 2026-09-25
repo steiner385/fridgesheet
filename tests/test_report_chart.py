@@ -190,6 +190,62 @@ def test_chart_config_is_one_shape_for_every_chart_type():
     assert line["type"] == "line" and line["options"]["scales"]["x"]["stacked"] is False
 
 
+def test_month_buckets_in_different_years_get_distinct_labels_not_one_overwriting_the_other():
+    """Regression test: two rows due in September of different years used to both render as
+    "9/1" (dates.md has no year), so the later year's value silently overwrote the earlier
+    year's in chart_config()'s `dict(s.points)` lookup. dates.md_year fixes this by adding the
+    year whenever it differs from `now`'s, so the two months get distinct labels."""
+    spec = views.ChartSpec(type="line", x="due", y=None, bucket="month")
+    now = datetime(2026, 9, 20, tzinfo=TZ)
+    kept = [
+        ({"status": "open"}, {}, {"due": datetime(2025, 9, 10, 10, 0, tzinfo=TZ)}),  # last year's September
+        ({"status": "open"}, {}, {"due": datetime(2026, 9, 10, 10, 0, tzinfo=TZ)}),  # this year's September
+    ]
+    chart, _ = views._chart_data("items", spec, kept, now)
+    assert chart is not None and len(chart.series) == 1
+    points = chart.series[0].points
+    assert len(points) == 2
+    labels = [p[0] for p in points]
+    assert labels == ["9/1/2025", "9/1"]
+    assert labels[0] != labels[1]
+    # each bucket keeps its own count of 1.0, neither overwritten by the other
+    assert points[0][1] == 1.0
+    assert points[1][1] == 1.0
+    # the labels tuple carried into ChartData/chart_config must also stay distinct
+    assert chart.labels == ("9/1/2025", "9/1")
+    cfg = views.chart_config(chart)
+    assert cfg["data"]["labels"] == ["9/1/2025", "9/1"]
+    assert cfg["data"]["datasets"][0]["data"] == [1.0, 1.0]
+
+
+def test_stacked_bar_with_an_averaged_value_does_not_stack():
+    """A stacked_bar chart whose y is a number column (y_label != "Count") averages per
+    bucket -- summing those averages on top of each other would be meaningless, so it must
+    render unstacked (Chart.js default grouped bars) instead."""
+    data = views.ChartData(type="stacked_bar", x_label="Seen", y_label="Value", series=[
+        views.ChartSeries(label="Math", points=[("9/8", 85.0)]),
+        views.ChartSeries(label="Science", points=[("9/8", 90.0)]),
+    ], labels=("9/8",))
+    cfg = views.chart_config(data)
+    assert cfg["options"]["scales"]["x"]["stacked"] is False
+    assert cfg["options"]["scales"]["y"]["stacked"] is False
+
+
+def test_a_chart_where_every_row_is_dropped_keeps_its_explanation(tmp_path):
+    """Every row lacking a usable x value drops the chart entirely, but the note explaining
+    why must survive -- an empty chart with no explanation looks like a silent bug."""
+    spec = views.ChartSpec(type="bar", x="due", y=None, bucket="week")
+    now = datetime(2026, 9, 20, tzinfo=TZ)
+    kept = [
+        ({"status": "open"}, {}, {"due": None}),
+        ({"status": "open"}, {}, {"due": None}),
+    ]
+    chart, note = views._chart_data("items", spec, kept, now)
+    assert chart is None
+    assert note != ""
+    assert "2 row(s) with no date are not charted" in note
+
+
 def test_chart_config_labels_stay_chronological_with_divergent_series():
     """Regression test: when series have different bucket sets, labels must remain
     in chronological order, not series-iteration order. Series A at 9/1 and 9/20,

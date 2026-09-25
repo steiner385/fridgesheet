@@ -151,6 +151,13 @@ def test_build_writes_a_pdf_and_rows(tmp_path):
     assert any(row["name"] == "Quiz 1" for row in built.rows["rows"])
     n = len(built.rows["rows"])
     assert built.summary.endswith(f"{n} rows") and built.summary[0].isdigit()
+    # No chart is configured on this report, so the PDF must carry no embedded image XObject --
+    # not just an absent "Chart unavailable" note (test_a_chart_bearing_report_embeds_the_chart
+    # checks the positive case: a real image marker present when a chart IS configured). Bare
+    # "/Image" is not a safe negative check on its own: reportlab always lists /ImageB /ImageC
+    # /ImageI in a page's /ProcSet whether or not any image is actually embedded.
+    raw = built.pdf.read_bytes()
+    assert b"/Subtype/Image" not in raw and b"/Subtype /Image" not in raw
 
 
 def test_build_refuses_a_broken_definition(tmp_path):
@@ -223,6 +230,8 @@ def test_a_chart_bearing_report_embeds_the_chart(tmp_path):
     built = r.build({}, _ctx(tmp_path, out))
     assert built.pdf.is_file()
     assert "Chart unavailable" not in sheet.pdf_text(built.pdf)
+    raw = built.pdf.read_bytes()
+    assert b"/Image" in raw or b"/Subtype/Image" in raw or b"/Subtype /Image" in raw
 
 
 @needs_pdftotext

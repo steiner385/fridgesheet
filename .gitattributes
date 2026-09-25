@@ -5,3 +5,4 @@
 fridgesheet/web/static/htmx.min.js -text
 fridgesheet/web/static/uplot.min.js -text
 fridgesheet/web/static/uplot.min.css -text
+fridgesheet/web/static/chart.umd.min.js -text

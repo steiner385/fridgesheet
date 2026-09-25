@@ -131,6 +131,36 @@ def test_a_custom_range_bounds_changes_by_when_they_happened(tmp_path):
     body = c.get(f"/reports/{rid}/view").text
     assert "No rows matched this report." in body   # every seeded change happens after 9/1
 
+    # A range that actually spans the seeded refresh (9/15) must not also exclude everything --
+    # the assertion above alone would still pass if the end bound accidentally excluded every
+    # row rather than just the out-of-range ones.
+    rid2 = _save(tmp_path, source="changes", columns=["at", "kid", "what"],
+                window="custom", date_from="2026-09-14", date_to="2026-09-16")
+    rows = c.get(f"/reports/{rid2}/export.json").json()["rows"]
+    assert rows                                          # at least one real event falls inside the range
+    assert any(r["what"] for r in rows)
+
+
+def test_a_custom_range_bounds_grades_by_when_they_were_observed(tmp_path):
+    """A grade observation's `at` is the refresh it was seen on, not the course's own field --
+    mirroring test_a_custom_range_bounds_items_by_due_date's pattern of checking a specific
+    value, not just a row count, on both sides of the boundary."""
+    from tests.web_fixtures import snapshot
+    early = snapshot()
+    early["fetched_at"] = "2026-08-01T08:00:00-04:00"
+    seed(tmp_path, early, now=datetime(2026, 8, 1, 8, 0, tzinfo=TZ)).close()
+    later = snapshot()
+    later["fetched_at"] = "2026-09-10T08:00:00-04:00"
+    later["students"]["Alex"]["canvas"]["courses"][0]["grade"]["current_score"] = 95.5
+    seed(tmp_path, later, now=datetime(2026, 9, 10, 8, 0, tzinfo=TZ)).close()
+    c = _client(tmp_path)
+    rid = _save(tmp_path, source="grades", columns=["course", "source", "value", "at"],
+               window="custom", date_from="2026-09-05", date_to="2026-09-15")
+    rows = c.get(f"/reports/{rid}/export.json").json()["rows"]
+    values = {r["value"] for r in rows}
+    assert "91.2" not in values          # the original score, observed 8/1, before the range
+    assert "95.5" in values              # the updated score, observed 9/10, inside the range
+
 
 def test_the_preview_names_a_custom_range(tmp_path):
     seed(tmp_path).close()
