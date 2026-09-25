@@ -76,7 +76,9 @@ def test_smoke_script_runs_doctor_dry_run_the_server_and_a_no_args_launch():
     # --all: the exact command line installer.iss's [UninstallRun] issues, not a bare remove
     # that would leave every command line except the default report's untested against a real
     # schtasks.
-    assert '"schedule","install"' in ps and '"schedule","remove","--all"' in ps
+    # `--force`: the smoke home has no passed login check, and `schedule install` refuses
+    # without one (#154); dropping the flag fails every release at this step.
+    assert '"schedule","install","--force"' in ps and '"schedule","remove","--all"' in ps
     # the browser app: serve real pages, then prove the no-args launch and the logon task
     assert '"web","--no-browser"' in ps and "/health" in ps and "/diagnostics" in ps
     assert "FRIDGESHEET_WEB_NO_BROWSER" in ps
