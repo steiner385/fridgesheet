@@ -176,7 +176,7 @@ def test_chart_config_is_one_shape_for_every_chart_type():
     data = views.ChartData(type="stacked_bar", x_label="Due", y_label="Count", series=[
         views.ChartSeries(label="MISSING", points=[("9/8", 2.0), ("9/15", 0.0)]),
         views.ChartSeries(label="LATE", points=[("9/8", 0.0), ("9/15", 1.0)]),
-    ])
+    ], labels=("9/8", "9/15"))
     cfg = views.chart_config(data)
     assert cfg["type"] == "bar"
     assert cfg["data"]["labels"] == ["9/8", "9/15"]
@@ -185,5 +185,24 @@ def test_chart_config_is_one_shape_for_every_chart_type():
     assert cfg["options"]["scales"]["x"]["stacked"] is True
 
     line = views.chart_config(views.ChartData(type="line", x_label="Seen", y_label="Value",
-                                              series=[views.ChartSeries(label="Value", points=[("9/8", 91.2)])]))
+                                              series=[views.ChartSeries(label="Value", points=[("9/8", 91.2)])],
+                                              labels=("9/8",)))
     assert line["type"] == "line" and line["options"]["scales"]["x"]["stacked"] is False
+
+
+def test_chart_config_labels_stay_chronological_with_divergent_series():
+    """Regression test: when series have different bucket sets, labels must remain
+    in chronological order, not series-iteration order. Series A at 9/1 and 9/20,
+    Series B at 9/5 and 9/10 must yield labels ["9/1", "9/5", "9/10", "9/20"],
+    not ["9/1", "9/20", "9/5", "9/10"] (A first, then B)."""
+    data = views.ChartData(type="line", x_label="Date", y_label="Count", series=[
+        views.ChartSeries(label="Series A", points=[("9/1", 10.0), ("9/20", 40.0)]),
+        views.ChartSeries(label="Series B", points=[("9/5", 20.0), ("9/10", 30.0)]),
+    ], labels=("9/1", "9/5", "9/10", "9/20"))
+    cfg = views.chart_config(data)
+    # Must be chronological order, not series-iteration order
+    assert cfg["data"]["labels"] == ["9/1", "9/5", "9/10", "9/20"]
+    # Series A should have values at 9/1 and 9/20, None at 9/5 and 9/10
+    assert cfg["data"]["datasets"][0]["data"] == [10.0, None, None, 40.0]
+    # Series B should have None at 9/1, value at 9/5, value at 9/10, None at 9/20
+    assert cfg["data"]["datasets"][1]["data"] == [None, 20.0, 30.0, None]

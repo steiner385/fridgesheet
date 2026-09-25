@@ -263,6 +263,7 @@ class ChartData:
     x_label: str
     y_label: str
     series: list[ChartSeries] = field(default_factory=list)
+    labels: tuple[str, ...] = ()
 
 
 @dataclass
@@ -579,7 +580,8 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict, dict]
         notes.append(f"Chart shows the most recent {MAX_CHART_POINTS} of {MAX_CHART_POINTS + overflow}; "
                      "choose a coarser bucket or a shorter range to see the rest")
     y_label = known[spec.y].label if spec.y else "Count"
-    return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out), "; ".join(notes)
+    return ChartData(type=spec.type, x_label=known[spec.x].label, y_label=y_label, series=series_out,
+                     labels=tuple(dates.md(s) for s in starts)), "; ".join(notes)
 
 
 _CHART_JS_TYPE = {"line": "line", "bar": "bar", "stacked_bar": "bar"}
@@ -590,11 +592,7 @@ def chart_config(data: ChartData) -> dict:
     """A Chart.js `type`/`data`/`options` object, built once -- the live web preview and the
     headless PDF capture (`chart_render.py`) both draw from this, so neither can disagree with
     the other about what a chart looks like."""
-    labels: list[str] = []
-    for s in data.series:
-        for label, _ in s.points:
-            if label not in labels:
-                labels.append(label)
+    labels = list(data.labels)
     datasets = []
     for i, s in enumerate(data.series):
         by_label = dict(s.points)
