@@ -90,6 +90,10 @@ class ItemView:
     grade_source: str = ""          # "canvas" | "hac" | "": which gradebook `grade` came from (#51)
     canvas_path: str = ""           # "/courses/<id>/assignments/<id>", appended to settings.canvas_base (#44)
     latest_note: dict | None = None # {"body", "at"} of the newest note on this item, for the check-in (#47)
+    #: When the work was given, and whether its group or category names a quiz or test: the
+    #: two facts the printed sheet shows that no page does (`reports.open_work.from_views`).
+    assigned: datetime | None = None
+    is_assessment: bool = False
 
     @property
     def overdue(self) -> bool:
@@ -141,11 +145,13 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
         if c["score"] is not None:
             return _score(c, item["points"])
         if past:
-            # Paper and in-class work have nothing to submit online, so "not submitted" says
-            # nothing about them: HAC holds their grade, and without one the honest word is "check".
+            # Nothing handed in online, but HAC holds a grade: that is the word, online work
+            # included -- "Missing" for work HAC has marked 9/10 was the sheet's mistake as
+            # well as this column's (#137). Without one, paper and in-class work have nothing
+            # to submit, so "not submitted" says nothing about them: the honest word is "check".
+            if h is not None and h["score"] is not None:
+                return _score(h, item["points"])
             if item["kind"] in _NOTHING_TO_SUBMIT:
-                if h is not None and h["score"] is not None:
-                    return _score(h, item["points"])
                 return "Paper, check" if item["kind"] == "paper" else "In class, check"
             return "Missing"
         if due is not None:
@@ -342,7 +348,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             sources=tuple(s for s in ("canvas", "hac") if s in obs),
             open_in=open_in,
             actionable=reconcile.is_actionable(r, obs, r["flag"], rules, r["kid"], now, prefer=prefer, overdue_days=overdue_days),
-            upcoming=reconcile.upcoming(r, obs, now, days_ahead),
+            upcoming=reconcile.upcoming(r, obs, now, days_ahead, prefer=prefer),
             flag=r["flag"], flag_text=flag_text.get(r["id"], ""),
             flag_set_at=active_flags[r["id"]]["set_at"] if r["id"] in active_flags else "",
             status=status_text(r, obs, now, prefer),
@@ -361,6 +367,8 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             canvas_path=(f"/courses/{r['course_external_id']}/assignments/{r['key'][len('canvas:'):]}"
                          if r["key"].startswith("canvas:") and r["course_source"] == "canvas" and r["course_external_id"] else ""),
             latest_note=latest_notes.get(r["id"]),
+            assigned=datetime.fromisoformat(r["assigned"]) if r["assigned"] else None,
+            is_assessment=bool(r["is_assessment"]),
         ))
     return out
 

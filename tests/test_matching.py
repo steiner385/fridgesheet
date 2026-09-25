@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from fridgesheet.matching import (course_matches, hac_item_key, hac_only_key, kid_matches, match_course, pair_titles,
-                                  same_item, short_course, title_score)
+                                  same_item, short_course, title_score, twin_by_date_and_points)
 
 
 def test_short_course_strips_term_year_and_teacher_tails():
@@ -42,6 +42,22 @@ def test_pair_titles_gives_each_row_its_own_twin_not_the_first_that_clears_the_b
     assert pair_titles(["Unit 3 Test"], ["Unit 3 Test", "Unit 3 Test Retake"]) == {0: 0}
     assert pair_titles(["Quiz 1"], ["Quiz 2"]) == {}
     assert pair_titles([], ["Quiz 1"]) == {} and pair_titles(["Quiz 1"], []) == {}
+
+
+def test_twin_by_date_and_points_pairs_exactly_one_fit_whose_numbers_agree():
+    """The fallback for titles the word matcher cannot pair: the same due date, the same
+    points, exactly one candidate, and any numbers the two titles carry agreeing. One rule for
+    the database and the sheet (#137); it lived in `web.ingest` alone before."""
+    fits = [("Concert Contract Due", "2026-08-21", 10.0), ("Scale sheet", "2026-08-21", 5.0)]
+    assert twin_by_date_and_points("Concert Contract", date(2026, 8, 21), 10.0, fits) == 0
+    assert twin_by_date_and_points("Community Health", date(2026, 8, 21), 10.0, [("Ch. 1 - Community Health", "2026-08-21", 10.0)]) == 0
+    assert twin_by_date_and_points("WK #1 HW", date(2026, 8, 21), 10.0, [("Week 1 Skill of the Week: Summary", "2026-08-21", 10.0)]) == 0
+    assert twin_by_date_and_points("WK #1 HW", date(2026, 8, 21), 10.0, [("Week 2 Skill of the Week: Summary", "2026-08-21", 10.0)]) is None
+    # Two that fit: neither is guessed. A row with no date or no points fits nothing.
+    assert twin_by_date_and_points("Concert Contract", date(2026, 8, 21), 10.0, fits + [("Rhythm sheet", "2026-08-21", 10.0)]) is None
+    assert twin_by_date_and_points("Concert Contract", None, 10.0, fits) is None
+    assert twin_by_date_and_points("Concert Contract", date(2026, 8, 21), None, fits) is None
+    assert twin_by_date_and_points("Concert Contract", date(2026, 8, 22), 10.0, fits) is None
 
 
 def test_hac_only_key_always_carries_the_due_date():

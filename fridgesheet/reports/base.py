@@ -37,6 +37,10 @@ class BuildContext:
     #: Reports put it in the PDF's name through `pdf_path`, so a side build never lands on
     #: the file the scheduled run printed (#143).
     variant: str = ""
+    #: The app's database, when the runner could open it: the open-work sheet reads its rows
+    #: from there, the same decided rows the Open work page shows, whenever it holds the
+    #: snapshot being built (#137). None means the snapshot alone.
+    conn: object | None = None
 
     def pdf_path(self, stem: str) -> Path:
         """`<out_dir>/<stem>.pdf` for the real sheet, `<stem>-<variant>.pdf` for a side build."""
