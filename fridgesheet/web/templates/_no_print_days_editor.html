@@ -2,10 +2,20 @@
   <h3>Days the sheet does not print</h3>
   {% if saved %}<p class="ok">Saved no-print-days.txt.</p>{% endif %}
   {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-  <p class="field-help">One row per day or date range: holidays, breaks, teacher PD. Weekends never print anyway.</p>
+  {% for n in notes %}<p class="muted">{{ n }}</p>{% endfor %}
+  {# Lines of a hand-edited file the app has to ignore (a range that ends before it starts, a
+     date that does not exist). Said here, and in the header, because Save rewrites the file
+     from the rows below -- which would otherwise drop them without a word (#147). #}
+  {% if problems %}
+  <p class="warn">no-print-days.txt has lines this editor cannot read, and the sheet ignores them:</p>
+  <ul class="warn">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+  <p class="field-help">Fix them in the file, or Save here to write the rows below without them.</p>
+  {% endif %}
+  {# No weekend guard exists: Schedules offers Saturday and Sunday, and a ticked day prints. #}
+  <p class="field-help">One row per day or date range: holidays, breaks, teacher PD. Weekends print only if a schedule ticks Saturday or Sunday on <a href="/schedules">Schedules</a>.</p>
   {# Closed on a fresh page load -- the list runs to a dozen rows or more -- and open again after
      a save or a validation error, which is only ever the parent mid-edit. #}
-  <details class="skip-days" {{ 'open' if saved or errors }}>
+  <details class="skip-days" {{ 'open' if saved or errors or problems }}>
     <summary>{{ entries | length }} date{{ '' if entries | length == 1 else 's' }} set — show and edit</summary>
     <div id="skip-rows">
       {% for e in entries %}

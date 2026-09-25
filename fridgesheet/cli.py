@@ -81,7 +81,7 @@ def cmd_set_credentials(args) -> int:
         print("Run it yourself in a shell, or (Linux) pipe a value from your password manager", file=sys.stderr)
         print("into secret-tool, e.g.:", file=sys.stderr)
         print("  op read --no-newline 'op://Vault/<uuid>/password' | \\", file=sys.stderr)
-        print(f"    secret-tool store --label 'Fridge Sheet OneLogin' service {credstore.SERVICE} key password", file=sys.stderr)
+        print(f"    secret-tool store --label 'Fridge Sheet OneLogin' service {credstore.keyring_service()} key password", file=sys.stderr)
         return 2
     user = args.username or input("OneLogin username: ").strip()
     if not user:
@@ -96,7 +96,7 @@ def cmd_set_credentials(args) -> int:
     doc = load_config_doc(config_file())
     doc.setdefault("account", {})["username"] = user
     save_config_doc(config_file(), doc)
-    print(f"Stored under service={credstore.SERVICE!r}; username recorded in {config_file()}.")
+    print(f"Stored under service={credstore.keyring_service()!r}; username recorded in {config_file()}.")
     print("Verify with:  fridgesheet check")
     return 0
 

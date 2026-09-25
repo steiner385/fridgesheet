@@ -641,3 +641,103 @@ def test_rules_are_listed_and_removable(tmp_path):
     assert r.status_code == 303 and r.headers["location"] == "/settings"
     assert "rule" not in config.load_config_doc(tmp_path / "config.toml")["sources"]
     assert app.state.fridgesheet.settings.sources.rules == ()
+
+
+def test_bad_no_print_days_lines_reach_the_header_and_the_editor(tmp_path):
+    """#147: a hand-edited no-print-days.txt with a reversed range or an impossible date lost
+    those lines silently. The header carries them the way it carries a broken late-rules.toml
+    (`AppState.rules`), and the editor lists them above the rows it could read."""
+    c, _ = _client(tmp_path)
+    (tmp_path / "no-print-days.txt").write_text(
+        "2026-09-07 Labor Day\n2026-12-21..2026-12-01 Break\n2026-02-30 Nope\n", encoding="utf-8")
+    home = c.get("/").text
+    assert "no-print-days.txt line 2" in home and "ends before it starts" in home
+    assert "no-print-days.txt line 3" in home and "2026-02-30" in home
+    editor = c.get("/settings").text.split('id="no-print-days"', 1)[1]
+    assert "line 2: 2026-12-21..2026-12-01 ends before it starts" in editor
+    assert "line 3: 2026-02-30 is not a real date" in editor
+    assert "Labor Day" in editor                                # what it could read is still editable
+    # A file that reads clean says nothing at all.
+    (tmp_path / "no-print-days.txt").write_text("2026-09-07 Labor Day\n", encoding="utf-8")
+    assert "no-print-days.txt line" not in c.get("/").text
+    assert "line 2:" not in c.get("/settings").text.split('id="no-print-days"', 1)[1]
+
+
+def test_the_editor_does_not_claim_weekends_never_print(tmp_path):
+    """#147: there is no weekend guard -- Schedules offers Saturday and Sunday, and ticking one
+    prints on it. The editor's help line has to say what is true instead."""
+    c, _ = _client(tmp_path)
+    editor = c.get("/settings").text.split('id="no-print-days"', 1)[1]
+    assert "never print" not in editor
+    assert "Schedules" in editor.split("<details", 1)[0]
+
+
+def test_the_editor_refuses_a_row_with_a_note_but_no_start_and_says_when_it_left_an_empty_one_out(tmp_path):
+    """#147: a row with no start date was dropped without a word, note and all."""
+    c, _ = _client(tmp_path)
+    r = c.post("/settings/no-print-days",
+               data={"start": ["", "2026-12-25"], "end": ["", ""], "note": ["Christmas Eve", "Christmas"]})
+    assert r.status_code == 200 and "Row 1: needs a start date" in r.text and "Saved" not in r.text
+    assert 'value="Christmas Eve"' in r.text                    # what was typed comes back, not the file
+    assert "Christmas" not in (tmp_path / "no-print-days.txt").read_text()
+    r = c.post("/settings/no-print-days",
+               data={"start": ["", "2026-12-25"], "end": ["", ""], "note": ["", "Christmas"]})
+    assert r.status_code == 200 and "Saved" in r.text and "Row 1 was empty and was left out" in r.text
+    assert "Christmas" in (tmp_path / "no-print-days.txt").read_text()
+
+
+def test_settings_says_when_the_environment_overrides_a_field(monkeypatch, tmp_path):
+    """#148: `load_form` shows config.toml, but `FRIDGESHEET_PRINTER` and friends win over it
+    (`config.load_settings`), so a parent changed the printer here and nothing happened. Each
+    overridden field says which variable is in charge; the box stays editable and says it is
+    ignored. `FRIDGESHEET_WEB_PORT` that is not a number is ignored by `load_settings`, so no
+    note for it -- a note that lies is the bug this fixes."""
+    monkeypatch.setenv("FRIDGESHEET_PRINTER", "Canon")
+    monkeypatch.setenv("FRIDGESHEET_WEB_HOST", "0.0.0.0")
+    monkeypatch.setenv("FRIDGESHEET_NICKNAMES", "Alex=Lex")
+    monkeypatch.setenv("FRIDGESHEET_WEB_PORT", "not-a-port")
+    c, _ = _client(tmp_path)
+    body = c.get("/settings").text
+    assert "Set by FRIDGESHEET_PRINTER=Canon in the environment" in body and "this box is ignored" in body
+    assert "Set by FRIDGESHEET_WEB_HOST=0.0.0.0 in the environment" in body
+    assert "FRIDGESHEET_NICKNAMES=Alex=Lex" in body
+    assert "FRIDGESHEET_WEB_PORT" not in body and "FRIDGESHEET_SHEETS_ARCHIVE" not in body
+    assert '<option value="Brother" selected' in body            # config.toml's value, still shown and editable
+    monkeypatch.delenv("FRIDGESHEET_PRINTER")
+    assert "FRIDGESHEET_PRINTER" not in c.get("/settings").text
+
+
+def test_the_host_refusal_under_a_wildcard_bind_says_extra_hosts_not_the_tick(tmp_path):
+    """#149: with **Allow other devices** already on, a computer name is still refused (a name
+    is what a rebinding attacker controls), and the page told the parent to tick the box they
+    had just ticked. The way in is `[web] extra_hosts`; say so, with the exact line.
+
+    This is the one place a refused `Host` is shown back, and only when it is plainly a DNS
+    name (letters, digits, dots, hyphens; not an address) on the right port under a wildcard
+    bind: such a string cannot carry markup or a sentence, and the only person who reads a 403
+    body is the one who typed that name."""
+    c, app = _client(tmp_path)
+    app.state.fridgesheet.settings.web_allow_lan = True
+    r = c.get("/", headers={"Host": "dobby:8433"})
+    assert r.status_code == 403
+    assert 'extra_hosts = ["dobby"]' in r.text and "[web]" in r.text and "config.toml" in r.text
+    assert "tick <b>Allow other devices" not in r.text
+    assert "http://127.0.0.1:8433/" in r.text
+    # A MagicDNS name -- the case the list exists for -- lower-cased, the way the list is matched.
+    r = c.get("/", headers={"Host": "Graphy.Tailnet-1234.TS.net:8433"})
+    assert 'extra_hosts = ["graphy.tailnet-1234.ts.net"]' in r.text
+
+
+def test_the_host_refusal_echoes_a_name_only_when_it_is_plainly_a_name(tmp_path):
+    c, app = _client(tmp_path)
+    app.state.fridgesheet.settings.web_allow_lan = True
+    r = c.get("/", headers={"Host": "dob'by:8433"})
+    assert r.status_code == 403 and "dob" not in r.text and "extra_hosts" in r.text
+    # The wrong port is not a name problem: nothing to add, the port is what to fix.
+    r = c.get("/", headers={"Host": "dobby:9000"})
+    assert r.status_code == 403 and "dobby" not in r.text and "extra_hosts = [" not in r.text and "8433" in r.text
+    # LAN off: the tick is the advice, and the name is not echoed
+    # (test_the_two_refusals_say_two_different_things).
+    app.state.fridgesheet.settings.web_allow_lan = False
+    r = c.get("/", headers={"Host": "dobby:8433"})
+    assert "Allow other devices" in r.text and "dobby" not in r.text

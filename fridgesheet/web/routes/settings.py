@@ -89,13 +89,15 @@ def _page(request, conn, state, form, messages=(), errors=()):
         source_rules = actions.load_sources(state.home).rules
     except config.ConfigError:
         source_rules = []                   # the same error is already on the page, from `form`
+    skip_problems: list[str] = []
+    entries = actions.no_print_days_view(actions.no_print_days_settings(state.home, skip_problems))
     return render(request, conn, "settings.html", current="settings", form=form, messages=list(messages), errors=list(errors),
                   printers=actions.printer_names(state.extra), loopback=loopback(request),
                   status=actions.status_line(state.home, describe=getattr(state.extra.get("scheduling"), "describe", None)),
                   lan_url=lan_url, lan_qr=_lan_qr(lan_url), tailnet_url=tailnet_url, about=actions.about_text(), update=update,
                   update_ready=update_ready, update_blocked_reason=reason,
                   late_rules=actions.late_rules_view(actions.late_rules_settings(state.home)),
-                  entries=actions.no_print_days_view(actions.no_print_days_settings(state.home)),
+                  entries=entries, skip_problems=skip_problems, env_notes=actions.env_overrides(),
                   source_rules=source_rules, SOURCE_LABELS=sources.LABELS)
 
 
@@ -187,17 +189,28 @@ async def save_no_print_days(request: Request, conn: sqlite3.Connection = Db, st
     starts, ends, notes = form.getlist("start"), form.getlist("end"), form.getlist("note")
     entries: list[runner.SkipEntry] = []
     errors: list[str] = []
+    left_out: list[str] = []
     for i, (s, e, note) in enumerate(zip(starts, ends, notes), start=1):
         if not s:
+            # A row with no start date used to vanish on Save, note and all (#147). One that
+            # says something is refused; one that says nothing (an "Add date" click never
+            # filled in) is left out, and the page says so.
+            if e or note.strip():
+                errors.append(f"Row {i}: needs a start date.")
+            else:
+                left_out.append(f"Row {i} was empty and was left out.")
             continue
         try:
             entries.append(runner.SkipEntry(date.fromisoformat(s), date.fromisoformat(e) if e else None, note))
         except ValueError:
             errors.append(f"Row {i}: not a date (yyyy-mm-dd).")
     errors = errors or actions.save_no_print_days(state.home, entries)
+    # After a Save the file is what the rows say, so it has no unreadable lines left; on an
+    # error every typed row comes back, start date or not, so nothing typed is lost.
     rows = actions.no_print_days_view(actions.no_print_days_settings(state.home)) if not errors else \
-        [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes) if s]
-    return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors)
+        [{"start": s, "end": e, "note": n} for s, e, n in zip(starts, ends, notes)]
+    return render_partial(request, conn, "_no_print_days_editor.html", entries=rows, errors=errors, saved=not errors,
+                          notes=left_out if not errors else [], problems=[])
 
 
 @router.post("/settings/update/check")

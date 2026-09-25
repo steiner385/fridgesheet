@@ -55,14 +55,32 @@ _ABBREV = {
     "lit": "literature",
 }
 
-#: Escape hatch for pairs no rule can infer, e.g.
-#: FRIDGESHEET_COURSE_ALIASES='{"ENGLISH LANGUAGE ARTS": "ELA Plus 5th Gr"}'
-#: Both sides are rewritten to the alias target before matching.
-try:
-    _ALIASES = {k.strip().lower(): v for k, v in json.loads(os.environ.get("FRIDGESHEET_COURSE_ALIASES", "{}")).items()}
-except (ValueError, AttributeError):
-    log.warning("FRIDGESHEET_COURSE_ALIASES is not a JSON object; ignoring it")
-    _ALIASES = {}
+#: The last `FRIDGESHEET_COURSE_ALIASES` text parsed, and what it parsed to. `course_base`
+#: runs once per course per refresh, so the JSON is not re-parsed on every call -- but it is
+#: re-read whenever the variable's text changes, which is what makes a `.env` loaded after
+#: import count.
+_alias_cache: tuple[str | None, dict[str, str]] = (None, {})
+
+
+def course_aliases() -> dict[str, str]:
+    """Escape hatch for pairs no rule can infer, e.g.
+    FRIDGESHEET_COURSE_ALIASES='{"ENGLISH LANGUAGE ARTS": "ELA Plus 5th Gr"}'
+    Both sides are rewritten to the alias target before matching.
+
+    Read when asked, not at import (#148): `config.load_settings` is what reads `.env` into
+    the environment, and this module is imported long before that, so a value set only in
+    `.env` used to do nothing. Text that is not a JSON object is logged and ignored, never
+    fatal, as before."""
+    global _alias_cache
+    raw = os.environ.get("FRIDGESHEET_COURSE_ALIASES")
+    if raw != _alias_cache[0]:
+        try:
+            parsed = {str(k).strip().lower(): v for k, v in json.loads(raw or "{}").items()}
+        except (ValueError, AttributeError):
+            log.warning("FRIDGESHEET_COURSE_ALIASES is not a JSON object; ignoring it")
+            parsed = {}
+        _alias_cache = (raw, parsed)
+    return _alias_cache[1]
 
 
 def short_course(name: str) -> str:
@@ -131,7 +149,7 @@ def _expand(s: str) -> str:
 
 def course_base(name: str) -> str:
     b = " ".join((name or "").split())
-    b = _ALIASES.get(b.strip().lower(), b)
+    b = course_aliases().get(b.strip().lower(), b)
     return _expand(short_course(b).lower())
 
 

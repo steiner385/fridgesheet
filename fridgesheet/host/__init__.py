@@ -25,8 +25,25 @@ IS_WINDOWS: bool = sys.platform == "win32"
 #: subprocess creationflags that keep a console window from flashing under a windowed exe.
 CREATE_NO_WINDOW: int = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-#: the OS credential store's service name, keyed by SERVICE/username/password.
-SERVICE: str = os.environ.get("FRIDGESHEET_KEYRING_SERVICE", "fridgesheet")
+#: The OS credential store's default service name; entries are keyed by service/username/password.
+DEFAULT_SERVICE = "fridgesheet"
+
+
+def keyring_service() -> str:
+    """The credential store's service name, `FRIDGESHEET_KEYRING_SERVICE` or the default.
+
+    Read when asked, not at import (#148): `config.load_settings` is what reads `.env` into
+    the environment, and every import of this package happens before that -- so a
+    `FRIDGESHEET_KEYRING_SERVICE=` line in `.env`, which env.example suggests, was read once at
+    import as unset and never again. `SERVICE` below is the same value under the name the rest
+    of the code base (and `credentials.SERVICE`) has always used."""
+    return os.environ.get("FRIDGESHEET_KEYRING_SERVICE", DEFAULT_SERVICE)
+
+
+def __getattr__(name: str):
+    if name == "SERVICE":
+        return keyring_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def current_user() -> str:

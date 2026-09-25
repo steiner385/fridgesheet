@@ -7,8 +7,7 @@ through the `keyring` library. Nothing here logs or prints a secret.
 """
 from __future__ import annotations
 
-from . import IS_WINDOWS
-from . import SERVICE  # noqa: F401  re-exported
+from . import IS_WINDOWS, keyring_service  # noqa: F401  re-exported
 
 if IS_WINDOWS:
     from . import credentials_windows as _impl
@@ -18,3 +17,11 @@ else:
 read_username = _impl.read_username
 read_password = _impl.read_password
 write = _impl.write
+
+
+def __getattr__(name: str):
+    # `credentials.SERVICE`, as before -- but read from the environment when asked, not bound
+    # at import, so a `.env` loaded later still counts (`host.keyring_service`, #148).
+    if name == "SERVICE":
+        return keyring_service()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

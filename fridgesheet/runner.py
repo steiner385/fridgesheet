@@ -41,8 +41,13 @@ LOCK_STALE_SECONDS = 45 * 60
 # Must exceed the scheduler's ExecutionTimeLimit (PT30M in host/task.xml) so a slow-but-alive
 # run is never declared abandoned.
 
+SKIP_NAME = "no-print-days.txt"
+
+# Nothing here guards weekends: the Schedules page offers Saturday and Sunday, and a ticked
+# Saturday prints (#147). This header used to promise "Weekends never print anyway", and the
+# editor rewrites it into every saved file, so it has to say only what is true.
 SKIP_HEADER = """# Days the sheet is not printed. One date per line, optional note after it.
-# Ranges: 2026-12-21..2027-01-01 . Weekends never print anyway.
+# Ranges: 2026-12-21..2027-01-01 . Weekends print only on days ticked on the Schedules page.
 """
 
 SKIP_SEED = SKIP_HEADER + """# Source: Lakota Local Schools board-approved 2026-27 calendar (amended 5/4/26).
@@ -85,25 +90,63 @@ class RunOptions:
     trigger: str = "cli"             # cli | schedule | web
 
 
-def parse_skip_days(text: str) -> dict[date, str]:
-    out: dict[date, str] = {}
-    for line in text.splitlines():
+def _skip_lines(text: str, problems: list[str] | None):
+    """The one reader behind `parse_skip_days` and `parse_skip_entries`: yields
+    `(start, end-or-None, note)` per usable line.
+
+    A line it cannot use is left out -- there is nothing else sensible to do with a range that
+    ends before it starts or a date that does not exist -- but it is no longer left out
+    *silently* (#147): each one goes into `problems`, by line number, in the words the
+    Settings editor, the page header and the doctor all show. `None` keeps the old quiet
+    behaviour for the runtime guard, which only wants the days."""
+    for n, line in enumerate(text.splitlines(), start=1):
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         m = _LINE.match(line)
         if not m:
+            if problems is not None:
+                problems.append(f"line {n}: {line.strip()!r} is not a date (yyyy-mm-dd), so it is ignored")
             continue
+        shown = m.group(1) + (f"..{m.group(2)}" if m.group(2) else "")
         try:
             start = date.fromisoformat(m.group(1))
-            end = date.fromisoformat(m.group(2)) if m.group(2) else start
+            end = date.fromisoformat(m.group(2)) if m.group(2) else None
         except ValueError:
+            if problems is not None:
+                bad = next((g for g in (m.group(1), m.group(2)) if g and not _real_date(g)), shown)
+                problems.append(f"line {n}: {bad} is not a real date, so it is ignored")
             continue
-        note = m.group(3).lstrip("#").strip()
+        if end is not None and end < start:
+            if problems is not None:
+                problems.append(f"line {n}: {shown} ends before it starts, so it is ignored")
+            continue
+        yield start, end, m.group(3).lstrip("#").strip()
+
+
+def _real_date(text: str) -> bool:
+    try:
+        date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
+
+
+def parse_skip_days(text: str, *, problems: list[str] | None = None) -> dict[date, str]:
+    out: dict[date, str] = {}
+    for start, end, note in _skip_lines(text, problems):
         d = start
-        while d <= end:
+        while d <= (end or start):
             out[d] = note
             d += timedelta(days=1)
     return out
+
+
+def skip_day_problems(text: str) -> list[str]:
+    """Every line of a no-print-days file that `parse_skip_days` has to leave out, one
+    sentence each ("line 3: ... so it is ignored"). Empty when the file reads clean."""
+    problems: list[str] = []
+    parse_skip_days(text, problems=problems)
+    return problems
 
 
 @dataclass(frozen=True)
@@ -116,21 +159,8 @@ class SkipEntry:
     note: str = ""
 
 
-def parse_skip_entries(text: str) -> list[SkipEntry]:
-    out: list[SkipEntry] = []
-    for line in text.splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        m = _LINE.match(line)
-        if not m:
-            continue
-        try:
-            start = date.fromisoformat(m.group(1))
-            end = date.fromisoformat(m.group(2)) if m.group(2) else None
-        except ValueError:
-            continue
-        out.append(SkipEntry(start, end, m.group(3).lstrip("#").strip()))
-    return out
+def parse_skip_entries(text: str, *, problems: list[str] | None = None) -> list[SkipEntry]:
+    return [SkipEntry(start, end, note) for start, end, note in _skip_lines(text, problems)]
 
 
 def format_skip_entries(entries: list[SkipEntry]) -> str:
@@ -389,15 +419,18 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
         out_root = home / report.output_dir
         day_dir = out_root / day.isoformat()
 
-        skip_path = home / "no-print-days.txt"
+        skip_path = home / SKIP_NAME
         if not skip_path.exists():
             skip_path.write_text(SKIP_SEED)
         late_rules.ensure_seed(home / "late-rules.toml")
 
         # --- guards ---------------------------------------------------------------
-        skips = parse_skip_days(skip_path.read_text())
+        skip_problems: list[str] = []
+        skips = parse_skip_days(skip_path.read_text(), problems=skip_problems)
+        for problem in skip_problems:       # a dropped line is a day that may print unexpectedly (#147)
+            log("WARN", f"{SKIP_NAME} {problem}")
         if day in skips and not opts.force:
-            return finish("SKIP", f"{day} is in no-print-days.txt ({skips[day] or 'no note'}); nothing printed", 0)
+            return finish("SKIP", f"{day} is in {SKIP_NAME} ({skips[day] or 'no note'}); nothing printed", 0)
         if not opts.dry_run and not opts.reprint and (day_dir / "printed.txt").is_file():
             last = (day_dir / "printed.txt").read_text().strip().splitlines()[-1]
             return finish("SKIP", f"{day} already printed ({last}); use --reprint to print again", 0)
