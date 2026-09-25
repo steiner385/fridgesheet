@@ -141,3 +141,17 @@ def test_the_header_says_when_schedules_are_paused(tmp_path):
     stopped = _clock(tmp_path, FakeWorker())                # never ticked: stale
     c.app.state.fridgesheet.extra["clock"] = stopped
     assert clockmod.PAUSED in c.get("/").text
+
+
+def test_remove_leftovers_keeps_failures_for_the_page(tmp_path):
+    from fridgesheet.host.scheduling import Leftovers
+    state = SimpleNamespace(extra={})
+    got = Leftovers(removed=["Fridge Sheet - open-work"], failed=[("Fridge Sheet - data-refresh", "denied", "cmd")])
+    clockmod.remove_leftovers(state, remove=lambda: got)
+    assert state.extra["leftovers"] == [("Fridge Sheet - data-refresh", "denied", "cmd")]
+
+
+def test_remove_leftovers_never_raises(tmp_path):
+    state = SimpleNamespace(extra={})
+    clockmod.remove_leftovers(state, remove=lambda: (_ for _ in ()).throw(OSError("no schtasks")))
+    assert "leftovers" not in state.extra

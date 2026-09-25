@@ -1,53 +1,41 @@
-"""The scheduled run of a report.
+"""What is left of OS scheduling: removing what earlier versions registered.
 
-Windows: one Task Scheduler task per report, "Fridge Sheet - <key>", running only while
-the user is logged in (InteractiveToken: Credential Manager and the printer need the
-session) and catching up a missed start (the runner's window guard then decides).
-Linux: one systemd user timer and service per report, written and enabled by this app under
-`~/.config/systemd/user` -- and never a unit it did not author (`scheduling_linux`'s
-`_check_ownership`), so the household's hand-written `fridgesheet-print-sheet.timer` is reported
-by `describe` and left alone by `install` and `remove`.
+Schedules are fired by the server's own clock (web/clock.py) on both platforms. This runs once
+at server start and from `fridgesheet schedule remove --all`, which the Windows uninstaller calls.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path, PureWindowsPath
+import subprocess
+from dataclasses import dataclass, field
+from pathlib import Path
 
-from . import IS_WINDOWS
-from . import ScheduleInfo, SchedulingError, DATA_REFRESH_KEY, task_name  # noqa: F401  re-exported
-
-
-def command_for(key: str) -> tuple[str, str, str]:
-    """(exe, args, workdir) that runs `key` from this installation.
-
-    A report gets `--no-refresh` so a scheduled print never pulls Canvas/HAC itself: it
-    trusts the independently-scheduled data refresh to have kept the snapshot warm, the same
-    "one pull, many tools" design the README promises. An interactive `fridgesheet run`/
-    `print-sheet` from a terminal keeps refreshing by default -- someone typing the command
-    is presumably fine waiting for it.
-
-    `DATA_REFRESH_KEY` is the other side of that bargain: the schedule that does the pulling.
-    It runs `refresh --record` rather than bare `refresh`, because bare `refresh` writes
-    `snapshot.json` and stops -- it does not ingest into the database the web app renders
-    from, so a schedule wired to it would report success while the page never changed.
-    """
-    if key == DATA_REFRESH_KEY:
-        if getattr(sys, "frozen", False):
-            return sys.executable, "refresh --record", str(PureWindowsPath(sys.executable).parent)
-        return sys.executable, "-m fridgesheet.cli refresh --record", str(Path.cwd())
-    # `--trigger schedule` so Runs says who started it (#8); refresh already records its own.
-    if getattr(sys, "frozen", False):
-        return sys.executable, f"run {key} --no-refresh --trigger schedule", str(PureWindowsPath(sys.executable).parent)
-    return sys.executable, f"-m fridgesheet.cli run {key} --no-refresh --trigger schedule", str(Path.cwd())
+from . import IS_WINDOWS, SchedulingError  # noqa: F401  re-exported
+from . import DATA_REFRESH_KEY  # noqa: F401  re-exported
 
 
-if IS_WINDOWS:
-    from . import scheduling_windows as _impl
-else:
-    from . import scheduling_linux as _impl
+@dataclass
+class Leftovers:
+    removed: list[str] = field(default_factory=list)
+    failed: list[tuple[str, str, str]] = field(default_factory=list)   # (name, error, command)
 
-install = _impl.install
-remove = _impl.remove
-describe = _impl.describe
-blocking_name = _impl.blocking_name
-display_name = _impl.display_name
+
+def remove_os_leftovers(run=subprocess.run, *, unit_dir: Path | None = None) -> Leftovers:
+    if IS_WINDOWS:
+        from . import scheduling_windows as impl
+        list_them, remove = (lambda: impl.leftovers(run)), (lambda n: impl.remove_task(n, run))
+    else:
+        from . import scheduling_linux as impl
+        list_them, remove = (lambda: impl.leftovers(unit_dir)), (lambda n: impl.remove_timer(n, run, unit_dir))
+    out = Leftovers()
+    try:
+        names = list_them()
+    except (SchedulingError, OSError, subprocess.TimeoutExpired) as e:
+        out.failed.append(("the list of scheduled tasks", str(e), ""))
+        return out
+    for name in names:
+        try:
+            remove(name)
+            out.removed.append(name)
+        except (SchedulingError, OSError, subprocess.TimeoutExpired) as e:
+            out.failed.append((name, str(e), impl.command_for(name)))
+    return out

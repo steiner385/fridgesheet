@@ -182,7 +182,7 @@ def _no_real_scheduler(monkeypatch):
     report-delete route grew a call into the scheduler and a delete test written without the
     injected fake would have run a real `systemctl --user disable --now
     fridgesheet-view-N.timer`. A test that needs to make an assertion about a command line must
-    inject its own fake `run=` (see `tests/test_host_scheduling_linux.py` etc. for the
+    inject its own fake `run=` (see `tests/test_os_leftovers.py` etc. for the
     pattern); this fixture never allows the real thing through for `systemctl`/`schtasks`,
     convention or no convention.
     """

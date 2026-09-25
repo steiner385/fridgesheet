@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from fridgesheet import config
-from fridgesheet.host import scheduling
 from fridgesheet.web import ingest
 from fridgesheet.web.stores import changes, flags
 from tests.web_fixtures import NOW, TZ, app_for, seed
@@ -69,9 +68,6 @@ def test_an_evicted_jobs_reload_says_so_instead_of_a_404_page(tmp_path):
 
 def test_a_scheduled_report_run_is_recorded_as_a_schedule(monkeypatch):
     """#8: `run` hard-coded trigger="cli", so every scheduled print read "cli" in Runs."""
-    monkeypatch.setattr(sys, "frozen", False, raising=False)
-    exe, args, _ = scheduling.command_for("open-work")
-    assert args.endswith("run open-work --no-refresh --trigger schedule")
     from fridgesheet import cli, runner
     seen = {}
     monkeypatch.setattr(runner, "run", lambda key, opts, settings: seen.setdefault("trigger", opts.trigger) and 0)

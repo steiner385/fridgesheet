@@ -109,10 +109,28 @@ class Clock:
         self._thread.start()
 
 
+def remove_leftovers(state, remove=None) -> None:
+    """Remove what earlier versions registered with the OS; keep what could not be removed for
+    the Schedules page. Never raises: a server that cannot clean up still serves."""
+    if remove is None:
+        from ..host.scheduling import remove_os_leftovers as remove
+    try:
+        got = remove()
+    except Exception as e:                                 # noqa: BLE001
+        log.warning("could not remove old scheduled tasks: %s", e)
+        return
+    for name in got.removed:
+        log.info("removed %s, which an earlier version registered", name)
+    state.extra["leftovers"] = got.failed
+
+
 def start_background(state) -> "Clock":
-    """What the real server starts beside the worker: the clock. `server.run` calls this once;
-    `create_app` never does, so no test app ever runs a background clock."""
+    """What the real server starts beside the worker: the clock, and a one-off cleanup of the
+    OS tasks earlier versions registered -- on its own thread, so the first page never waits
+    for `schtasks`. `server.run` calls this once; `create_app` never does, so no test app ever
+    runs a background clock or touches the OS scheduler."""
     c = Clock(state)
     state.extra["clock"] = c
     c.start()
+    threading.Thread(target=remove_leftovers, args=(state,), name="fridgesheet-leftovers", daemon=True).start()
     return c

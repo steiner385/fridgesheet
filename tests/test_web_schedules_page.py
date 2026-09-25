@@ -180,3 +180,12 @@ def test_the_header_still_says_when_the_data_was_refreshed(tmp_path):
     body = c.get("/schedules").text
     assert "Refreshed Tue 9/15 1:50 PM" in body
     assert "Refresh on a schedule" in body                    # the schedule editor still renders
+
+
+def test_a_leftover_that_could_not_be_removed_is_named_with_its_command(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    c.app.state.fridgesheet.extra["leftovers"] = [
+        ("Fridge Sheet - data-refresh", "Access is denied.", 'schtasks /Delete /TN "Fridge Sheet - data-refresh" /F')]
+    body = c.get("/schedules").text
+    assert "Fridge Sheet - data-refresh" in body and "schtasks /Delete" in body

@@ -1,16 +1,14 @@
 """#4 residuals: overlapping jobs' logs, the worker's thread list, nested #job, the service
-command's errors, the schedule command's Windows path, and small wording."""
+command's errors, and small wording."""
 from __future__ import annotations
 
 import logging
-import sys
 import threading
 from pathlib import Path
 
 import pytest
 
 from fridgesheet import cli
-from fridgesheet.host import scheduling
 from fridgesheet.web import actions
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
@@ -73,13 +71,6 @@ def test_service_errors_other_than_service_error_are_a_message_not_a_traceback(m
     with pytest.raises(SystemExit) as e:
         cli.main(["service", "install"])
     assert e.value.code == 1 and "schtasks" in capsys.readouterr().err
-
-
-def test_a_frozen_schedule_runs_from_the_exes_windows_folder(monkeypatch):
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(sys, "executable", r"C:\Users\x\AppData\Local\Programs\Fridge Sheet\FridgeSheet.exe")
-    exe, args, wd = scheduling.command_for("open-work")
-    assert wd == r"C:\Users\x\AppData\Local\Programs\Fridge Sheet"
 
 
 def test_the_live_log_says_when_its_connection_drops_and_checks_again():

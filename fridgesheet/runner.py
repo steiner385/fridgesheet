@@ -42,8 +42,8 @@ MAX_DATA_AGE_HOURS = 24
 LOG_NAME = "print-sheet.log"
 LOCK_NAME = "run.lock"
 LOCK_STALE_SECONDS = 45 * 60
-# Must exceed the scheduler's ExecutionTimeLimit (PT30M in host/task.xml) so a slow-but-alive
-# run is never declared abandoned.
+# Sized to exceed the 30-minute ExecutionTimeLimit the old Task Scheduler tasks carried, so a
+# slow-but-alive run is never declared abandoned.
 
 SKIP_NAME = "no-print-days.txt"
 
