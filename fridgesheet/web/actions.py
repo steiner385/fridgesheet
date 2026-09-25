@@ -725,14 +725,17 @@ class RefreshResult:
 
 
 def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
-            collect=None, now: datetime | None = None, trigger: str = "web") -> RefreshResult:
+            collect=None, now: datetime | None = None, trigger: str = "web", sleep=None) -> RefreshResult:
     """Refresh now: pull Canvas and HAC, ingest the snapshot, record the run. Holds the runner's
     lock so a scheduled print in progress is never pulled out from under. Every failure is a
     result, never an exception -- the page shows it.
 
     `trigger` is what the run is recorded as: "web" for the Refresh now button, "schedule"
-    for the app's own data-refresh task. It is the only thing that differs between them --
-    a scheduled refresh is this same collect / ingest / record, under the same lock.
+    for the app's own data-refresh task. A scheduled refresh is this same collect / ingest /
+    record under the same lock, with one difference: nobody is watching it, so when a
+    scheduled print holds the lock on the same minute it waits (up to
+    `runner.LOCK_WAIT_SECONDS`, with `sleep`) rather than recording a FAIL and pulling
+    nothing (#121). The button is told at once, as before.
     """
     from .. import collector
     from . import db, ingest
@@ -742,9 +745,20 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
     tz = ZoneInfo(settings.timezone)
     started = now or datetime.now(tz)
     lock = runner.Lock(home / runner.LOCK_NAME)
-    if not lock.acquire():
-        message = "already running (run.lock present); nothing done"
-        log("A run is already in progress (run.lock present); try again in a minute.")
+    if trigger == "schedule":
+        got = lock.acquire_wait(runner.LOCK_WAIT_SECONDS, sleep=sleep, label=runner.REFRESH_LABEL)
+        who = runner.holder_phrase(lock.waited_for)
+        if got and lock.waited:
+            log(f"waited {lock.waited} s for {who} to finish")
+    else:
+        got = lock.acquire(label=runner.REFRESH_LABEL)
+    if not got:
+        if trigger == "schedule":
+            message = f"waited {lock.waited} s for {who} to finish and it is still running (run.lock present); nothing pulled"
+            log(message)
+        else:
+            message = "already running (run.lock present); nothing done"
+            log("A run is already in progress (run.lock present); try again in a minute.")
         now2 = datetime.now(tz).isoformat()
         try:
             conn = db.open_db(home)

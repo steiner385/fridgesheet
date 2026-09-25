@@ -581,9 +581,12 @@ On Windows the computer must be **on and signed in** (a locked screen is fine).
 - To stop a schedule: untick **Run this on a schedule** and Save — this removes the task,
   not just the tick. (Leave at least one day ticked when you do.)
 - Weekends print if you tick Sat or Sun.
-- Avoid a report time that coincides with a refresh time (e.g. refreshing every 2 or 4
-  hours from 06:00 lands on 14:00): whichever starts second is skipped for that slot.
-  A report at 14:05 avoids it ([#121](https://github.com/steiner385/fridgesheet/issues/121)).
+- A report time that coincides with a refresh time (e.g. refreshing every 2 or 4 hours
+  from 06:00 lands on 14:00) is fine: the report waits for the refresh to finish (up to
+  10 minutes) and then prints from the fresh data; `print-sheet.log` says how long it
+  waited. Saving either form tells you when the two coincide. If a run is still going
+  after 10 minutes the report gives up with a notification and a FAIL row, not a silent
+  skip. The scheduled refresh waits the same way for a print in progress.
 - A schedule written by hand (outside the app) is shown disabled, with the `systemctl`
   command to turn it off yourself.
 

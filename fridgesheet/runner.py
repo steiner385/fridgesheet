@@ -42,6 +42,15 @@ MAX_DATA_AGE_HOURS = 24
 LOG_NAME = "print-sheet.log"
 LOCK_NAME = "run.lock"
 LOCK_STALE_SECONDS = 45 * 60
+#: How long a *scheduled* run waits for another run to let go of run.lock before it gives up
+#: (loudly): the data refresh and a report on the same minute used to race for the lock, and
+#: the loser was a quiet SKIP nobody saw (#121). A refresh is one to three minutes on a fast
+#: box, eight to ten on a slow one, so this outlasts one that started just before us; it stays
+#: well inside LOCK_STALE_SECONDS, so a waiter never mistakes a slow holder for an abandoned one.
+LOCK_WAIT_SECONDS = 10 * 60
+#: `Lock.acquire`'s label for a data refresh -- `collector.collect_locked` and
+#: `web.actions.refresh` both write it, so a waiting report can say what it waited for.
+REFRESH_LABEL = "refresh"
 # Must exceed the scheduler's ExecutionTimeLimit (PT30M in host/task.xml) so a slow-but-alive
 # run is never declared abandoned.
 
@@ -341,6 +350,41 @@ class Lock:
 
     def __init__(self, path: Path):
         self.path, self.held, self.token = path, False, None
+        self.waited = 0             # seconds `acquire_wait` spent waiting, whether or not it got in
+        self.waited_for = ""        # the holder's label when the wait began ("" when it wrote none)
+
+    def holder(self) -> str:
+        """The label the current holder's `acquire` wrote ("refresh", a report key), or "" for
+        a lock that carries none: missing, or written by a build that wrote only pid and token.
+        What a waiter says it waited for; never a reason to take or leave the lock."""
+        try:
+            parts = self.path.read_text(encoding="ascii").split()
+        except (OSError, UnicodeDecodeError):
+            return ""
+        return parts[2] if len(parts) > 2 else ""
+
+    def acquire_wait(self, wait_seconds: int, *, sleep=None, poll: int | None = None, label: str = "") -> bool:
+        """`acquire`, retried every `poll` seconds for up to `wait_seconds` while another run
+        holds the lock. True once it is ours; False when the allowance ran out (the other run
+        still holds it, untouched). `self.waited` and `self.waited_for` say how long, and for
+        whom, either way. Counted by the naps taken, not the clock, so a test's fake `sleep`
+        sees the same bound; `wait_seconds=0` is "now or not at all".
+
+        The one loop behind bare `refresh` and the MCP server (`collector.collect_locked`), a
+        scheduled report (`run`) and the scheduled refresh (`web.actions.refresh`) -- the three
+        that used to race each other for this file on the same minute (#121, #151)."""
+        sleep = sleep or time.sleep
+        poll = collector.LOCK_POLL_SECONDS if poll is None else poll
+        self.waited, self.waited_for = 0, ""
+        while not self.acquire(label=label):
+            if not self.waited:
+                self.waited_for = self.holder()
+            if self.waited >= wait_seconds:
+                return False
+            nap = min(poll, wait_seconds - self.waited)
+            sleep(nap)
+            self.waited += nap
+        return True
 
     def is_held(self) -> bool:
         """Present and younger than `LOCK_STALE_SECONDS` -- exactly what `acquire` would refuse.
@@ -351,7 +395,10 @@ class Lock:
         except FileNotFoundError:
             return False
 
-    def acquire(self) -> bool:
+    def acquire(self, label: str = "") -> bool:
+        """`label` is who this is -- "refresh", or the report key -- for `holder()`; it goes
+        after the token, so a lock reads `pid token label` and `release` finds the token by
+        position whether or not a label follows it."""
         try:
             if time.time() - self.path.stat().st_mtime > LOCK_STALE_SECONDS:
                 self.path.unlink(missing_ok=True)
@@ -362,7 +409,8 @@ class Lock:
         except FileExistsError:
             return False
         self.token = uuid.uuid4().hex
-        os.write(fd, f"{os.getpid()} {self.token}".encode("ascii"))
+        label = "".join(label.split())          # one word, so `holder()` reads it back whole
+        os.write(fd, f"{os.getpid()} {self.token} {label}".rstrip().encode("ascii", "replace"))
         os.close(fd)
         self.held = True
         return True
@@ -377,12 +425,20 @@ class Lock:
                 current = self.path.read_text(encoding="ascii")
             except (OSError, UnicodeDecodeError):
                 current = ""
-            if current.split()[-1:] == [self.token]:
+            if current.split()[1:2] == [self.token]:
                 self.path.unlink(missing_ok=True)
             self.held = False
 
 
 _Lock = Lock   # one release of compatibility; nothing else in the tree uses this name
+
+
+def holder_phrase(label: str) -> str:
+    """How a log line names the run that held the lock: `Lock.holder()`'s label, as a person
+    would say it."""
+    if label == REFRESH_LABEL:
+        return "the data refresh"
+    return label or "another run"
 
 
 def _toast_body(level: str, msg: str, day: date, printed: bool = True) -> str:
@@ -397,7 +453,9 @@ def _toast_body(level: str, msg: str, day: date, printed: bool = True) -> str:
 
 
 def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime | None = None,
-        refresh=collector.collect, print_pdf=None, toast=None, echo=None) -> int:
+        refresh=collector.collect, print_pdf=None, toast=None, echo=None, sleep=None) -> int:
+    """`sleep` is what a scheduled run waits with while another run holds the lock (a test's
+    fake); every other caller leaves it to `time.sleep`."""
     tz = ZoneInfo(settings.timezone)
     now = now or datetime.now(tz)
     started = datetime.now(tz)   # the real clock for run bookkeeping, even when `now` is injected
@@ -469,9 +527,22 @@ def run(report_key: str, opts: RunOptions, settings: Settings, *, now: datetime 
             return finish("SKIP", f"outside print window (before {rc_cfg.time}); this is a catch-up run, not printing", 0)
 
         lock = Lock(home / LOCK_NAME)
-        if not lock.acquire():
-            # Through `finish` like every other outcome (#2), so the one-row-per-run rule has
-            # one owner; `quiet`, because the run holding the lock toasts its own result.
+        if opts.trigger == "schedule":
+            # A schedule has nobody watching: the data refresh on the same minute used to win
+            # the lock and this run left a quiet SKIP row (#121). Wait for it -- the refresh is
+            # exactly what this run wants to have finished -- and past the allowance, fail out
+            # loud: a toast and a FAIL row, since the silent skip was the bug.
+            got = lock.acquire_wait(LOCK_WAIT_SECONDS, sleep=sleep, label=report_key)
+            who = holder_phrase(lock.waited_for)
+            if not got:
+                return finish("FAIL", f"waited {lock.waited} s for {who} to finish and it is still running "
+                                      f"({LOCK_NAME} present); nothing printed", 1)
+            if lock.waited:
+                log("INFO", f"waited {lock.waited} s for {who} to finish")
+        elif not lock.acquire(label=report_key):
+            # Someone at a terminal or the Print now button: told at once. Through `finish`
+            # like every other outcome (#2), so the one-row-per-run rule has one owner;
+            # `quiet`, because the run holding the lock toasts its own result.
             return finish("SKIP", "already running (run.lock present); nothing done", 0, quiet=True)
         try:
             # --- data -----------------------------------------------------------------

@@ -253,3 +253,35 @@ def test_the_page_no_longer_claims_a_scheduled_report_refreshes(tmp_path):
     body = app_for(tmp_path).get("/schedules").text
     assert "it refreshes, builds, and prints" not in body
     assert "does not refresh first" in body
+
+
+# --- #121: a report's time on a refresh time is a note, never an error -----------------------
+
+_REFRESH_EVERY_2H = {"enabled": "on", "every_hours": "2", "start": "06:00", "end": "21:00", "days": ["Mon", "Fri"]}
+
+
+def test_saving_a_report_at_a_refresh_time_says_the_report_will_wait(tmp_path):
+    c, _ = _client(tmp_path, FakeScheduling())
+    c.post("/schedules/refresh", data=_REFRESH_EVERY_2H)                  # 06:00, 08:00, ..., 14:00, ..., 20:00
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert r.status_code == 200 and "Scheduled: Fri at 14:00" in r.text
+    assert "This report and the data refresh both run at 14:00; the report will wait for the refresh." in r.text
+    # Between refreshes, or on a day the refresh does not run, there is nothing to say.
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:05",
+                                   "days": ["Fri"], "printer": "", "prints": "on"})
+    assert "both run at" not in r.text
+    r = c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                                   "days": ["Sat"], "printer": "", "prints": "on"})
+    assert "both run at" not in r.text
+
+
+def test_saving_a_refresh_that_lands_on_a_scheduled_reports_time_says_so(tmp_path):
+    c, _ = _client(tmp_path, FakeScheduling())
+    c.post("/schedules", data={"key": "view:1", "enabled": "on", "time": "14:00",
+                               "days": ["Fri"], "printer": "", "prints": "on"})
+    r = c.post("/schedules/refresh", data=_REFRESH_EVERY_2H)
+    assert r.status_code == 200
+    assert "Weekly summary and the data refresh both run at 14:00; the report will wait for the refresh." in r.text
+    r = c.post("/schedules/refresh", data={**_REFRESH_EVERY_2H, "every_hours": "3"})   # 06, 09, 12, 15, 18, 21
+    assert "both run at" not in r.text

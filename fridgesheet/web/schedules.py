@@ -252,11 +252,14 @@ def save(key: str, *, enabled: bool, time: str, days: list[str], printer: str, p
     # day (#120). Turning a report on turns the refresh on with it; the report is already
     # installed, so a refresh that will not install is an error beside the success, not
     # instead of it.
+    errors: list[str] = []
     if not s.refresh.enabled:
         turned_on = ensure_refresh(home=home, log=log, scheduling=scheduling)
         messages += turned_on.messages
-        return Outcome(True, messages, turned_on.errors)
-    return Outcome(True, messages)
+        errors = turned_on.errors
+    # After the auto-enable: the refresh that just went on may land on this report's minute.
+    messages += coincidence_notes(home, keys={key}, subject="This report")
+    return Outcome(True, messages, errors)
 
 
 def ensure_refresh(*, home: Path, log: Callable[[str], None], scheduling=None) -> Outcome:
@@ -298,6 +301,31 @@ def refresh_warning(rows: list[Row], refresh: "RefreshRow | None") -> str:
     return (f"{', '.join(on)} {'is' if len(on) == 1 else 'are'} scheduled but the data refresh is off. "
             "A scheduled report prints from the last refresh and refuses once that is more than "
             f"{runner.MAX_DATA_AGE_HOURS} hours old, so tick Refresh on a schedule below and Save.")
+
+def coincidence_notes(home: Path, *, keys: set[str] | None = None, subject: str | None = None) -> list[str]:
+    """One line per enabled report whose time is one of the data refresh's times on a day
+    they share: the two run on the same minute, and the report waits for the refresh
+    (`runner.LOCK_WAIT_SECONDS`) rather than racing it for run.lock (#121). A note, never
+    an error -- printing right after a refresh is the best minute there is. `keys` limits it
+    to the reports just saved; `subject` replaces the report's title ("This report")."""
+    s = _settings_for(home)
+    rc = s.refresh
+    if not rc.enabled:
+        return []
+    try:
+        times = set(refresh_schedule.refresh_times(rc.start, rc.end, rc.every_hours))
+    except config.ConfigError:
+        return []                       # the refresh form shows that problem itself
+    notes: list[str] = []
+    for report in registry.available(home):
+        if keys is not None and report.key not in keys:
+            continue
+        r = s.report_config(report.key, report.default_time)
+        at = r.time or report.default_time
+        if r.enabled and at in times and set(r.days) & set(rc.days):
+            notes.append(f"{subject or report.title} and the data refresh both run at {at}; "
+                         "the report will wait for the refresh.")
+    return notes
 
 
 @dataclass(frozen=True)
@@ -387,6 +415,7 @@ def save_refresh(*, enabled: bool, every_hours: int, start: str, end: str, days:
         return Outcome(False, messages, [f"Saved, but the schedule could not be installed: {e}"])
     messages.append(f"Refreshing at {', '.join(times)} on {', '.join(days)}.")
     log(messages[-1])
+    messages += coincidence_notes(home)
     return Outcome(True, messages)
 
 

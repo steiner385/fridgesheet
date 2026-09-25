@@ -42,6 +42,60 @@ def test_refresh_fails_softly_when_the_runner_lock_is_held(tmp_path):
     conn.close()
 
 
+def test_the_refresh_now_button_still_does_not_wait(tmp_path):
+    """The parent is at the page: told at once, as before. Only the scheduled refresh waits."""
+    lock = runner.Lock(tmp_path / runner.LOCK_NAME)
+    assert lock.acquire(label="open-work")
+    try:
+        r = actions.refresh(home=tmp_path, log=lambda s: None, settings=_settings(tmp_path), collect=lambda s: snapshot(),
+                            sleep=lambda n: pytest.fail("Refresh now must not wait"))
+    finally:
+        lock.release()
+    assert not r.ok and "already running" in r.message
+
+
+def test_a_scheduled_refresh_waits_for_a_print_in_progress(tmp_path):
+    """The data-refresh task and a report on the same minute (#121): the refresh used to record
+    a FAIL and pull nothing. Now it waits for the print, pulls, and says how long it waited."""
+    from fridgesheet import collector
+    other = runner.Lock(tmp_path / runner.LOCK_NAME)
+    assert other.acquire(label="open-work")
+    lines, naps = [], []
+
+    def sleep(n):
+        naps.append(n)
+        other.release()
+
+    r = actions.refresh(home=tmp_path, log=lines.append, settings=_settings(tmp_path), collect=lambda s: snapshot(),
+                        trigger="schedule", sleep=sleep)
+    assert r.ok and naps == [collector.LOCK_POLL_SECONDS]
+    assert any(f"waited {collector.LOCK_POLL_SECONDS} s for open-work to finish" in ln for ln in lines)
+    conn = db.open_db(tmp_path)
+    (row,) = runs.recent(conn)
+    conn.close()
+    assert (row["report_key"], row["trigger"], row["outcome"]) == ("refresh", "schedule", "OK")
+    assert not (tmp_path / runner.LOCK_NAME).exists()
+
+
+def test_a_scheduled_refresh_gives_up_after_the_wait_and_records_a_fail(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner, "LOCK_WAIT_SECONDS", 7)
+    other = runner.Lock(tmp_path / runner.LOCK_NAME)
+    assert other.acquire(label="open-work")
+    naps = []
+    try:
+        r = actions.refresh(home=tmp_path, log=lambda s: None, settings=_settings(tmp_path),
+                            collect=lambda s: pytest.fail("no pull over another run"), trigger="schedule", sleep=naps.append)
+        assert not r.ok and "waited 7 s for open-work to finish" in r.message and "still running" in r.message
+        assert sum(naps) == 7
+        assert runner.Lock(tmp_path / runner.LOCK_NAME).holder() == "open-work"     # the other run's lock, untouched
+    finally:
+        other.release()
+    conn = db.open_db(tmp_path)
+    rows = runs.recent(conn)
+    conn.close()
+    assert len(rows) == 1 and (rows[0]["trigger"], rows[0]["outcome"]) == ("schedule", "FAIL") and "still running" in rows[0]["message"]
+
+
 def test_refresh_reports_a_collector_error_as_fail_with_a_run_row(tmp_path):
     def boom(s):
         raise RuntimeError("portal timeout")

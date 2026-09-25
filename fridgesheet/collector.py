@@ -40,21 +40,15 @@ def collect_locked(s: Settings, *, wait_seconds: int | None = None, sleep=None, 
     `collect` with no lock and could overlap a scheduled print (#151).
 
     Waits up to `wait_seconds` (`LOCK_WAIT_SECONDS`; 0 for "now or not at all") for the other
-    run to finish, polling every `LOCK_POLL_SECONDS`, then raises `RunInProgress`. Counted by
-    the naps taken, not the clock, so a test's fake `sleep` sees the same bound. `kw` is
-    `collect`'s own keywords."""
+    run to finish, polling every `LOCK_POLL_SECONDS` (`runner.Lock.acquire_wait`, the one wait
+    loop every lock taker shares), then raises `RunInProgress`. `kw` is `collect`'s own
+    keywords."""
     from . import runner
     wait = LOCK_WAIT_SECONDS if wait_seconds is None else wait_seconds
-    sleep = sleep or time.sleep
     lock = runner.Lock(s.home / runner.LOCK_NAME)
-    waited = 0
-    while not lock.acquire():
-        if waited >= wait:
-            raise RunInProgress(f"another run holds {lock.path} (a scheduled print or refresh in progress); "
-                                f"waited {waited} s and gave up -- try again in a few minutes")
-        nap = min(LOCK_POLL_SECONDS, wait - waited)
-        sleep(nap)
-        waited += nap
+    if not lock.acquire_wait(wait, sleep=sleep or time.sleep, poll=LOCK_POLL_SECONDS, label=runner.REFRESH_LABEL):
+        raise RunInProgress(f"another run holds {lock.path} (a scheduled print or refresh in progress); "
+                            f"waited {lock.waited} s and gave up -- try again in a few minutes")
     try:
         return collect(s, **kw)
     finally:

@@ -505,3 +505,100 @@ def test_the_seeded_header_does_not_claim_weekends_never_print():
     assert "never print" not in runner.SKIP_HEADER.lower()
     assert "Schedules" in runner.SKIP_HEADER
     assert runner.format_skip_entries([]).startswith(runner.SKIP_HEADER.rstrip("\n"))
+
+
+# --- #121: a scheduled report and the data refresh on the same minute ------------------------
+
+def test_lock_records_who_holds_it_and_release_still_matches_the_token(tmp_path):
+    """The waiter wants to say what it waited for, so `acquire` writes a label after the token.
+    `release` keeps matching the token by position, so a lock from a build that wrote only
+    `pid token` (or the tests' bare `1 deadbeef`) reads as held by nobody in particular."""
+    path = tmp_path / "run.lock"
+    lock = runner.Lock(path)
+    assert lock.acquire(label="refresh")
+    assert runner.Lock(path).holder() == "refresh"
+    lock.release()
+    assert not path.exists()
+    path.write_text("1 deadbeef")
+    assert runner.Lock(path).holder() == ""
+    assert runner.Lock(path).holder() == "" and runner.Lock(path).is_held()
+
+
+def test_a_scheduled_run_waits_for_the_refresh_to_let_go(env):
+    """The refresh at 14:00 and the report at 14:00 used to race for run.lock; the loser was a
+    quiet SKIP row nobody saw (#121). A scheduled run now waits, prints, and says how long."""
+    from fridgesheet import collector
+    from fridgesheet.web import db
+    s, calls, refresh, print_pdf, toast = env
+    other = runner.Lock(s.home / runner.LOCK_NAME)
+    assert other.acquire(label="refresh")
+    naps: list[int] = []
+
+    def sleep(n):
+        naps.append(n)
+        if len(naps) == 2:
+            other.release()
+
+    rc = _run(s, runner.RunOptions(no_refresh=True, trigger="schedule"), refresh=refresh,
+              print_pdf=print_pdf, toast=toast, sleep=sleep)
+    assert rc == 0 and len(calls["print"]) == 1
+    assert naps == [collector.LOCK_POLL_SECONDS] * 2
+    log = (s.home / runner.LOG_NAME).read_text()
+    assert f"waited {2 * collector.LOCK_POLL_SECONDS} s for the data refresh to finish" in log
+    conn = db.open_db(s.home)
+    rows = conn.execute("SELECT trigger, outcome FROM runs ORDER BY id").fetchall()
+    conn.close()
+    assert [tuple(r) for r in rows] == [("schedule", "OK")]
+    assert not (s.home / runner.LOCK_NAME).exists()                     # its own lock, let go of
+
+
+def test_a_scheduled_run_gives_up_loudly_after_the_wait(env, monkeypatch):
+    """Past the bound it is a FAIL with a toast -- the silent SKIP was the bug -- and the
+    other run's lock is left exactly as it was."""
+    from fridgesheet.web import db
+    s, calls, refresh, print_pdf, toast = env
+    monkeypatch.setattr(runner, "LOCK_WAIT_SECONDS", 12)
+    other = runner.Lock(s.home / runner.LOCK_NAME)
+    assert other.acquire(label="refresh")
+    naps: list[int] = []
+    try:
+        rc = _run(s, runner.RunOptions(no_refresh=True, trigger="schedule"), refresh=refresh,
+                  print_pdf=print_pdf, toast=toast, sleep=naps.append)
+        assert rc == 1 and calls["print"] == []
+        assert sum(naps) == 12                                          # the whole allowance, no more
+        log = (s.home / runner.LOG_NAME).read_text()
+        assert "FAIL" in log and "waited 12 s for the data refresh to finish" in log and "still running" in log
+        assert len(calls["toast"]) == 1 and "Not printed" in calls["toast"][0][1]
+        assert runner.Lock(s.home / runner.LOCK_NAME).holder() == "refresh"
+    finally:
+        other.release()
+    conn = db.open_db(s.home)
+    rows = conn.execute("SELECT outcome, message FROM runs ORDER BY id").fetchall()
+    conn.close()
+    assert len(rows) == 1 and rows[0]["outcome"] == "FAIL" and "still running" in rows[0]["message"]
+
+
+def test_an_interactive_run_still_skips_at_once_when_the_lock_is_held(env):
+    """Someone at a terminal, or the Print now button, is told at once; only a schedule waits."""
+    s, calls, refresh, print_pdf, toast = env
+    other = runner.Lock(s.home / runner.LOCK_NAME)
+    assert other.acquire(label="refresh")
+    try:
+        rc = _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf, toast=toast,
+                  sleep=lambda n: pytest.fail("an interactive run must not wait"))
+    finally:
+        other.release()
+    assert rc == 0 and calls["print"] == [] and calls["toast"] == []
+    assert "already running" in (s.home / runner.LOG_NAME).read_text()
+
+
+def test_a_run_labels_its_own_lock_with_the_report_key(env):
+    s, calls, refresh, print_pdf, toast = env
+    seen = {}
+
+    def print_pdf_reading_lock(pdf, printer, title):
+        seen["holder"] = runner.Lock(s.home / runner.LOCK_NAME).holder()
+        return "job-1"
+
+    assert _run(s, runner.RunOptions(), refresh=refresh, print_pdf=print_pdf_reading_lock, toast=toast) == 0
+    assert seen["holder"] == "open-work"
