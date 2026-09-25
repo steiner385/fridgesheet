@@ -6,7 +6,8 @@ import io
 import json
 import tomllib
 
-from fridgesheet.web import db, schedules
+from fridgesheet.web import db, schedules, views
+from fridgesheet.web.routes.reports import _chart_json
 from fridgesheet.web.stores import reports as store
 from tests.web_fixtures import FakeScheduling, app_for, seed, snapshot
 
@@ -325,3 +326,21 @@ def test_a_table_only_report_shows_no_chart_markup(tmp_path):
     rid = _save(tmp_path, source="items", columns=["kid", "name"])
     body = c.get(f"/reports/{rid}/view").text
     assert "data-report-chart" not in body
+
+
+def test_chart_json_escapes_a_label_that_would_close_the_script_tag():
+    """A series label can come straight from a course or assignment name -- untrusted the same
+    way `sheet.py`'s `_esc()` and the CSV formula-injection guard already treat those names.
+    Inlined into `<script type="application/json">` with a bare `json.dumps`, a label of
+    literal `</script>` would close the element early in the browser's HTML parser; `_chart_json`
+    must escape it so the string is safe to inline as-is."""
+    evil = "</script><script>alert(1)</script>"
+    chart = views.ChartData(type="bar", x_label="Due", y_label="Count",
+                            series=[views.ChartSeries(label=evil, points=[("W1", 3.0)])],
+                            labels=("W1",))
+    rendered = views.Rendered(title="T", columns=[], groups=[], chart=chart)
+    out = _chart_json(rendered)
+    assert "</script>" not in out
+    assert "<script>" not in out
+    # still valid, round-tripping JSON once the escapes are undone by JSON.parse
+    assert json.loads(out.replace("\\u003c", "<").replace("\\u003e", ">"))["data"]["datasets"][0]["label"] == evil

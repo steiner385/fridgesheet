@@ -170,7 +170,7 @@ def test_vendored_assets_match_their_recorded_hashes():
     static = Path(webapp.__file__).parent / "static"
     table = (static / "VENDOR.md").read_text(encoding="utf-8")
     rows = re.findall(r"^\| (\S+\.(?:js|css)) \|.*`([0-9a-f]{64})` \|$", table, re.M)
-    assert len(rows) == 3
+    assert len(rows) == 4
     for name, sha in rows:
         assert hashlib.sha256((static / name).read_bytes()).hexdigest() == sha, name
 
