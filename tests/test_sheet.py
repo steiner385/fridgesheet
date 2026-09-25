@@ -100,9 +100,11 @@ def test_an_undated_row_prints_with_no_due_date_and_no_credit_line(tmp_path):
 @needs_pdftotext
 def test_in_class_check_has_its_own_word_colour_and_legend_entry(tmp_path):
     text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "IN CLASS — CHECK", True, -2, kind="in class")]))])
-    # The row and the legend. xpdf's pdftotext (the Windows CI runner's) spaces the em dash
-    # differently from poppler's, so the phrase is matched with any whitespace around it.
-    assert len(re.findall(r"IN\s*CLASS\s*—\s*CHECK", text)) == 2, text
+    # The row and the legend. The row's status cell wraps ("IN CLASS — / CHECK") and xpdf's
+    # pdftotext (the Windows CI runner's) interleaves the neighbouring Via cell's second line
+    # between the halves -- "IN CLASS — class CHECK" -- where poppler keeps a cell's words
+    # together, so one stray word is allowed between the dash and CHECK.
+    assert len(re.findall(r"IN\s*CLASS\s*—\s*(?:\w+\s+)?CHECK", text)) == 2, text
     assert sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
 
 
