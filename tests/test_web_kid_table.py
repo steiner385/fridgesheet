@@ -65,7 +65,7 @@ def test_a_flag_shows_as_a_badge_beside_the_item_it_is_on(tmp_path):
     flags.set_flag(conn, item, "ignore", now=NOW.isoformat(), text="past the late-work window")
     conn.close()
     body = app_for(tmp_path).get("/kids/Alex?show=all").text
-    assert re.search(r'class="badge flag"[^>]*>ignore \d+/\d+<', _row(body, item))   # with the day it was set
+    assert re.search(r'class="badge flag"[^>]*>let go \d+/\d+<', _row(body, item))   # with the day it was set; family words, never "ignore" (#129)
 
 
 def test_an_unflagged_row_spends_no_space_on_the_flag(tmp_path):

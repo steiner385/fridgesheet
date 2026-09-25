@@ -236,7 +236,7 @@ def test_stale_flag_reasons_name_the_flag_in_words(conn):
     from fridgesheet.web.stores import items
     student = conn.execute("SELECT * FROM students WHERE id = 1").fetchone()
     (v,) = [v for v in items.list_items(conn, student, now=NOW, rules=RULES, show="all") if v.key == "canvas:1"]
-    assert v.verdict.facts["flag"] == "ask the teacher"
+    assert v.verdict.facts["flag"] == "Ask the teacher"     # the button the family pressed (#129), never "ask_teacher"
 
 
 def test_a_handled_item_whose_flag_went_stale_is_a_question_again(conn):

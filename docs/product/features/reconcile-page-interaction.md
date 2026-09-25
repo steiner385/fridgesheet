@@ -17,7 +17,7 @@ Parents/caregivers triaging open items and setting a flag or reading school evid
 
 ## Desired outcome
 
-The flag menu (`_flag_menu.html`) and detail card (`_item_detail.html`) render an item's state exactly once per view, with the current flag, its reason and its date shown as a first-class line on a plain load (not conditional on a "just saved" message), and a hidden first submit button that re-posts the current flag so Enter in the reason field can never fall through to a destructive default action. The card's evidence section reuses one partial (`_planning_evidence.html`) everywhere an item's school-record facts are shown, so the same item reads identically on the Reconcile/Questions card, the check-in, and plan_step. This interaction contract holds regardless of which page hosts the card — it moved from the standalone Reconcile page onto the Questions page and each kid's work page (see Notes) without changing.
+The flag menu (`_flag_menu.html`) and detail card (`_item_detail.html`) render an item's state exactly once per view, with the current flag, its reason and its date shown as a first-class line on a plain load (not conditional on a "just saved" message), and a hidden first submit button that re-posts the current flag so Enter in the reason field can never fall through to a destructive default action. The card's evidence section reuses one partial everywhere an item's school-record facts are shown, so the same item reads identically on the Reconcile/Questions card, the check-in, and plan_step: the source lines themselves are `_source_facts.html`, included by both the detail card's record (`_record.html`) and the check-in's evidence (`_planning_evidence.html`), with their words in `phrasing.PHRASES` (`record.*`) so a younger reader gets the same facts in plainer words (#129 restored this after the two had drifted apart). This interaction contract holds regardless of which page hosts the card — it moved from the standalone Reconcile page onto the Questions page and each kid's work page (see Notes) without changing.
 
 ## Success metrics
 
@@ -41,7 +41,7 @@ The flag menu (`_flag_menu.html`) and detail card (`_item_detail.html`) render a
 ## Evidence
 
 - Issues: #37 (Enter marks done), #38 (flag reason hidden on plain load), #39 (card renders twice, two flag forms, dangling anchor), #41 (follow up/ask teacher don't leave the page, no visible flag on the outer card), #46 (evidence table vocabulary diverges by page), #58 (batch PR fixing #37/#38/#40/#41)
-- `fridgesheet/web/templates/_flag_menu.html`, `_item_detail.html`, `_planning_evidence.html`, `_item_rows.html`
+- `fridgesheet/web/templates/_flag_menu.html`, `_item_detail.html`, `_planning_evidence.html`, `_record.html`, `_source_facts.html`, `_item_rows.html`; the answer vocabulary every one of them shows is `phrasing.FLAG_LABELS`
 - `fridgesheet/web/routes/flags.py`, `fridgesheet/web/routes/kid.py`, `fridgesheet/web/routes/reconcile.py` (now a redirect only)
 - `fridgesheet/web/stores/items.py`, `fridgesheet/web/stores/flags.py`
 - `docs/superpowers/specs/2026-09-23-questions-not-cases-design.md` (§6.3 "The item detail", §7, §9 — the redesign that renamed the page and closed #39/#46)

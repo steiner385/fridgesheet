@@ -45,13 +45,12 @@ class Verdict:
     pace: dict | None = None
 
 
-ASK = Answer("a.ask_teacher", "ask_teacher")
+#: The three answers that are a flag's own button ("Ask the teacher", "Let it go", "Too late
+#: to submit") read the one label table (`phrasing.FLAG_LABELS`); the rest are answers to a
+#: question, worded for it ("HAC is right, it's done" sets `done`).
+ASK = Answer("flag.ask_teacher.button", "ask_teacher")
 TODAY, TOMORROW = Answer("a.today", "plan:today"), Answer("a.tomorrow", "plan:tomorrow")
-
-#: A family answer said back in family words, never the stored flag name ("ignore").
-FLAG_WORDS = {"done": "it's done", "excused": "excused", "ignore": "let it go",
-              "follow_up": "follow up", "ask_teacher": "ask the teacher", "too_late": "too late to submit"}
-TOO_LATE = Answer("a.too_late", "too_late")
+TOO_LATE = Answer("flag.too_late.button", "too_late")
 ANSWERS = {
     "missing_after_grade": (Answer("a.hac_right_done", "done"), ASK),
     "graded_in_hac": (Answer("a.hac_right_done", "done"), ASK),
@@ -72,7 +71,7 @@ ANSWERS = {
     # Statuses that still offer a one-tap answer (#74): these are not questions and are not
     # counted, but a red row must not leave "it's handed in" behind the raw flag menu.
     "not_done": (Answer("a.handed_in_behind", "done"), TODAY, TOMORROW, TOO_LATE),
-    "past_credit": (Answer("a.let_go", "ignore"), Answer("a.handed_in_behind", "done"), TODAY, TOO_LATE),
+    "past_credit": (Answer("flag.ignore.button", "ignore"), Answer("a.handed_in_behind", "done"), TODAY, TOO_LATE),
     # Upcoming or undated work with nothing handed in: the plan is the answer (spec 6.2).
     "not_due_yet": (TODAY, TOMORROW, Answer("a.handed_in_behind", "done"), TOO_LATE),
 }
@@ -184,7 +183,7 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
             # the app never records a family answer on the family's behalf.
             state = DECIDED if (flag == "follow_up" and good) else QUESTION
             return Verdict(state, kind,
-                           {"flag": FLAG_WORDS.get(flag, flag.replace("_", " ")), "when": _md(flag_set_at), "change": text},
+                           {"flag": phrasing.flag_label(flag, "button"), "when": _md(flag_set_at), "change": text},
                            ANSWERS[kind])
         if flag in HANDLED_FLAGS:
             return Verdict(STATUS, "answered", {"when": _md(flag_set_at)} if flag_set_at else {})
@@ -310,11 +309,17 @@ def _school_says(c, h, points) -> str:
     return "Nothing is handed in on Canvas"
 
 
-def say(key: str, tier: str, values: dict | None = None) -> str:
-    """The words for `key` at `tier`, with the verdict's facts filled in. The template's
+def words(key: str, tier: str, values: dict | None = None) -> str:
+    """The words for `key` at `tier`, with the verdict's facts filled in, as they are: for a
+    phrase that follows something on its line ("Canvas: marked missing"). The template's
     autoescaping applies to the result, so a value is never markup."""
-    text = phrasing.phrase(key, tier).format(**(values or {}))
-    return text[:1].upper() + text[1:]      # a sentence may open with a value ("paper work, ...")
+    return phrasing.phrase(key, tier).format(**(values or {}))
+
+
+def say(key: str, tier: str, values: dict | None = None) -> str:
+    """`words`, opening a sentence: a sentence may open with a value ("paper work, ...")."""
+    text = words(key, tier, values)
+    return text[:1].upper() + text[1:]
 
 
 def standing(item, tier: str) -> str:
@@ -337,8 +342,9 @@ def has_phrase(key: str) -> bool:
 
 
 def family_facts(v: Verdict) -> dict:
-    """A verdict's facts with any stored flag name turned into family words."""
+    """A verdict's facts with any stored flag name turned into the button the family pressed:
+    "On 9/10 you said “Let it go”", never “ignore”."""
     facts = dict(v.facts)
-    if "flag" in facts:
-        facts["flag"] = FLAG_WORDS.get(facts["flag"], facts["flag"])
+    if facts.get("flag") in phrasing.FLAG_LABELS:
+        facts["flag"] = phrasing.flag_label(facts["flag"], "button")
     return facts

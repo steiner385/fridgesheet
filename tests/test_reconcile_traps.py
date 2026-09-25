@@ -57,7 +57,7 @@ def test_enter_on_a_flagged_item_resaves_its_current_flag(tmp_path):
 def test_the_flag_reason_shows_without_a_just_saved_message(tmp_path):
     c, qid = _setup(tmp_path, "ask_teacher", text="emailed Mr Hoch")
     body = c.get(f"/items/{qid}").text
-    assert re.search(r"Flag: ask teacher[^<]*emailed Mr Hoch", body), body
+    assert re.search(r"Your answer: asked the teacher[^<]*emailed Mr Hoch", body), body
 
 
 def test_the_reason_is_not_printed_twice_after_saving(tmp_path):

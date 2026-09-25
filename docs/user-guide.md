@@ -252,7 +252,7 @@ The app and this guide use a few words that overlap. They mean:
 | **Waiting** / **Waiting on the school** | Nothing to do yet; the app will ask you if it drags on. |
 | **To do** (check-in) | Work the child could act on — a question isn't needed. |
 | **handled** | Answered *It's done*, *Excused*, *Let it go* or *Too late to submit*. |
-| **Let it go** = *ignore* = *Ignored* | One answer, currently named differently in a few places ([#129](https://github.com/steiner385/fridgesheet/issues/129)). |
+| **Let it go** → *let go* → *Let go* | One answer in three forms: the button you press, the state it leaves the item in (the row badge, the *Your answer* filter and line, Changes) and the confirmation. Every answer works this way: *Ask the teacher* → *asked the teacher* → *Asked the teacher*; *Follow up* → *following up* → *Following up*. The stored name (`ignore`) never appears on a page. |
 
 ---
 
@@ -321,8 +321,10 @@ obligations": pick a few. Anything not in the queue can be planned from **Browse
 work**.
 
 > **Doing this with a younger child.** The *School record* block is written in the app's
-> words, not the teacher's, and is the same at every reading level — "marked missing · no
-> submission recorded · 0/10" is a fact to check, not a verdict on the child. Read it
+> words, not the teacher's — "marked missing · 0 of 10" is a fact to check, not a verdict on
+> the child — and it reads the same on the check-in card and the assignment's detail. A
+> child on the early reading level gets the same facts in plainer words ("the teacher
+> hasn't got it"), never fewer of them. Read it
 > aloud in your own words and let them tell you what they know. The Questions are for the
 > grown-up to settle; the child helps with the facts. Start with what went well: the
 > *Done so far* line on the Assignments tab is a good opener.
@@ -457,7 +459,7 @@ answered since keeps your answer).
 
 ## 8. Answering: flags, answers and notes
 
-Every assignment can carry **one answer** from you at a time (on the item's **More** menu the current one is shown as *Flag: …*).
+Every assignment can carry **one answer** from you at a time (on the item's **More** menu the current one is shown as *Your answer: …*, in the same words as the row's badge).
 Open an assignment's detail and look under **More → Correct the school record**, or answer
 a question card.
 
@@ -468,7 +470,7 @@ a question card.
 | **Let it go** | You've decided not to chase it. | Handled. |
 | **Too late to submit** | The teacher no longer accepts it. | Handled. |
 | **Follow up** | You're keeping an eye on it. | Stays listed, with a marker (FOLLOW UP on the sheet). |
-| **Ask the teacher** | You're asking. | Stays listed, with a marker (ASK TEACHER on the sheet); moves to *Waiting on the teacher*. |
+| **Ask the teacher** | You're asking. | Stays listed, with a marker (ASK THE TEACHER on the sheet); moves to *Waiting on the teacher*. |
 
 - **Why (optional)** records a reason next to the answer.
 - **clear** removes the answer.
@@ -513,7 +515,7 @@ is handed in (online / paper / in class) · status.
 | DUE *Mon* … | black | Due later in the window. |
 
 Overdue rows add *50% until Fri* — the last day your late-work rule says it is still
-accepted. FOLLOW UP / ASK TEACHER mark your answers. A child on the early or middle reading
+accepted. FOLLOW UP / ASK THE TEACHER mark your answers. A child on the early or middle reading
 level gets their own words instead of the capitals ("Teacher hasn't got it" for MISSING). A child on the older level, or with no grade set, sees the capitals in red — the fridge is a shared surface, so decide whether that suits your teenager.
 
 **Under each table:** *Cleared since last sheet*, *Handled: n items marked done, excused or

@@ -5,12 +5,13 @@ from __future__ import annotations
 import sqlite3
 
 from ...open_items import HANDLED_FLAGS as HANDLED, MARKED_FLAGS as MARKED
+from .. import phrasing
 
 FLAGS = HANDLED + MARKED
 #: Every flag with the words the detail card's menu shows, in the store's order; the menu is
-#: drawn from this, so a flag added here appears there (#3).
-CHOICES = (("done", "It's done"), ("excused", "Excused"), ("ignore", "Let it go"), ("too_late", "Too late to submit"),
-           ("follow_up", "Follow up"), ("ask_teacher", "Ask the teacher"))
+#: drawn from this, so a flag added here appears there (#3). The words are the one label
+#: table's button column (`phrasing.FLAG_LABELS`, #129): the store never spells a label.
+CHOICES = tuple((f, phrasing.flag_label(f, "button")) for f in FLAGS)
 
 
 def active(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:

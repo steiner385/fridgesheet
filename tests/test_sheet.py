@@ -65,7 +65,7 @@ def test_marked_flag_and_handled_trailer_render(tmp_path):
     sheet.build_pdf(sheets, out, data_as_of=NOW, days_ahead=14, overdue_days=14)
     text = sheet.pdf_text(out)
     assert "FOLLOW UP" in text
-    assert "Handled: 1 item marked done, excused or ignored in the app" in text
+    assert "Handled: 1 item marked done, excused, let go or too late to submit in the app" in text   # the app's words (#129)
     assert "Item canvas:2 HANDLED" not in text
 
 
