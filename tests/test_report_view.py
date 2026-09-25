@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 
@@ -210,3 +211,28 @@ def _tiny_png() -> bytes:
     import base64
     return base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+
+
+@needs_pdftotext
+def test_a_chart_bearing_report_embeds_the_chart(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
+
+
+@needs_pdftotext
+def test_a_broken_chart_renderer_still_produces_a_built_report(tmp_path):
+    seed(tmp_path).close()
+    rid = _save(tmp_path, chart={"type": "bar", "x": "due", "y": None, "bucket": "week"})
+    r = reports.resolve(f"view:{rid}", tmp_path)
+    out = tmp_path / "out"
+    out.mkdir()
+    with patch("fridgesheet.reports.view.chart_render.render_chart_png", side_effect=RuntimeError("no chromium")):
+        built = r.build({}, _ctx(tmp_path, out))
+    assert built.pdf.is_file()
+    from fridgesheet import sheet
+    assert "Chart unavailable" in sheet.pdf_text(built.pdf)
