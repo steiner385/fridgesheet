@@ -1,14 +1,17 @@
 """Trends: grade lines per class, weekly missing/late/on-time counts, and what has sat open
-longest. The page renders holders; the two JSON endpoints feed uPlot."""
+longest. The page builds every chart's config itself (`charts.chart_config`) from the same
+store results its caption and table read, and inlines it beside the canvas."""
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, time, timedelta
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from .. import outcomes
+from ... import dates
+from .. import charts, outcomes
 from ..app import Db, State, render, student_or_404
 from ..stores import trends
 
@@ -16,6 +19,27 @@ router = APIRouter()
 
 DEFAULT_WEEKS = 8
 MAX_WEEKS = 52
+#: The weekly chart's series, in the table's column order; the labels are the table's headers.
+WEEKLY_SERIES = (("on_time", "On time"), ("late", "Late"), ("not_done", "Not done"),
+                 ("done_offline", "On paper"), ("unknown", "Unknown"))
+
+
+def weekly_chart(rows: list[trends.WeekOutcomes], now: datetime) -> charts.ChartData:
+    """One bar per week, one segment per outcome -- the table beside it, drawn. Labels are
+    the same `md_year` strings the report charts use, built here in the household's zone,
+    so the chart cannot drift a day from the "Week of" column (the uPlot chart had to
+    rebuild local midnight by hand in the browser to avoid exactly that)."""
+    labels = tuple(dates.md_year(w.week_start, now) for w in rows)
+    series = [charts.ChartSeries(label=label, color=charts.OUTCOME_COLORS[key],
+                                 points=[(l, float(getattr(w, key))) for l, w in zip(labels, rows)])
+              for key, label in WEEKLY_SERIES]
+    return charts.ChartData(type="stacked_bar", x_label="Week of", y_label=charts.COUNT_LABEL,
+                            series=series, labels=labels, title="Work due that week")
+
+
+def chart_json(data: charts.ChartData) -> str:
+    """`chart_config()`'s output, safe to inline inside `_chart_canvas.html`'s script tag."""
+    return charts.escape_for_script_tag(json.dumps(charts.chart_config(data)))
 
 
 def _weeks(request: Request) -> int:
@@ -79,6 +103,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     return render(request, conn, "trends.html", current="trends",
                   kid=student["key"] if student else None, weeks=weeks,
                   series=series, course_names=sorted({s.course_short for s in series}),
+                  weekly_json=chart_json(weekly_chart(week_rows, now)),
                   week_rows=week_rows,
                   record=_record(conn, student, now=now, rules=state.rules(), prefs=state.sources()),
                   longest=trends.open_days(conn, student_id=sid, now=now, prefs=state.sources()))
@@ -97,16 +122,3 @@ def grades_json(request: Request, conn: sqlite3.Connection = Db, state=State):
         series = [s for s in series if s.course_id == int(course)] if course.isdigit() else []
     return JSONResponse({"series": [
         {"label": s.label, "official": s.official, "points": [[t.timestamp(), v] for t, v in s.points]} for s in series]})
-
-
-@router.get("/trends/weekly.json")
-def weekly_json(request: Request, conn: sqlite3.Connection = Db, state=State):
-    student = _student(conn, request)
-    rows = trends.weekly_outcomes(conn, student_id=student["id"] if student else None,
-                                  weeks=_weeks(request), now=state.now(), prefs=state.sources())
-    return JSONResponse({
-        "weeks": [w.week_start.isoformat() for w in rows],
-        "on_time": [w.on_time for w in rows], "late": [w.late for w in rows],
-        "not_done": [w.not_done for w in rows], "done_offline": [w.done_offline for w in rows],
-        "unknown": [w.unknown for w in rows],
-    })

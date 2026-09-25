@@ -16,6 +16,8 @@ Sam, Science 7 (Canvas course 7 <-> HAC "Science 7 - 1"):
 """
 from __future__ import annotations
 
+import json
+import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +30,14 @@ from fridgesheet.web import app as webapp, db, ingest
 
 TZ = ZoneInfo("America/New_York")
 NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
+
+CHART_CONFIG = re.compile(r'<script type="application/json" data-chart-config>(.*?)</script>', re.S)
+
+
+def chart_configs(body: str) -> list[dict]:
+    """Every inlined chart config on a page, in page order, decoded (the `\\u003c` escapes
+    `charts.escape_for_script_tag` writes are plain JSON to `json.loads`)."""
+    return [json.loads(m) for m in CHART_CONFIG.findall(body)]
 
 
 def _a(id, name, due, **kw):

@@ -3,6 +3,7 @@
 {% block content %}
 <link rel="stylesheet" href="/static/uplot.min.css">
 <script src="/static/uplot.min.js" defer></script>
+{% include "_chart_scripts.html" %}
 <h2>Trends</h2>
 <div class="filters">
   <span>Kid:</span>
@@ -48,9 +49,7 @@
 {% endif %}
 <h3>How the work due each week came out</h3>
 <p class="muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
-{% with url = "/trends/weekly.json?weeks=" ~ weeks ~ (("&kid=" ~ kid) if kid else ""), kind = "weekly", title = "Work due that week" %}
-{% include "_chart.html" %}
-{% endwith %}
+{% with config = weekly_json, height = 220, label = "Work due each week, by how it came out; the table below has the numbers" %}{% include "_chart_canvas.html" %}{% endwith %}
 <table class="items">
   <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
   <tbody>

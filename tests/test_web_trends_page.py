@@ -5,24 +5,21 @@ import re
 from datetime import timedelta
 from pathlib import Path
 
-from tests.web_fixtures import NOW, app_for, history, seed, snapshot
+from fridgesheet.web import charts
+from tests.web_fixtures import NOW, app_for, chart_configs, history, seed, snapshot
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 TEMPLATES, STATIC = WEB / "templates", WEB / "static"
+WEEKLY_LABELS = ["On time", "Late", "Not done", "On paper", "Unknown"]      # the table's column order
+
+
+def weekly_config(body: str) -> dict:
+    return next(c for c in chart_configs(body) if c["options"]["plugins"]["title"]["text"] == "Work due that week")
 
 
 def test_empty_database_says_nothing_yet(tmp_path):
     r = app_for(tmp_path).get("/trends")
     assert r.status_code == 200 and "Not enough history yet" in r.text
-
-
-def test_page_renders_chart_holders_and_the_summary(tmp_path):
-    history(tmp_path).close()
-    body = app_for(tmp_path).get("/trends").text
-    assert 'data-chart="/trends/grades.json' in body and 'data-chart="/trends/weekly.json' in body
-    assert "uplot.min.js" in body and "uplot.min.css" in body
-    assert "On-time" in body and "%" in body
-    assert "Open the longest" in body and "Quiz 1" in body
 
 
 def test_grades_json_has_one_series_per_course_and_source(tmp_path):
@@ -35,13 +32,32 @@ def test_grades_json_has_one_series_per_course_and_source(tmp_path):
     assert all(isinstance(t, (int, float)) for t, _ in hac["points"])       # epoch seconds for uPlot
 
 
-def test_weekly_json_is_parallel_arrays(tmp_path):
+def test_the_weekly_chart_is_a_stacked_bar_in_the_tables_column_order(tmp_path):
     history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/weekly.json?weeks=4").json()
-    assert len(data["weeks"]) == 4
-    for key in ("on_time", "late", "not_done", "done_offline", "unknown"):
-        assert len(data[key]) == 4
-    assert data["weeks"] == sorted(data["weeks"])
+    cfg = weekly_config(app_for(tmp_path).get("/trends?weeks=4").text)
+    assert cfg["type"] == "bar" and cfg["options"]["scales"]["x"]["stacked"] is True
+    assert [d["label"] for d in cfg["data"]["datasets"]] == WEEKLY_LABELS
+    assert len(cfg["data"]["labels"]) == 4
+    colors = {d["label"]: d["borderColor"] for d in cfg["data"]["datasets"]}
+    assert colors["Not done"] == charts.OUTCOME_COLORS["not_done"] and colors["On time"] == charts.OUTCOME_COLORS["on_time"]
+
+
+def test_the_weekly_chart_and_the_table_beside_it_show_the_same_numbers(tmp_path):
+    """One definition for every number (#150): the chart's labels are the table's "Week of"
+    cells -- the household's dates, not UTC's -- and each dataset is one table column."""
+    history(tmp_path).close()
+    body = app_for(tmp_path).get("/trends?weeks=4").text
+    cfg = weekly_config(body)
+    rows = re.findall(r"<tr><td>([^<]*)</td><td>(\d+)</td><td>(\d+)</td><td[^>]*>(\d+)</td><td>(\d+)</td><td[^>]*>(\d+)</td></tr>", body)
+    assert len(rows) == 4
+    assert [r[0] for r in rows] == cfg["data"]["labels"]
+    for i, _ in enumerate(WEEKLY_LABELS):
+        assert cfg["data"]["datasets"][i]["data"] == [float(r[i + 1]) for r in rows]
+
+
+def test_the_weekly_json_endpoint_is_gone(tmp_path):
+    history(tmp_path).close()
+    assert app_for(tmp_path).get("/trends/weekly.json?weeks=4").status_code == 404
 
 
 def test_kid_filter_applies_to_page_and_json(tmp_path):
@@ -58,9 +74,9 @@ def test_kid_filter_applies_to_page_and_json(tmp_path):
 def test_weeks_parameter_is_bounded(tmp_path):
     history(tmp_path).close()
     c = app_for(tmp_path)
-    assert len(c.get("/trends/weekly.json?weeks=200").json()["weeks"]) == 52     # clamped
-    assert len(c.get("/trends/weekly.json?weeks=0").json()["weeks"]) == 1
-    assert c.get("/trends/weekly.json?weeks=nonsense").status_code == 200        # falls back to the default
+    assert len(weekly_config(c.get("/trends?weeks=200").text)["data"]["labels"]) == 52     # clamped
+    assert len(weekly_config(c.get("/trends?weeks=0").text)["data"]["labels"]) == 1
+    assert len(weekly_config(c.get("/trends?weeks=nonsense").text)["data"]["labels"]) == 8  # the default
 
 
 def test_weeks_parameter_also_narrows_the_grade_chart(tmp_path):
@@ -142,19 +158,6 @@ def test_chart_holders_carry_their_plot_height_and_no_inline_height():
     assert "style=" not in tmpl, "a chart holder sized in CSS overflows uPlot's title and legend"
 
 
-def test_trends_page_asks_for_a_taller_grade_chart_than_the_weekly_one(tmp_path):
-    """Rendered, not just templated: the grade chart is given 260 and the weekly chart takes
-    the 220 default, and neither holder carries an inline height."""
-    history(tmp_path).close()
-    body = app_for(tmp_path).get("/trends").text
-    holders = re.findall(r'<div class="chart"[^>]*>', body)
-    grades = [h for h in holders if "grades.json" in h]          # one per kid in the "all" view
-    weekly = [h for h in holders if "weekly.json" in h]
-    assert len(grades) >= 1 and len(weekly) == 1 and len(holders) == len(grades) + 1
-    assert all('data-height="260"' in h for h in grades) and 'data-height="220"' in weekly[0]
-    assert 'style="height' not in body
-
-
 def test_course_page_chart_holder_also_carries_a_height(tmp_path):
     conn = history(tmp_path)
     cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
@@ -202,19 +205,6 @@ def test_a_chart_swapped_away_during_its_fetch_is_not_drawn_or_kept():
     then = body[body.index(".then(function (data)"):]
     guard = then.index("if (!document.contains(el)) return;")
     assert guard < then.index("el.innerHTML") and guard < then.index("CHARTS.push")
-
-
-def test_the_weekly_chart_draws_every_series_the_table_beside_it_shows(tmp_path):
-    """#150: `/trends/weekly.json` has five counts and the table has five columns, but the
-    chart drew four -- "On paper" (`done_offline`) was missing from it."""
-    history(tmp_path).close()
-    data = app_for(tmp_path).get("/trends/weekly.json").json()
-    js = (STATIC / "app.js").read_text(encoding="utf-8")
-    start = js.index('if (el.dataset.kind === "weekly")')
-    weekly = js[start:js.index("} else {", start)]
-    for key in data.keys() - {"weeks"}:
-        assert f"data.{key}" in weekly, key
-    assert '"On paper"' in weekly
 
 
 def test_an_unknown_kid_on_trends_says_the_kid_is_not_known(tmp_path):
