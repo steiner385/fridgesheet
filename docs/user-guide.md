@@ -11,7 +11,7 @@ It describes version 0.5. Where the app has a known rough edge, the guide says s
 the issue.
 
 - [1. What it is, in one page](#1-what-it-is-in-one-page)
-- [2. Install](#2-install) — [Windows](#21-windows), [Linux](#22-linux), [headless server](#23-a-server-with-no-desktop-linux), [another district](#24-a-district-other-than-lakota)
+- [2. Install](#2-install) — [Windows](#21-windows), [Linux](#22-linux), [headless server](#23-a-server-with-no-desktop-linux), [another district](#24-another-school-district)
 - [3. First-time setup](#3-first-time-setup)
 - [4. Finding your way around](#4-finding-your-way-around)
 - [4a. Your routine, once it is set up](#4a-your-routine-once-it-is-set-up)
@@ -140,7 +140,7 @@ Settings' **Save** currently insists on a password even when it comes from `.env
 ([#154](https://github.com/steiner385/fridgesheet/issues/154)); edit `config.toml` for
 one-off changes on a server set up this way.
 
-### 2.4 A district other than Lakota
+### 2.4 Another school district
 
 The defaults are Lakota Local Schools'. For another district:
 
@@ -650,7 +650,7 @@ Below the form:
   with **Remove**.
 - **Late-work rules** (see below) — **Save late-rules.toml**.
 - **Days the sheet does not print** — one row per day or date range (*start* through
-  *end*, optional note), **Add date**, **Save no-print-days.txt**. Seeded with the Lakota
+  *end*, optional note), **Add date**, **Save no-print-days.txt**. Seeded with Lakota Local Schools'
   2026-27 calendar; replace it with your district's.
 
 Saving either editor rewrites its whole file, so comments you typed into the file by hand
@@ -913,9 +913,10 @@ task it installed and leaves your data folder and the Credential Manager entry
 *fridgesheet* for you to delete. Afterwards, check Task Scheduler for anything still named
 *Fridge Sheet - …*.
 
-**Upgrading from Lakota Sheet (≤0.3).** Install Fridge Sheet over it. The first start
-moves your data and password to the new names; notes, flags, runs, sheets and schedules
-carry over.
+**Upgrading from a version before 0.4, when the app had another name.** Install Fridge
+Sheet over it. The first start moves your data and password to the new names; notes, flags,
+runs, sheets and schedules carry over. The details are in
+[windows.md](windows.md), under *Upgrading*.
 
 ---
 
