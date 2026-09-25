@@ -417,10 +417,8 @@ The printed sheet, on a screen. Per child:
   · 50%*.
 - **Coming due** — not yet handed in, due within *Days ahead*.
 - *Nothing open. Nice work.* when both are empty.
-- **Not shown:** a count of work past its window and of work you marked handled.
-
-> The "Not shown" links currently open a broader filter than the count describes (every
-> not-done item, every handled item ever), so the list behind the link can be longer than the number ([#125](https://github.com/steiner385/fridgesheet/issues/125)).
+- **Not shown:** a count of work past its window and of open work you marked handled. Each
+  count is a link to exactly the items it counts.
 
 ### Questions
 
@@ -449,9 +447,11 @@ pair these** lists probable Canvas/HAC twins the app would not guess at (nothing
 of you).
 
 **Let all N go.** When a child has two or more assignments past their late-credit window,
-a bar offers to mark them all *Let it go* at once. They leave the sheet and the lists;
-nothing is deleted. There is no bulk undo, and the items it covers are not the question cards on this page ([#124](https://github.com/steiner385/fridgesheet/issues/124)) (they are "too late for credit" work) — check them on Open work or the
-Assignments tab (Outcome: not done) first.
+a bar offers to mark them all *Let it go* at once. These are "too late for credit" work,
+not the question cards on this page, so the bar names each one (class and due date) and the
+confirm names them again. They stop counting as open work; nothing is deleted. Afterwards
+the page says which went, with one **Undo** that puts back exactly those items (an item you
+answered since keeps your answer).
 
 ---
 
@@ -476,7 +476,9 @@ a question card.
 - Answers, notes and plan steps are kept in the app's database and survive every refresh.
 - If the school later contradicts your answer, the app asks **Still done?** rather than
   silently keeping or dropping it.
-- **Not right?** on a *Settled by the records* line reopens that decision as a question.
+- **Not right?** on a *Settled by the records* line opens that item's question card, with
+  its answers, in place of the line. Nothing changes until you pick one, and a reason you
+  gave earlier is kept.
 
 **Notes** can go on an assignment or a class: **Add a note**, then **Add note**; each has
 **edit** and **delete** (deleting is permanent). The newest note appears on the check-in

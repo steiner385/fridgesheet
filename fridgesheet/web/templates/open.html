@@ -39,9 +39,9 @@
   {% endif %}
   {% if w.past_window or w.handled %}
   <p class="muted">Not shown:
-    {% if w.past_window %}<a href="/kids/{{ s.key }}?show=all&amp;outcome=not_done">{{ w.past_window | length }} past the late-work window or more than {{ overdue_days }} days overdue ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
+    {% if w.past_window %}<a href="/kids/{{ s.key | urlencode }}?show=past_window">{{ w.past_window | length }} past the late-work window or more than {{ overdue_days }} days overdue ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
     {%- if w.past_window and w.handled %} · {% endif %}
-    {% if w.handled %}<a href="/kids/{{ s.key }}?show=all&amp;flagged=handled">{{ w.handled | length }} handled</a>{% endif %}
+    {% if w.handled %}<a href="/kids/{{ s.key | urlencode }}?show=handled">{{ w.handled | length }} handled</a>{% endif %}
   </p>
   {% endif %}
 </section>

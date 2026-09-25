@@ -18,7 +18,7 @@ from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile, verdicts
 from . import num, plans, pace as pace_store
 
-SHOW = ("open", "actionable", "all")
+SHOW = ("open", "actionable", "all", "past_window", "handled")   # the last two are Open work's "Not shown" sets (#125)
 SORTS = ("due", "course", "name", "status")
 DIRECTIONS = ("asc", "desc")
 FLAGGED = ("any", "marked", "handled", "none") + HANDLED_FLAGS + MARKED_FLAGS   # groups, then each answer (#52)
@@ -364,6 +364,10 @@ def _keep(v: ItemView, show: str, source, course_ids, kind, flagged, outcome=Non
         return False
     if show == "actionable" and not v.actionable:
         return False
+    if show == "past_window" and not _past_window(v):
+        return False
+    if show == "handled" and not _handled_open(v):
+        return False
     if source == "both" and v.sources != ("canvas", "hac"):
         return False
     if source in ("canvas", "hac") and source not in v.sources:
@@ -483,6 +487,17 @@ class OpenWork:
         return sum((v.points or 0) for v in self.past_window)
 
 
+def _past_window(v: ItemView) -> bool:
+    """Open work's "past the late-work window" count, and the list its link opens (#125)."""
+    return v.overdue and not v.handled and not v.actionable
+
+
+def _handled_open(v: ItemView) -> bool:
+    """Open work's "handled" count: open or upcoming work the family has answered, not every
+    answer ever given (#125)."""
+    return (v.overdue or v.upcoming) and v.handled
+
+
 def _fixable(v: ItemView) -> bool:
     """One definition for Open work's list and Today's count, so the two cannot drift."""
     return (v.overdue or v.upcoming) and not v.handled and v.actionable
@@ -491,17 +506,15 @@ def _fixable(v: ItemView) -> bool:
 def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rules, days_ahead: int = DAYS_AHEAD,
               overdue_days: int = OVERDUE_DAYS, prefs=None) -> OpenWork:
     views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, overdue_days=overdue_days, prefs=prefs)
-    open_or_upcoming = [v for v in views if v.overdue or v.upcoming]
-    handled = [v for v in open_or_upcoming if v.handled]
-    live = [v for v in open_or_upcoming if not v.handled]
+    live = [v for v in views if (v.overdue or v.upcoming) and not v.handled]
     fixable = [v for v in live if _fixable(v)]
     due_key = _sort_key("due")
     fixable.sort(key=lambda v: (v.late_until.replace(tzinfo=None) if v.late_until else _FAR, due_key(v)))
     return OpenWork(
         fixable=fixable,
         upcoming=sorted((v for v in live if v.upcoming and not v.overdue), key=due_key),
-        past_window=sorted((v for v in live if v.overdue and not v.actionable), key=due_key),
-        handled=sorted(handled, key=due_key),
+        past_window=sorted(filter(_past_window, views), key=due_key),
+        handled=sorted(filter(_handled_open, views), key=due_key),
     )
 
 

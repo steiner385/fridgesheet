@@ -9,8 +9,12 @@
 {% include "_verdict_sections.html" %}
 <form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
   <span class="seg" role="group" aria-label="Show">
-    <label><input type="radio" name="show" value="open" {{ 'checked' if f.show != 'all' }}> Open</label>
+    {# Open work's "Not shown" links open exactly the set they count (#125); the choice stays
+       checked here so narrowing by class keeps it. #}
+    {% set narrowed = {'past_window': 'Past the late-work window', 'handled': 'Handled'}.get(f.show) %}
+    <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label>
     <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
+    {% if narrowed %}<label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
   </span>
   <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
   <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict }}><summary>More filters</summary>

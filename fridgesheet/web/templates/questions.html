@@ -7,10 +7,18 @@
 {% set student = g.student %}{% set tier = student.key | tier_of %}
 <section class="kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>
   <div class="section-head"><h3>{{ student.key | nickname }} · {{ g.questions | length }}</h3><a href="/kids/{{ student.key | urlencode }}">Open {{ student.key | nickname }}'s work →</a></div>
-  {% if g.past_credit | length >= 2 %}
-  <form class="lines bulk" method="post" action="/questions/let-go" data-confirm="Let all {{ g.past_credit | length }} go? They leave the sheet and this page; nothing is deleted.">
+  {# Past-credit work is a status, not a question, so it is not in the list below: the bar names
+     every item it will mark, and its confirm names them again (#124). #}
+  {% if g.past_credit | length >= 2 %}{% set names = g.past_credit | map(attribute='name') | join(', ') %}
+  <form class="lines bulk" method="post" action="/questions/let-go" data-confirm="Let all {{ g.past_credit | length }} go: {{ names }}? They stop counting as open work on the sheet and Open work. Nothing is deleted, and Undo puts them back.">
     <input type="hidden" name="kid" value="{{ student.key }}">
-    <span>{{ g.past_credit | length }} of {{ student.key | nickname }}'s assignments are too late for credit.</span> <button>Let all {{ g.past_credit | length }} go</button>
+    <span>{{ g.past_credit | length }} of {{ student.key | nickname }}'s assignments are too late for credit: {% for v in g.past_credit %}<b>{{ v.name }}</b> <span class="muted">({{ v.course_short }}{% if v.due %}, due {{ v.due | wd_md }}{% endif %})</span>{{ ', ' if not loop.last }}{% endfor %}.</span> <button>Let all {{ g.past_credit | length }} go</button>
+  </form>
+  {% endif %}
+  {% if g.let_go %}
+  <form class="lines bulk" method="post" action="/questions/let-go/undo" role="status">
+    <input type="hidden" name="kid" value="{{ student.key }}"><input type="hidden" name="ids" value="{{ g.let_go | map(attribute='id') | join(',') }}">
+    <span>Let go: {% for v in g.let_go %}<b>{{ v.name }}</b>{{ ', ' if not loop.last }}{% endfor %}.</span> <button class="link">Undo</button>
   </form>
   {% endif %}
   {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
