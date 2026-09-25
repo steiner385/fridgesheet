@@ -22,6 +22,7 @@ from typing import Iterable
 
 from . import late_rules as _late_rules
 from . import sources as _sources
+from .dates import deadline_date
 from .matching import hac_item_key, match_course, same_item, short_course
 
 OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "HAC — NO GRADE")
@@ -83,6 +84,13 @@ def kind_of(submission_types: list | None) -> str:
     return "online"
 
 
+def hac_excused(row: dict) -> bool:
+    """Whether HAC's score column says the teacher excused the work ("EXC", "EX"). The scraper
+    keeps the cell as `score_raw` beside the number it could not parse; this is the one place
+    that reads the letters, for ingest and the sheet both (#135)."""
+    return (row.get("score_raw") or "").strip().upper().startswith("EX")
+
+
 def _status(a: dict, due: datetime, now: datetime) -> str | None:
     """The status word for a Canvas assignment, or None when there is nothing open."""
     if a.get("excused") or not a.get("published", True):
@@ -101,12 +109,14 @@ def _status(a: dict, due: datetime, now: datetime) -> str | None:
         return None
     if not unsubmitted:
         return None
-    days = (due.date() - now.date()).days
+    # By the evening the deadline belongs to: work due at 00:00 is due tonight, not tomorrow (#139).
+    day = deadline_date(due)
+    days = (day - now.date()).days
     if days == 0:
-        return "DUE TODAY"
+        return "DUE TONIGHT" if due.hour == 0 else "DUE TODAY"
     if days == 1:
         return "DUE TOMORROW"
-    return "DUE " + due.strftime("%a").upper()
+    return "DUE " + day.strftime("%a").upper()
 
 
 def school_year_start(now: datetime) -> datetime:
@@ -227,6 +237,10 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 continue
             hac_row = next((r for n, r in peer_rows.items() if same_item(a["name"], n)), None)
             hac_score = (hac_row or {}).get("score")
+            # The teacher excused it in the gradebook of record: nothing to print, whatever
+            # Canvas's automatic mark says (#135).
+            if hac_row and hac_excused(hac_row):
+                continue
             if pick == "hac" and hac_score is not None and not a.get("excused") and a.get("published", True):
                 # The family reads this class's scores from HAC: its grade settles the item.
                 status = "ZERO" if hac_score == 0 and (a.get("points_possible") or 0) > 0 else None
@@ -286,7 +300,8 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if due is None:
                 continue
             due = due.replace(hour=23, minute=59)
-            if due < year_start or not (a.get("score") is None and a.get("score_raw") == "" and due < now - timedelta(days=1)):
+            # A blank cell is no grade yet; "EXC" is excused, and neither prints (#135).
+            if due < year_start or hac_excused(a) or not (a.get("score") is None and a.get("score_raw") == "" and due < now - timedelta(days=1)):
                 continue
             course = short_course(hname)
             it = Item(

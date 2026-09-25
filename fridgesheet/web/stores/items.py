@@ -11,7 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from ...dates import day_part, due_time
+from ...dates import day_part, deadline_date, due_time
 from ... import config, sources
 from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
@@ -67,6 +67,9 @@ class ItemView:
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
     grade_zero: bool = False        # a real zero, styled as the warning it is
     outcome: str = ""               # `outcomes.classify`: the one word every count and filter agrees on
+    #: `outcomes.on_record`: whether the outcome counts toward "of N due so far" yet. Work
+    #: handed in early is on time but not on the record until it is due (#138).
+    on_record: bool = False
     # The late-work register's answer for an open row (`late_rules`): the last moment the item
     # can still earn credit, and the credit text the parent wrote next to that rule. What the
     # printed sheet shows as "50% thru Sat 9/26"; None / "" for a row that is not open.
@@ -119,11 +122,14 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
         if c is not None and c["published"] == 0:
             return "Unpublished"
         return "Zero" if h["score"] == 0 and (item["points"] or 0) > 0 else _score(h, item["points"])
+    hac_excused = h is not None and h["excused"]        # HAC's "EXC" (#135)
     if c is not None:
         if c["excused"]:
             return "Excused"
         if c["published"] == 0:
             return "Unpublished"
+        if hac_excused:
+            return "Excused"
         if c["missing"]:
             return "Missing"
         if c["state"] == "graded" and c["score"] == 0:
@@ -143,10 +149,17 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
                 return "Paper, check" if item["kind"] == "paper" else "In class, check"
             return "Missing"
         if due is not None:
-            days = (due.date() - now.date()).days
-            return "Due today" if days == 0 else "Due tomorrow" if days == 1 else "Due " + due.strftime("%a")
+            # By the evening the deadline belongs to: due at 00:00 is due tonight, not
+            # tomorrow (`dates.deadline_date`, #139).
+            day = deadline_date(due)
+            days = (day - now.date()).days
+            if days == 0:
+                return "Due tonight" if due.hour == 0 else "Due today"
+            return "Due tomorrow" if days == 1 else "Due " + day.strftime("%a")
         return "No due date"
     if h is not None:
+        if hac_excused:
+            return "Excused"
         if h["score"] is None:
             return "HAC, no grade" if past else "Not graded yet"
         return _score(h, item["points"])
@@ -157,15 +170,16 @@ def due_relative(due: datetime | None, now: datetime) -> str:
     """The due date as a distance from today, for the muted second line of the Due cell."""
     if due is None:
         return ""
-    days = (due.date() - now.date()).days
+    day = deadline_date(due)                    # a midnight deadline is the evening before's (#139)
+    days = (day - now.date()).days
     if days == 0:
-        return "today"
+        return "tonight" if due.hour == 0 else "today"
     if days == 1:
         return "tomorrow"
     if days == -1:
         return "yesterday"
     if 1 < days <= 6:
-        return due.strftime("%a")
+        return day.strftime("%a")
     if days < 0:
         return f"{-days} days ago"
     return ""
@@ -184,7 +198,9 @@ def handed_in_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str,
     Canvas tracks submissions, and HAC keeps grades. Both once printed as "—", which left a
     parent reading one glyph for "not applicable", "not answered" and, at a glance, "no".
     A cell that cannot be read is worse than a longer column."""
-    c = obs.get("canvas")
+    c, h = obs.get("canvas"), obs.get("hac")
+    if h is not None and h["excused"]:          # HAC's "EXC": excused whatever Canvas saw (#135)
+        return "Excused", None
     if c is None:
         return "Unknown", None
     if c["excused"]:
@@ -212,10 +228,11 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
         if c is not None and c["excused"]:
             return "Excused", False
         return _score(h, item["points"]), h["score"] == 0 and (item["points"] or 0) > 0
+    hac_excused = h is not None and h["excused"]        # HAC's "EXC" (#135)
     if c is not None:
         if c["published"] == 0:
             return "Unpublished", False
-        if c["excused"]:
+        if c["excused"] or hac_excused:
             return "Excused", False
         if c["score"] is not None:
             return _score(c, item["points"]), c["state"] == "graded" and c["score"] == 0
@@ -227,6 +244,8 @@ def grade_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], prefer: str = "ca
             return _score(h, item["points"]), h["score"] == 0
         return "", False
     if h is not None:
+        if hac_excused:
+            return "Excused", False
         if h["score"] is None:
             return "Not yet", False
         return _score(h, item["points"]), h["score"] == 0
@@ -268,6 +287,8 @@ def grade_source(obs: dict[str, sqlite3.Row], prefer: str = "canvas") -> str:
     c, h = obs.get("canvas"), obs.get("hac")
     if prefer == "hac" and h is not None and h["score"] is not None:
         return "" if c is not None and (c["excused"] or c["published"] == 0) else "hac"
+    if h is not None and h["excused"]:
+        return ""
     if c is not None:
         if c["published"] == 0 or c["excused"]:
             return ""
@@ -306,6 +327,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         handed, handed_at = handed_in_text(r, obs)
         grade, zero = grade_text(r, obs, prefer)
         open_in = reconcile.open_sources(r, obs, now, prefer=prefer)
+        outcome = outcomes.classify(r, obs, now, prefer=prefer)
         late_until, credit = None, ""
         if open_in and due is not None:
             late_until = rules.deadline(r["kid"], r["course_name"], due, r["peer_course_name"])
@@ -314,7 +336,7 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
             due_relative=due_relative(due, now), handed_in=handed, handed_in_at=handed_at, grade=grade, grade_zero=zero,
             due_time=due_time(due, from_canvas="canvas" in obs),
             due_part=day_part(due, from_canvas="canvas" in obs),
-            outcome=outcomes.classify(r, obs, now, prefer=prefer), late_until=late_until, credit=credit,
+            outcome=outcome, on_record=outcomes.on_record(outcome, due, now), late_until=late_until, credit=credit,
             id=r["id"], key=r["key"], name=r["name"], course_id=r["course_id"], course_short=r["course_short"],
             course_name=r["course_name"], kind=r["kind"], points=r["points"], due=reconcile.due_of(r),
             sources=tuple(s for s in ("canvas", "hac") if s in obs),
@@ -529,7 +551,8 @@ class Counts:
 
 
 def record_for(views: list[ItemView]) -> outcomes.Tally:
-    return outcomes.tally(v.outcome for v in views)
+    """How the work due so far came out: only rows whose due date has passed (#138)."""
+    return outcomes.tally(v.outcome for v in views if v.on_record)
 
 
 def _at_or_after(stamp: str, moment: datetime) -> bool:
@@ -544,8 +567,9 @@ def dashboard_counts(conn: sqlite3.Connection, student: sqlite3.Row, *, now: dat
                      days_ahead: int = DAYS_AHEAD, overdue_days: int = OVERDUE_DAYS, prefs=None) -> Counts:
     views = _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, overdue_days=overdue_days, prefs=prefs)
     today = now.date()
-    due_today = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today)
-    due_tomorrow = sum(1 for v in views if v.upcoming and v.due and v.due.date() == today + timedelta(days=1))
+    # By the evening each deadline belongs to, as the rows say it: due at 00:00 is tonight (#139).
+    due_today = sum(1 for v in views if v.upcoming and v.due and deadline_date(v.due) == today)
+    due_tomorrow = sum(1 for v in views if v.upcoming and v.due and deadline_date(v.due) == today + timedelta(days=1))
     # Compared as times, not ISO text: across a clock change the offsets differ and text order
     # is not time order (#3).
     since = now - timedelta(days=1)

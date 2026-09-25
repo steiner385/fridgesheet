@@ -79,10 +79,52 @@ def newer(a, b) -> bool:
     return ra is not None and rb is not None and ra > rb
 
 
+def since_refresh(o, field: str) -> int | None:
+    """The refresh in which the observation's `field` run began (ingest's `missing_since` /
+    `scored_since`), or the observation's own refresh for a row that does not carry it."""
+    if o is not None and field in o.keys() and o[field] is not None:
+        return o[field]
+    return _refresh_id(o)
+
+
+def marked_after(c, h) -> bool:
+    """Whether Canvas's mark against the work -- its missing flag, or a zero -- was recorded in
+    a later refresh than HAC's grade. This is the teacher saying something new, and the one
+    thing that outranks a HAC grade (docs/outcomes.md).
+
+    It compares when the *mark* appeared, not when Canvas's observation was last written: an
+    observation is rewritten whenever any field changes, and the availability window closing
+    a week after the grade used to read as "Canvas marked it missing after that" (#131)."""
+    rh = _refresh_id(h)
+    if c is None or rh is None:
+        return False
+    anchors = []
+    if c["missing"]:
+        anchors.append(since_refresh(c, "missing_since"))
+    if c["score"] == 0:
+        anchors.append(since_refresh(c, "scored_since"))
+    return any(a is not None and a > rh for a in anchors)
+
+
 def _is_past(item: sqlite3.Row, now: datetime) -> bool:
     due = reconcile.due_of(item)
     if due is None:
         return False
+    a, b = reconcile.comparable(due, now)
+    return a < b
+
+
+def on_record(outcome: str, due: datetime | None, now: datetime) -> bool:
+    """Whether an outcome counts toward "of N due so far": settled (`PAST_DUE`), and the work
+    is past due. Work handed in early is *on time* the moment it is handed in, but it is not
+    on the record until its due date passes -- "due so far" is work that is due (#138). Work
+    with no due date can never become past due, so it is on the record as soon as anything
+    has happened to it: a grade, a hand-in or a mark, which is every settled outcome, since
+    `classify` calls undated work with nothing at all *not due yet*."""
+    if outcome not in PAST_DUE:
+        return False
+    if due is None:
+        return True
     a, b = reconcile.comparable(due, now)
     return a < b
 
@@ -93,7 +135,7 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
     Canvas carries the teacher's marks and the submission; HAC carries only a grade. `prefer`
     is the family's assignments source (sources.py). Under "canvas" a Canvas score wins and HAC
     fills the gap, and a HAC grade above zero also overrides Canvas's `missing` flag unless
-    Canvas changed later (docs/outcomes.md). Under "hac" a HAC score, when there is one, decides done-or-not -- it
+    Canvas marked it later (`marked_after`, docs/outcomes.md). Under "hac" a HAC score, when there is one, decides done-or-not -- it
     overrides Canvas's `missing` flag and Canvas's own score -- while excused, unpublished and
     the submission's timing still come from Canvas, which is the only source that knows them.
     The order of the checks is the order of certainty: a mark or a zero settles it; a
@@ -107,14 +149,18 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
             return EXCUSED
         if c["published"] == 0:
             return UNPUBLISHED
+    # HAC's "EXC" is the teacher excusing it in the gradebook of record, whatever Canvas's
+    # automatic mark says (#135).
+    if h is not None and h["excused"]:
+        return EXCUSED
     c_score = c["score"] if c is not None else None
     h_score = h["score"] if h is not None else None
     # A real HAC grade is the teacher's assessment, and Canvas's `missing` is often its late
     # policy's automatic mark, so HAC decides whenever it has a grade above zero -- unless
-    # Canvas changed after HAC did, which is the teacher saying something new. Under the HAC
-    # preference HAC decides whenever it has any score, as before.
+    # Canvas marked it after HAC graded it, which is the teacher saying something new. Under
+    # the HAC preference HAC decides whenever it has any score, as before.
     hac_graded = h_score is not None and h_score > 0
-    hac_decides = h_score is not None and (prefer == "hac" or (hac_graded and not newer(c, h)))
+    hac_decides = h_score is not None and (prefer == "hac" or (hac_graded and not marked_after(c, h)))
     score = h_score if hac_decides else (c_score if c_score is not None else h_score)
     points = item["points"] or 0
     zero = score == 0 and points > 0

@@ -156,9 +156,9 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
 
     `weekly_counts` above answers a different question -- what the gradebooks *did* each
     week (grades posted, items turning missing) -- and the Changes feed is held to it. This
-    answers the one the Trends page's title asks. Only settled outcomes (`outcomes.PAST_DUE`)
-    are counted, from `reconcile.live_items`, the same candidate set as the Kid page and the
-    Dashboard record line, so the three cannot disagree about a number."""
+    answers the one the Trends page's title asks. Only settled outcomes of work that is due
+    (`outcomes.on_record`) are counted, from `reconcile.live_items`, the same candidate set as
+    the Kid page and the Dashboard record line, so the three cannot disagree about a number."""
     weeks = max(1, weeks)
     starts = [_dates.week_start(now.date()) - timedelta(weeks=n) for n in range(weeks - 1, -1, -1)]
     buckets = {s: {k: 0 for k in outcomes.PAST_DUE} for s in starts}
@@ -179,7 +179,8 @@ def weekly_outcomes(conn: sqlite3.Connection, *, student_id: int | None = None, 
                 continue
             outcome = outcomes.classify(item, latest.get(item["id"], {}), now,
                                         prefer=sources.assignments_for(prefs, item["kid"], item["course_name"], item["peer_course_name"]))
-            if outcome in buckets[week]:
+            # Handed in early is on time, but not "due so far" until it is due (#138).
+            if outcomes.on_record(outcome, due, now):
                 buckets[week][outcome] += 1
     return [WeekOutcomes(w, **buckets[w]) for w in starts]
 

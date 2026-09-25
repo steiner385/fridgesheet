@@ -107,6 +107,15 @@ def _observed_at(o, refresh_times: dict[int, str]) -> datetime | None:
     return reconcile._parse_ts(started) if started else None
 
 
+def _scored_at(c, refresh_times: dict[int, str]) -> datetime | None:
+    """When Canvas's current score first appeared (ingest's `scored_since`), not when its
+    observation was last rewritten: the availability window closing a week after the grade
+    must not restart HAC's grace period, nor move the "since {when}" it reports (#131)."""
+    rid = outcomes.since_refresh(c, "scored_since")
+    started = refresh_times.get(rid) if rid is not None else None
+    return reconcile._parse_ts(started) if started else None
+
+
 def _after(o, set_at: str, refresh_times) -> bool:
     seen = _observed_at(o, refresh_times)
     if seen is None or not set_at:
@@ -195,7 +204,7 @@ def verdict(item, obs, *, flag, flag_set_at, now, rules, refresh_times, prefer="
     if hs is not None and hs > 0 and c is not None and c["missing"]:
         # Under the HAC preference the family already told us HAC decides this class, so a later
         # Canvas mark is not a question for them (and `classify` counts it done).
-        kind = "missing_after_grade" if outcomes.newer(c, h) and prefer != "hac" else "graded_in_hac"
+        kind = "missing_after_grade" if outcomes.marked_after(c, h) and prefer != "hac" else "graded_in_hac"
         return Verdict(QUESTION if kind == "missing_after_grade" else DECIDED, kind, {"hac": _of(hs, points)}, ANSWERS[kind])
 
     # 7-8: both have a score and HAC is lower.
@@ -248,7 +257,7 @@ def _waiting_or_status(item, c, h, *, now, rules, refresh_times, prefer, obs, pa
     # 9-10: Canvas graded it and HAC, which this class has, still has nothing. How long to
     # allow is what this class's history says HAC usually takes (spec 4.5).
     if not settled_not_done and cs is not None and cs > 0 and hs is None and item["peer_course_id"] is not None:
-        seen = _observed_at(c, refresh_times)
+        seen = _scored_at(c, refresh_times)
         if seen is not None:
             est = pace.hac_days(item)
             asks_on = seen.date() + timedelta(days=est.days)

@@ -32,7 +32,7 @@ RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E",
 STATUS_COLOR = {
     "MISSING": RED, "ZERO": RED, "LATE": AMBER,
     "PAPER — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
-    "DUE TODAY": BLUE, "DUE TOMORROW": BLUE,
+    "DUE TODAY": BLUE, "DUE TONIGHT": BLUE, "DUE TOMORROW": BLUE,
 }
 
 # 10pt cells and 8pt sub-lines: the kid reading the fridge is the reader NN/g puts at a 12pt
@@ -73,8 +73,8 @@ def status_word(status: str, tier: str) -> str:
     key = _STATUS_KEY.get(status)
     if key:
         return phrasing.phrase(key, tier)
-    head, _, rest = status.partition(" ")       # DUE TODAY / DUE TOMORROW / DUE TUE
-    rest = rest.lower() if rest.lower() in ("today", "tomorrow") else rest.title()
+    head, _, rest = status.partition(" ")       # DUE TODAY / DUE TONIGHT / DUE TOMORROW / DUE TUE
+    rest = rest.lower() if rest.lower() in ("today", "tonight", "tomorrow") else rest.title()
     return f"{head.title()} {rest}".strip()
 
 

@@ -61,6 +61,14 @@ def day_part(d: datetime | None, *, from_canvas: bool) -> str:
     return "afternoon" if d.hour < 17 else "evening"
 
 
+def deadline_date(due: datetime) -> date:
+    """The day a deadline has to be met on: its own date, except that work due in the first
+    hour of a day -- 00:00, or 00:30 -- has to be finished the evening before. Read at 8pm,
+    "due tomorrow" for a midnight deadline promises a night the kid does not have (#139).
+    One hour back lands 00:00-00:59 on the previous date and leaves every other hour alone."""
+    return (due - timedelta(hours=1)).date()
+
+
 def wd_md_time(d: datetime) -> str:
     return f"{wd_md(d)} {time12(d)}"
 

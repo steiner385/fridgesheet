@@ -26,7 +26,8 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from ..matching import hac_item_key, match_course, norm_name, same_item, short_course
-from ..open_items import ASSESSMENT_WORDS, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
+from ..open_items import ASSESSMENT_WORDS, hac_excused, hac_only_keys as _hac_only_rows, kind_of, parse_hac_date
+from . import db
 
 
 @dataclass(frozen=True)
@@ -146,10 +147,13 @@ def _observe(conn, refresh_id: int, item_id: int, source: str, values: dict) -> 
                         (item_id, source)).fetchone()
     if last is not None and all(last[f] == values.get(f) for f in _OBS_FIELDS):
         return False
+    # A rewrite for one field (the lock flipping) is not the teacher marking it missing again,
+    # so the refresh in which the mark and the score first appeared travel with the row (#131).
+    missing_since, scored_since = db.since_fields(last, refresh_id, values.get("missing"), values.get("score"))
     conn.execute(
-        "INSERT INTO item_observations(refresh_id, item_id, source, state, score, grade, submitted_at, late, missing, excused, published, locked, lock_reason) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (refresh_id, item_id, source, *(values.get(f) for f in _OBS_FIELDS)))
+        "INSERT INTO item_observations(refresh_id, item_id, source, state, score, grade, submitted_at, late, missing, excused, published, locked, lock_reason, "
+        "missing_since, scored_since) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (refresh_id, item_id, source, *(values.get(f) for f in _OBS_FIELDS), missing_since, scored_since))
     return True
 
 
@@ -180,8 +184,13 @@ def _canvas_values(a: dict) -> dict:
 
 def _hac_values(row: dict) -> dict:
     graded = row.get("score") is not None
+    # HAC's "EXC" in the score column is the teacher excusing the work; the scraper reads it as
+    # no score, so the mark is kept here (#135). None rather than 0 when it is absent: an
+    # observation stored before this field was read says None, and a changed value would
+    # rewrite every HAC row on the first refresh after the upgrade.
     return {"state": "graded" if graded else "ungraded", "score": row.get("score"), "grade": (row.get("percent") or None) if graded else None,
-            "submitted_at": None, "late": None, "missing": None, "excused": None, "published": None, "locked": None, "lock_reason": None}
+            "submitted_at": None, "late": None, "missing": None, "excused": 1 if hac_excused(row) else None, "published": None,
+            "locked": None, "lock_reason": None}
 
 
 def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None = None) -> IngestResult:
