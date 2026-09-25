@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date as _date, datetime, timedelta
 
 from .. import dates
 from ..open_items import school_year_start
@@ -25,7 +25,8 @@ ORIENTATIONS = ("portrait", "landscape")
 #: "school_year" starts on the school year's first day. "Any time" is what every report did
 #: before this existed: every item and grade point, and for changes the year the feed keeps.
 WINDOWS = (("all", "Any time", None), ("7d", "The last 7 days", 7), ("30d", "The last 30 days", 30),
-           ("90d", "The last 90 days", 90), ("school_year", "This school year", None))
+           ("90d", "The last 90 days", 90), ("school_year", "This school year", None),
+           ("custom", "Custom range", None))
 WINDOW_KEYS = tuple(k for k, _, _ in WINDOWS)
 DIRS = ("asc", "desc")
 MAX_ROWS = 2000
@@ -83,6 +84,8 @@ class Definition:
     orientation: str = "portrait"
     per_kid_sections: bool = False
     window: str = "all"
+    date_from: str = ""              # ISO "YYYY-MM-DD", used only when window == "custom"
+    date_to: str = ""
 
     def to_json(self) -> str:
         return json.dumps({
@@ -90,7 +93,7 @@ class Definition:
             "columns": list(self.columns), "filters": [dict(f) for f in self.filters],
             "group_by": self.group_by, "sort": [dict(s) for s in self.sort], "chart": None,
             "orientation": self.orientation, "per_kid_sections": self.per_kid_sections,
-            "window": self.window,
+            "window": self.window, "date_from": self.date_from, "date_to": self.date_to,
         }, indent=1)
 
 
@@ -126,6 +129,8 @@ def from_json(text: str) -> Definition:
             orientation=str(raw.get("orientation", d.orientation)),
             per_kid_sections=_as_bool(raw.get("per_kid_sections", False)),
             window=str(raw.get("window", d.window)),
+            date_from=str(raw.get("date_from", "")),
+            date_to=str(raw.get("date_to", "")),
         )
     except (TypeError, ValueError) as e:
         raise ViewError(f"the definition has a field of the wrong shape: {e}") from None
@@ -141,11 +146,27 @@ def _as_bool(v) -> bool:
     return bool(v)
 
 
+def _parse_plain_date(s: str) -> _date | None:
+    """`date_from`/`date_to` as a plain date, or `None` when blank or unreadable -- callers
+    treat `None` as "this custom range cannot be resolved", never as `datetime.min`."""
+    from datetime import date as date_
+    try:
+        return date_.fromisoformat(s) if s else None
+    except ValueError:
+        return None
+
+
 def validate(d: Definition) -> list[str]:
     """Every problem with the definition, one sentence each. Empty means it can be built."""
     problems: list[str] = []
     if d.window not in WINDOW_KEYS:
         problems.append(f"Unknown window {d.window!r}; choose one of {', '.join(WINDOW_KEYS)}.")
+    elif d.window == "custom":
+        fd, td = _parse_plain_date(d.date_from), _parse_plain_date(d.date_to)
+        if fd is None or td is None:
+            problems.append("A custom range needs both a start and an end date.")
+        elif fd > td:
+            problems.append("The custom range's start date must be on or before its end date.")
     if not d.title.strip():
         problems.append("The title cannot be empty.")
     if d.source not in SOURCES:
@@ -205,6 +226,9 @@ def _num(v) -> str:
 
 def window_start(d: Definition, now: datetime) -> datetime | None:
     """Where this report's rows begin, or None for "any time" (#94)."""
+    if d.window == "custom":
+        fd = _parse_plain_date(d.date_from)
+        return datetime.combine(fd, datetime.min.time(), tzinfo=now.tzinfo) if fd else None
     if d.window == "school_year":
         return school_year_start(now)
     days = next((n for k, _, n in WINDOWS if k == d.window), None)

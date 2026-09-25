@@ -84,3 +84,31 @@ def test_a_limited_report_says_so_on_the_page(tmp_path):
     c = _client(tmp_path)
     assert "Rows from: the last 7 days" in c.get(f"/reports/{_save(tmp_path, window='7d')}/view").text
     assert "Rows from" not in c.get(f"/reports/{_save(tmp_path)}/view").text
+
+
+def test_a_custom_range_needs_both_dates_in_order():
+    ok = views.Definition(title="x", columns=("name",), window="custom",
+                          date_from="2026-09-01", date_to="2026-09-15")
+    assert views.validate(ok) == []
+    missing = views.Definition(title="x", columns=("name",), window="custom", date_from="2026-09-01")
+    assert any("start and an end date" in p for p in views.validate(missing))
+    backwards = views.Definition(title="x", columns=("name",), window="custom",
+                                 date_from="2026-09-15", date_to="2026-09-01")
+    assert any("on or before" in p for p in views.validate(backwards))
+    garbage = views.Definition(title="x", columns=("name",), window="custom",
+                               date_from="not-a-date", date_to="2026-09-15")
+    assert any("start and an end date" in p for p in views.validate(garbage))
+
+
+def test_a_custom_range_round_trips_through_json():
+    d = views.from_json(json.dumps({"source": "items", "window": "custom",
+                                    "date_from": "2026-09-01", "date_to": "2026-09-15"}))
+    assert d.window == "custom" and d.date_from == "2026-09-01" and d.date_to == "2026-09-15"
+    back = json.loads(d.to_json())
+    assert back["date_from"] == "2026-09-01" and back["date_to"] == "2026-09-15"
+
+
+def test_window_start_reads_the_custom_range():
+    d = views.Definition(window="custom", date_from="2026-09-01", date_to="2026-09-15")
+    start = views.window_start(d, NOW)
+    assert start is not None and (start.month, start.day) == (9, 1)
