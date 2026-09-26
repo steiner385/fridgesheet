@@ -3,6 +3,9 @@
   <a href="/kids/{{ student.key | urlencode }}/plan" {{ 'aria-current="page"' | safe if workspace == 'plan' }}>Plan</a>
   <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>Assignments</a>
 </nav>
-{# The one-line hint under the tabs follows the reader (kids' UX audit F3). #}
+{# The one-line hint under the tabs follows the reader (kids' UX audit F3). What Canvas and HAC
+   are is said where they are named: under the Assignments table, whose "Where it stands" column
+   uses both words, and inside a record (`_record.html`) -- not on the check-in and plan tabs,
+   where it was the third sentence before the first card (#190). #}
 <p class="tab-hint muted">{{ ('copy.tab_' ~ ('checkin' if workspace == 'checkin' else 'plan' if workspace == 'plan' else 'all')) | say(student.key | tier_of) }}</p>
-{% include "_sources_hint.html" %}
+{% if workspace == 'all' %}{% include "_sources_hint.html" %}{% endif %}

@@ -4,16 +4,18 @@
 {# The child's name, as on the rail and the Assignments tab; the tab beneath says which of the
    three pages this is (page layout standard, section 2). #}
 {% set page_title = student.key | nickname %}
-{% set page_actions %}{% if not plan_only %}<a class="button-link" href="#plan">Jump to our next steps</a> {% endif %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a>{% endset %}
+{# "Jump to our next steps" used to sit here: beside a sidebar the plan is already in view, and
+   stacked, the strip at the bottom of the screen (`.halves`) is the way between the halves (#189). #}
+{% set page_actions %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a>{% endset %}
 {% include "_page_head.html" %}
 {% set workspace = 'plan' if plan_only else 'checkin' %}{% include "_child_nav.html" %}
 {% if saved %}<p class="notice" role="status">Saved. Your family plan is separate from the school record.</p>{% endif %}
 {% if error %}<p class="notice warn" role="alert" tabindex="-1" autofocus>{{ error }}</p>{% endif %}
-{# One sentence of instruction, then the cards; the words follow the reader (kids' UX audit F3).
-   "School records can lag" is not repeated here: each waiting card already says so of itself. #}
+{# The one sentence of instruction is the tab's hint (kids' UX audit F3; #190): a second one
+   here, and the sources hint under the tabs, put three sentences and a glossary line before
+   the first card. What is left is state: the last check-in and what was agreed. #}
 {% set tier = student.key | tier_of %}
 <div class="checkin-intro">
-  {% if not plan_only %}<p>{{ 'copy.checkin_intro' | say(tier) }}</p>{% endif %}
   {% if last_check %}
   <p class="muted">Last check-in {{ last_check.finished_at | wd_md_time }}{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in {{ last_check.next_check | wd_md }}{% if last_check.next_check <= today %} · <strong>time to check in</strong>{% endif %}</p>
   <p class="family-account"><strong>What we agreed:</strong> {{ last_check.summary }}</p>
@@ -45,6 +47,9 @@
   </details>
   {% endfor %}
   <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this review queue.</p>
+  {# What the two systems the cards quote are: once, at the foot of the queue, where a reader
+     who wondered can find it -- not above the first card (#190). #}
+  {% include "_sources_hint.html" %}
 </section>
 {% endif %}
 <div class="checkin-side">
@@ -65,5 +70,9 @@
 {% endif %}
 </div>
 </div>
+{# Under 1280px the queue and the plan stack, and the plan was five phone screens down (#189):
+   a strip pinned to the bottom of the screen names both halves with their counts, each a
+   link to its heading. Beside a sidebar the two are side by side and the strip is not drawn. #}
+{% if not plan_only %}<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review <span class="badge">{{ queues.values() | map('length') | sum }}</span></a><a href="#plan">Next steps <span class="badge">{{ steps | length }}</span></a></nav>{% endif %}
 {% if history %}<details class="queue-group"><summary>Previous agreements <span class="badge">{{ history | length }}</span></summary>{% for check in history %}<article class="card plan-card"><h4>{{ check.finished_at | wd_md_time }}</h4><p>{{ check.summary }}</p><p>Next check-in {{ check.next_check | wd_md }} · {{ check.available_minutes }} min available{% if check.recorded_by %} · Recorded by {{ check.recorded_by }}{% endif %}</p><ul>{% for step in check.steps %}<li>{{ step.title }} · {{ step.owner }}: {{ step.next_step }} — {{ step.planned_for | wd_md }} ({{ states[step.state] }})</li>{% else %}<li>No active steps at this check-in.</li>{% endfor %}</ul></article>{% endfor %}</details>{% endif %}
 {% endblock %}

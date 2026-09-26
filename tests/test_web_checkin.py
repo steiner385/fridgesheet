@@ -461,10 +461,12 @@ def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path)
         body = c.get(path).text
         assert 'aria-label="Child workspace"' in body, path
         assert re.search(rf'aria-current="page"[^>]*>{current}<', body), (path, current)
-    # On a phone the queue runs two screens before the plan: the check-in page offers a jump.
+    # On a phone the queue runs screens before the plan: the check-in page's strip at the bottom
+    # of the screen names both halves (#189); the plan page is one half and has none.
     checkin = c.get("/kids/Alex/check-in").text
-    assert '<a class="button-link" href="#plan">Jump to our next steps</a>' in checkin
-    assert 'href="#plan">Jump to our next steps' not in c.get("/kids/Alex/plan").text
+    assert '<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review ' in checkin
+    assert 'href="#plan">Next steps ' in checkin
+    assert 'class="halves"' not in c.get("/kids/Alex/plan").text
     table = c.get("/kids/Alex?show=all&flagged=none&sort=name").text
     assert "Essay draft" in table and 'name="show"' in table
     detail_link = f'href="/kids/Alex/check-in/step?item_id='

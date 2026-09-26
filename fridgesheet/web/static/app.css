@@ -281,6 +281,9 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
    next step" on the last card and "Finish check-in" are both still in view. It scrolls on its
    own past viewport height rather than pushing off the bottom. */
 .checkin-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+/* The two halves of a stacked check-in, named at the bottom of the screen (#189). Beside a
+   sidebar they are side by side and this is not drawn. */
+.halves { display: none; }
 .queue-group { margin: 16px 0; }
 .queue-group > summary { padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 650; cursor: pointer; }
 .review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
@@ -314,6 +317,10 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 @media (max-width: 1279px) {
   .checkin-layout { grid-template-columns: minmax(0, 1fr); }
   .checkin-side { position: static; max-height: none; overflow-y: visible; }
+  /* Pinned to the bottom of the viewport until the page's own end reaches it (the same
+     `sticky; bottom: 0` the Settings save bar uses). Two 44px links, one line. */
+  .halves { position: sticky; bottom: 0; z-index: 1; display: flex; gap: 8px; margin: 16px calc(-1 * var(--pad)) 0; padding: 8px var(--pad); background: var(--paper); border-top: 1px solid var(--rule); }
+  .halves a { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--rule); border-radius: 6px; text-decoration: none; color: var(--ink); background: var(--wash); }
   .plan-panel { padding: 12px; }
 }
 /* The printable plan is its own page (no shell): a readable column on screen, the bare

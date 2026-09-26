@@ -253,6 +253,40 @@ def test_a_phone_held_sideways_puts_the_strip_and_the_bar_on_one_row():
     assert re.search(r"\.shell\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto", block)
     assert re.search(r"\.rail\s*\{[^}]*grid-row: 1", block) and re.search(r"header\.status\s*\{[^}]*grid-row: 1", block)
     assert re.search(r"main\s*\{[^}]*grid-column: 1 / -1", block)
+# --- the follow-ups: #189 the two halves on a phone, #190 one instruction sentence --------------------
+
+def test_the_check_in_has_one_instruction_sentence_and_the_sources_hint_lives_in_the_record(tmp_path):
+    """#190: the tab hint is the sentence; a second intro and the Canvas/HAC line under the tabs
+    put three sentences and a glossary before the first card."""
+    from fridgesheet.web import phrasing
+    assert "copy.checkin_intro" not in phrasing.PHRASES
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    for path in ("/kids/Alex/check-in", "/kids/Alex/plan"):
+        body = c.get(path).text
+        above = body.split('class="child-nav"')[1].split("<section", 1)[0]     # the tabs, the hint, the intro
+        assert "sources-hint" not in above, path
+        assert "What went well" not in body, path
+    assert "Talk it through together" in c.get("/kids/Alex/check-in").text
+    # Assignments keeps the line under its tabs: its "Where it stands" column uses both words.
+    assignments = c.get("/kids/Alex").text
+    assert assignments.index('class="child-nav"') < assignments.index('class="sources-hint') < assignments.index("<section")
+
+
+def test_a_stacked_check_in_names_its_two_halves_at_the_bottom_of_the_screen(tmp_path):
+    """#189: a link each to the review queue and the plan, with their counts; not on the
+    plan page (one half), not beside a sidebar (the CSS hides it from 1280px up)."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    checkin = c.get("/kids/Alex/check-in").text
+    m = re.search(r'<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review <span class="badge">(\d+)</span></a><a href="#plan">Next steps <span class="badge">(\d+)</span></a></nav>', checkin)
+    assert m and int(m.group(1)) >= 1
+    assert 'id="review-heading"' in checkin and 'id="plan"' in checkin
+    assert 'class="halves"' not in c.get("/kids/Alex/plan").text
+    assert re.search(r"\.halves\s*\{\s*display: none;\s*\}", CSS)
+    wide = "\n".join(re.findall(r"@media \(max-width: 1279px\)\s*\{(.*?)^\}", CSS, re.S | re.M))
+    assert re.search(r"\.halves\s*\{[^}]*position: sticky; bottom: 0", wide)
+    assert re.search(r"\.halves a\s*\{[^}]*min-height: 44px", wide)
 
 
 # --- the follow-ups: #193 a report row's controls, #194 the builder as a form ------------------------
