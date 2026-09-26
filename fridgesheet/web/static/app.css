@@ -152,6 +152,18 @@ tr.detail td { background: var(--wash); }
 fieldset { border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px; }
 legend { padding: 0 4px; font-weight: 600; }
 .flagmenu button, .actions button { margin: 2px 8px 2px 0; }
+/* A table row's actions (Reports): what is done every week as buttons, the rest folded under
+   More, so a row is one line at 1280px and two on a phone (#193). */
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.row-actions form { margin: 0; }
+.row-more { display: inline-block; }
+.row-more > summary { cursor: pointer; color: var(--accent); padding: 6px 8px; list-style-position: inside; }
+.row-more .more-actions { display: inline-flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+/* The report builder: the same label-over-control grid as Settings, bounded to the measure (#194). */
+.builder-form { max-width: var(--measure); }
+.builder-form fieldset { margin-top: 12px; }
+.builder-form .row select, .builder-form .row input { min-width: 0; }
+.tick { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 2px 0; }
 .note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
 .note .meta { font-size: var(--type-small); color: var(--muted); }
 textarea { width: 100%; min-height: 60px; font: inherit; }
@@ -433,4 +445,5 @@ th .arrow { font-size: var(--type-small); }
   table.items td.item > a, table.items th a { min-height: 44px; display: inline-flex; align-items: center; }
   table.work td.item small a, .record a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
   main details > summary { min-height: 44px; padding-block: 10px; }
+  .tick { min-height: 44px; }
 }

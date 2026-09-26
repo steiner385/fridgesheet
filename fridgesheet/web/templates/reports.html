@@ -15,24 +15,25 @@
   {% for name, _ in TEMPLATES %}<strong>{{ name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
   <button hx-post="/reports/seed" hx-target="body">Add the starter reports</button></p>
 {% endif %}
+{# One "Refresh data first" for the page, as Today's card has, rather than one per row (#193):
+   every Preview and Print below includes it. Unticked, they use the last refresh. #}
+{% if jobs %}<p class="filters"><label><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label> <span class="muted">for the Preview and Print buttons below</span></p>{% endif %}
+{% macro job_buttons(key, title) %}
+    {# Preview first, then Print: the Dashboard's order, and the one that lets a parent look
+       before spending paper. #}
+    <form hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">
+      <input type="hidden" name="report" value="{{ key }}">
+      <button>Preview</button>
+    </form>
+    <form hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ title }} on {{ key | printer_name }} now?">
+      <input type="hidden" name="report" value="{{ key }}">
+      <button>Print</button>
+    </form>
+{% endmacro %}
 <h3>Built in</h3>
 <div class="table-wrap"><table class="items"><tr><th>Report</th><th></th></tr>
 {% for r in code %}<tr><td title="{{ r.key }}">{{ r.title }}</td>
-  <td>
-    {% if jobs %}
-    {# Preview first, then Print: the Dashboard's order, and the one that lets a parent look
-       before spending paper. #}
-    <form style="display:inline" hx-post="/jobs/preview" hx-target="#job" hx-swap="outerHTML">
-      <input type="hidden" name="report" value="{{ r.key }}">
-      <button>Preview</button>
-    </form>
-    <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.title }} on {{ r.key | printer_name }} now?">
-      <input type="hidden" name="report" value="{{ r.key }}">
-      <label><input type="checkbox" name="refresh_first"> Refresh first</label>
-      <button>Print</button>
-    </form>
-    {% endif %}
-  </td></tr>{% endfor %}
+  <td class="row-actions">{% if jobs %}{{ job_buttons(r.key, r.title) }}{% endif %}</td></tr>{% endfor %}
 </table></div>
 <h3>Yours</h3>
 {% if saved %}
@@ -41,22 +42,16 @@
 <tr>
   <td><a href="/reports/{{ r.id }}/view" title="view:{{ r.id }}">{{ r.name }}</a></td>
   <td class="muted">{{ r.updated_at | wd_md_time }}</td>
-  <td>
-    <a class="badge" href="/reports/{{ r.id }}">Edit</a>
-    <a class="badge" href="/reports/{{ r.id }}/export.csv">CSV</a>
-    <a class="badge" href="/reports/{{ r.id }}/export.json">JSON</a>
-    {% if jobs %}
-    <form style="display:inline" hx-post="/jobs/preview" hx-target="#job" hx-swap="outerHTML">
-      <input type="hidden" name="report" value="view:{{ r.id }}">
-      <button>Preview</button>
-    </form>
-    <form style="display:inline" hx-post="/jobs/print" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ r.name }} on {{ ('view:' ~ r.id) | printer_name }} now?">
-      <input type="hidden" name="report" value="view:{{ r.id }}">
-      <label><input type="checkbox" name="refresh_first"> Refresh first</label>
-      <button>Print</button>
-    </form>
-    {% endif %}
-    <form style="display:inline" hx-post="/reports/{{ r.id }}/delete" hx-target="body" hx-confirm="Delete {{ r.name }}?"><button class="danger">Delete</button></form>
+  {# What a parent does every week stays in the row; the rest folds under More (#193): seven
+     controls a row was three lines of buttons on a phone. #}
+  <td class="row-actions">
+    {% if jobs %}{{ job_buttons('view:' ~ r.id, r.name) }}{% endif %}
+    <details class="row-more"><summary>More</summary><span class="more-actions">
+      <a class="badge" href="/reports/{{ r.id }}">Edit</a>
+      <a class="badge" href="/reports/{{ r.id }}/export.csv">CSV</a>
+      <a class="badge" href="/reports/{{ r.id }}/export.json">JSON</a>
+      <form hx-post="/reports/{{ r.id }}/delete" hx-target="body" hx-confirm="Delete {{ r.name }}?"><button class="danger">Delete</button></form>
+    </span></details>
   </td>
 </tr>
 {% endfor %}

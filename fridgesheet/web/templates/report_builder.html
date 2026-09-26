@@ -9,59 +9,78 @@
 {% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
 {% for p in problems %}<p class="notice warn" role="alert">{{ p }}</p>{% endfor %}
 {% set action = ("/reports/" ~ report.id) if report else "/reports/new" %}
-<form method="post" action="{{ action }}" class="card" id="builder">
+{# Label over control, in the grid Settings and the step form use, bounded to the measure (#194):
+   this was the one form still laid out as inline prose. The ids the two inline scripts and the
+   tests reach for -- builder, customRange, chartFields, chartSeries -- are unchanged. #}
+<form method="post" action="{{ action }}" class="card builder-form" id="builder">
   {% if report %}<input type="hidden" name="report_id" value="{{ report.id }}">{% endif %}
-  <p><label>Name <input name="name" value="{{ report.name if report else d.title }}"></label>
-     <label>Title on the page <input name="title" value="{{ d.title }}"></label></p>
-  <p><label>Rows come from
-     <select name="source" hx-post="/reports/builder" hx-trigger="change" hx-include="#builder"
-             hx-target="#builder" hx-select="#builder" hx-swap="outerHTML">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label></p>
-  <p><label>Rows from
-     <select name="window" onchange="document.getElementById('customRange').hidden = this.value !== 'custom'">{% for key, label, _ in WINDOWS %}<option value="{{ key }}" {{ 'selected' if d.window == key }}>{{ label }}</option>{% endfor %}</select></label>
-     <span class="muted">by due date for assignments, by when it happened for grades and changes</span>
-     <span id="customRange" {{ 'hidden' if d.window != 'custom' }}>
-       <label>from <input type="date" name="date_from" value="{{ d.date_from }}"></label>
-       <label>to <input type="date" name="date_to" value="{{ d.date_to }}"></label>
-     </span></p>
-  <p>Kids: {% for k in kids %}<label><input type="checkbox" name="scope" value="{{ k.key }}" {{ 'checked' if k.key in d.scope }}> {{ k.key | nickname }}</label> {% endfor %}
-     <span class="muted">none ticked means every kid</span></p>
-  <p>Columns:<br>
-    {% for cid, col in cols.items() %}
-    <label><input type="checkbox" name="columns" value="{{ cid }}" {{ 'checked' if cid in d.columns }}> {{ col.label }}</label>
-    {% endfor %}</p>
-  <p><label>Group by <select name="group_by"><option value="">nothing</option>
-    {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.group_by == cid }}>{{ col.label }}</option>{% endfor %}</select></label></p>
-  <p>Sort:
+  <div class="settings-grid">
+    <label>Name <input name="name" value="{{ report.name if report else d.title }}"></label>
+    <label>Title on the page <input name="title" value="{{ d.title }}"></label>
+    <label>Rows come from
+      <select name="source" hx-post="/reports/builder" hx-trigger="change" hx-include="#builder"
+              hx-target="#builder" hx-select="#builder" hx-swap="outerHTML">{% for s in SOURCES %}<option value="{{ s }}" {{ 'selected' if d.source == s }}>{{ s }}</option>{% endfor %}</select></label>
+    <label>Rows from
+      <select name="window" onchange="document.getElementById('customRange').hidden = this.value !== 'custom'">{% for key, label, _ in WINDOWS %}<option value="{{ key }}" {{ 'selected' if d.window == key }}>{{ label }}</option>{% endfor %}</select>
+      <span class="field-help">by due date for assignments, by when it happened for grades and changes</span></label>
+  </div>
+  <div id="customRange" {{ 'hidden' if d.window != 'custom' }}>
+    <div class="settings-grid">
+      <label>from <input type="date" name="date_from" value="{{ d.date_from }}"></label>
+      <label>to <input type="date" name="date_to" value="{{ d.date_to }}"></label>
+    </div>
+  </div>
+  <fieldset><legend>Kids <span class="muted">none ticked means every kid</span></legend>
+    {% for k in kids %}<label class="tick"><input type="checkbox" name="scope" value="{{ k.key }}" {{ 'checked' if k.key in d.scope }}> {{ k.key | nickname }}</label>{% endfor %}
+  </fieldset>
+  <fieldset><legend>Columns</legend>
+    {% for cid, col in cols.items() %}<label class="tick"><input type="checkbox" name="columns" value="{{ cid }}" {{ 'checked' if cid in d.columns }}> {{ col.label }}</label>{% endfor %}
+  </fieldset>
+  <div class="settings-grid">
+    <label>Group by <select name="group_by"><option value="">nothing</option>
+      {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.group_by == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+  </div>
+  <fieldset><legend>Sort <span class="muted">first by, then by</span></legend>
     {% for i in range(2) %}
-    <select name="sort_column"><option value="">—</option>
-      {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.sort|length > i and d.sort[i].column == cid }}>{{ col.label }}</option>{% endfor %}</select>
-    <select name="sort_dir"><option value="asc">ascending</option><option value="desc" {{ 'selected' if d.sort|length > i and d.sort[i].dir == 'desc' }}>descending</option></select>
-    {% endfor %}</p>
-  <p>Filters:
-    {% for i in range(3) %}<br>
-    <select name="filter_field"><option value="">—</option>
-      {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.filters|length > i and d.filters[i].field == cid }}>{{ col.label }}</option>{% endfor %}</select>
-    <select name="filter_op">{% for o in OPS %}<option value="{{ o }}" {{ 'selected' if d.filters|length > i and d.filters[i].op == o }}>{{ o }}</option>{% endfor %}</select>
-    <input name="filter_value" value="{{ d.filters[i].value if d.filters|length > i else '' }}">
-    {% endfor %}</p>
-  <p>Chart:
-    <select name="chart_type" onchange="document.getElementById('chartFields').hidden = !this.value; var stacked = this.value === 'stacked_bar'; var cs = document.getElementById('chartSeries'); cs.hidden = !stacked; cs.querySelector('select').disabled = !stacked;">
-      <option value="">none</option>
-      {% for t in CHART_TYPES %}<option value="{{ t }}" {{ 'selected' if d.chart and d.chart.type == t }}>{{ t.replace('_', ' ') }}</option>{% endfor %}
-    </select>
-    <span id="chartFields" {{ 'hidden' if not d.chart }}>
-      <label>Date <select name="chart_x">{% for cid, col in cols.items() if col.kind == 'date' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.x == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
-      <label>Value <select name="chart_y"><option value="">Count of rows</option>{% for cid, col in cols.items() if col.kind == 'number' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.y == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
-      <span id="chartSeries" {{ 'hidden' if not d.chart or d.chart.type != 'stacked_bar' }}>
-        <label>Series <select name="chart_series" {{ 'disabled' if not d.chart or d.chart.type != 'stacked_bar' }}><option value="">—</option>{% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.series == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+    <p class="row">
+      <select name="sort_column" aria-label="Sort {{ 'first' if i == 0 else 'then' }} by"><option value="">—</option>
+        {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.sort|length > i and d.sort[i].column == cid }}>{{ col.label }}</option>{% endfor %}</select>
+      <select name="sort_dir" aria-label="Direction"><option value="asc">ascending</option><option value="desc" {{ 'selected' if d.sort|length > i and d.sort[i].dir == 'desc' }}>descending</option></select>
+    </p>
+    {% endfor %}
+  </fieldset>
+  <fieldset><legend>Filters <span class="muted">rows must match every one set</span></legend>
+    {% for i in range(3) %}
+    <p class="row">
+      <select name="filter_field" aria-label="Filter {{ i + 1 }} column"><option value="">—</option>
+        {% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.filters|length > i and d.filters[i].field == cid }}>{{ col.label }}</option>{% endfor %}</select>
+      <select name="filter_op" aria-label="Filter {{ i + 1 }} test">{% for o in OPS %}<option value="{{ o }}" {{ 'selected' if d.filters|length > i and d.filters[i].op == o }}>{{ o }}</option>{% endfor %}</select>
+      <input name="filter_value" aria-label="Filter {{ i + 1 }} value" value="{{ d.filters[i].value if d.filters|length > i else '' }}">
+    </p>
+    {% endfor %}
+  </fieldset>
+  <fieldset><legend>Chart</legend>
+    <p class="row">
+      <label>Kind <select name="chart_type" onchange="document.getElementById('chartFields').hidden = !this.value; var stacked = this.value === 'stacked_bar'; var cs = document.getElementById('chartSeries'); cs.hidden = !stacked; cs.querySelector('select').disabled = !stacked;">
+        <option value="">none</option>
+        {% for t in CHART_TYPES %}<option value="{{ t }}" {{ 'selected' if d.chart and d.chart.type == t }}>{{ t.replace('_', ' ') }}</option>{% endfor %}
+      </select></label>
+      <span id="chartFields" {{ 'hidden' if not d.chart }}>
+        <label>Date <select name="chart_x">{% for cid, col in cols.items() if col.kind == 'date' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.x == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+        <label>Value <select name="chart_y"><option value="">Count of rows</option>{% for cid, col in cols.items() if col.kind == 'number' %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.y == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+        <span id="chartSeries" {{ 'hidden' if not d.chart or d.chart.type != 'stacked_bar' }}>
+          <label>Series <select name="chart_series" {{ 'disabled' if not d.chart or d.chart.type != 'stacked_bar' }}><option value="">—</option>{% for cid, col in cols.items() %}<option value="{{ cid }}" {{ 'selected' if d.chart and d.chart.series == cid }}>{{ col.label }}</option>{% endfor %}</select></label>
+        </span>
+        <label>Bucket <select name="chart_bucket">{% for b in BUCKETS %}<option value="{{ b }}" {{ 'selected' if d.chart and d.chart.bucket == b }}>{{ b }}</option>{% endfor %}</select></label>
       </span>
-      <label>Bucket <select name="chart_bucket">{% for b in BUCKETS %}<option value="{{ b }}" {{ 'selected' if d.chart and d.chart.bucket == b }}>{{ b }}</option>{% endfor %}</select></label>
-    </span></p>
-  <p><label>Page <select name="orientation">{% for o in ORIENTATIONS %}<option value="{{ o }}" {{ 'selected' if d.orientation == o }}>{{ o }}</option>{% endfor %}</select></label>
-     <label><input type="checkbox" name="per_kid_sections" {{ 'checked' if d.per_kid_sections }}> start each group on its own page</label></p>
-  <p><button class="primary">Save</button>
-     <button type="button" hx-post="/reports/preview" hx-include="#builder" hx-target="#preview">Preview</button>
-     <a class="badge" href="/reports">Back to reports</a></p>
+    </p>
+  </fieldset>
+  <div class="settings-grid">
+    <label>Page <select name="orientation">{% for o in ORIENTATIONS %}<option value="{{ o }}" {{ 'selected' if d.orientation == o }}>{{ o }}</option>{% endfor %}</select></label>
+  </div>
+  <p><label class="tick"><input type="checkbox" name="per_kid_sections" {{ 'checked' if d.per_kid_sections }}> start each group on its own page</label></p>
+  <p class="actions"><button class="primary">Save</button>
+     <button type="button" hx-post="/reports/preview" hx-include="#builder" hx-target="#preview">Preview</button></p>
 </form>
 <div id="preview"></div>
 {% endblock %}
