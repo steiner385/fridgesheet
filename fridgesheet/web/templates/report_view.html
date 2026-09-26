@@ -19,7 +19,7 @@
 {% set page_crumb = "Back to reports" %}{% set page_crumb_href = "/reports" %}
 {% set page_title = report.name %}{% set page_head_class = "screen-only" %}
 {% set page_intro = "Print this report using your browser." %}
-{% set page_actions %}<a class="button-link" href="/reports/{{ report.id }}">Edit</a> <button type="button" data-print>Print / save PDF</button>{% endset %}
+{% set page_actions %}<a class="button-link" href="/reports/{{ report.id }}">Edit</a> <a class="button-link" href="/reports/{{ report.id }}/export.csv">CSV</a> <a class="button-link" href="/reports/{{ report.id }}/export.json">JSON</a> <button type="button" data-print>Print / save PDF</button>{% endset %}
 {% include "_page_head.html" %}
 <article>
 <p>Printed {{ now | wd_md_time }}</p>

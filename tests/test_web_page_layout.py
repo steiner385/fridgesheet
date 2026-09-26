@@ -255,6 +255,52 @@ def test_a_phone_held_sideways_puts_the_strip_and_the_bar_on_one_row():
     assert re.search(r"main\s*\{[^}]*grid-column: 1 / -1", block)
 
 
+# --- the follow-ups: #193 a report row's controls, #194 the builder as a form ------------------------
+
+def test_a_saved_reports_row_keeps_preview_and_print_and_folds_the_rest(tmp_path):
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import reports as store
+    seed(tmp_path).close()
+    conn = db.open_db(tmp_path)
+    store.seed_templates(conn, now="2026-09-15T08:00:00-04:00")
+    conn.close()
+    body = app_for(tmp_path, worker=True).get("/reports").text
+    row = re.search(r'<td><a href="/reports/(\d+)/view".*?</tr>', body, re.S).group(0)
+    assert row.count("<button>Preview</button>") == 1 and row.count("<button>Print</button>") == 1
+    more = re.search(r'<details class="row-more"><summary>More</summary>(.*?)</details>', row, re.S).group(1)
+    for text in (">Edit</a>", ">CSV</a>", ">JSON</a>", 'class="danger">Delete</button>'):
+        assert text in more, text
+    # One "Refresh data first" for the page, included by every job button; none per row.
+    assert body.count('id="refresh-first"') == 1
+    assert 'name="refresh_first"' not in row
+    assert row.count('hx-include="#refresh-first"') == 2
+
+
+def test_the_report_view_offers_the_exports_beside_edit(tmp_path):
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import reports as store
+    seed(tmp_path).close()
+    conn = db.open_db(tmp_path)
+    store.seed_templates(conn, now="2026-09-15T08:00:00-04:00")
+    rid = conn.execute("SELECT id FROM reports ORDER BY id LIMIT 1").fetchone()["id"]
+    conn.close()
+    head = re.search(r'<p class="page-actions">(.*?)</p>', app_for(tmp_path).get(f"/reports/{rid}/view").text, re.S).group(1)
+    assert f'href="/reports/{rid}"' in head and f'href="/reports/{rid}/export.csv"' in head and f'href="/reports/{rid}/export.json"' in head
+
+
+def test_the_builder_is_laid_out_like_the_other_forms(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/reports/new").text
+    form = re.search(r'<form[^>]*id="builder"[^>]*>(.*?)</form>', body, re.S).group(0)
+    assert 'class="card builder-form"' in form
+    assert form.count('class="settings-grid"') >= 3
+    for legend in ("Kids", "Columns", "Sort", "Filters", "Chart"):
+        assert re.search(rf"<legend>{legend}\b", form), legend
+    assert "<p><label>" not in form                                     # the inline prose layout is gone
+    assert 'id="customRange"' in form and 'id="chartFields"' in form and 'id="chartSeries"' in form
+    assert re.search(r"\.builder-form\s*\{[^}]*max-width: var\(--measure\)", CSS)
+
+
 def test_the_print_pages_keep_the_head_on_screen_and_drop_its_chrome_on_paper():
     printing = _block("print")
     assert ".print-page .crumb" in printing and ".print-page .page-actions" in printing
