@@ -164,6 +164,11 @@ legend { padding: 0 4px; font-weight: 600; }
 .builder-form fieldset { margin-top: 12px; }
 .builder-form .row select, .builder-form .row input { min-width: 0; }
 .tick { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 2px 0; }
+/* A schedule's form (Schedules): bounded to the measure like every form, one card-like block
+   per report (#185). */
+.schedule { max-width: var(--measure); padding: 12px 0 4px; border-top: 1px solid var(--rule); }
+.schedule h4 { margin: 0 0 4px; }
+.schedule > .tick { display: flex; margin: 4px 0; }
 .note { border-left: 3px solid var(--rule); padding: 4px 8px; margin: 6px 0; background: var(--paper); }
 .note .meta { font-size: var(--type-small); color: var(--muted); }
 textarea { width: 100%; min-height: 60px; font: inherit; }

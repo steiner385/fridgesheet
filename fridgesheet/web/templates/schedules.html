@@ -9,27 +9,30 @@
   {% if item.enabled %} · {% if item.last_run %}last: {{ item.last_run }}{% else %}has not run on a schedule yet{% endif %}{% endif %}
 </p>
 {%- endmacro %}
-{% set page_title = "Schedules" %}{% include "_page_head.html" %}
-<p class="muted">Fridge Sheet runs these itself, while it is running: a scheduled report builds and prints
-   (or just keeps the PDF) from the last data refresh; it does not refresh first, so keep <strong>Refresh the data</strong>
-   below turned on -- saving a report schedule turns it on if it is off. The time is also the earliest a catch-up run
-   will print, so a run missed overnight does not print yesterday's sheet in the morning.</p>
-{% for n in notices %}<p class="warn">{{ n }}</p>{% endfor %}
-{% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
-{% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
-{% if refresh_warning %}<p class="warn">{{ refresh_warning }}</p>{% endif %}
+{# One intro sentence in the page head (#185); the rest is said beside the control it explains. #}
+{% set page_title = "Schedules" %}
+{% set page_intro = "Fridge Sheet runs these itself while it is running, each from the last data refresh: a report does not refresh first." %}
+{% include "_page_head.html" %}
+{% for n in notices %}<p class="notice warn" role="alert">{{ n }}</p>{% endfor %}
+{% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
+{% for e in errors %}<p class="notice warn" role="alert">{{ e }}</p>{% endfor %}
+{% if refresh_warning %}<p class="notice warn" role="alert">{{ refresh_warning }}</p>{% endif %}
 
 {% if refresh_schedule %}
 <h3>Refresh the data</h3>
 <p class="muted">How often Fridge Sheet pulls Canvas and HAC. A printed report reads whatever
-  the last refresh left behind, so this is what keeps it -- and the page on the wall -- current.</p>
-<form hx-post="/schedules/refresh" hx-target="body">
-  <label><input type="checkbox" name="enabled" {{ "checked" if refresh_schedule.enabled }}> Refresh on a schedule</label>
-  <label>Every <input type="number" name="every_hours" min="1" max="24" value="{{ refresh_schedule.every_hours }}"> hours</label>
-  <label>Between <input type="time" name="start" value="{{ refresh_schedule.start }}"></label>
-  <label>and <input type="time" name="end" value="{{ refresh_schedule.end }}"></label>
-  <span>{% for d in days %}<label><input type="checkbox" name="days" value="{{ d }}"
-    {{ "checked" if d in refresh_schedule.days }}> {{ d }}</label>{% endfor %}</span>
+  the last refresh left behind, so this is what keeps it -- and the page on the wall -- current.
+  Saving a report schedule below turns this on if it is off.</p>
+<form hx-post="/schedules/refresh" hx-target="body" class="schedule">
+  <label class="tick"><input type="checkbox" name="enabled" {{ "checked" if refresh_schedule.enabled }}> Refresh on a schedule</label>
+  <p class="row">
+    <label>Every <input type="number" name="every_hours" min="1" max="24" value="{{ refresh_schedule.every_hours }}"> hours</label>
+    <label>Between <input type="time" name="start" value="{{ refresh_schedule.start }}"></label>
+    <label>and <input type="time" name="end" value="{{ refresh_schedule.end }}"></label>
+  </p>
+  <fieldset><legend>Days</legend>
+    {% for d in days %}<label class="tick"><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in refresh_schedule.days }}> {{ d }}</label>{% endfor %}
+  </fieldset>
   {# A window that does not expand is said once, by `status`, in place of the times. #}
   {% if refresh_schedule.times and not refresh_schedule.problem %}<p class="muted">Refreshes at {{ refresh_schedule.times | join(', ') }}.</p>{% endif %}
   {{ status(refresh_schedule) }}
@@ -37,26 +40,27 @@
 </form>
 {% endif %}
 
+<h3>Reports</h3>
+<p class="muted">A report's time is also the earliest a run missed overnight will catch up, so a
+  run missed at night does not print yesterday's sheet in the morning.</p>
 {% for r in rows %}
 <form method="post" action="/schedules" class="schedule">
   <input type="hidden" name="key" value="{{ r.key }}">
-  <h3>{{ r.title }} <span class="muted">{{ r.key }}</span></h3>
+  <h4>{{ r.title }} <span class="muted">{{ r.key }}</span></h4>
   {{ status(r) }}
-  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }}> Run this on a schedule</label>
-  <label>Time <input type="time" name="time" value="{{ r.time }}" required></label>
+  <label class="tick"><input type="checkbox" name="enabled" {{ "checked" if r.enabled }}> Run this on a schedule</label>
+  <p class="row"><label>Time <input type="time" name="time" value="{{ r.time }}" required></label></p>
   <fieldset><legend>Days</legend>
-    {% for d in days %}
-    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }}> {{ d }}</label>
-    {% endfor %}
+    {% for d in days %}<label class="tick"><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }}> {{ d }}</label>{% endfor %}
   </fieldset>
-  <label>Printer
+  <p class="row"><label>Printer
     <select name="printer">
       <option value="">(the printer on the Settings page)</option>
       {% for value, label, sel in printer_options[r.key] %}<option value="{{ value }}" {{ "selected" if sel }}>{{ label }}</option>{% endfor %}
     </select>
-  </label>
-  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }}> Print it (off: keep the PDF only)</label>
-  <button class="primary">Save</button>
+  </label></p>
+  <label class="tick"><input type="checkbox" name="prints" {{ "checked" if r.prints }}> Print it (off: keep the PDF only)</label>
+  <p><button class="primary">Save</button></p>
 </form>
 {% endfor %}
 {% endblock %}
