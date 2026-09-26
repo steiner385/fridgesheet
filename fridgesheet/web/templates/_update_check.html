@@ -1,0 +1,6 @@
+{# What POST /settings/update/check answers with: the status line (the htmx target, swapped
+   in place) and the update button block, swapped out of band into the `#update-action`
+   anchor Settings always renders. Without the second piece a check that finds a release
+   shows "is available" but the "Update to X" form only appears after a page reload. #}
+{% include "_update_status.html" %}
+{% set oob = true %}{% include "_update_button.html" %}

@@ -5,9 +5,16 @@
    The reason, when there is one, is a plain line of text rather than a tooltip on a
    disabled control: this page is read on phones and on a kitchen kiosk, both places nothing
    hovers, so a tooltip is a tooltip nobody ever sees. It is rendered in the Updates card
-   (settings.html), beside the PIN field it is usually about, not here below it (#145). #}
+   (settings.html), beside the PIN field it is usually about, not here below it (#145).
+
+   The `#update-action` wrapper is always rendered, even empty, so that "Check for updates
+   now" (`_update_check.html`) has somewhere to swap this block out of band when a check
+   finds a release. The poll that follows a successful update lives in settings.html, not
+   here: a script inside a block that can be swapped in more than once would register its
+   listener once per swap. #}
+<div id="update-action"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
 {% if update_ready %}
-  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="card update-action">
+  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="card update-action" data-latest="{{ update.latest }}">
     <h3>Update Fridge Sheet</h3>
     <div class="row">
       <label>Enter your update PIN <input type="password" name="pin" autocomplete="off" required></label>
@@ -15,40 +22,5 @@
     </div>
   </form>
   <div id="update-job"></div>
-  <script>
-  // The server is about to be killed by the installer it starts, so this poll has to
-  // outlive it -- it works only because this script is already loaded and running in the
-  // browser by the time that happens; nothing after the POST depends on the server that
-  // handled it still being there.
-  document.body.addEventListener('htmx:afterRequest', function (e) {
-    if (!e.detail.pathInfo || e.detail.pathInfo.requestPath !== '/settings/update') return;
-    if (e.detail.xhr.status !== 200) return;
-    var deadline = Date.now() + 10 * 60 * 1000;
-    (function poll() {
-      // Checked first, on every iteration, so a timeout is reached the same way whether the
-      // last attempt failed to connect or succeeded and just reported the old version --
-      // see the two branches below.
-      if (Date.now() > deadline) {
-        document.getElementById('update-job').textContent =
-          'This is taking longer than expected. Open Fridge Sheet from your desktop shortcut.';
-        return;
-      }
-      fetch('/health', {cache: 'no-store'})
-        .then(function (r) { return r.json(); })
-        .then(function (h) {
-          // The server answered -- with the old version, most likely, still running until
-          // the installer reaches it. Normal mid-update; keep polling.
-          if (h.version === '{{ update.latest }}') { location.reload(); return; }
-          setTimeout(poll, 3000);
-        })
-        .catch(function () {
-          // fetch rejects when there is nothing to connect to: the old server has exited
-          // and the new one has not opened its port yet. Just as normal mid-update as the
-          // old-version reply above -- neither case ends the poll early, only the deadline
-          // checked at the top of this function does.
-          setTimeout(poll, 3000);
-        });
-    })();
-  });
-  </script>
 {% endif %}
+</div>
