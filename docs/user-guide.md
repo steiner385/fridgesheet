@@ -649,8 +649,9 @@ The **Open Work Sheet** is built in. You can build your own on **Reports**.
 
 ## 12. Runs, Changes and Trends
 
-**Runs** — the last 100 sheets and reports built or printed: when, which, *Started by*
-(you, the schedule, the command line), OK/FAIL/SKIP and why, the PDF, and **Reprint**.
+**Runs** — the last 100 sheets and reports built or printed: when, which (with who started
+it under the name: you, the schedule, the command line), OK/FAIL/SKIP and why, and under
+the message the PDF and **Reprint**.
 
 **Reprint** sends that row's stored PDF to the printer again, exactly as it was — it does
 not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own file

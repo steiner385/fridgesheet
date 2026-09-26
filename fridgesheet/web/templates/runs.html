@@ -3,21 +3,27 @@
 {% block content %}
 {% set page_title = "Runs" %}{% set page_intro = "Every sheet, report and refresh the app has run, newest first, with why one failed." %}{% include "_page_head.html" %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
+{# Four columns, not seven (#187): who started it sits under the report's name, and the PDF
+   link and Reprint under the message, so the table fits a 390px phone without a swipe. #}
 <div class="table-wrap">
-<table class="items">
-  <tr><th>Started</th><th>Report</th><th>Started by</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
+<table class="items runs">
+  <tr><th>Started</th><th>Report</th><th>Outcome</th><th>Message</th></tr>
   {% for r in rows %}
   <tr>
-    <td>{{ r.started_at | wd_md_time }}</td><td>{{ titles.get(r.report_key, r.report_key) }}</td><td class="muted">{{ r.trigger | trigger_words }}</td>
+    <td>{{ r.started_at | wd_md_time }}</td>
+    <td>{{ titles.get(r.report_key, r.report_key) }}<small class="by">{{ r.trigger | trigger_words }}</small></td>
     <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
-    <td>{{ r.message }}</td>
-    <td>{% if pdfs[r.id] %}<a href="/runs/{{ r.id }}/pdf">open</a>{% endif %}</td>
-    <td>{% if jobs and r.outcome == 'OK' and pdfs[r.id] and r.report_key != 'refresh' %}
+    <td>{{ r.message }}
+      {% set can_reprint = jobs and r.outcome == 'OK' and pdfs[r.id] and r.report_key != 'refresh' %}
+      {% if pdfs[r.id] or can_reprint %}<small class="row-actions">
+      {% if pdfs[r.id] %}<a href="/runs/{{ r.id }}/pdf">open the PDF</a>{% endif %}
+      {% if can_reprint %}
       {# The stored PDF, printed again as it is -- not a rebuild from today's data (#143). #}
       <form hx-post="/jobs/reprint" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print {{ titles.get(r.report_key, r.report_key) }} from {{ r.started_at | md }} again, as it was, on {{ r.report_key | printer_name }}?">
-        <input type="hidden" name="run_id" value="{{ r.id }}"><button>Reprint</button></form>{% endif %}</td>
+        <input type="hidden" name="run_id" value="{{ r.id }}"><button>Reprint</button></form>{% endif %}
+      </small>{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="4" class="muted">No runs yet.</td></tr>{% endfor %}
 </table>
 </div>
 {% endblock %}

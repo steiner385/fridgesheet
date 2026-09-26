@@ -370,6 +370,11 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 button.link { border: none; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; }
 
 table.work td.item small { display: block; color: var(--muted); font-size: var(--type-small); }
+/* The second, quieter line of any cell (Runs: who started it; Changes: the kid and the class):
+   a column folded under the one it described, so the table fits a phone (#187). */
+table.items td > small { display: block; color: var(--muted); font-size: var(--type-small); }
+table.items td > small.row-actions { display: flex; margin-top: 4px; }
+table.items td > small a { color: inherit; }
 table.work td.item small a { color: inherit; }
 table.work td.due small.rel { display: block; }
 /* Open work stacks several short tables; fixed columns line them up under each other. The
