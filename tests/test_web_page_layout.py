@@ -126,10 +126,25 @@ def test_page_actions_sit_in_the_head_not_in_the_body(tmp_path):
 
 
 def test_what_a_post_did_is_a_notice_not_a_bare_coloured_line():
-    for name in ("reports.html", "settings.html", "report_builder.html", "checkin.html"):
+    for name in ("reports.html", "settings.html", "report_builder.html", "checkin.html", "schedules.html"):
         src = (TEMPLATES / name).read_text(encoding="utf-8")
-        assert '<p class="ok">' not in src, name
+        assert '<p class="ok">' not in src and '<p class="warn">' not in src, name
         assert 'class="notice' in src, name
+
+
+def test_schedules_is_one_intro_sentence_and_forms_to_the_measure(tmp_path):
+    """#185: the intro was four sentences; the forms ran the page's width; the day boxes'
+    labels were bare."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/schedules").text
+    intro = re.search(r'<p class="page-intro">(.*?)</p>', body).group(1)
+    assert intro.count(". ") == 0 and "does not refresh first" in intro
+    assert re.search(r"\.schedule\s*\{[^}]*max-width: var\(--measure\)", CSS)
+    forms = re.findall(r'<form[^>]*class="schedule"', body)
+    assert len(forms) >= 2                                  # the refresh, then one per report
+    assert 'hx-post="/schedules/refresh" hx-target="body" class="schedule"' in body
+    assert body.count('<label class="tick"><input type="checkbox" name="days"') >= 14
+    assert "Refresh the data" in body and "<h3>Reports</h3>" in body
 
 
 # --- section 3: tables scroll in their own box, everywhere ------------------------------------------
