@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+from fridgesheet import sources
 from fridgesheet.web import db, ingest
 from fridgesheet.web.stores import flags, students, trends
 from tests.web_fixtures import NOW, REFRESH_TIMES, TZ, history, seed, snapshot
@@ -27,6 +28,33 @@ def test_grade_series_per_course_and_source(tmp_path):
     assert [v for _, v in canvas.points] == [93.0, 91.2]
     assert canvas.label == "Honors English 9 (Canvas current)"
     assert hac.label == "Honors English 9 (HAC average)"
+    conn.close()
+
+
+def test_headline_series_draws_each_class_from_its_grades_source_only(tmp_path):
+    """The Trends chart must not mix sources: a class gets one line, from the source the
+    family's grades preference picks, and the other source's line is not drawn beside it."""
+    conn = history(tmp_path)
+    kept = {(s.course_short, s.source) for s in trends.headline_series(trends.grade_series(conn))}
+    assert kept == {("Honors English 9", "hac"), ("Algebra I", "hac"), ("Science 7", "hac")}
+    flipped = sources.DEFAULT.with_default("canvas", "canvas")
+    kept = {(s.course_short, s.source) for s in trends.headline_series(trends.grade_series(conn, prefs=flipped))}
+    assert kept == {("Honors English 9", "canvas"), ("Algebra I", "canvas"), ("Science 7", "canvas")}
+    conn.close()
+
+
+def test_headline_series_falls_back_to_the_other_source_when_the_chosen_one_has_nothing(tmp_path):
+    """A Canvas-only class (no HAC twin) under the default HAC preference still gets a line --
+    the other source fills the gap, the same rule the course page's headline follows."""
+    snap = snapshot()
+    snap["students"]["Alex"]["canvas"]["courses"].append(
+        {"id": 8, "name": "Art S1-2027-Roe", "course_code": "ART1",
+         "grade": {"current_score": 95.0, "final_score": None, "current_grade": "A", "hidden": False},
+         "staff": [], "assignments": []})
+    conn = seed(tmp_path, snap)
+    kept = {(s.course_short, s.source) for s in trends.headline_series(trends.grade_series(conn))}
+    assert ("Art", "canvas") in kept
+    assert ("Honors English 9", "hac") in kept and ("Honors English 9", "canvas") not in kept
     conn.close()
 
 

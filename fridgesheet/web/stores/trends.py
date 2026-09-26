@@ -27,6 +27,7 @@ class GradeSeries:
     label: str
     points: list[tuple[datetime, float]] = field(default_factory=list)
     official: bool = False            # the family's grades source for this kid and class (sources.py)
+    peer_course_id: int | None = None  # the same class's course row in the other source
 
 
 @dataclass(frozen=True)
@@ -66,7 +67,7 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
     exclusive; a chart wants its first point, a feed must not repeat the event it started after.
     """
     sql = """SELECT g.*, r.started_at AS at, c.short_name AS course_short, c.name AS course_name, pc.name AS peer_course_name,
-                    s.key AS student_key
+                    c.peer_course_id AS peer_course_id, s.key AS student_key
              FROM grade_observations g JOIN refreshes r ON r.id = g.refresh_id
              JOIN courses c ON c.id = g.course_id JOIN students s ON s.id = c.student_id
              LEFT JOIN courses pc ON pc.id = c.peer_course_id
@@ -94,9 +95,24 @@ def grade_series(conn: sqlite3.Connection, *, student_id: int | None = None,
             if s is None:
                 pick = (prefs or sources.DEFAULT).resolve(r["student_key"], r["course_name"], r["peer_course_name"]).grades
                 s = out[key] = GradeSeries(r["course_id"], r["course_short"], source,
-                                           f"{r['course_short']} ({word})", official=source == pick)
+                                           f"{r['course_short']} ({word})", official=source == pick,
+                                           peer_course_id=r["peer_course_id"])
             s.points.append((at, float(value)))
     return sorted((s for s in out.values() if s.points), key=lambda s: not s.official)
+
+
+def headline_series(series: list[GradeSeries]) -> list[GradeSeries]:
+    """One line per class: the official source's, so a chart never mixes sources. A class
+    whose official source has nothing to draw (a Canvas-only class under the HAC default, or
+    HAC not configured) shows the other source's line instead -- sources.py's rule that the
+    other source fills a gap, the same one the course page's headline follows.
+
+    A class is a Canvas course row and its HAC twin (`peer_course_id`, set both ways by
+    ingest), each with its own observations, so the twin's line is the one to drop when this
+    course's is official. An unpaired course has no twin to defer to and keeps its line."""
+    official = {s.course_id for s in series if s.official}
+    return [s for s in series
+            if s.official or (s.course_id not in official and s.peer_course_id not in official)]
 
 
 def weekly_counts(conn: sqlite3.Connection, *, student_id: int | None = None, weeks: int = 8,

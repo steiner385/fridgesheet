@@ -36,19 +36,23 @@ def weekly_chart(rows: list[trends.WeekOutcomes], now: datetime) -> charts.Chart
                             series=series, labels=labels, title="Work due that week")
 
 
-def grade_chart(series: list[trends.GradeSeries], *, title: str, now: datetime) -> charts.ChartData | None:
-    """One stepped line per course and source, each observation at the moment it was seen:
+def grade_chart(series: list[trends.GradeSeries], *, title: str, now: datetime,
+                mark_official: bool = True) -> charts.ChartData | None:
+    """One stepped line per series, each observation at the moment it was seen:
     `grade_observations` only holds rows where something changed, so a line holds its value
-    until the next point -- and on to `now`, because the grade *is* still that today. The
-    official source (sources.py) is drawn thicker and says so in its label, the words the
-    Changes feed uses. None when there is nothing to draw -- the page prints its sentence
-    rather than an empty chart."""
+    until the next point -- and on to `now`, because the grade *is* still that today. With
+    `mark_official`, the official source (sources.py) is drawn thicker and says so in its
+    label, the words the Changes feed uses: the course page draws one course's own line,
+    which may or may not be the official one. Trends passes `headline_series`, where every
+    line is the class's headline, so the marker would say nothing and is left off. None
+    when there is nothing to draw -- the page prints its sentence rather than an empty chart."""
     if not series:
         return None
     return charts.ChartData(
         type="line", x_label="Seen", y_label="Grade", x_scale="time", stepped=True, title=title,
         hold_until=int(now.timestamp() * 1000),
-        series=[charts.ChartSeries(label=s.label + (" · official" if s.official else ""), emphasis=s.official,
+        series=[charts.ChartSeries(label=s.label + (" · official" if mark_official and s.official else ""),
+                                   emphasis=mark_official and s.official,
                                    points=[(int(t.timestamp() * 1000), v) for t, v in s.points])
                 for s in series])
 
@@ -100,9 +104,11 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     week_rows = trends.weekly_outcomes(conn, student_id=sid, weeks=weeks, now=now, prefs=prefs)
     # One grade chart per kid, not one for the house (#40 item 12), each over the same
     # clamped `weeks` window, so the caption's course list is never broader than what is drawn.
+    # One line per class, from its grades source: a chart must not mix HAC and Canvas.
     since = _since(weeks, now)
     kids = [student] if student else students_store.visible(conn)
-    per_kid = [(s["key"], trends.grade_series(conn, student_id=s["id"], since=since, prefs=prefs)) for s in kids]
+    per_kid = [(s["key"], trends.headline_series(trends.grade_series(conn, student_id=s["id"], since=since, prefs=prefs)))
+               for s in kids]
 
     def title(key: str) -> str:
         return "Grade per class" if student else f"{state.settings.nicknames.get(key, key)} — grade per class"
@@ -111,7 +117,7 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
                   kid=student["key"] if student else None, weeks=weeks,
                   course_names=sorted({gs.course_short for _, series in per_kid for gs in series}),
                   has_grades=any(series for _, series in per_kid),
-                  grade_charts=[(key, chart_json(grade_chart(series, title=title(key), now=now)) if series else None)
+                  grade_charts=[(key, chart_json(grade_chart(series, title=title(key), now=now, mark_official=False)) if series else None)
                                 for key, series in per_kid],
                   weekly_json=chart_json(weekly_chart(week_rows, now)),
                   week_rows=week_rows,

@@ -56,12 +56,28 @@ def _grade_labels(body: str) -> set[str]:
             for d in c["data"]["datasets"]}
 
 
-def test_the_trends_grade_chart_marks_the_official_series(tmp_path):
+def test_the_trends_grade_chart_draws_only_the_official_source(tmp_path):
+    """A chart must not mix sources: each class's line comes from the grades source, and the
+    other source's line for the same class is not drawn. With every line official, the
+    "· official" marker the course page uses would say nothing, so it is not shown."""
     history(tmp_path).close()
     labels = _grade_labels(client(tmp_path, "").get("/trends").text)
-    assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
+    assert "Honors English 9 (HAC average)" in labels and "Honors English 9 (Canvas current)" not in labels
+    assert not any("official" in l for l in labels)
     labels = _grade_labels(client(tmp_path, CANVAS_GRADES).get("/trends").text)
-    assert "Honors English 9 (Canvas current) · official" in labels and "Honors English 9 (HAC average)" in labels
+    assert "Honors English 9 (Canvas current)" in labels and "Honors English 9 (HAC average)" not in labels
+
+
+def test_the_course_page_chart_still_says_which_line_is_official(tmp_path):
+    """The course page draws one course's own line, which may or may not be the official
+    source, so its marker keeps meaning there."""
+    conn = history(tmp_path)
+    cid = english(conn)
+    conn.close()
+    labels = _grade_labels(client(tmp_path, "").get(f"/kids/Alex/courses/{cid}").text)
+    assert labels == {"Honors English 9 (Canvas current)"}
+    labels = _grade_labels(client(tmp_path, CANVAS_GRADES).get(f"/kids/Alex/courses/{cid}").text)
+    assert labels == {"Honors English 9 (Canvas current) · official"}
 
 
 def test_grade_change_events_say_which_is_official(tmp_path):
@@ -84,7 +100,9 @@ def test_report_builder_grades_rows_carry_official(tmp_path):
 
 def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
     """Review finding: grade_series resolved each twin by its own name, so a rule matching only the
-    Canvas name made both the Canvas and the HAC series official."""
+    Canvas name made both the Canvas and the HAC series official -- and now that Trends draws
+    only the official line, that would have drawn both again."""
     history(tmp_path).close()
     labels = _grade_labels(client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text)
-    assert "Honors English 9 (Canvas current) · official" in labels and "Honors English 9 (HAC average)" in labels
+    assert "Honors English 9 (Canvas current)" in labels and "Honors English 9 (HAC average)" not in labels
+    assert "Algebra I (HAC average)" in labels                           # the rule is about one class
