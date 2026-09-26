@@ -15,6 +15,10 @@
            size="6" placeholder="e.g. 50% or ?"></label>
   </fieldset>
 
+  {# The quarters and the rules fold, as the no-print days do: closed on a fresh page load,
+     open after a save or an error, which is only ever the parent mid-edit (#186). #}
+  <details class="fold" {{ 'open' if saved or errors }}>
+    <summary>{{ late_rules.quarters | length }} quarter{{ '' if late_rules.quarters | length == 1 else 's' }} and {{ late_rules.rules | length }} rule{{ '' if late_rules.rules | length == 1 else 's' }} set — show and edit</summary>
   <fieldset>
     <legend>Quarters <span class="muted">grading-period end dates, for a "through end of quarter" rule</span></legend>
     <div id="quarter-rows">
@@ -49,6 +53,9 @@
       {% endfor %}
     </div>
     <button type="button" data-add-row="rule-row-tmpl" data-add-target="rule-rows">Add rule</button>
+  </fieldset>
+  </details>
+  {# The row a click on "Add rule" clones; a <template> renders nothing where it sits. #}
     <template id="rule-row-tmpl">
       <p class="row rule-row">
         <input name="rule_kid" placeholder="Kid's first name (optional)">
@@ -65,7 +72,6 @@
         <button type="button" class="danger" data-remove-row>Remove</button>
       </p>
     </template>
-  </fieldset>
 
   <p><button class="primary">Save late-rules.toml</button></p>
 </form>

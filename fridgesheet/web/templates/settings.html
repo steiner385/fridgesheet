@@ -121,6 +121,9 @@
    inside another <form> is invalid HTML that browsers do not render predictably. The same goes
    for the Gradebook overrides table below, whose Remove buttons are forms of their own. #}
 <div class="settings-below">
+{# Said once, at the seam: the sticky Save above covers the cards above it, and each card
+   below has a Save of its own (#186). #}
+<p class="field-help seam">Save above keeps the cards above it. Each card below saves on its own.</p>
 {% include "_update_button.html" %}
 {% if source_rules %}
 <section class="card">
@@ -137,7 +140,11 @@
 {% with errors=[], saved=false, notes=[], problems=skip_problems %}{% include "_no_print_days_editor.html" %}{% endwith %}
 <section class="card">
 <h3>About</h3>
+{# The version line stays in view; the components and their licences -- a phone screen of
+   text -- fold under it (#186). #}
+<details class="fold"><summary>{{ about.split('\n')[0] }} <span class="muted">— what it is built from, and the licences</span></summary>
 <pre class="muted">{{ about }}</pre>
+</details>
 </section>
 </div>
 {% endblock %}

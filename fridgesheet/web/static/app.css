@@ -422,7 +422,10 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* Settings: one card per topic, fields stacked label-over-input in a grid, help text underneath
    rather than run on beside the control. Scoped to .settings-grid so no other page's labels change. */
 .settings-form { display: grid; gap: 16px; margin-bottom: 16px; }
+/* The seam between the one form the sticky Save covers and the cards that save on their own. */
+.settings-below { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--rule); }
 .settings-below > * + * { margin-top: 16px; }
+.settings-below .seam { margin: 0 0 12px; }
 .card h3 { margin: 0 0 12px; font-size: 16px; }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; margin: 0 0 8px; }
 .settings-grid label { display: grid; gap: 4px; font-weight: 550; min-width: 0; }
@@ -433,7 +436,7 @@ details.field-help summary { cursor: pointer; }
 .network-row .qr { flex: none; }
 .network-row .qr svg { width: 132px; height: 132px; display: block; }
 .settings-save-bar { position: sticky; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; background: var(--wash); border-top: 1px solid var(--rule); }
-details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 8px; }
+details.skip-days > summary, details.fold > summary { cursor: pointer; font-weight: 550; margin-bottom: 8px; }
 #update-status { margin: 4px 0 8px; }
 .update-action h3 { font-size: 15px; }
 .sources-hint { font-size: var(--type-small); margin: -8px 0 16px; }
