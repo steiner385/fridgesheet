@@ -5,10 +5,10 @@
 {% set page_title = "Trends" %}{% set page_intro = "How the year is going: hand-ins, grades and the work due each week." %}{% include "_page_head.html" %}
 <div class="filters">
   <span>Kid:</span>
-  <a class="badge{{ ' current' if not kid else '' }}" href="/trends?weeks={{ weeks }}">all</a>
-  {% for s in students %}<a class="badge{{ ' current' if kid == s.key else '' }}" href="/trends?kid={{ s.key }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}
+  <a class="badge{{ ' current' if not kid else '' }}"{{ ' aria-current="true"' | safe if not kid }} href="/trends?weeks={{ weeks }}">all</a>
+  {% for s in students %}<a class="badge{{ ' current' if kid == s.key else '' }}"{{ ' aria-current="true"' | safe if kid == s.key }} href="/trends?kid={{ s.key }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}
   <span>Weeks:</span>
-  {% for n in (4, 8, 16) %}<a class="badge{{ ' current' if weeks == n else '' }}" href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
+  {% for n in (4, 8, 16) %}<a class="badge{{ ' current' if weeks == n else '' }}"{{ ' aria-current="true"' | safe if weeks == n }} href="/trends?{{ ('kid=' ~ kid ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
 </div>
 {# With nothing at all yet, one sentence says so; the cards, the charts and the table each had
    their own way of saying the same thing (#5). #}
@@ -17,7 +17,7 @@
 <p class="muted">Not enough history yet. Trends fill in as refreshes accumulate — come back after a few days of runs.</p>
 {% else %}
 <div class="cards">
-  <div class="card"><h2>On-time hand-ins</h2>
+  <div class="card"><h3>On-time hand-ins</h3>
     {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same
        numbers as the Dashboard cards, so this page and that one cannot disagree. #}
     {% if record.on_time_rate is not none %}<p class="big">{{ (record.on_time_rate * 100) | round | int }}%</p>
@@ -25,7 +25,7 @@
     <p class="record">{{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
     {% else %}<p class="muted">Nothing has come due yet.</p>{% endif %}
   </div>
-  <div class="card"><h2>Open the longest</h2>
+  <div class="card"><h3>Open the longest</h3>
     <p class="muted">Days past due and still open.</p>
     {% for name, days in longest %}<p>{{ name }} <span class="muted">{{ days }} days</span></p>{% else %}<p class="muted">Nothing is open.</p>{% endfor %}
   </div>

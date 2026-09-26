@@ -54,7 +54,7 @@ def test_reports_print_confirms_name_the_printer_each_report_uses(tmp_path):
 def test_the_empty_today_card_has_a_refresh_button_not_a_command(tmp_path):
     c = _client(tmp_path)
     page = c.get("/").text
-    card = re.search(r"<h2>Nothing here yet</h2>(.*?)</div>", page, re.S).group(1)
+    card = re.search(r"<h3>Nothing here yet</h3>(.*?)</div>", page, re.S).group(1)
     assert 'hx-post="/jobs/refresh"' in card and "Refresh now" in card
     assert "fridgesheet refresh</code>" not in page and "Run <code>" not in card
 

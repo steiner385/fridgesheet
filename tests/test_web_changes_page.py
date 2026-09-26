@@ -21,7 +21,7 @@ def test_the_default_window_is_since_yesterday(tmp_path):
     assert "Quiz 1" in body and "Now missing" in body      # today's Canvas change
     assert "Vocabulary" not in body                        # yesterday's new item is outside 1 day
     body = app_for(tmp_path).get("/changes?window=nonsense").text
-    assert 'class="badge current" href="/changes?window=1d"' in body  # unknown window falls back, chip still lights up
+    assert 'class="badge current" aria-current="true" href="/changes?window=1d"' in body  # unknown window falls back, chip still lights up
 
 
 def test_a_longer_window_reaches_further_back(tmp_path):
@@ -43,7 +43,7 @@ def test_filters_by_kid_and_kind(tmp_path):
     assert r.status_code == 200                                              # unknown kind: no crash
     # ...and it falls back to no kind filter, with the "all" chip lit, exactly as an unknown
     # window falls back to 1d. A dead query string must not render an empty, unexplained feed.
-    assert 'class="badge current" href="/changes?window=7d">all</a>' in r.text
+    assert 'class="badge current" aria-current="true" href="/changes?window=7d">all</a>' in r.text
     assert "Vocabulary" in r.text and "Now missing" in r.text
     assert c.get("/changes?window=7d&kid=Nobody").status_code == 404
 

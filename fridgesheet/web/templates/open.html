@@ -24,16 +24,17 @@
 {% include "_page_head.html" %}
 {% for s, w in groups %}
 <section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
-  <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>
+  {# A kid is a section of the page (h3), its two lists parts of that (h4) -- #191. #}
+  <h3 class="kid-head"><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h3>
   {% set student, tier, q_base = s, s.key | tier_of, "/questions?kid=" ~ (s.key | urlencode) %}
   {% if not w.fixable and not w.upcoming %}
   <p>Nothing open. Nice work.</p>
   {% else %}
-  <h3>Still fixable <span class="muted">· {{ w.fixable | length }}</span></h3>
+  <h4>Still fixable <span class="muted">· {{ w.fixable | length }}</span></h4>
   {% if w.fixable %}
   {{ rows(w.fixable, student, tier, q_base, true) }}
   {% else %}<p class="muted">Nothing past due that can still be fixed.</p>{% endif %}
-  <h3>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h3>
+  <h4>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h4>
   {% if w.upcoming %}
   {{ rows(w.upcoming, student, tier, q_base, false) }}
   {% else %}<p class="muted">Nothing coming due in the next {{ days_ahead }} days.</p>{% endif %}
@@ -47,6 +48,6 @@
   {% endif %}
 </section>
 {% else %}
-<div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
+<div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
 {% endfor %}
 {% endblock %}

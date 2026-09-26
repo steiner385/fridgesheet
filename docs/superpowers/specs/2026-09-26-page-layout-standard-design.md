@@ -91,7 +91,13 @@ absent, never an empty box.
   audit F5); that is the only permitted difference between pages.
 - **Status bar.** One line, 13 px, `--muted`. Order: refreshed, sources, last run, job,
   update, warnings, clock. Under 1280 px the clock and a *successful* last run are hidden;
-  everything that asks for attention stays.
+  everything that asks for attention stays. Under the strip the stamp drops its weekday and
+  the update badge is the one word "Update", so the line holds at 390 px (#195). The bar is
+  the shell's, not the page's: it sits beside the rail above `<main>`, and on a phone held
+  sideways (at most 1023 px wide and 500 px tall) it shares the strip's row (#196).
+- **Filters.** One pattern for "narrow this list": chips (`.badge`, the one in force filled
+  and `aria-current`) for a short enumeration — window, kid, weeks, Open / Everything — and
+  a select only for a long list, such as the class (#192).
 - **Page head.** One partial, `_page_head.html`, on every page: optional crumb (a sub-page's
   way back, "← Alex's check-in"), the title as `<h2>` at 24 px, optional actions at the
   right (the page's own actions: "Print plan", "New report", "Run diagnostics"; never a
@@ -130,8 +136,9 @@ absent, never an empty box.
 | role | size | weight |
 |---|---|---|
 | page title (`.page-head h2`) | 24 px | 700 |
-| section (`h3`) | 18 px | 650 |
-| card title (`.card h2`, `.card h3`) | 16 px | 600 |
+| section (`h3`); Open work's kid sections (`h3.kid-head`, 22 px) | 18 px | 650 |
+| a section's parts (`h4`: a kid's two lists, a plan's states) | 16 px | 700 |
+| card title (`.card h3`; never `h2`, the page title's level — #191) | 16 px | 600 |
 | body | 15 px root; 16 / 18 / 20 by tier on a child's page | 400 |
 | secondary | `--type-small` (13 px root; tiered) | |
 | status bar, eyebrow, stamp | `--type-tiny` (12 px root; tiered) | |

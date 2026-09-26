@@ -52,8 +52,11 @@
       {% if kid_page %}</div></details>{% endif %}
     </nav>
   </aside>
+  {# The status bar (and the stale banner) are the app's chrome, not the page's content: they
+     sit in the shell beside the rail, so a phone held sideways can put the strip and the bar
+     on one row (#196) and the page starts sooner. #}
+  {% include "_header.html" %}
   <main{% block main_attrs %}{% endblock %}>
-    {% include "_header.html" %}
     {% block content %}{% endblock %}
   </main>
 </div>

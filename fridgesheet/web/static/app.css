@@ -45,8 +45,14 @@ a { color: var(--accent); }
    own resize detection would never see it shrink. Narrowing the window then leaves
    the page horizontally scrollable with the rail pushed off-screen (rotate a phone to
    landscape and back). The `0` minimum lets the track shrink, which lets the canvas shrink. */
-.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); min-height: 100vh; }
-.rail { background: var(--paper); border-right: 1px solid var(--rule); padding: 16px; }
+/* The shell is four things: the rail, the status bar, the stale banner (when there is one) and
+   the page. Beside a sidebar the last three stack in the second column; under the strip they
+   stack in one; a phone held sideways puts the strip and the bar on one row (#196). Each is
+   placed explicitly so an absent banner leaves an empty row and nothing moves. */
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); min-height: 100vh; }
+.rail { grid-row: 1 / 4; grid-column: 1; background: var(--paper); border-right: 1px solid var(--rule); padding: 16px; }
+header.status { grid-row: 1; grid-column: 2; }
+p.stale { grid-row: 2; grid-column: 2; }
 .rail h1 { font-size: 18px; margin: 0 0 12px; }
 .rail nav a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); }
 .rail nav a.current, .rail nav a:hover { background: var(--wash); }
@@ -59,10 +65,15 @@ a { color: var(--accent); }
 /* One ceiling for every page. 1100px left a third of a 1920px screen and half of a 2560px one
    blank; the check-in alone asked for 1600px, and that is now every page's width. What must
    stay narrow for reading (intros, forms) is bounded by `--measure` inside it. */
-main { padding: 16px var(--pad) 48px; max-width: var(--page-max); }
+main { grid-row: 3; grid-column: 2; padding: 16px var(--pad) 48px; max-width: var(--page-max); }
+/* The outline under the page's <h2>: sections are <h3>, cards and Open work's kid sections
+   too (#191), so a screen reader hears the page, then its parts. */
 main h3 { font-size: 18px; font-weight: 650; margin: 24px 0 8px; }
-header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
+main h4 { font-size: 16px; margin: 16px 0 8px; }
+.kid-head { font-size: 22px; margin: 24px 0 8px; }
+header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding: 16px var(--pad) 8px; margin: 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
+header.status .short { display: none; }
 /* The page head, one partial on every page (_page_head.html): an optional crumb back to the
    parent page, the title in the words of the rail link, the page's own actions at the right,
    and one intro sentence bounded to the measure. */
@@ -77,12 +88,17 @@ header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn);
 .notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; margin: 0 0 16px; max-width: var(--measure); }
 .notice.warn { background: #fdecea; border-color: var(--warn); color: var(--warn); }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); }
+/* A filter chip that is the one in force (Changes, Trends): filled, the way the primary button
+   is. It had no rule at all, so nothing on the page said which window or kid was chosen (#192). */
+.badge.current { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
 .badge.OK { border-color: var(--ok); color: var(--ok); } .badge.FAIL { border-color: var(--warn); color: var(--warn); }
 /* `auto-fit`, not `auto-fill`: three cards on a 1600px page fill the row rather than sitting in
    three of five tracks with two empty ones beside them. */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
-.card h2 { margin: 0 0 8px; font-size: 16px; }
+.card h2, .card h3 { margin: 0 0 8px; font-size: 16px; }
+/* The report's own title inside its card: on the print view that is what prints as the heading. */
+.card h3.report-title { font-size: 20px; }
 .big { font-size: 28px; font-weight: 600; }
 .tally { margin: 4px 0; }
 .tally .big { margin-right: 4px; }
@@ -164,8 +180,15 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   /* `auto 1fr`, or the grid's `min-height: 100vh` hands half its spare height to the rail row
      and the strip floats in the middle of ~570px of white. The rail is as tall as its links;
      main takes the rest. */
-  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
-  .rail { position: relative; border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
+  .rail { grid-row: 1; grid-column: 1; position: relative; border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  /* One line at 390px with an update pending: "Refreshed Sat 9/26 1:50 PM · Canvas OK · HAC OK ·
+     Update" is about 340px at the tighter gap; the sentence, or the wider gap, wrapped it. */
+  header.status { grid-row: 2; grid-column: 1; padding-top: 8px; gap: 6px 10px; }
+  header.status .long { display: none; }
+  header.status .short { display: inline; }
+  p.stale { grid-row: 3; grid-column: 1; }
+  main { grid-row: 4; grid-column: 1; }
   .rail h1 { margin: 0 8px 0 0; white-space: nowrap; }
   .rail nav { display: flex; overflow-x: auto; gap: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 24px; }
   .rail nav::-webkit-scrollbar { display: none; }
@@ -179,6 +202,16 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   main { padding: 12px var(--pad) 32px; }
   .page-head { grid-template-columns: minmax(0, 1fr); }
   .page-head .page-actions { grid-column: 1; justify-content: flex-start; }
+}
+/* A phone held sideways: 390px of height, of which the strip and the bar took 31% (#196).
+   Here the two share the first row -- the strip at the left, the bar at the right -- and the
+   page starts under both. The strip keeps its fade; the bar wraps only if a warning is long. */
+@media (max-width: 1023px) and (max-height: 500px) {
+  .shell { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); }
+  .rail { grid-row: 1; grid-column: 1; }
+  header.status { grid-row: 1; grid-column: 2; align-self: stretch; align-items: center; padding: 8px var(--pad) 8px 0; border-bottom: 1px solid var(--rule); }
+  p.stale { grid-row: 2; grid-column: 1 / -1; }
+  main { grid-row: 3; grid-column: 1 / -1; padding-top: 8px; }
 }
 /* Below 1280px the status bar keeps to one line by dropping its two quiet items -- the clock,
    and the last run when it succeeded. They are reassurance, not information, on a device that
@@ -294,7 +327,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 /* The data is older than the runner will print from (web/staleness.py). Loud, because on a
    kiosk nobody reads the Runs page. */
 .stale { background: #fdecea; border: 1px solid var(--warn); color: var(--warn);
-         padding: 8px 12px; margin: 0 0 12px; border-radius: 4px; }
+         padding: 8px 12px; margin: 12px var(--pad) 0; border-radius: 4px; }
 .stale a { color: var(--warn); }
 
 /* Questions (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md) */
@@ -337,7 +370,14 @@ table.work td.where small.thru { display: block; color: var(--muted); font-size:
 .lines .line { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); }
 .lines .line:last-child { border-bottom: none; }
 .lines .line > a, .lines .line > form { margin-left: auto; font-size: var(--type-small); }
-.seg label { margin-right: 8px; }
+/* The Open / Everything choice on Assignments, drawn as the same chips Changes and Trends use
+   (#192): one look for "narrow this list" everywhere. The radio stays in the label for the
+   form and the keyboard; it is only not drawn. */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.seg label { position: relative; display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); cursor: pointer; }
+.seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.seg label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
 .more-filters { display: inline-block; }
 .rail .count { color: var(--accent); font-weight: 600; font-size: 13px; }
 .badge.plan { border-color: var(--ok); color: var(--ok); }
