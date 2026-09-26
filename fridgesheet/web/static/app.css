@@ -247,7 +247,7 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .rail nav .rail-more > summary, .badge[href], .filters label { min-height: 44px; }
   button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
   .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; }
-  .badge[href] { display: inline-flex; align-items: center; padding: 0 12px; }
+  .badge[href], .chart-key button { display: inline-flex; align-items: center; padding: 0 12px; }
   /* A box is a target of its own (WCAG 2.2, 2.5.8: 24px); 22px left every day-of-week box on
      Schedules under the line. */
   input[type=checkbox], input[type=radio] { width: 24px; height: 24px; }
@@ -263,6 +263,17 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
    inline height from `_chart_canvas.html` is the chart's height; `position: relative` is
    what Chart.js's own resize detection asks of a chart's parent. */
 .chart-holder { position: relative; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; }
+/* The chart's key, built by app.js under the holder: one button per series, wrapping as text
+   does, so a six-class chart on a phone spends none of the plot's height on names. Text wears
+   the page's ink; the swatch alone carries the series' colour (a line for a line chart, a box
+   for bars). A pressed-off button is the series hidden: muted and struck through, as the
+   canvas legend showed it. */
+.chart-key { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: -2px 0 12px; }
+.chart-key button { font: inherit; font-size: var(--type-small); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 2px 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.chart-key .swatch { flex: none; width: 12px; height: 12px; border-radius: 2px; }
+.chart-key .swatch.line { width: 16px; height: 3px; }
+.chart-key button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+.chart-key button[aria-pressed="false"] .swatch { opacity: .3; }
 
 /* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
 .rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }

@@ -33,8 +33,8 @@ def test_the_grade_chart_has_one_stepped_series_per_course_on_a_time_axis(tmp_pa
     cfgs = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
     assert len(cfgs) == 1 and cfgs[0]["type"] == "line"
     labels = {d["label"] for d in cfgs[0]["data"]["datasets"]}
-    assert labels == {"Honors English 9 (HAC average)", "Algebra I (HAC average)"}
-    hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    assert labels == {"Honors English 9", "Algebra I"}
+    hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"] == "Honors English 9")
     assert [p["y"] for p in hac["data"]][:2] == [85.0, 88.0]          # the observations; then the hold to now
     assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
     assert hac["stepped"] == "before"                                  # hold until the next point
@@ -49,8 +49,25 @@ def test_every_grade_line_runs_to_now_not_to_its_own_last_observation(tmp_path):
     now_ms = int(NOW.timestamp() * 1000)
     ends = {d["label"]: d["data"][-1]["x"] for d in cfg["data"]["datasets"]}
     assert set(ends.values()) == {now_ms}, ends
-    hac = next(d for d in cfg["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
+    hac = next(d for d in cfg["data"]["datasets"] if d["label"] == "Honors English 9")
     assert [p["y"] for p in hac["data"]] == [85.0, 88.0, 88.0] and hac["pointRadius"][-1] == 0
+
+
+def test_a_trends_line_is_named_for_its_class_alone_unless_it_is_the_other_sources_fallback():
+    """Every line on Trends is the class's headline, so "(HAC average)" after all six class
+    names said nothing six times and doubled the legend's height on a phone. The one line
+    that is *not* from the family's grades source (a class that source has no grade for shows
+    the other's) keeps its source word: it is the exception, so it is the one that says so.
+    The course page (`mark_official`) draws both sources side by side and keeps both words."""
+    from fridgesheet.web.routes.trends import grade_chart
+    from fridgesheet.web.stores.trends import GradeSeries
+    when = NOW - timedelta(days=1)
+    series = [GradeSeries(1, "Algebra I", "hac", "Algebra I (HAC average)", [(when, 88.0)], official=True),
+              GradeSeries(2, "Art", "canvas", "Art (Canvas current)", [(when, 95.0)], official=False)]
+    trends_labels = [s.label for s in grade_chart(series, title="t", now=NOW, mark_official=False).series]
+    assert trends_labels == ["Algebra I", "Art (Canvas current)"]
+    course_labels = [s.label for s in grade_chart(series, title="t", now=NOW, mark_official=True).series]
+    assert course_labels == ["Algebra I (HAC average) · official", "Art (Canvas current)"]
 
 
 def test_the_all_kids_view_draws_one_titled_grade_chart_per_kid(tmp_path):
