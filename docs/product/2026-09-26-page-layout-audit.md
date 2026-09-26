@@ -162,7 +162,18 @@ rule); the tier palettes and type tokens (Sam's pages still render at 20 px); th
 PDF sheet; the Schedules controls (PR #180 is rewriting that page — only its heading moved
 into the page head); the 720 px print column on the two print pages.
 
-## 4. What holds it
+## 4. Follow-ups, as issues
+
+What the audit measured but this alignment did not take on, each filed so it is not lost:
+
+| issue | what |
+|---|---|
+| [#183](https://github.com/steiner385/fridgesheet/issues/183) | A class's page lists every row twice (L12; a route bug, not layout) |
+| [#185](https://github.com/steiner385/fridgesheet/issues/185) | Schedules: one intro sentence, notices, forms to the measure — after #180 lands |
+| [#186](https://github.com/steiner385/fridgesheet/issues/186) | Settings is 5.1 screens on a phone: fold About and the late-rules editor |
+| [#187](https://github.com/steiner385/fridgesheet/issues/187) | Runs (472 px) and Changes (421 px) still ask a 390 px phone for a sideways swipe |
+
+## 5. What holds it
 
 `tests/test_web_page_layout.py` (24 tests): the tokens, the one ceiling, the measure on
 prose and forms, the page head on every page template with the title before any other
