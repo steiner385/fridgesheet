@@ -52,20 +52,29 @@ def test_course_page_headline_follows_the_grades_source(tmp_path):
 
 
 def _grade_labels(body: str) -> set[str]:
-    return {d["label"] for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
-            for d in c["data"]["datasets"]}
+    return set(_grade_label_list(body))
+
+
+def _grade_label_list(body: str) -> list[str]:
+    return [d["label"] for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
+            for d in c["data"]["datasets"]]
 
 
 def test_the_trends_grade_chart_draws_only_the_official_source(tmp_path):
     """A chart must not mix sources: each class's line comes from the grades source, and the
-    other source's line for the same class is not drawn. With every line official, the
-    "· official" marker the course page uses would say nothing, so it is not shown."""
+    other source's line for the same class is not drawn -- one line per class, under either
+    setting. With every line official, the "· official" marker the course page uses would say
+    nothing, so it is not shown; nor is the source word, which only a fallback line (the
+    other source's, drawn because the grades source has nothing for that class) carries."""
     history(tmp_path).close()
-    labels = _grade_labels(client(tmp_path, "").get("/trends").text)
-    assert "Honors English 9 (HAC average)" in labels and "Honors English 9 (Canvas current)" not in labels
-    assert not any("official" in l for l in labels)
-    labels = _grade_labels(client(tmp_path, CANVAS_GRADES).get("/trends").text)
-    assert "Honors English 9 (Canvas current)" in labels and "Honors English 9 (HAC average)" not in labels
+    for grades_setting in ("", CANVAS_GRADES):
+        labels = _grade_label_list(client(tmp_path, grades_setting).get("/trends").text)
+        assert sorted(labels) == ["Algebra I", "Honors English 9", "Science 7"], grades_setting
+    # The line is the setting's: HAC's average by default, Canvas' current score when asked.
+    english = lambda body: next(d for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
+                                for d in c["data"]["datasets"] if d["label"] == "Honors English 9")
+    assert english(client(tmp_path, "").get("/trends").text)["data"][0]["y"] == 85.0
+    assert english(client(tmp_path, CANVAS_GRADES).get("/trends").text)["data"][0]["y"] == 93.0
 
 
 def test_the_course_page_chart_still_says_which_line_is_official(tmp_path):
@@ -103,6 +112,9 @@ def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
     Canvas name made both the Canvas and the HAC series official -- and now that Trends draws
     only the official line, that would have drawn both again."""
     history(tmp_path).close()
-    labels = _grade_labels(client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text)
-    assert "Honors English 9 (Canvas current)" in labels and "Honors English 9 (HAC average)" not in labels
-    assert "Algebra I (HAC average)" in labels                           # the rule is about one class
+    body = client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text
+    assert sorted(_grade_label_list(body)) == ["Algebra I", "Honors English 9", "Science 7"]     # one line each
+    first = {d["label"]: d["data"][0]["y"] for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
+             for d in c["data"]["datasets"]}
+    assert first["Honors English 9"] == 93.0                            # Canvas' current score, as the rule says
+    assert first["Algebra I"] == 79.5                                   # the rule is about one class: HAC's average

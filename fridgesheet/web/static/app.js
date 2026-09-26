@@ -127,6 +127,37 @@ function pruneCharts() {
   });
 }
 
+// The key is HTML under the plot, not Chart.js's legend inside the canvas. The canvas legend
+// shares the holder's fixed height with the plot: at a phone's width six class names were six
+// rows, 180 of the holder's 260px, the sixth clipped mid-name and the lines squeezed into what
+// was left. An HTML key takes no height from the plot, wraps as text does, and gives each
+// series a button a finger can hit (the canvas legend's hit boxes are the size of its 13px
+// text). Tapping hides and shows the series, as the canvas legend did. This is the page's
+// concern, not the config's: the PDF capture (`chart_render.py`) draws the same config with no
+// HTML to put a key in, and keeps Chart.js's legend.
+function chartKey(chart) {
+  var key = document.createElement("div");
+  key.className = "chart-key";
+  chart.data.datasets.forEach(function (ds, i) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("aria-pressed", "true");
+    var swatch = document.createElement("span");
+    swatch.className = "swatch" + (chart.config.type === "line" ? " line" : "");
+    swatch.style.background = ds.borderColor || ds.backgroundColor || "";
+    button.appendChild(swatch);
+    button.appendChild(document.createTextNode(ds.label));
+    button.addEventListener("click", function () {
+      var shown = !chart.isDatasetVisible(i);
+      chart.setDatasetVisibility(i, shown);
+      button.setAttribute("aria-pressed", shown ? "true" : "false");
+      chart.update();
+    });
+    key.appendChild(button);
+  });
+  return key;
+}
+
 function attachCharts(root) {
   pruneCharts();                    // whatever this swap replaced, before anything new
   var els = root.querySelectorAll ? root.querySelectorAll("[data-chart-canvas]") : [];
@@ -136,7 +167,13 @@ function attachCharts(root) {
     if (!script) return;
     canvas.dataset.drawn = "1";
     try {
-      CHARTS.push(new Chart(canvas.getContext("2d"), JSON.parse(script.textContent)));
+      var config = JSON.parse(script.textContent);
+      config.options = config.options || {};
+      config.options.plugins = config.options.plugins || {};
+      config.options.plugins.legend = { display: false };
+      var chart = new Chart(canvas.getContext("2d"), config);
+      CHARTS.push(chart);
+      canvas.parentNode.insertAdjacentElement("afterend", chartKey(chart));
     } catch (e) {
       canvas.parentNode.innerHTML = '<p class="warn">The chart could not load.</p>';
     }

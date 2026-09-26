@@ -44,15 +44,24 @@ def grade_chart(series: list[trends.GradeSeries], *, title: str, now: datetime,
     `mark_official`, the official source (sources.py) is drawn thicker and says so in its
     label, the words the Changes feed uses: the course page draws one course's own line,
     which may or may not be the official one. Trends passes `headline_series`, where every
-    line is the class's headline, so the marker would say nothing and is left off. None
-    when there is nothing to draw -- the page prints its sentence rather than an empty chart."""
+    line is the class's headline, so the marker would say nothing and is left off -- and so
+    is the source word: "(HAC average)" after all six class names said nothing six times and
+    doubled the key's height on a phone. The one line that is *not* from the family's grades
+    source (a class that source has no grade for shows the other's) keeps its word: it is the
+    exception, so it is the one that says so. None when there is nothing to draw -- the page
+    prints its sentence rather than an empty chart."""
     if not series:
         return None
+
+    def label(s: trends.GradeSeries) -> str:
+        if mark_official:
+            return s.label + (" · official" if s.official else "")
+        return s.course_short if s.official else s.label
+
     return charts.ChartData(
         type="line", x_label="Seen", y_label="Grade", x_scale="time", stepped=True, title=title,
         hold_until=int(now.timestamp() * 1000),
-        series=[charts.ChartSeries(label=s.label + (" · official" if mark_official and s.official else ""),
-                                   emphasis=mark_official and s.official,
+        series=[charts.ChartSeries(label=label(s), emphasis=mark_official and s.official,
                                    points=[(int(t.timestamp() * 1000), v) for t, v in s.points])
                 for s in series])
 

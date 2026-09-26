@@ -127,7 +127,9 @@ absent, never an empty box.
   to fill the row. A grid of one card fills the container.
 - **Two-column workspaces** (the check-in's review queue beside its plan) need 1280 px;
   below that they stack, the queue first, with the plan reachable by its in-page link.
-- **Charts** take the container's width and a fixed height from the template.
+- **Charts** take the container's width and a fixed height from the template. The key is
+  HTML under the holder (one button per series, wrapping like text), not Chart.js's legend
+  inside the canvas, so the plot keeps the whole height however many series there are.
 - **Print pages** (a plan, a report view) have no rail or status bar, a 720 px centred
   column on screen and no chrome on paper; their tables still sit in `.table-wrap`.
 
