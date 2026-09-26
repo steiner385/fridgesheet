@@ -12,9 +12,13 @@
    htmx. What is here is what goes on the fridge. #}
 <body class="print-page"{% if student %}{% set t = student.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}{% endif %}>
 <main>
-<div class="print-controls"><a href="/kids/{{ student.key | urlencode }}/plan">← Back to plan</a> <button type="button" data-print-plan title="Prints with your browser. Each step’s family account stays on screen; the school's list and other children are left out.">Print / save PDF</button></div>
+{# The page head is the printed title too: on paper the crumb and the button go, the name stays. #}
+{% set page_crumb = "Back to plan" %}{% set page_crumb_href = "/kids/" ~ (student.key | urlencode) ~ "/plan" %}
+{% set page_title = (student.key | nickname) ~ "’s plan" %}
+{% set page_actions %}<button type="button" data-print-plan title="Prints with your browser. Each step’s family account stays on screen; the school's list and other children are left out.">Print / save PDF</button>{% endset %}
+{% include "_page_head.html" %}
 <article class="print-plan">
-<h2>{{ student.key | nickname }}’s plan</h2><p>Printed {{ now | wd_md_time }}</p>
+<p>Printed {{ now | wd_md_time }}</p>
 {% if last_check %}<p>Next check-in: {{ last_check.next_check | wd_md }} · Last agreed time budget: {{ last_check.available_minutes }} minutes · Agreed {{ last_check.finished_at | wd_md_time }}</p>{% if last_check.summary %}<p class="family-account">{{ last_check.summary }}</p>{% endif %}{% endif %}
 {% for label in ('planned', 'blocked', 'waiting') %}
 <h3>{{ states[label] }}</h3>

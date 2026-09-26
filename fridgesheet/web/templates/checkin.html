@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ student.key | nickname }} · {{ 'Plan' if plan_only else 'Check-in' }} · Fridge Sheet{% endblock %}
-{% block main_attrs %}{% if not plan_only %} class="wide"{% endif %}{% endblock %}
 {% block content %}
-<div class="workspace-heading">
-  <div><p class="eyebrow">One step at a time</p><h2>{{ student.key | nickname }}’s {{ 'plan' if plan_only else 'check-in' }}</h2></div>
-  <p class="heading-actions">{% if not plan_only %}<a class="button-link" href="#plan">Jump to our next steps</a> {% endif %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a></p>
-</div>
+{# The child's name, as on the rail and the Assignments tab; the tab beneath says which of the
+   three pages this is (page layout standard, section 2). #}
+{% set page_title = student.key | nickname %}
+{% set page_actions %}{% if not plan_only %}<a class="button-link" href="#plan">Jump to our next steps</a> {% endif %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a>{% endset %}
+{% include "_page_head.html" %}
 {% set workspace = 'plan' if plan_only else 'checkin' %}{% include "_child_nav.html" %}
 {% if saved %}<p class="notice" role="status">Saved. Your family plan is separate from the school record.</p>{% endif %}
 {% if error %}<p class="notice warn" role="alert" tabindex="-1" autofocus>{{ error }}</p>{% endif %}

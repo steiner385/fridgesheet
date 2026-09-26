@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Changes · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Changes</h2>
-<p class="muted">What the gradebooks and you have done since a chosen moment. Newest first.</p>
+{% set page_title = "Changes" %}
+{% set page_intro = "What the gradebooks and you have done since a chosen moment. Newest first." %}
+{% include "_page_head.html" %}
 {% set base = "/changes?" ~ (("kid=" ~ kid ~ "&") if kid else "") ~ (("kind=" ~ kind ~ "&") if kind else "") %}
 <div class="filters">
   <span>Window:</span>

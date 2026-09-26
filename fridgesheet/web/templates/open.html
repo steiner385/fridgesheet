@@ -19,8 +19,9 @@
   </table>
   </div>
 {% endmacro %}
-<h2>Open work</h2>
-<p class="muted">Past due and still inside the late-work window (up to {{ overdue_days }} days back), then due in the next {{ days_ahead }} days: the same rows the printed sheet shows.</p>
+{% set page_title = "Open work" %}
+{% set page_intro = "Past due and still inside the late-work window (up to " ~ overdue_days ~ " days back), then due in the next " ~ days_ahead ~ " days: the same rows the printed sheet shows." %}
+{% include "_page_head.html" %}
 {% for s, w in groups %}
 <section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
   <h2><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h2>

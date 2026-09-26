@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Runs · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Runs</h2>
+{% set page_title = "Runs" %}{% set page_intro = "Every sheet, report and refresh the app has run, newest first, with why one failed." %}{% include "_page_head.html" %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
+<div class="table-wrap">
 <table class="items">
   <tr><th>Started</th><th>Report</th><th>Started by</th><th>Outcome</th><th>Message</th><th>PDF</th><th></th></tr>
   {% for r in rows %}
@@ -18,4 +19,5 @@
   </tr>
   {% else %}<tr><td colspan="7" class="muted">No runs yet.</td></tr>{% endfor %}
 </table>
+</div>
 {% endblock %}

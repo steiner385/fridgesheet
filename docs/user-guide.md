@@ -213,6 +213,13 @@ On the pages of a child whose grade is set ([§15](#15-childrens-reading-levels)
 shrinks to **Today**, that child, and one folded **App** section holding everything else,
 so a child sitting at the screen sees less.
 
+On a window narrower than about 1024 px — a phone either way up, a tablet held upright —
+the rail becomes one strip across the top that scrolls sideways; a fade at its right edge
+means there is more. Every page is laid out the same way beneath it: the status bar, then
+the page's title (the same words as its rail link) with the page's own buttons at the right
+and one sentence saying what the page is for, then the content. A child's three pages carry
+the child's name as the title and the **Check-in · Plan · Assignments** tabs under it.
+
 The **status bar** at the top of every page says:
 
 - **Refreshed** *time*, and **Canvas OK** / **HAC OK** — or the error from the last
@@ -224,6 +231,11 @@ The **status bar** at the top of every page says:
 - A badge while a job (refresh, build, print) is running.
 - **Fridge Sheet X is available** when a newer version exists.
 - A warning if one of your settings files cannot be read.
+- The time, at the end.
+
+On a window narrower than about 1280 px the bar is kept to one line: the time and a last
+run that *succeeded* are left off. A failed run, a running job, an update and a warning
+always show.
 
 **The "old data" banner (⚠).** When the last *good* refresh — both Canvas and HAC
 answering — is 24 hours old or more, every page says so: how old, when the last good one

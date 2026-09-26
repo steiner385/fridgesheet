@@ -21,8 +21,10 @@ def _block(media: str) -> str:
 
 # --- item 1: the rail stacked above the content on a phone --------------------------------
 
-def test_under_800px_the_rail_is_a_horizontal_strip_not_a_stack():
-    narrow = _block("max-width: 800px")
+def test_under_the_strip_breakpoint_the_rail_is_a_horizontal_strip_not_a_stack():
+    # 1023px since the page layout standard (2026-09-26): a phone held sideways gets the strip
+    # too, and a tablet held upright; 800px gave the 844px phone a 220px sidebar.
+    narrow = _block("max-width: 1023px")
     assert re.search(r"\.rail nav\s*\{[^}]*display: flex", narrow)
     assert re.search(r"\.rail nav\s*\{[^}]*overflow-x: auto", narrow)
     assert re.search(r"\.rail nav \.group\s*\{[^}]*display: none", narrow), "group labels take a row each"
@@ -84,10 +86,8 @@ def test_delete_is_the_danger_button_and_saves_are_primary():
 
 def test_the_items_table_scrolls_sideways_on_a_phone_instead_of_clipping():
     """Seen on the live app at 390px: Handed in, Grade, Sources and Flag fell off the right
-    edge with nothing to scroll. A block-level table scrolls on its own."""
-    narrow = _block("max-width: 800px")
-    # Open work's wide tables scroll as blocks; the three-column work list scrolls inside its
-    # own .table-wrap at every width (#53), so it keeps its background to the edge (#78).
-    assert re.search(r"table\.items:not\(\.work\)\s*\{[^}]*display: block", narrow)
-    assert re.search(r"table\.items:not\(\.work\)\s*\{[^}]*overflow-x: auto", narrow)
+    edge with nothing to scroll. Every table now sits in a `.table-wrap` that scrolls on its
+    own (page layout standard, section 3); the block-level-table rule for the phone is gone
+    with it -- `tests/test_web_page_layout.py` holds the wrap on every template."""
+    assert "table.items:not(.work)" not in CSS
     assert re.search(r"\.table-wrap\s*\{[^}]*overflow-x:\s*auto", CSS)
