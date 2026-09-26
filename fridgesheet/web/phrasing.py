@@ -111,9 +111,6 @@ PHRASES: dict[str, dict[str, str]] = {
     # --- the fixed copy on a child's pages: one sentence of instruction per section (kids' UX
     # audit F3). Template prose used to bypass this table, so a 5th grader read the same four
     # paragraphs a parent did. `older` is the sentence that shipped. --------------------------
-    "copy.checkin_intro":  {"early": "What went well? Where is the school record wrong? Pick a few next steps together.",
-                            "middle": "What went well, and what does the school record get wrong? Pick a few next steps together.",
-                            "older": "What went well? What does the school record get wrong? Choose a few next steps together."},
     "copy.checkin_first":  {"early": "Start with what you already handed in. Then pick what fits today.",
                             "middle": "Start with what's already handed in, then pick what fits today.",
                             "older": "Start with what's already been handed in, then decide what fits today."},
