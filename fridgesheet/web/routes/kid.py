@@ -115,12 +115,10 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
         "deciding": {f: prefs.deciding_rule(s["key"], c["name"], f, peer_name) for f in ("assignments", "grades")},
         "SOURCE_LABELS": sources.LABELS,
     }
-    # This course and its twin in the other source are one list to a parent, so the peer's
-    # rows join it -- and the headers sort the merged list, not each half.
+    # This course and its twin in the other source are one list to a parent: `list_items`
+    # widens a course id to its pair itself and sorts the merged list, so it is asked once.
+    # Asking again for the peer doubled every row of a paired class (#183).
     rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
-    if peer is not None:
-        rows += items.list_items(conn, s, now=now, rules=rules, show="all", course_id=peer["id"], sort=sort, direction=direction, prefs=prefs)
-        rows = items.sorted_views(rows, sort, direction)
     # This course's own lines, all history (no Weeks selector here); the twin has its own page.
     mine = [gs for gs in trends.grade_series(conn, student_id=s["id"], prefs=prefs) if gs.course_id == course_id]
     chart = grade_chart(mine, title="This class", now=now)

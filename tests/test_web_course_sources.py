@@ -66,6 +66,16 @@ def test_the_control_names_a_broader_rule_in_force(tmp_path):
     assert "from a rule for Alex" in c.get(f"/kids/Alex/courses/{cid}").text
 
 
+def test_a_class_with_a_hac_twin_lists_each_assignment_once(tmp_path):
+    """#183: the route appended the twin course's rows to a list `items.list_items` had
+    already widened to the twin, so every row of a paired class appeared twice."""
+    cid = course_id(tmp_path, "Honors English 9")
+    c, _ = client(tmp_path)
+    items = c.get(f"/kids/Alex/courses/{cid}").text.split("<h3>Items</h3>", 1)[1]
+    for name in ("Quiz 1", "Essay draft", "Participation"):        # Canvas, Canvas, HAC-only
+        assert items.count(f">{name}</a>") == 1, name
+
+
 def test_another_kids_course_is_404(tmp_path):
     cid = course_id(tmp_path, "Science 7")
     c, _ = client(tmp_path)
