@@ -5,12 +5,14 @@ from __future__ import annotations
 import sys
 import types
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from fridgesheet import cli, doctor, host
-from fridgesheet.config import RefreshConfig, ReportConfig, Settings
-from fridgesheet.host import ScheduleInfo, printing, scheduling
+from fridgesheet import cli, config, doctor, host
+from fridgesheet.config import Settings
+from fridgesheet.host import printing
+from fridgesheet.web import clock
 
 
 def _probes():
@@ -111,64 +113,57 @@ def test_printers_probe_fails_when_it_cannot_print(monkeypatch, tmp_path):
     assert detail == "1 printer(s), default Office, configured system default"
 
 
-def test_scheduler_probe_flags_enabled_but_not_installed(monkeypatch, tmp_path):
-    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("task-scheduler", False, None, None))
-    s = Settings(home=tmp_path)
-    s.reports["open-work"] = ReportConfig(enabled=True)
-    with pytest.raises(RuntimeError, match="scheduled printing is on in config.toml but no task is installed"):
+def _sched_settings(tmp_path, doc):
+    config.save_config_doc(tmp_path / "config.toml", doc)
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(doc, s)
+    return s
+
+
+def test_scheduler_with_nothing_on(tmp_path, monkeypatch):
+    monkeypatch.setattr(clock, "_current", None)
+    assert doctor._scheduler(_sched_settings(tmp_path, {}), tmp_path) == "no schedules are on"
+
+
+def test_scheduler_from_a_terminal_names_the_next_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(clock, "_current", None)
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}},
+                                   "refresh": {"enabled": True}})
+    out = doctor._scheduler(s, tmp_path)
+    assert "2 on; next: " in out and "only while the web server is running" in out
+
+
+def test_scheduler_fails_when_the_clock_has_stopped(tmp_path, monkeypatch):
+    stopped = clock.Clock(SimpleNamespace(home=tmp_path))           # never ticked: stale
+    monkeypatch.setattr(clock, "_current", stopped)
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {"enabled": True, "time": "14:00", "days": ["Fri"]}},
+                                   "refresh": {"enabled": True}})
+    with pytest.raises(RuntimeError, match="paused"):
         doctor._scheduler(s, tmp_path)
 
 
-def test_scheduler_probe_reports_last_result_when_scheduled(monkeypatch, tmp_path):
-    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("task-scheduler", True, "2026-09-15 14:00", "printed"))
-    detail = doctor._scheduler(Settings(home=tmp_path), tmp_path)
-    assert detail == "task-scheduler: next run 2026-09-15 14:00; last result printed"
-
-
-def test_scheduler_probe_flags_a_data_refresh_that_is_on_but_not_installed(monkeypatch, tmp_path):
-    """#150: the probe looked at open-work only. The data refresh keeps every scheduled report
-    (which runs `--no-refresh`) current, so a missing refresh task is just as much a failure."""
-    installed = {"open-work"}
-    monkeypatch.setattr(scheduling, "describe",
-                        lambda key: ScheduleInfo("systemd", key in installed, "Wed 14:00" if key in installed else None, None))
-    s = Settings(home=tmp_path)
-    s.refresh = RefreshConfig(enabled=True)
-    with pytest.raises(RuntimeError, match=r"the data refresh is on in config.toml but no task is installed"):
+def test_scheduler_fails_on_a_schedule_that_cannot_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(clock, "_current", None)
+    s = _sched_settings(tmp_path, {"refresh": {"enabled": True, "every_hours": 1, "start": "06:00", "end": "21:00"}})
+    with pytest.raises(RuntimeError, match="refreshes a day"):
         doctor._scheduler(s, tmp_path)
-    installed.add(host.DATA_REFRESH_KEY)
-    assert "data refresh scheduled" in doctor._scheduler(s, tmp_path)
-
-
-def test_scheduler_probe_flags_a_saved_report_that_is_on_but_not_installed(monkeypatch, tmp_path):
-    installed = set()
-    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("systemd", key in installed, None, None))
-    s = Settings(home=tmp_path)
-    s.reports["view:3"] = ReportConfig(enabled=True)
-    s.reports["view:4"] = ReportConfig(enabled=False)             # off: nothing to check
-    with pytest.raises(RuntimeError, match=r"\[reports\.view:3\] is on in config.toml but no task is installed"):
-        doctor._scheduler(s, tmp_path)
-    installed.add("view:3")
-    s.refresh = RefreshConfig(enabled=True)                       # a scheduled report needs it (#120)
-    installed.add(host.DATA_REFRESH_KEY)
-    assert "1 saved report scheduled" in doctor._scheduler(s, tmp_path)
 
 
 def test_scheduler_probe_fails_when_a_report_is_scheduled_and_the_refresh_is_off(monkeypatch, tmp_path):
-    """#120: a scheduled report runs `--no-refresh` and refuses a snapshot older than a day, so
-    with the refresh off it prints once and then fails every day. Report-on-refresh-off is
-    the broken state, whichever report it is; refresh-off with nothing scheduled is fine."""
-    monkeypatch.setattr(scheduling, "describe", lambda key: ScheduleInfo("systemd", True, "Wed 14:00", None))
-    s = Settings(home=tmp_path)
-    assert "data refresh" not in doctor._scheduler(s, tmp_path)         # nothing scheduled, refresh off: OK
-    s.reports["open-work"] = ReportConfig(enabled=True)
+    """#120: a scheduled report runs with no refresh of its own and refuses a snapshot older
+    than a day, so with the refresh off it prints once and then fails every day. Report-on-
+    refresh-off is the broken state, whichever report it is; refresh-off with nothing
+    scheduled is fine."""
+    monkeypatch.setattr(clock, "_current", None)
+    assert doctor._scheduler(_sched_settings(tmp_path, {}), tmp_path) == "no schedules are on"
+    on = {"enabled": True, "time": "14:00", "days": list(host.DAY_NAMES)}
+    s = _sched_settings(tmp_path, {"reports": {"open-work": on}})
     with pytest.raises(RuntimeError, match=r"open-work is scheduled but the data refresh is off"):
         doctor._scheduler(s, tmp_path)
-    s.reports["open-work"] = ReportConfig(enabled=False)
-    s.reports["view:3"] = ReportConfig(enabled=True)
-    with pytest.raises(RuntimeError, match=r"view:3 is scheduled but the data refresh is off"):
-        doctor._scheduler(s, tmp_path)
-    s.refresh = RefreshConfig(enabled=True)
-    assert "data refresh scheduled" in doctor._scheduler(s, tmp_path)
+    s = _sched_settings(tmp_path, {"reports": {"open-work": {**on, "enabled": False}}, "refresh": {"enabled": False}})
+    assert doctor._scheduler(s, tmp_path) == "no schedules are on"
+    s = _sched_settings(tmp_path, {"reports": {"open-work": on}, "refresh": {"enabled": True}})
+    assert "2 on" in doctor._scheduler(s, tmp_path)
 
 
 def test_credential_probe_round_trips_on_windows(monkeypatch, tmp_path):

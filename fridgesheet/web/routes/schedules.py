@@ -29,10 +29,38 @@ def _printer_options(printers: list[str], current: str) -> list[tuple[str, str, 
     return options
 
 
+def _notices(state, rows, refresh) -> list[str]:
+    """Page-level lines: the Linux server not kept running, and any leftover the startup cleanup
+    could not remove (Task 7 fills `extra["leftovers"]`)."""
+    out = []
+    anything_on = any(r.enabled for r in rows) or bool(refresh and refresh.enabled)
+    if anything_on and not host.IS_WINDOWS:
+        describe = state.extra.get("describe_service")
+        if describe is None:
+            from ...host import service
+            describe = service.describe_service
+        try:
+            installed = describe().installed
+        except Exception:                                  # noqa: BLE001  unknown is not "missing"
+            installed = True
+        if not installed:
+            out.append("Schedules run only while Fridge Sheet is running. To keep it running after you "
+                       "sign out: fridgesheet service install")
+    for name, error, command in state.extra.get("leftovers") or []:
+        if not command:
+            # The listing itself failed (`remove_os_leftovers`): there is no task to name and
+            # no command to offer, only that the check could not be made.
+            out.append(f"Fridge Sheet could not check for old scheduled tasks from an earlier version: {error}")
+            continue
+        out.append(f"An old scheduled task from an earlier version is still there: {name} ({error}). "
+                   f"Remove it with: {command}")
+    return out
+
+
 def _page(request, conn, state, *, messages=(), errors=()):
     try:
-        rows = schedules.rows(state.home, scheduling=state.extra.get("scheduling"))
-        refresh = schedules.refresh_row(state.home, scheduling=state.extra.get("scheduling"))
+        rows = schedules.rows(state.home, now=state.now())
+        refresh = schedules.refresh_row(state.home, now=state.now())
     except config.ConfigError as e:
         # A config.toml that does not read is a line on the page, not a 500 (#144). No rows:
         # a Save from values that could not be read would write guesses over the parent's file.
@@ -48,6 +76,7 @@ def _page(request, conn, state, *, messages=(), errors=()):
                   refresh_schedule=refresh,
                   refresh_warning=schedules.refresh_warning(rows, refresh),
                   printer_options={r.key: _printer_options(printers, r.printer) for r in rows},
+                  notices=_notices(state, rows, refresh),
                   messages=list(messages), errors=list(errors))
 
 
@@ -79,7 +108,7 @@ async def save(request: Request, conn: sqlite3.Connection = Db, state=State):
             days=[d for d in form.getlist("days") if d],
             printer=form.get("printer", ""),
             prints=bool(form.get("prints")),
-            home=state.home, log=lines.append, scheduling=state.extra.get("scheduling"))
+            home=state.home, log=lines.append)
     except config.ConfigError as e:
         return _page(request, conn, state, errors=[config_problem(state, e)])
     reload_errors = _reload(state) if out.ok else []
@@ -106,8 +135,7 @@ async def save_refresh(request: Request, conn: sqlite3.Connection = Db, state=St
             start=str(form.get("start") or "06:00"),
             end=str(form.get("end") or "21:00"),
             days=[str(d) for d in form.getlist("days")],
-            home=state.home, log=lambda _m: None,
-            scheduling=state.extra.get("scheduling"))
+            home=state.home, log=lambda _m: None)
     except config.ConfigError as e:
         return _page(request, conn, state, errors=[config_problem(state, e)])
     return _page(request, conn, state, messages=out.messages, errors=[*out.errors, *_reload(state)])

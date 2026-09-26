@@ -1,24 +1,23 @@
 """#154: a terminal-only or headless setup can finish.
 
-`fridgesheet check` leaves the same `login-ok.txt` the web Test login leaves, so the Schedules
-page (and `schedule install`) stop saying "nothing is installed yet" after a CLI setup;
-`schedule install` applies the page's own gate unless `--force`; `web --help` says how to run
-on a machine with no desktop.
+`fridgesheet check` leaves the same `login-ok.txt` the web Test login leaves; `schedule install`
+turns a schedule on in config.toml with no login gate (the Schedules page has none either, since
+the server's own clock fires schedules) and accepts `--force` for scripts written for the old
+gate; `web --help` says how to run on a machine with no desktop.
 
 Nothing here launches Chromium: the session helpers `check` calls are replaced with fakes.
-Nothing reaches systemctl: the scheduler is `FakeScheduling`.
+Nothing reaches systemctl or schtasks: `install` writes config.toml and nothing else.
 """
 from __future__ import annotations
 
 import contextlib
+import tomllib
 from datetime import datetime
 
 import pytest
 
 from fridgesheet import cli, config
-from fridgesheet.host import scheduling as _real_scheduling  # noqa: F401  makes `fridgesheet.host.scheduling` patchable
-from fridgesheet.web import actions, schedules
-from tests.web_fixtures import FakeScheduling
+from fridgesheet.web import actions
 
 
 def _fake_sites(monkeypatch, home, *, canvas_ok=True, hac_ok=True):
@@ -46,7 +45,6 @@ def test_a_passing_check_writes_the_stamp_test_login_writes(monkeypatch, tmp_pat
     stamp = tmp_path / actions.LOGIN_STAMP
     assert stamp.is_file()
     datetime.fromisoformat(stamp.read_text())        # the same shape Test login writes
-    assert actions.login_passed(tmp_path)              # ... and the gate the page applies reads it
 
 
 def test_a_failed_check_removes_the_stamp(monkeypatch, tmp_path, capsys):
@@ -56,7 +54,6 @@ def test_a_failed_check_removes_the_stamp(monkeypatch, tmp_path, capsys):
         cli.main(["check"])
     assert e.value.code == 1
     assert not (tmp_path / actions.LOGIN_STAMP).exists()
-    assert not actions.login_passed(tmp_path)
 
 
 def test_check_and_test_login_share_one_stamp_helper(monkeypatch, tmp_path, capsys):
@@ -81,61 +78,107 @@ def test_the_stamp_helper_writes_on_success_and_removes_on_failure(tmp_path):
     actions.record_login(tmp_path, False)              # already gone: still not an error
 
 
-def test_the_page_and_the_cli_read_one_gate(tmp_path):
-    """`schedules.LOGIN_STAMP` is the file `actions` writes, not a second spelling of it."""
-    assert schedules.LOGIN_STAMP is actions.LOGIN_STAMP
-
-
-# --- `schedule install` applies the page's gate ---------------------------------------------
+# --- `schedule install` turns a schedule on, with no login gate -----------------------------
 
 @pytest.fixture
 def cli_home(tmp_path, monkeypatch):
-    sched = FakeScheduling()
-    sched.display_name = lambda key: f"fridgesheet-{key}"
-    monkeypatch.setattr(cli, "load_settings", lambda: config.Settings(home=tmp_path))
-    monkeypatch.setattr("fridgesheet.host.scheduling", sched)
-    return tmp_path, sched
+    def load():
+        s = config.Settings(home=tmp_path)
+        config.settings_from_doc(config.load_config_doc(tmp_path / "config.toml"), s)
+        return s
+    monkeypatch.setattr(cli, "load_settings", load)
+    return tmp_path
+
+
+def _doc(home):
+    return tomllib.loads((home / "config.toml").read_text())
+
+
+def _enabled(home, key):
+    doc = _doc(home)
+    return (doc["refresh"] if key == "data-refresh" else doc["reports"][key])["enabled"]
 
 
 @pytest.mark.parametrize("key", ["open-work", "data-refresh"])
-def test_schedule_install_refuses_until_a_login_has_passed(cli_home, capsys, key):
-    home, sched = cli_home
+def test_schedule_install_needs_no_login(cli_home, capsys, key):
+    """No stamp, no `--force`: `install` still turns the schedule on. The server's clock fires
+    it, and the Schedules page has no login gate either, so the terminal must not have one."""
+    home = cli_home
+    assert not (home / actions.LOGIN_STAMP).exists()
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", key])
-    assert e.value.code == 1
-    assert sched.installed == []
-    assert not (home / "config.toml").exists()          # nothing recorded as enabled either
-    err = capsys.readouterr().err.strip()
-    assert "\n" not in err                              # one line
-    assert "fridgesheet check" in err and "Test login" in err and "--force" in err
+    assert e.value.code == 0
+    assert _enabled(home, key) is True
+    out = capsys.readouterr().out
+    assert f"{key}: turned on in config.toml" in out and f"{key}: next" in out
 
 
 @pytest.mark.parametrize("key", ["open-work", "data-refresh"])
-def test_schedule_install_proceeds_once_the_stamp_is_there(cli_home, capsys, key):
-    home, sched = cli_home
+def test_schedule_install_after_a_passed_login_is_the_same(cli_home, capsys, key):
+    home = cli_home
     actions.record_login(home, True)
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", key])
     assert e.value.code == 0
-    assert sched.installed[0]["key"] == key
+    assert _enabled(home, key) is True
 
 
-def test_schedule_install_force_skips_the_gate(cli_home, capsys):
-    home, sched = cli_home
+def test_schedule_install_accepts_force_and_ignores_it(cli_home, capsys):
+    """`--force` was #154's way past the old gate; upstream docs and scripts still pass it."""
+    home = cli_home
     with pytest.raises(SystemExit) as e:
         cli.main(["schedule", "install", "open-work", "--force"])
     assert e.value.code == 0
-    assert sched.installed[0]["key"] == "open-work"
+    assert _enabled(home, "open-work") is True
+
+
+def test_schedule_install_of_a_report_turns_the_refresh_on_too(cli_home, capsys):
+    """The Schedules page's #120/#171 rule, from the terminal: a scheduled report prints from
+    the last refresh and refuses one a day old, so turning a report on with the refresh off
+    turns the refresh on in the same breath and says so, in the page's words."""
+    from fridgesheet.web import schedules as page
+    home = cli_home
+    (home / "config.toml").write_text('[refresh]\nenabled = false\nevery_hours = 2\n')
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "install", "open-work"])
+    assert e.value.code == 0
+    assert _enabled(home, "open-work") is True and _enabled(home, "data-refresh") is True
+    assert _doc(home)["refresh"]["every_hours"] == 2     # the rest of [refresh] is kept
+    out = capsys.readouterr().out
+    s = config.Settings(home=home)
+    config.settings_from_doc(config.load_config_doc(home / "config.toml"), s)
+    assert "every 2 hours" in page.refresh_turned_on(s.refresh)
+    assert page.refresh_turned_on(s.refresh) in out and "data-refresh: next" in out
+
+
+def test_schedule_install_of_a_report_leaves_an_on_refresh_alone(cli_home, capsys):
+    home = cli_home
+    (home / "config.toml").write_text('[refresh]\nenabled = true\n')
+    with pytest.raises(SystemExit):
+        cli.main(["schedule", "install", "open-work"])
+    assert "Turned on the data refresh" not in capsys.readouterr().out
 
 
 def test_schedule_remove_and_show_never_ask_for_the_stamp(cli_home, capsys):
-    """The gate is about installing a timer that would then fail every run; taking one away
-    or looking at it needs no login."""
-    home, sched = cli_home
+    """Taking a schedule away or looking at it needs no login."""
     for action in ("remove", "show"):
         with pytest.raises(SystemExit) as e:
             cli.main(["schedule", action, "open-work"])
         assert e.value.code == 0, action
+
+
+def test_schedule_parser_offers_install_remove_and_show(capsys):
+    with pytest.raises(SystemExit) as e:
+        cli.main(["schedule", "enable"])
+    assert e.value.code == 2
+    # argparse quotes the choices up to 3.12.7 ("choose from 'install', 'remove', 'show'") and
+    # stops quoting them from 3.12.8 / 3.13 ("choose from install, remove, show"); CI's 3.12
+    # is whichever patch release the runner has, so the assertion names the choices, not the
+    # punctuation around them.
+    err = capsys.readouterr().err
+    assert "invalid choice: 'enable'" in err
+    choices = err.split("choose from", 1)[1].replace("'", "").replace(")", "")
+    assert [c.strip() for c in choices.split(",")] == ["install", "remove", "show"]
 
 
 # --- `web --help` -----------------------------------------------------------------------------

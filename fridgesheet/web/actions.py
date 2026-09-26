@@ -21,7 +21,7 @@ from typing import Callable
 from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
-from .. import config, host, late_rules, runner, sources
+from .. import config, dates, host, late_rules, runner, sources
 from . import updatepin
 
 REPORT_KEY = "open-work"
@@ -407,20 +407,13 @@ def test_login(*, home: Path, log: Callable[[str], None], settings: config.Setti
 def record_login(home: Path, ok: bool, *, now: datetime | None = None) -> None:
     """Leave `login-ok.txt` after a passing login check, and take it away after a failing
     one. The one place the stamp is written or removed, for both callers that check the
-    login -- the web Test login above and `fridgesheet check` (#154): the Schedules page and
-    `schedule install` gate on it (`login_passed`), and a terminal-only setup could never
-    satisfy that gate while only the button wrote it."""
+    login -- the web Test login above and `fridgesheet check` (#154), so a terminal-only setup
+    leaves the same record of a passed login as the button does."""
     stamp = home / LOGIN_STAMP
     if ok:
         stamp.write_text((now or datetime.now().astimezone()).isoformat())
     else:
         stamp.unlink(missing_ok=True)
-
-
-def login_passed(home: Path) -> bool:
-    """Whether a login check has passed since it last failed -- the gate on installing any
-    schedule, on the page and at the command line alike."""
-    return (home / LOGIN_STAMP).exists()
 
 
 def preview(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
@@ -487,6 +480,21 @@ def print_now(*, home: Path, log: Callable[[str], None], settings: config.Settin
                                                  trigger="web", no_refresh=not refresh), settings, echo=log)
 
 
+def scheduled_run(*, home: Path, log: Callable[[str], None], settings: config.Settings | None = None,
+                  report_key: str, run=None) -> int:
+    """A report's scheduled run, fired by the server's own clock (web/clock.py).
+
+    Exactly the command the OS task used to run -- `run <key> --no-refresh --trigger
+    schedule` -- so every guard the runner has still decides: no-print days, already printed
+    today, the print window (a catch-up the next morning is a SKIP, not yesterday's sheet),
+    the stale-snapshot refusal, the report's own printer and its PDF-only switch. Not
+    `print_now`, which forces past all of those because a person asked for paper."""
+    settings = settings or config.load_settings()
+    run = run or runner.run
+    with forward_logs(log):
+        return run(report_key, runner.RunOptions(no_refresh=True, trigger="schedule"), settings, echo=log)
+
+
 def reprint(*, home: Path, log: Callable[[str], None], settings: config.Settings, run_id: int, pdf: str,
             report_key: str, print_pdf=None, now: datetime | None = None) -> int:
     """The Runs page's Reprint: the PDF that run stored, to the printer, as it is.
@@ -534,9 +542,11 @@ def reprint(*, home: Path, log: Callable[[str], None], settings: config.Settings
     return 0 if outcome == "OK" else 1
 
 
-def status_line(home: Path, describe=None) -> str:
-    if describe is None:
-        from ..host.scheduling import describe
+def status_line(home: Path, *, now: datetime) -> str:
+    """The Settings page's one line: the last run, and when the default report's schedule
+    fires next -- from the plan, not from an OS scheduler."""
+    from .. import schedule_plan
+    from . import clock
     log_path = home / runner.LOG_NAME
     last = "No runs yet"
     if log_path.is_file():
@@ -544,15 +554,15 @@ def status_line(home: Path, describe=None) -> str:
         if lines:
             last = lines[-1]
     try:
-        info = describe(REPORT_KEY)
-    except Exception:
+        settings = _settings_for(home)
+        schedules, _ = clock.configured(home, settings=settings)
+        # In the household's zone, as the clock builds its slots and the Schedules page shows them.
+        now = now.astimezone(ZoneInfo(settings.timezone))
+    except Exception:                                      # noqa: BLE001  a status line never fails a page
         return f"{last} · schedule unknown"
-    if not info.installed:
-        return f"{last} · not scheduled"
-    if not info.next_run:
-        return f"{last} · scheduled (next run unknown)"
-    suffix = "" if info.managed_by == "task-scheduler" else f" ({info.managed_by})"
-    return f"{last} · next run {info.next_run}{suffix}"
+    mine = [s for s in schedules if s.key == REPORT_KEY]
+    nxt = schedule_plan.next_run(mine[0], now) if mine else None
+    return f"{last} · next run {dates.wd_md_time(nxt)}" if nxt else f"{last} · not scheduled"
 
 
 def late_rules_settings(home: Path) -> late_rules.LateRules:

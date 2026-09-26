@@ -11,8 +11,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, "..", ".."))
 
-datas = [(os.path.join(ROOT, "fridgesheet", "host", "task.xml"), os.path.join("fridgesheet", "host"))]
-datas += [(os.path.join(ROOT, "fridgesheet", "host", "logon-task.xml"), os.path.join("fridgesheet", "host"))]
+datas = [(os.path.join(ROOT, "fridgesheet", "host", "logon-task.xml"), os.path.join("fridgesheet", "host"))]
 # web/app.py resolves its templates and assets by Path(__file__).parent, which in a
 # one-folder bundle is _internal/fridgesheet/web/; these destinations put them there.
 datas += [(os.path.join(ROOT, "fridgesheet", "web", "templates"), os.path.join("fridgesheet", "web", "templates"))]

@@ -42,6 +42,8 @@ MAX_DATA_AGE_HOURS = 24
 LOG_NAME = "print-sheet.log"
 LOCK_NAME = "run.lock"
 LOCK_STALE_SECONDS = 45 * 60
+# Sized to exceed the 30-minute ExecutionTimeLimit the old Task Scheduler tasks carried, so a
+# slow-but-alive run is never declared abandoned.
 #: How long a *scheduled* run waits for another run to let go of run.lock before it gives up
 #: (loudly): the data refresh and a report on the same minute used to race for the lock, and
 #: the loser was a quiet SKIP nobody saw (#121). A refresh is one to three minutes on a fast
@@ -51,8 +53,6 @@ LOCK_WAIT_SECONDS = 10 * 60
 #: `Lock.acquire`'s label for a data refresh -- `collector.collect_locked` and
 #: `web.actions.refresh` both write it, so a waiting report can say what it waited for.
 REFRESH_LABEL = "refresh"
-# Must exceed the scheduler's ExecutionTimeLimit (PT30M in host/task.xml) so a slow-but-alive
-# run is never declared abandoned.
 
 SKIP_NAME = "no-print-days.txt"
 

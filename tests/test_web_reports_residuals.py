@@ -12,13 +12,11 @@ from datetime import date
 
 from fridgesheet.web import db
 from fridgesheet.web.stores import reports as store
-from tests.web_fixtures import FakeScheduling, app_for, seed
+from tests.web_fixtures import app_for, seed
 
 
 def _client(home):
-    c = app_for(home)
-    c.app.state.fridgesheet.extra["scheduling"] = FakeScheduling()
-    return c
+    return app_for(home)
 
 
 def _save(home, name="Mine", **over):
