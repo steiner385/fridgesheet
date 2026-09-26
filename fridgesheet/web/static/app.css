@@ -1,5 +1,10 @@
-/* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone. */
-:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
+/* Fridge Sheet: one layout, a left rail on wide screens, one column on a phone.
+   The page standard is docs/superpowers/specs/2026-09-26-page-layout-standard-design.md: every
+   page is the same blocks in the same order (status bar, page head, notices, content) inside one
+   content column. `--page-max` is that column's ceiling on every page; `--measure` bounds prose
+   and forms inside it (about 75 characters at body size) while tables, cards and charts fill it;
+   `--rail` is the sidebar; `--pad` the side gutters, narrower under the strip breakpoint. */
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -40,7 +45,7 @@ a { color: var(--accent); }
    own resize detection would never see it shrink. Narrowing the window then leaves
    the page horizontally scrollable with the rail pushed off-screen (rotate a phone to
    landscape and back). The `0` minimum lets the track shrink, which lets the canvas shrink. */
-.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+.shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); min-height: 100vh; }
 .rail { background: var(--paper); border-right: 1px solid var(--rule); padding: 16px; }
 .rail h1 { font-size: 18px; margin: 0 0 12px; }
 .rail nav a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); }
@@ -51,12 +56,31 @@ a { color: var(--accent); }
    in the strip, so opening it lengthens the scroll rather than breaking the row. */
 .rail nav .rail-more > summary { padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-top: 12px; color: var(--muted); }
 .rail nav .rail-more > summary:hover { background: var(--wash); }
-main { padding: 16px 24px 48px; max-width: 1100px; }
-header.status { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
+/* One ceiling for every page. 1100px left a third of a 1920px screen and half of a 2560px one
+   blank; the check-in alone asked for 1600px, and that is now every page's width. What must
+   stay narrow for reading (intros, forms) is bounded by `--measure` inside it. */
+main { padding: 16px var(--pad) 48px; max-width: var(--page-max); }
+main h3 { font-size: 18px; font-weight: 650; margin: 24px 0 8px; }
+header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 16px; color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
+/* The page head, one partial on every page (_page_head.html): an optional crumb back to the
+   parent page, the title in the words of the rail link, the page's own actions at the right,
+   and one intro sentence bounded to the measure. */
+.page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline; margin: 0 0 16px; }
+.page-head .crumb { grid-column: 1 / -1; margin: 0; font-size: var(--type-small); }
+.page-head .crumb a { text-decoration: none; }
+.page-head h2 { grid-column: 1; margin: 0; font-size: 24px; letter-spacing: -.3px; }
+.page-head h2 .subtitle { color: var(--muted); font-weight: 400; }
+.page-head .page-actions { grid-column: 2; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.page-head .page-intro { grid-column: 1 / -1; margin: 0; max-width: var(--measure); color: var(--muted); }
+/* What the last POST did, said once between the head and the content. */
+.notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; margin: 0 0 16px; max-width: var(--measure); }
+.notice.warn { background: #fdecea; border-color: var(--warn); color: var(--warn); }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); }
 .badge.OK { border-color: var(--ok); color: var(--ok); } .badge.FAIL { border-color: var(--warn); color: var(--warn); }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+/* `auto-fit`, not `auto-fill`: three cards on a 1600px page fill the row rather than sitting in
+   three of five tracks with two empty ones beside them. */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
 .card h2 { margin: 0 0 8px; font-size: 16px; }
 .big { font-size: 28px; font-weight: 600; }
@@ -102,7 +126,10 @@ p.legend { font-size: var(--type-tiny); margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
-.filters label { font-size: 14px; color: var(--ink); }
+.filters label { font-size: 14px; color: var(--ink); max-width: 100%; }
+/* A select is as wide as its longest option ("Honors English 9 S1-2027-Hoch"), which on a
+   phone ran 30px past the page's edge. */
+.filters select { max-width: 100%; }
 /* Rows of a graphical config editor (Settings: late-rules, no-print-days): one row per quarter,
    rule or skip-date, added/removed/reordered client-side before the whole form's one Save. */
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; align-items: center; }
@@ -127,30 +154,41 @@ button:disabled { opacity: .5; cursor: default; }
 select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); }
 /* On a phone the rail used to stack *above* the page: fourteen links, then a 1,450px scroll
    to reach the first kid card (#40 item 1) -- on the very device the Settings QR code exists
-   to put this on. Under 800px the rail becomes one horizontal strip that scrolls sideways,
+   to put this on. Under 1024px the rail becomes one horizontal strip that scrolls sideways,
    group labels dropped, so the content starts about 100px down on every page. No script, no
-   hamburger to discover: the links are visible, and the current one is highlighted. */
-@media (max-width: 800px) {
+   hamburger to discover: the links are visible, and the current one is highlighted. The
+   breakpoint was 800px, which gave a phone held sideways (844px) a 220px sidebar beside a
+   624px column; a tablet held upright now gets the strip and held sideways the sidebar. */
+@media (max-width: 1023px) {
+  :root { --pad: 16px; }
   /* `auto 1fr`, or the grid's `min-height: 100vh` hands half its spare height to the rail row
      and the strip floats in the middle of ~570px of white. The rail is as tall as its links;
      main takes the rest. */
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
-  .rail { border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  .rail { position: relative; border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
   .rail h1 { margin: 0 8px 0 0; white-space: nowrap; }
-  .rail nav { display: flex; overflow-x: auto; gap: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .rail nav { display: flex; overflow-x: auto; gap: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 24px; }
   .rail nav::-webkit-scrollbar { display: none; }
+  /* The strip holds more links than fit; a fade at its right edge says so, where a hidden
+     scrollbar said nothing. */
+  .rail::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--paper)); pointer-events: none; }
   .rail nav a { white-space: nowrap; padding: 8px 10px; }
   .rail nav .group { display: none; }
   .rail nav .rail-more, .rail nav .rail-rest { display: flex; gap: 2px; }
   .rail nav .rail-more > summary { white-space: nowrap; padding: 8px 10px; margin: 0; list-style: none; }
-  main { padding: 12px; }
-  /* Seven columns do not fit 390px. Seen on a phone against the live app: Handed in, Grade,
-     Sources and Flag simply fell off the right edge, with nothing to scroll -- the table is
-     wider than the page but the page is not. A block-level table scrolls sideways on its
-     own, so the first three columns stay put and a swipe reveals the rest. */
-  /* Other tables (Open work's seven columns) scroll as blocks. The work list scrolls inside
-     .table-wrap instead, keeping its white background to the edge (#53, #78). */
-  table.items:not(.work) { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  main { padding: 12px var(--pad) 32px; }
+  .page-head { grid-template-columns: minmax(0, 1fr); }
+  .page-head .page-actions { grid-column: 1; justify-content: flex-start; }
+}
+/* Below 1280px the status bar keeps to one line by dropping its two quiet items -- the clock,
+   and the last run when it succeeded. They are reassurance, not information, on a device that
+   has its own clock; with them the bar was two lines beside a tablet's sidebar and three on a
+   phone with an update badge, and with the strip above it the first content sat a quarter of
+   the way down a phone's screen. A failed run, a running job, a warning and an available
+   update still show at every width. (The two-column workspace rule at the same width is
+   further down, after the layout it overrides.) */
+@media (max-width: 1279px) {
+  header.status .quiet { display: none; }
 }
 /* Touch: nothing to tap is smaller than 44px. Every button measured 21px on the phone and
    the kiosk (#40 item 2); Reconcile alone puts 47 x 5 of them under a finger. Scoped to a
@@ -160,7 +198,9 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
   .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; }
   .badge[href] { display: inline-flex; align-items: center; padding: 0 12px; }
-  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  /* A box is a target of its own (WCAG 2.2, 2.5.8: 24px); 22px left every day-of-week box on
+     Schedules under the line. */
+  input[type=checkbox], input[type=radio] { width: 24px; height: 24px; }
   table.items th, table.items td { padding: 10px 8px; }
 }
 /* Every <pre> wraps. The About block on Settings is a <pre> so its line breaks survive, and
@@ -179,22 +219,18 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
 /* Check-in: school evidence, family context, and commitments stay visually distinct. */
+/* A section head with its own action beside it (the plan panel's "Add a task"). */
 .workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-.workspace-heading h2 { margin: 0 0 12px; font-size: 27px; letter-spacing: -.5px; }
-.heading-actions { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+/* The class name above a card. It used to double as a tagline above two page titles; a page's
+   title now stands alone (page layout standard, section 1). */
 .eyebrow { font-size: var(--type-tiny); text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
-.child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 12px 0 20px; }
+.child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 0 0 20px; }
 .child-nav a { padding: 10px 14px; text-decoration: none; }
 .child-nav a[aria-current] { border-bottom: 3px solid #286454; color: #214f43; font-weight: 650; }
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid #b7cdc5; border-radius: 6px; background: #edf5f1; color: #214f43; text-decoration: none; }
-.notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; }
-.checkin-intro { max-width: 760px; margin-bottom: 24px; }
-/* Wider than the 1100px default: on a full check-in the review queue and the plan both need
-   room, and 1100px left the review cards narrow while a big share of a desktop screen sat
-   empty on either side. */
-main.wide { max-width: 1600px; }
+.checkin-intro { max-width: var(--measure); margin-bottom: 24px; }
 .checkin-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
+.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: var(--measure); }
 .checkin-layout h3 { margin-top: 0; }
 /* The plan and the wrap-up form stick beside the review queue while it scrolls, so "Choose a
    next step" on the last card and "Finish check-in" are both still in view. It scrolls on its
@@ -212,44 +248,47 @@ main.wide { max-width: 1600px; }
 .plan-total { border-bottom: 1px solid #c9d8cd; padding-bottom: 14px; }
 .next-step { font-size: 16px; }
 .family-account { border-left: 3px solid #a2bdb3; padding-left: 10px; white-space: pre-wrap; }
-.plan-form { display: grid; gap: 16px; max-width: 760px; margin-top: 18px; }
+.plan-form { display: grid; gap: 16px; max-width: var(--measure); margin-top: 18px; }
 .plan-form label { display: grid; gap: 6px; font-weight: 550; min-width: 0; }
 .plan-form input, .plan-form select, .plan-form textarea { width: 100%; min-width: 0; }
 .plan-form textarea { min-height: 88px; border: 1px solid var(--control); border-radius: 6px; padding: 8px; }
 .plan-form p { margin: 0; }
 .plan-form > button { justify-self: start; }
-.form-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
-.finish-checkin { margin-top: 28px; max-width: 760px; }
+/* Two fields side by side where they fit, one under the other where they do not: no breakpoint
+   needed, the pair stacks itself under about 500px. */
+.form-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.finish-checkin { margin-top: 28px; max-width: var(--measure); }
 .print-step { border-bottom: 1px solid var(--rule); padding: 12px 0; break-inside: avoid; overflow-wrap: anywhere; }
 .print-step h4, .print-step p { margin: 4px 0; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-@media (max-width: 800px) {
+/* A workspace in two columns (the check-in's review queue beside its plan) needs the room:
+   under 1280px it stacks, queue first, the plan reachable by its in-page link. Before, the
+   split was at the same 800px as the strip, so a 844px phone held sideways drew the queue in
+   350px and the plan in 250px. This block sits after `.checkin-layout` on purpose: at equal
+   specificity the later rule wins, and above it the two-column grid would win back. */
+@media (max-width: 1279px) {
   .checkin-layout { grid-template-columns: minmax(0, 1fr); }
   .checkin-side { position: static; max-height: none; overflow-y: visible; }
   .plan-panel { padding: 12px; }
-  .form-pair { grid-template-columns: minmax(0, 1fr); }
-  .workspace-heading h2 { font-size: 24px; }
 }
 /* The printable plan is its own page (no shell): a readable column on screen, the bare
-   agreement on paper. */
+   agreement on paper. Its head is the standard page head; on paper only the title stays. */
 .print-page main { max-width: 720px; margin: 0 auto; }
-.print-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
-.print-controls p { flex-basis: 100%; margin: 0; }
 .print-plan h2 { margin: 0 0 4px; }
 .conflict { border-left: 4px solid var(--warn); }
 .stamp { font-size: var(--type-tiny); }
 .stamp .badge { margin-right: 6px; }
 .family-plan { margin: 4px 0 8px; }
-.remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: 760px; }
+.remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: var(--measure); }
 @media (pointer: coarse) {
   /* The links a finger meets on the check-in pages, at the same 44px as every button. */
   .button-link, .child-nav a, .plan-card a, .review-card a, .queue-group > summary, .plan-card details > summary,
-  .print-controls a, .plan-step-back a, .plan-form .actions a { min-height: 44px; display: inline-flex; align-items: center; }
+  .page-head .crumb a, .page-head .page-actions a, .plan-step-back a, .plan-form .actions a { min-height: 44px; display: inline-flex; align-items: center; }
   .plan-card details > summary, .queue-group > summary { display: flex; }
 }
 @media print {
   .print-page { background: white; }
-  .print-controls { display: none; }
+  .print-page .page-head.screen-only, .print-page .crumb, .print-page .page-actions, .print-page .page-intro { display: none; }
   .print-page main { padding: 0; max-width: none; margin: 0; }
 }
 /* The data is older than the runner will print from (web/staleness.py). Loud, because on a
@@ -281,9 +320,11 @@ button.link { border: none; background: none; color: var(--muted); text-decorati
 table.work td.item small { display: block; color: var(--muted); font-size: var(--type-small); }
 table.work td.item small a { color: inherit; }
 table.work td.due small.rel { display: block; }
-/* Open work stacks several short tables; fixed columns line them up under each other. */
+/* Open work stacks several short tables; fixed columns line them up under each other. The
+   date column is pinned to 8rem at most: at the 1600px page width a 22% share was 350px of
+   date, with the assignment pushed off the reader's eye line. */
 table.work.open-list { table-layout: fixed; }
-table.work.open-list th:nth-child(1) { width: 22%; }
+table.work.open-list th:nth-child(1) { width: min(22%, 8rem); }
 table.work.open-list th:nth-child(2) { width: 43%; }
 table.work td.where small.thru { display: block; color: var(--muted); font-size: var(--type-small); font-weight: normal; }
 .qmark { font-size: var(--type-small); color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
@@ -336,9 +377,6 @@ details.field-help summary { cursor: pointer; }
 details.skip-days > summary { cursor: pointer; font-weight: 550; margin-bottom: 8px; }
 #update-status { margin: 4px 0 8px; }
 .update-action h3 { font-size: 15px; }
-@media (max-width: 800px) {
-  .settings-grid { grid-template-columns: minmax(0, 1fr); }
-}
 .sources-hint { font-size: var(--type-small); margin: -8px 0 16px; }
 .record .sources-hint { margin: 0 0 6px; }
 .count:empty { display: none; }

@@ -11,10 +11,14 @@
   {% if rendered.chart_note %}<p class="muted">{{ rendered.chart_note }}</p>{% endif %}
   {% for g in rendered.groups %}
     {% if g.label %}<h3>{{ g.label }}</h3>{% endif %}
+    {# In its own scrolling box: a wide report used to run past the card's edge on a phone,
+       clipped, with nothing to swipe (page layout standard, section 3). #}
+    <div class="table-wrap">
     <table class="items">
       <thead><tr>{% for c in rendered.columns %}<th>{{ c.label }}</th>{% endfor %}</tr></thead>
       <tbody>{% for row in g.rows %}<tr>{% for c in rendered.columns %}<td>{{ row[c.id] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
     </table>
+    </div>
   {% else %}
     <p class="muted">No rows matched this report.</p>
   {% endfor %}

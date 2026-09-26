@@ -1,0 +1,14 @@
+{# The one page head, on every page (docs/superpowers/specs/2026-09-26-page-layout-standard-design.md,
+   section 2): an optional crumb back to the parent page, the title in the words of the rail
+   link (or the child's, class's or report's name), the page's own actions at the right, and
+   one intro sentence bounded to the measure. The includer sets `page_title`, and may set
+   `page_subtitle`, `page_intro`, `page_crumb` with `page_crumb_href`, and `page_actions` as a
+   captured block (`{% set page_actions %}…{% endset %}`). Row and card actions never come
+   here: only what acts on the page as a whole. `page_head_class` adds a modifier (the print
+   pages mark theirs `screen-only`). #}
+<div class="page-head{% if page_head_class is defined and page_head_class %} {{ page_head_class }}{% endif %}">
+  {% if page_crumb is defined and page_crumb %}<p class="crumb"><a href="{{ page_crumb_href }}">← {{ page_crumb }}</a></p>{% endif %}
+  <h2>{{ page_title }}{% if page_subtitle is defined and page_subtitle %} <span class="subtitle">{{ page_subtitle }}</span>{% endif %}</h2>
+  {% if page_actions is defined and page_actions and (page_actions | trim) %}<p class="page-actions">{{ page_actions }}</p>{% endif %}
+  {% if page_intro is defined and page_intro %}<p class="page-intro">{{ page_intro }}</p>{% endif %}
+</div>

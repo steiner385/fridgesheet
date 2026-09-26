@@ -12,9 +12,15 @@
 {# A page of its own, not the app shell: this is what a parent clicking a report's name from
    the list wants to read, and what their browser's print dialog should print -- not the
    builder that produced it, and not the reports list around it. #}
+{# The same page head as every other page, marked `screen-only`: on paper the report's own
+   title inside the card is the heading, and this one is not printed. #}
 <body class="print-page">
 <main>
-<div class="print-controls"><a href="/reports">← Back to reports</a> <a class="badge" href="/reports/{{ report.id }}">Edit</a> <button type="button" data-print>Print / save PDF</button><p class="muted">Print this report using your browser.</p></div>
+{% set page_crumb = "Back to reports" %}{% set page_crumb_href = "/reports" %}
+{% set page_title = report.name %}{% set page_head_class = "screen-only" %}
+{% set page_intro = "Print this report using your browser." %}
+{% set page_actions %}<a class="button-link" href="/reports/{{ report.id }}">Edit</a> <button type="button" data-print>Print / save PDF</button>{% endset %}
+{% include "_page_head.html" %}
 <article>
 <p>Printed {{ now | wd_md_time }}</p>
 {% with problems=[] %}{% include "_report_preview.html" %}{% endwith %}

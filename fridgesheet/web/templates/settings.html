@@ -4,9 +4,9 @@
 {# Both come from `routes.settings._page`; defaulted so a render that forgot them still shows the page. #}
 {% set env_notes = env_notes | default({}) %}
 {% set skip_problems = skip_problems | default([]) %}
-<h2>Settings</h2>
-{% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
-{% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
+{% set page_title = "Settings" %}{% include "_page_head.html" %}
+{% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
+{% for e in errors %}<p class="notice warn" role="alert">{{ e }}</p>{% endfor %}
 {% if form %}
 <form method="post" action="/settings" class="settings-form">
   <section class="card">
@@ -125,11 +125,11 @@
 {% if source_rules %}
 <section class="card">
 <h3>Gradebook overrides</h3>
-<table class="items"><tr><th>Kid</th><th>Class</th><th>Assignment scores</th><th>Class average</th><th></th></tr>
+<div class="table-wrap"><table class="items"><tr><th>Kid</th><th>Class</th><th>Assignment scores</th><th>Class average</th><th></th></tr>
 {% for r in source_rules %}<tr><td>{{ r.kid or 'Every kid' }}</td><td>{{ r.course or 'Every class' }}</td>
   <td>{{ SOURCE_LABELS[r.assignments] if r.assignments else 'Default' }}</td><td>{{ SOURCE_LABELS[r.grades] if r.grades else 'Default' }}</td>
   <td><form method="post" action="/settings/sources/remove"><input type="hidden" name="kid" value="{{ r.kid }}"><input type="hidden" name="course" value="{{ r.course }}"><button>Remove</button></form></td></tr>
-{% endfor %}</table>
+{% endfor %}</table></div>
 </section>
 {% endif %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}

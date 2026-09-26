@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Schedules · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Schedules</h2>
+{% set page_title = "Schedules" %}{% include "_page_head.html" %}
 <p class="muted">A scheduled report builds and prints (or just keeps the PDF) from the last data refresh; it does not refresh first,
    so keep <strong>Refresh the data</strong> below turned on -- saving a report schedule turns it on if it is off.
    The time is also the earliest a catch-up run will print, so a run missed overnight does not print yesterday's sheet in the morning.</p>

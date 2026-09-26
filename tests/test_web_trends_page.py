@@ -193,8 +193,8 @@ def test_the_content_column_can_shrink_below_its_content():
     grid declarations need the explicit zero minimum -- the phone width uses the second."""
     css = (STATIC / "app.css").read_text(encoding="utf-8")
     tracks = re.findall(r"\.shell\s*\{[^}]*grid-template-columns:\s*([^;}]+)", css)
-    assert len(tracks) == 2, "expected the wide layout and the max-width:800px override"
-    assert [t.strip() for t in tracks] == ["220px minmax(0, 1fr)", "minmax(0, 1fr)"]
+    assert len(tracks) == 2, "expected the wide layout and the narrow (max-width: 1023px) override"
+    assert [t.strip() for t in tracks] == ["var(--rail) minmax(0, 1fr)", "minmax(0, 1fr)"]
 
 
 def test_an_unknown_kid_on_trends_says_the_kid_is_not_known(tmp_path):

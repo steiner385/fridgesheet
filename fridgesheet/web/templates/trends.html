@@ -2,7 +2,7 @@
 {% block title %}Trends · Fridge Sheet{% endblock %}
 {% block content %}
 {% include "_chart_scripts.html" %}
-<h2>Trends</h2>
+{% set page_title = "Trends" %}{% set page_intro = "How the year is going: hand-ins, grades and the work due each week." %}{% include "_page_head.html" %}
 <div class="filters">
   <span>Kid:</span>
   <a class="badge{{ ' current' if not kid else '' }}" href="/trends?weeks={{ weeks }}">all</a>
@@ -41,11 +41,13 @@
 <h3>How the work due each week came out</h3>
 <p class="muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
 {% with config = weekly_json, height = 220, label = "Work due each week, by how it came out; the table below has the numbers" %}{% include "_chart_canvas.html" %}{% endwith %}
+<div class="table-wrap">
 <table class="items">
   <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
   <tbody>
   {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
   </tbody>
 </table>
+</div>
 {% endif %}
 {% endblock %}

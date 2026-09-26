@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Diagnostics · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Diagnostics</h2>
+{% set page_title = "Diagnostics" %}
+{% set page_intro = "What the app can reach and what it cannot, checked on this computer." %}
+{% set page_actions %}{% if jobs %}<button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button>{% endif %}{% endset %}
+{% include "_page_head.html" %}
 {% if verdict and verdict[0] == 'failed' %}
 <div class="card">
   <h3>The last update did not finish</h3>
@@ -12,7 +15,6 @@
      <code>{{ verdict[1].log }}</code>.</p>
 </div>
 {% endif %}
-{% if jobs %}<p><button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button></p>{% endif %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 <h3>Last report</h3>
 {% if report %}<pre class="log">{{ report }}</pre>{% else %}<p class="muted">Diagnostics have not been run yet.</p>{% endif %}

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Questions · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Questions</h2>
-<p class="muted">Where the school's records disagree, or say too little to act on. Answer one and it leaves this page.</p>
+{% set page_title = "Questions" %}
+{% set page_intro = "Where the school's records disagree, or say too little to act on. Answer one and it leaves this page." %}
+{% include "_page_head.html" %}
 {% for g in groups %}
 {% set student = g.student %}{% set tier = student.key | tier_of %}
 <section class="kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>

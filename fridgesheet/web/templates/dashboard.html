@@ -2,7 +2,8 @@
 {% block title %}Today · Fridge Sheet{% endblock %}
 {% block content %}
 {% block partial %}
-<div class="workspace-heading"><div><p class="eyebrow">A little clarity for today</p><h2>What needs our attention?</h2></div></div>
+{# The title is the rail's word; the question is the page's one intro sentence (page layout standard). #}
+{% set page_title = "Today" %}{% set page_intro = "What needs our attention?" %}{% include "_page_head.html" %}
 <div class="cards">
   {% for s, c, plan in cards %}
   <div class="card">

@@ -9,13 +9,15 @@
   {% endif %}
   {% if last_run %}
     {# What happened, in two words, linking to the Runs page -- not the first 80 characters of a
-       log line with a file path in it and an ellipsis nobody can click (#40 item 16). #}
-    <span>Last run <span class="badge {{ last_run.outcome }}">{{ last_run.outcome }}</span> {{ last_run.started_at | wd_md_time }} <a class="muted" href="/runs">{{ last_run_what.short }}</a></span>
+       log line with a file path in it and an ellipsis nobody can click (#40 item 16). A run
+       that succeeded is `quiet`: not shown under the strip breakpoint, where the bar is one
+       line (page layout standard, section 2). A failed one shows at every width. #}
+    <span{% if last_run.outcome == 'OK' %} class="quiet"{% endif %}>Last run <span class="badge {{ last_run.outcome }}">{{ last_run.outcome }}</span> {{ last_run.started_at | wd_md_time }} <a class="muted" href="/runs">{{ last_run_what.short }}</a></span>
   {% endif %}
   {% if job %}<span class="badge"><a href="/">{{ job.label }}…</a></span>{% endif %}
   {% if update and update.available %}<span class="badge"><a href="/settings">Fridge Sheet {{ update.latest }} is available</a></span>{% endif %}
   {% for w in warnings %}<span class="bad">{{ w }}</span>{% endfor %}
-  <span class="muted">{{ now | wd_md_time }}</span>
+  <span class="muted quiet">{{ now | wd_md_time }}</span>
 </header>
 {% if staleness %}
 {# One bar on the page that says something is wrong, beside `warnings` rather than competing

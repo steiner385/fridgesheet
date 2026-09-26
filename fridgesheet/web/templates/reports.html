@@ -1,21 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Reports · Fridge Sheet{% endblock %}
 {% block content %}
-<h2>Reports</h2>
-{% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
-{% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
+{% set page_title = "Reports" %}
+{% set page_actions %}<a class="button-link" href="/reports/new">New report</a>{% endset %}
+{% include "_page_head.html" %}
+{% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
+{% for e in errors %}<p class="notice warn" role="alert">{{ e }}</p>{% endfor %}
 {# The "Key" column used to sit here showing `open-work` and `view:3` -- the name the
    scheduler and `fridgesheet run` know a report by, which is not a fact a parent reading
    this page is looking for (#11 item 13). It stays as each report's title attribute, so the
    README's command line still has somewhere to read it from. #}
-<p><a class="badge" href="/reports/new">New report</a></p>
 {% if not saved %}
 <p class="muted">Starter reports are four ready-made ones you can print, edit or delete:
   {% for name, _ in TEMPLATES %}<strong>{{ name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
   <button hx-post="/reports/seed" hx-target="body">Add the starter reports</button></p>
 {% endif %}
 <h3>Built in</h3>
-<table class="items"><tr><th>Report</th><th></th></tr>
+<div class="table-wrap"><table class="items"><tr><th>Report</th><th></th></tr>
 {% for r in code %}<tr><td title="{{ r.key }}">{{ r.title }}</td>
   <td>
     {% if jobs %}
@@ -32,10 +33,10 @@
     </form>
     {% endif %}
   </td></tr>{% endfor %}
-</table>
+</table></div>
 <h3>Yours</h3>
 {% if saved %}
-<table class="items"><tr><th>Report</th><th>Updated</th><th></th></tr>
+<div class="table-wrap"><table class="items"><tr><th>Report</th><th>Updated</th><th></th></tr>
 {% for r in saved %}
 <tr>
   <td><a href="/reports/{{ r.id }}/view" title="view:{{ r.id }}">{{ r.name }}</a></td>
@@ -59,7 +60,7 @@
   </td>
 </tr>
 {% endfor %}
-</table>
+</table></div>
 {% else %}<p class="muted">No saved reports yet.</p>{% endif %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% endblock %}
