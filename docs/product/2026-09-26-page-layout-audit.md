@@ -172,6 +172,15 @@ What the audit measured but this alignment did not take on, each filed so it is 
 | [#185](https://github.com/steiner385/fridgesheet/issues/185) | Schedules: one intro sentence, notices, forms to the measure — after #180 lands |
 | [#186](https://github.com/steiner385/fridgesheet/issues/186) | Settings is 5.1 screens on a phone: fold About and the late-rules editor |
 | [#187](https://github.com/steiner385/fridgesheet/issues/187) | Runs (472 px) and Changes (421 px) still ask a 390 px phone for a sideways swipe |
+| [#189](https://github.com/steiner385/fridgesheet/issues/189) | Check-in on a phone: the plan is five screens below the queue (6.7 screens; 11.5 sideways) |
+| [#190](https://github.com/steiner385/fridgesheet/issues/190) | Check-in opens with three instruction sentences (tab hint, sources hint, intro) |
+| [#191](https://github.com/steiner385/fridgesheet/issues/191) | Card titles and Open work's kid sections are `<h2>`, the page title's level |
+| [#192](https://github.com/steiner385/fridgesheet/issues/192) | Three filter patterns (chips, radios and selects, inline selects); a chip's current state is unstyled |
+| [#193](https://github.com/steiner385/fridgesheet/issues/193) | Reports: six controls per saved-report row, three lines of buttons on a phone |
+| [#194](https://github.com/steiner385/fridgesheet/issues/194) | Report builder is the one form still laid out inline |
+| [#195](https://github.com/steiner385/fridgesheet/issues/195) | The update badge wraps the phone's status bar back to two lines (28 → 59 px) |
+| [#196](https://github.com/steiner385/fridgesheet/issues/196) | A phone held sideways gives 31 % of its height to the strip and the bar |
+| [#197](https://github.com/steiner385/fridgesheet/issues/197) | Decision recorded: 30 % blank at 2560 px behind the 1600 px ceiling |
 
 ## 5. What holds it
 
