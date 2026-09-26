@@ -7,7 +7,7 @@
 <div class="cards">
   {% for s, c, plan in cards %}
   <div class="card">
-    <h2><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h2>
+    <h3><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h3>
     <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a> · <a href="/kids/{{ s.key | urlencode }}">Assignments</a></p>
     {# The family layer first: is a check-in due, and what did we plan for today? #}
     <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %} · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
@@ -31,11 +31,11 @@
   {% else %}
   {# The button, not a command: `fridgesheet refresh` without --record never fills the database
      this page reads, and on Windows there is no terminal step at all (#153). #}
-  <div class="card"><h2>Nothing here yet</h2><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
+  <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
     {% if jobs %}<p class="actions"><button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button></p>{% endif %}</div>
   {% endfor %}
   <div class="card">
-    <h2>Today's sheet</h2>
+    <h3>Today's sheet</h3>
     {# `printed` is (run, runs.describe(run), pdf still on disk). The run's message is the
        runner's log line -- a file path and "Kid=23" -- and used to be printed here verbatim
        under the heading "Printed today", preview or not (#40 item 4). #}

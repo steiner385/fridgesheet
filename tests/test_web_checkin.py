@@ -567,7 +567,7 @@ def test_today_shows_each_childs_next_check_in_and_todays_load(tmp_path):
     c.post("/kids/Alex/check-in/finish", data=_finish(next_check="2026-09-17"), follow_redirects=False)
     c.post("/kids/Sam/check-in/finish", data=_finish(next_check="2026-09-14"), follow_redirects=False)
     body = c.get("/").text
-    alex, sam = body.split('<h2><a href="/kids/Sam/check-in">')
+    alex, sam = body.split('<h3><a href="/kids/Sam/check-in">')
     assert "Next check-in Thu 9/17" in alex and "2 steps planned today · 25 min" in alex
     assert "Check-in due (planned for Mon 9/14)" in sam and "No steps planned today" in sam
 

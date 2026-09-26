@@ -28,7 +28,7 @@ def english(conn) -> int:
 
 
 def grade_card(body: str) -> str:
-    return body.split("<h2>Grade</h2>", 1)[1].split("</div>", 1)[0]
+    return body.split("<h3>Grade</h3>", 1)[1].split("</div>", 1)[0]
 
 
 def test_grade_lines_put_the_official_source_first():

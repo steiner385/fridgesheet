@@ -184,6 +184,77 @@ def test_a_checkbox_is_a_24px_target_under_a_coarse_pointer():
     assert re.search(r"input\[type=checkbox\], input\[type=radio\]\s*\{[^}]*width: 24px; height: 24px", coarse)
 
 
+# --- the follow-ups: #191 outline, #192 chips, #195 the badge, #196 a phone on its side --------------
+
+@pytest.mark.parametrize("path", ["/", "/open", "/trends", "/changes", "/questions", "/runs", "/reports"])
+def test_the_page_title_is_the_only_h2_on_the_page(tmp_path, path):
+    """#191: cards and Open work's kid sections were <h2>, siblings of the page title in the
+    outline; they are sections (<h3>) with their lists as <h4>."""
+    from tests.web_fixtures import history
+    history(tmp_path).close()
+    body = app_for(tmp_path).get(path).text
+    assert body.count("<h2") == 1, path
+    assert "<h2>" in body.split('class="page-head"')[1].split("</div>")[0]
+
+
+def test_open_works_kids_are_sections_and_their_lists_parts_of_them(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/open").text
+    assert re.search(r'<h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3>', body)
+    assert "<h4>Still fixable" in body and "<h4>Coming due" in body
+
+
+def test_a_filter_chip_in_force_is_drawn_and_announced(tmp_path):
+    """#192: `.badge.current` had no rule, so nothing said which window or kid was chosen."""
+    assert re.search(r"\.badge\.current\s*\{[^}]*background: var\(--accent\)", CSS)
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    changes = c.get("/changes?window=7d&kid=Alex").text
+    assert re.search(r'<a class="badge current" aria-current="true" href="[^"]*window=7d"', changes)
+    assert re.search(r'<a class="badge current" aria-current="true" href="[^"]*kid=Alex[^"]*">Alex</a>', changes)
+    assert changes.count('aria-current="true"') == 3            # window, kid, kind: one each
+    trends = c.get("/trends?kid=Sam&weeks=8").text
+    assert trends.count('aria-current="true"') == 2
+
+
+def test_the_open_everything_choice_is_drawn_as_the_same_chips():
+    """#192: the radio stays for the form and the keyboard; the label is the chip."""
+    assert re.search(r"\.seg label\s*\{[^}]*border-radius: 10px", CSS)
+    assert re.search(r"\.seg label:has\(input:checked\)\s*\{[^}]*background: var\(--accent\)", CSS)
+    assert re.search(r"\.seg label:has\(input:focus-visible\)\s*\{[^}]*outline", CSS), "a hidden radio still needs a visible focus"
+
+
+def test_the_update_badge_has_two_words_under_the_strip(tmp_path):
+    """#195: the sentence wrapped a phone's bar back to two lines."""
+    src = (TEMPLATES / "_header.html").read_text(encoding="utf-8")
+    assert '<span class="long">Fridge Sheet {{ update.latest }} is available</span><span class="short">Update</span>' in src
+    narrow = _block("max-width: 1023px")
+    assert re.search(r"header\.status \.long\s*\{[^}]*display: none", narrow)
+    assert re.search(r"header\.status \.short\s*\{[^}]*display: inline", narrow)
+    assert re.search(r"header\.status \.short\s*\{[^}]*display: none", CSS)      # the base rule, beside a sidebar
+
+
+def test_the_status_bar_is_shell_chrome_not_page_content(tmp_path):
+    """#196: in the shell, the bar can share the strip's row on a phone held sideways."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/").text
+    assert body.index('<header class="status">') < body.index("<main")
+    assert body.index('<div class="shell">') < body.index('<header class="status">')
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+    assert base.index('{% include "_header.html" %}') < base.index("<main")
+    for name in PAGES:
+        assert '_header.html' not in (TEMPLATES / name).read_text(encoding="utf-8"), name
+
+
+def test_a_phone_held_sideways_puts_the_strip_and_the_bar_on_one_row():
+    m = re.search(r"@media \(max-width: 1023px\) and \(max-height: 500px\)\s*\{(.*?)^\}", CSS, re.S | re.M)
+    assert m, "no landscape block"
+    block = m.group(1)
+    assert re.search(r"\.shell\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\) auto", block)
+    assert re.search(r"\.rail\s*\{[^}]*grid-row: 1", block) and re.search(r"header\.status\s*\{[^}]*grid-row: 1", block)
+    assert re.search(r"main\s*\{[^}]*grid-column: 1 / -1", block)
+
+
 def test_the_print_pages_keep_the_head_on_screen_and_drop_its_chrome_on_paper():
     printing = _block("print")
     assert ".print-page .crumb" in printing and ".print-page .page-actions" in printing
