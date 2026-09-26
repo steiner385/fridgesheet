@@ -3,7 +3,7 @@
 # touches the builder's real settings and no credential is involved:
 #   1. doctor           every probe must pass inside the bundle (Chromium, SumatraPDF, keyring, tzdata...)
 #   2. dry-run sheet    run open-work --dry-run --no-refresh --force from a fixture snapshot -> a PDF exists
-#   2b. scheduled task  schedule install/remove round-trips through schtasks against a real Task Scheduler
+#   2b. old-task cleanup  schedule remove --all runs against a real Task Scheduler and exits 0
 #   3. the server       `web --no-browser` answers /health, /, /diagnostics and /settings from the bundle
 #   3b. no-args launch  finds the running server and exits 0 (a crash here is the one failure
 #                       the friend would otherwise be first to see)
@@ -53,18 +53,10 @@ try {
     if (-not $pdf) { throw "no sheet-preview.pdf under $smokeHome\sheets" }
     Write-Host "  built $($pdf.FullName) ($($pdf.Length) bytes)"
 
-    # 2b. the scheduled task: task.xml must come out of the frozen bundle and schtasks must accept it.
-    # --force: `schedule install` refuses until a login check has passed (#154), and this home
-    # has never seen one; the flag is the documented way past that gate.
-    $p = Start-Process -FilePath $exe -ArgumentList "schedule","install","--force" -Wait -PassThru -WindowStyle Hidden
-    if ($p.ExitCode -ne 0) { Get-Content (Join-Path $smokeHome "app.log") -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }; throw "schedule install failed (exit $($p.ExitCode))" }
-    $q = & schtasks /Query /TN "Fridge Sheet - open-work" 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "task not found after install: $q" }
-    # --all, not a bare remove: that is the exact command line installer.iss's [UninstallRun]
-    # now issues, and it is worth this smoke test proving it against a real schtasks too.
+    # 2b. the uninstaller's cleanup runs against a real schtasks and finds nothing to remove
     $p = Start-Process -FilePath $exe -ArgumentList "schedule","remove","--all" -Wait -PassThru -WindowStyle Hidden
     if ($p.ExitCode -ne 0) { throw "schedule remove --all failed (exit $($p.ExitCode))" }
-    Write-Host "  scheduled task installed and removed"
+    Write-Host "  old-task cleanup ran clean"
 
     # 3. the server: start it on a free port, fetch two pages, stop it
     $env:FRIDGESHEET_WEB_PORT = "8765"

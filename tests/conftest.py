@@ -209,7 +209,7 @@ def _no_real_scheduler(monkeypatch):
     report-delete route grew a call into the scheduler and a delete test written without the
     injected fake would have run a real `systemctl --user disable --now
     fridgesheet-view-N.timer`. A test that needs to make an assertion about a command line must
-    inject its own fake `run=` (see `tests/test_host_scheduling_linux.py` etc. for the
+    inject its own fake `run=` (see `tests/test_os_leftovers.py` etc. for the
     pattern); this fixture never allows the real thing through for `systemctl`/`schtasks`,
     convention or no convention.
     """
@@ -236,6 +236,16 @@ def _no_real_scheduler(monkeypatch):
         return real_popen(args, *popen_args, **kwargs)
 
     monkeypatch.setattr(subprocess, "Popen", guarded_popen)
+
+
+@pytest.fixture(autouse=True)
+def _no_background_clock(monkeypatch):
+    """No test may start a real background clock. `server.run` now starts one beside the jobs
+    worker (`web/clock.py`); `tests/test_web_server.py` (and maybe others) call the real
+    `server.run` with a fake `serve`, so without this they would get a live ticking thread no
+    test asked for -- and, once a later task adds it, the OS-cleanup thread beside it."""
+    from fridgesheet.web import clock
+    monkeypatch.setattr(clock, "start_background", lambda state: None)
 
 
 @pytest.fixture(autouse=True)

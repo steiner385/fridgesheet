@@ -104,8 +104,13 @@ class AppState:
         """What the header says is wrong with a hand-edited file: the late-rules.toml message
         `rules()` left in `extra["warnings"]`, plus every line of no-print-days.txt the sheet
         has to ignore (#147) -- re-read each page, like the rules, so the warning goes away
-        the moment the file is fixed."""
-        return list(self.extra.get("warnings") or []) + actions.no_print_days_problems(self.home)
+        the moment the file is fixed. And the scheduler's own heartbeat: a clock that has
+        stopped ticking says so here."""
+        out = list(self.extra.get("warnings") or []) + actions.no_print_days_problems(self.home)
+        running = self.extra.get("clock")
+        if running is not None and running.stale(self.now()):
+            out.append(running.paused())
+        return out
 
     def sources(self) -> SourcePrefs:
         """Which gradebook is authoritative per kid and class. Read from settings, which
@@ -561,8 +566,9 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
     home = home or settings.home
     tz = ZoneInfo(settings.timezone)
     app = FastAPI(title="Fridge Sheet", docs_url=None, redoc_url=None, openapi_url=None)
-    state = AppState(home=home, settings=settings, tz=tz, started_at=datetime.now(tz),
-                     clock=lambda: datetime.now(tz))
+    # No `clock=`: the default reads `self.tz` at each call, so a time zone saved in Settings
+    # reaches `now()` -- and the scheduler's slots -- at once, not at the next start.
+    state = AppState(home=home, settings=settings, tz=tz, started_at=datetime.now(tz))
     app.state.fridgesheet = state
     env = ENV.overlay()
     # `overlay()` copies the environment's __dict__ and replaces only `cache` and

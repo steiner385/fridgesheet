@@ -10,8 +10,7 @@ import sys
 import time
 
 from . import collector
-from .config import (ConfigError, ReportConfig, Settings, config_file, load_config_doc, load_settings,
-                     save_config_doc, settings_from_doc)
+from .config import ConfigError, Settings, config_file, load_config_doc, load_settings, save_config_doc
 from .host import credentials as credstore
 from .host import current_user as _current_user
 from .session import browser, ensure_canvas, ensure_hac
@@ -203,258 +202,79 @@ def cmd_reports(args) -> int:
     return 0
 
 
-def _removal_settings() -> tuple[Settings, str]:
-    """The settings `schedule remove --all` runs on: the home and `config.toml`'s
-    `[reports.<key>]` table names, read with nothing that writes to disk and nothing that can
-    abort the run. Returns them with the reason they are degraded, or "" when nothing is.
-
-    `load_settings` is the wrong loader for this one path, twice over -- both times because
-    this caller is an uninstaller and not an ordinary command:
-
-    - It ends with `for d in (s.home, s.profile_dir, s.cache_dir): d.mkdir(...)`. That defeats
-      `_schedule_removal_keys`'s whole reason for gating the database read on
-      `db_path.is_file()`: a parent who deleted `%LOCALAPPDATA%\\fridgesheet` before
-      uninstalling gets the folder back, with `browser-profile` and `cache` inside it, and
-      `installer.iss`'s post-uninstall message box then points at it and calls what is in it
-      "kept".
-    - It raises `ConfigError` for a `config.toml` tomllib cannot parse, or for a single
-      `[reports.<key>].time` that is not HH:MM. `main()` has no handler, so the command would
-      die with a traceback before removing anything -- and `[UninstallRun]` is `runhidden` and
-      discards the exit code, so every scheduled task would survive the uninstall with nothing
-      on screen saying so. `_schedule_removal_keys` degrades gracefully for a *database* it
-      cannot read; the config file, which that same docstring calls the source that works
-      "database or no database", cannot be the fatal one.
-
-    A bad `time` costs only its own table's *settings*, never any table's removal: the raw
-    document parsed, so every `[reports.<key>]` name in it is still taken off it directly. The
-    key is all `scheduling.remove` needs -- it computes a unit or task name and nothing else.
-    """
-    s = Settings()
-    try:
-        doc = load_config_doc(config_file())
-    except ConfigError as e:
-        return s, str(e)                      # already names the file
-    except (OSError, UnicodeDecodeError) as e:
-        # Out of the `read_text` underneath `load_config_doc`: a permission the uninstaller
-        # does not have, or a file some other tool wrote in an encoding it will not decode.
-        # Same meaning as a parse failure here -- the config is unreadable, so remove what the
-        # code reports alone can name, and say why.
-        return s, f"{config_file()}: {e}"
-    try:
-        settings_from_doc(doc, s)
-    except Exception as e:
-        # Deliberately every exception, not a list of the types seen so far. `settings_from_doc`
-        # reads a hand-editable file: `config.py` now type-guards the shapes that bit us here
-        # (a `reports` key that is not a table -> `AttributeError`; a `days` that is not a list
-        # -> `TypeError`), which is the real fix and helps every caller -- but this is the one
-        # call site where an escaping exception costs the parent *every* scheduled task, with a
-        # traceback `runhidden` swallows and an exit code `[UninstallRun]` never checks. So the
-        # next unguarded conversion in that reader must not be able to reach here either.
-        raw = doc.get("reports")
-        for key in (raw if isinstance(raw, dict) else {}):
-            s.reports.setdefault(str(key), ReportConfig())
-        return s, f"{config_file()}: {e}"
-    return s, ""
-
-
-def _schedule_removal_keys(s) -> tuple[set[str], bool]:
-    """Every key `schedule remove --all` must try, and whether that list is complete.
-
-    Almost every key here is a report key, and most of this docstring is about finding those --
-    but the set returned is not "every report key", it is every key this app might have
-    installed a schedule under, and one of those (`host.DATA_REFRESH_KEY`) is not a report at
-    all. See the note below the report-key filter for that one.
-
-    Two sources, unioned, neither one alone enough:
-
-    - The code reports (`reports.REPORTS`) plus `config.toml`'s `[reports.<key>]` tables
-      (`s.reports`) -- the Schedules page's own record of every key it ever wrote a schedule
-      for, read straight off disk with no database involved. A `view:<id>` key survives here
-      even if the database that would resolve it to a title is gone, unreadable, or on a
-      schema this build cannot read -- exactly the case that matters, since `scheduling.remove`
-      only needs the key to compute the unit/task name, never the report itself.
-    - The database's own saved-report listing, `[reports."view:<id>"]`'s other half -- but
-      *only* read when `db.db_path(s.home)` already exists. `reports.available(home)` calls
-      `db.open_db`, which creates the folder and an empty database as a side effect if neither
-      is there yet; calling it unconditionally here would hand a parent who deleted
-      `%LOCALAPPDATA%\\fridgesheet` before uninstalling a freshly recreated one back, while
-      the installer's own "your data was kept" message box points right at it.
-
-    A database that exists but cannot be read (`db.migrate` raising for a schema this downgraded
-    build does not understand is the concrete case: install a build that migrates `fridgesheet.db` to
-    a newer schema, roll back to an older installer, uninstall) does not silently return an empty
-    saved-report list the way `reports.available` does -- that swallow is right for a page render,
-    where a listing is never worth a 500, but wrong for an uninstaller deciding whether it is
-    done. Here it is caught directly and reported as incomplete, so the caller's exit code says
-    so -- even though the `s.reports` half above already means the actual removal attempt still
-    happens for every key that config.toml remembers, database or no database.
-
-    Whatever the two sources produce is then filtered to keys this app actually schedules
-    under (`reports.is_schedulable_key`). `s.reports` is `[reports.<key>]` table names read
-    raw off disk, and a hand-edited one need not be a report at all: `[reports.Web]` renders to
-    "Fridge Sheet - Web", which in Task Scheduler's case-insensitive namespace *is* the web
-    server's own logon task. The single-key path gates on `reports.resolve` for exactly that
-    reason (`cmd_schedule`); `--all` cannot call `resolve` -- it opens, and so creates, the
-    database this function just went to such trouble not to create -- so it gates on the
-    spelling instead, which is the same set of keys `resolve` accepts. A skipped key is
-    announced on stderr rather than dropped silently, but it does not make the run incomplete:
-    it was never this app's schedule to remove.
-
-    One key is added after that filter, not before it: `host.DATA_REFRESH_KEY`. It is not a
-    report -- it lives under `[refresh]`, not `[reports.<key>]` -- so `reports.is_schedulable_key`
-    correctly says no to it, and it can never appear in `keys` above no matter how thoroughly
-    `config.toml` and the database are read. Yet it is exactly the kind of task this function
-    exists to find: a household that ever turned the refresh schedule on has a real Task
-    Scheduler task or systemd timer firing `refresh --record` on a timer, whether or not
-    `[refresh]` is still in config.toml (deleted by hand, or never written because the schedule
-    was installed from an older build) and whether or not `[refresh].enabled` is currently
-    true. Added unconditionally -- not "if `[refresh]` is present" or "if enabled" -- because
-    `scheduling.remove` is documented idempotent for a task or unit that is not there, so the
-    cost of trying it when nothing was ever installed is nothing, while the cost of *not*
-    trying it when something was is a data-refresh task surviving the uninstall with no config
-    left to explain what it is.
-    """
-    from . import host, reports
-    from .web import db as web_db
-
-    keys = {r.key for r in reports.REPORTS.values()} | set(s.reports)
-    complete = True
-    db_path = web_db.db_path(s.home)
-    if db_path.is_file():
-        try:
-            from .web.stores import reports as report_store
-            conn = web_db.open_db(s.home)
-            try:
-                keys |= {f"view:{row['id']}" for row in report_store.all(conn)}
-            finally:
-                conn.close()
-        except Exception as e:  # noqa: BLE001  an uninstaller must not mistake this for "nothing saved"
-            print(f"could not list saved reports (their schedules may be left running): {e}", file=sys.stderr)
-            complete = False
-    ours = {k for k in keys if reports.is_schedulable_key(k)}
-    for k in sorted(keys - ours):
-        print(f"{k}: not a report key this app schedules under; leaving anything of that name alone",
-              file=sys.stderr)
-    ours.add(host.DATA_REFRESH_KEY)
-    return ours, complete
-
-
 def _cmd_schedule_remove_all() -> int:
-    """The uninstaller's own call: remove the schedule for every report this app knows about,
-    not just the default one `schedule remove` names when no report is given.
-
-    `installer.iss`'s `[UninstallRun]` cannot enumerate a parent's saved reports itself --
-    Inno Setup script is not a scripting language -- so this is where the enumeration actually
-    happens (`_schedule_removal_keys`), on settings loaded without `load_settings`'s two
-    side effects (`_removal_settings`). Every key found goes through the ordinary
-    `scheduling.remove`, so the platform's own ownership check -- the one that refuses a
-    hand-written unit or the web server's logon task -- runs exactly as it does for a single
-    report. What `--all` does *not* get from `remove` is `cmd_schedule`'s `reports.resolve`
-    gate, because resolving a `view:<id>` opens the database; `_schedule_removal_keys` applies
-    the equivalent gate by spelling instead. A report that was never scheduled costs nothing
-    here either -- `remove` is documented idempotent for a task or unit that is not there.
-
-    One report's `SchedulingError` (a hand-written namesake unit, say) does not stop the rest
-    from being tried -- an uninstall that gives up after the first refusal would leave every
-    other report behind too. `NotSupported` is different: it would mean this host has no
-    scheduler at all, so trying the next report could not do any better and the loop stops
-    there, the same as a single `schedule remove` would. No shipped `host` module raises it for
-    scheduling (both platforms have a real implementation), so that branch is insurance for a
-    third platform rather than a path anything takes today.
-
-    Exit code: 0 only when every key was removed *and* nothing had to be guessed at. A
-    config.toml or a database that could not be read makes it 1, because the honest answer is
-    "something may still be scheduled" -- even though `runhidden` means nobody reads it.
-    """
-    from .host import NotSupported, scheduling
-    s, degraded = _removal_settings()
-    if degraded:
-        print(f"could not read the settings (schedules it knows about may be left running): {degraded}",
-              file=sys.stderr)
-    keys, complete = _schedule_removal_keys(s)
-    ok = True
-    for key in sorted(keys):
-        try:
-            scheduling.remove(key)
-            print(f"Removed {scheduling.display_name(key)}")
-        except NotSupported as e:
-            print(str(e), file=sys.stderr)
-            return 2
-        except scheduling.SchedulingError as e:
-            print(f"{key}: {e}", file=sys.stderr)
-            ok = False
-    return 0 if (ok and complete and not degraded) else 1
+    """The uninstaller's call: remove every task or unit an earlier version registered with the
+    OS. Reads no config and creates nothing -- the list comes from the OS itself."""
+    from .host import scheduling
+    got = scheduling.remove_os_leftovers()
+    for name in got.removed:
+        print(f"Removed {name}")
+    for name, error, command in got.failed:
+        print(f"{name}: {error}" + (f" (remove it with: {command})" if command else ""), file=sys.stderr)
+    return 1 if got.failed else 0
 
 
 def cmd_schedule(args) -> int:
     from . import reports
-    from .host import NotSupported, scheduling
     if args.all:
         # Dispatched before `load_settings`, not after: `--all` is the uninstaller's call and
-        # must neither create the home folder nor die on a config file it cannot read. See
-        # `_removal_settings` for both halves of why.
+        # must neither create the home folder nor die on a config file it cannot read.
         if args.action != "remove":
             print("--all only works with `schedule remove`", file=sys.stderr)
             return 2
         return _cmd_schedule_remove_all()
-    from . import host, refresh_schedule
-    from .web import actions, schedules as page
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from . import host, schedule_plan
+    from .web import clock, db as web_db, schedules as page
     s = load_settings()
     key = args.report
-    if args.action == "install" and not args.force and not actions.login_passed(s.home):
-        # The Schedules page's own gate (#154): a timer installed before any login has
-        # passed fires and fails every run. Not applied to `remove` or `show`, which need
-        # no login, and not to `--force`, for whoever knows better.
-        print("Nothing installed: no login check has passed yet. Run `fridgesheet check` "
-              "(or Test login on the Settings page) first, or pass --force.", file=sys.stderr)
-        return 1
+    if args.action in ("install", "remove"):
+        # `data-refresh` is the one escape hatch through the report-key gate below: it is
+        # not a report (`reports.resolve` would raise `ReportError` for it, same as any
+        # other non-report string), but it is a fixed, reserved key (`host.RESERVED_KEYS`)
+        # a report can never be saved under -- so admitting it here by name does not loosen
+        # what the gate protects against (`remove web` still refuses). Without it, a parent
+        # whose refresh schedule outlived its `[refresh]` config had no single-key way to
+        # turn off just that schedule, and a terminal-only setup no way to turn it on (#154).
+        if key != host.DATA_REFRESH_KEY:
+            try:
+                reports.resolve(key, s.home)
+            except reports.ReportError as e:
+                print(str(e), file=sys.stderr)
+                return 1
+        # `install` is the terminal's Save: it turns the schedule on in config.toml and the
+        # server's clock does the rest. There is no OS task, so no login gate either -- the
+        # Schedules page has none -- and `--force` (#154's way past that gate) is accepted and
+        # ignored, so a script written for the older gate still runs.
+        on = args.action == "install"
+        page.record_enabled(s.home, key, on, create=on)
+        print(f"{key}: turned {'on' if on else 'off'} in config.toml")
+        if on and key != host.DATA_REFRESH_KEY and not s.refresh.enabled:
+            # The page's rule (#120): a scheduled report prints from the last refresh and
+            # refuses one a day old, so a report turned on turns the refresh on with it.
+            page.record_enabled(s.home, host.DATA_REFRESH_KEY, True)
+            print(page.refresh_turned_on(s.refresh))
+        s = load_settings()                       # read back what was just written
+    # Read the same plan the clock acts on: this is what `install` or `remove` just changed,
+    # and what `show` (no key given) is here to report on.
+    schedules, problems = clock.configured(s.home, settings=s)
+    now = datetime.now(ZoneInfo(s.timezone))
+    conn = web_db.open_db(s.home)
     try:
-        if args.action == "install":
-            if key == host.DATA_REFRESH_KEY:
-                # `[refresh]`, installed by the very call the Schedules page makes (#146) --
-                # this used to fall through to `reports.resolve` and answer "unknown report".
-                rc = s.refresh
-                times = refresh_schedule.refresh_times(rc.start, rc.end, rc.every_hours)
-                host.check_schedule_times(times, rc.days)
-                page.install_refresh(times, rc.days, home=s.home, timezone=s.timezone, scheduling=scheduling)
-                print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {','.join(times)}")
-            else:
-                r = reports.resolve(key, s.home)       # a saved view report is schedulable too (#35)
-                rc = s.report_config(key, r.default_time)
-                exe, a, wd = scheduling.command_for(key)
-                scheduling.install(key, [rc.time], rc.days, exe, a, wd, title=r.title,
-                                   home=str(s.home), timezone=s.timezone)
-                print(f"Installed {scheduling.display_name(key)}: {','.join(rc.days)} at {rc.time}")
-            # Only once the host has it: config.toml says on exactly when a task is there, the
-            # way the Schedules page leaves it (#146).
-            page.record_enabled(s.home, key, True)
-        elif args.action == "remove":
-            # `data-refresh` is the one escape hatch through the report-key gate below: it is
-            # not a report (`reports.resolve` would raise `ReportError` for it, same as any
-            # other non-report string), but it is a fixed, reserved key (`host.RESERVED_KEYS`)
-            # a report can never be saved under -- so admitting it here by name does not loosen
-            # what the gate protects against (`remove web` still resolves and still refuses).
-            # Without it, a parent whose refresh schedule outlived its `[refresh]` config had
-            # no single-key way to remove just that task; `schedule remove --all` was the only
-            # door, and it removes every report's schedule too.
-            if key != host.DATA_REFRESH_KEY:
-                reports.resolve(key, s.home)      # the same gate `install` has: `remove web` is
-            scheduling.remove(key)                # not a report, and on Windows it names the
-                                                  # web server's own logon task
-            # Off in config.toml too, or `doctor` fails "on in config.toml but no task is
-            # installed" (#146). A table that was never written already reads as off.
-            page.record_enabled(s.home, key, False, create=False)
-            print(f"Removed {scheduling.display_name(key)}")
-        info = scheduling.describe(key)
-        state = f"next run {info.next_run}" if info.installed else "not scheduled"
-        print(f"{key}: {state} (managed by {info.managed_by}" + (f", last result {info.last_result}" if info.last_result else "") + ")")
-        return 0
-    except NotSupported as e:
-        print(str(e), file=sys.stderr)
-        return 2
-    except (reports.ReportError, scheduling.SchedulingError) as e:
-        print(str(e), file=sys.stderr)
-        return 1
+        for x in schedules:
+            nxt = schedule_plan.next_run(x, now)
+            last = page.last_scheduled(conn, "refresh" if x.key == host.DATA_REFRESH_KEY else x.key)
+            print(f"{x.key}: next {nxt:%a %m/%d %H:%M}" if nxt else f"{x.key}: no next run",
+                  f"· last {last}" if last else "· has not run on a schedule yet")
+    finally:
+        conn.close()
+    for k, v in sorted(problems.items()):
+        print(f"{k}: {v}", file=sys.stderr)
+    if not schedules:
+        print("no schedules are on")
+    return 1 if problems else 0
 
 
 def cmd_web(args) -> int:
@@ -597,8 +417,8 @@ def main(argv=None) -> None:
     rn.add_argument("--trigger", choices=["cli", "schedule"], default="cli", help=argparse.SUPPRESS)   # set by installed schedules
     rn.set_defaults(fn=cmd_run)
     sub.add_parser("reports", help="list report types and their schedules").set_defaults(fn=cmd_reports)
-    sc2 = sub.add_parser("schedule", help="install, remove or show a report's scheduled run "
-                                          "(systemd user timers on Linux, Task Scheduler on Windows)")
+    sc2 = sub.add_parser("schedule", help="show when schedules run next, or turn one on or off in config.toml "
+                                          "(`remove --all`: remove tasks older versions registered with the OS)")
     sc2.add_argument("action", choices=["install", "remove", "show"])
     sc2.add_argument("report", nargs="?", default="open-work", help="ignored with --all")
     sc2.add_argument("--all", action="store_true",
@@ -606,8 +426,7 @@ def main(argv=None) -> None:
                           "and the only way to remove a schedule left behind by a saved report that "
                           "no longer exists (`remove view:N` refuses a key that does not resolve)")
     sc2.add_argument("--force", action="store_true",
-                     help="with `install`: install even though no login check (`fridgesheet check` or "
-                          "Test login on the Settings page) has passed yet")
+                     help="accepted and ignored: `install` no longer waits for a passed login check")
     sc2.set_defaults(fn=cmd_schedule)
     w = sub.add_parser("web", help="run the browser app (foreground); opens the browser unless --no-browser "
                                    "(use that on a machine with no desktop)")

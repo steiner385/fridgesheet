@@ -27,8 +27,6 @@ EXEMPT = {
     "README.md",                             # the "old name" paragraph
     "pyproject.toml",                        # the `lakota-grades` shim entry point
     "fridgesheet/cli.py",                    # the shim's one-line notice
-    "fridgesheet/host/scheduling_linux.py",  # refuses the household's pre-rename unit names
-    "tests/test_host_scheduling_linux.py",
     "fridgesheet/config.py",                 # honours LAKOTA_* and moves the old home (comments)
     "fridgesheet/doctor.py",                 # the "old names" probe's docstring
     "fridgesheet/web/db.py",                 # renames lakota.db on open (comment)
@@ -67,10 +65,10 @@ def test_no_tracked_path_is_named_after_the_old_brand():
 
 def test_the_shipped_identity_is_consistent():
     from fridgesheet import host
-    from fridgesheet.host import service
+    from fridgesheet.host import scheduling_windows, service
     from fridgesheet.web import db
     assert host.SERVICE == "fridgesheet" and service.SERVICE_NAME == "Fridge Sheet - web"
-    assert db.DB_NAME == "fridgesheet.db" and host.task_name("open-work").startswith("Fridge Sheet - ")
+    assert db.DB_NAME == "fridgesheet.db" and scheduling_windows.PREFIX == "Fridge Sheet - "
     py = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert 'name = "fridgesheet"' in py and 'fridgesheet = "fridgesheet.cli:main"' in py
     assert 'lakota-grades = "fridgesheet.cli:legacy_main"' in py     # the one-release shim

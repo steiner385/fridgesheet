@@ -185,6 +185,8 @@ def run(settings: Settings, *, host: str | None = None, port: int | None = None,
     try:
         db.open_db(settings.home).close()             # create and migrate before the first request
         app = create_app(settings, worker=True)
+        from .clock import start_background
+        start_background(app.state.fridgesheet)
         if open_browser:
             threading.Thread(target=wait_and_open, args=(local, opener), kwargs={"answers": answers}, daemon=True).start()
         serve(app, host, port)

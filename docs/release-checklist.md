@@ -38,7 +38,7 @@ then, on a Windows runner:
     `packaging/windows/smoke.ps1` against it, and only then wrapped it with Inno Setup.
     That smoke test already exercised, on a real Windows machine: `doctor` passing inside
     the frozen bundle; a `--dry-run` sheet building a real PDF from a fixture snapshot;
-    `schedule install` / `schedule remove --all` round-tripping through a real `schtasks`;
+    `schedule remove --all` cleaning up old-style Task Scheduler tasks through a real `schtasks`;
     the web server answering `/health`, `/`, `/diagnostics` and `/settings`; a no-args
     launch finding the already-running server and exiting cleanly; and `service install` /
     `service remove` round-tripping the logon task through `schtasks` too.
@@ -75,10 +75,12 @@ entirely from the command line. What that pass established:
   code 0, all 1499 files replaced, and Inno's own log reads *"RestartManager found no
   applications using one of our files"* because `PrepareToInstall` had already killed it.
   The process was alive immediately before and gone immediately after.
-- **§5's Schedules page writes a real task.** With the `login-ok.txt` gate satisfied, a
-  POST to `/schedules` created `Fridge Sheet - open-work` in Task Scheduler with the right
-  `<Command>`, `<Arguments>`, `StartBoundary` and `<Thursday/>`; the page read it back and
-  recognised it as its own; saving with the box unticked deleted it again.
+- **§5's Schedules page wrote a real task (pre-in-app-scheduler).** With the
+  `login-ok.txt` gate satisfied, a POST to `/schedules` created `Fridge Sheet - open-work`
+  in Task Scheduler with the right `<Command>`, `<Arguments>`, `StartBoundary` and
+  `<Thursday/>`; the page read it back and recognised it as its own; saving with the box
+  unticked deleted it again. That path is gone: the Schedules page now writes only
+  `config.toml`, and the server's own clock fires it — current §5 is what proves that.
 - **§7's uninstall with a hand-started copy running works.** Every `_internal` DLL was
   deleted out from under a live server, `{app}` gone, no `Fridge Sheet - ` tasks left, both
   shortcuts gone, and `%LOCALAPPDATA%\fridgesheet` kept with `fridgesheet.db` intact.
@@ -290,41 +292,22 @@ them as confirmation, not as the first evidence anymore.
 
 ## 5. A schedule, end to end
 
-`smoke.ps1` does round-trip `schedule install` / `schedule remove --all` through a real
-`schtasks` on the CI runner — but from the **command line**, and it never waits for
-anything to fire. Section 0b has since covered the first of the two gaps: the **Schedules
-page writing a task** (the web app's own path into `schtasks`, which the suite always runs
-against an injected fake) was driven end to end on graphy and the task came out right.
+Fridge Sheet fires schedules from inside the running server; Task Scheduler is no longer
+involved. What no test can prove is a schedule actually firing on the real machine, as the
+real account, and printing. The last scheduling release shipped without this check and not
+one scheduled run ever happened (2026-09-25), so do not skip it.
 
-What is still untested anywhere is a **scheduled run actually firing** at its trigger time
-and printing — which needs credentials, a printer and the patience to wait. That is why
-this section asks you to sit and wait. Note that the scheduler write is gated on
-`login-ok.txt`: until **Test login** has succeeded once, saving a schedule stores your
-settings and tells you plainly that nothing is installed yet. That is by design, so do
-section 4 first.
-
-- [ ] On the **Schedules** page, find the report you want to test (Open Work Sheet is
-  fine), tick **"Run this on a schedule"**, set the time to a few minutes from now, tick
-  today's day of the week, tick **"Print it"**, and click that section's **Save**.
-- [ ] Open **Task Scheduler** again. **Expect:** a task named **"Fridge Sheet -
-  open-work"** (or **"Fridge Sheet - view N"** if you scheduled a saved report instead)
-  now exists, with a trigger matching the time you set.
-- [ ] **Stay logged in** (a locked screen is fine) until that time passes. Don't touch
-  Print now or Preview for this report in the meantime — you want to see the scheduled
-  run happen on its own.
-- [ ] **Expect:** the sheet prints on the real printer at the time you set, and a Windows
-  notification appears saying it printed (or, if something legitimately went wrong,
-  saying why).
-- [ ] Open the **Runs** page. **Expect:** a new row for that report with a timestamp
-  matching when it fired. Its **How** column will read **"cli"** — that's correct, not a
-  bug: a scheduled run is Task Scheduler literally invoking `FridgeSheet.exe run
-  <key>`, the same command line as running it from a terminal, so there is no separate
-  "scheduled" trigger value to look for. **Outcome** should be **OK**, and the PDF link
-  should open the same sheet that came out of the printer.
-
-  If instead the row says **SKIP** and today is listed in `no-print-days.txt` (edit it from
-  the Settings page), that's the seeded district calendar blocking it, not a bug — pick a
-  day that isn't listed, or a different report, and repeat this section.
+- [ ] After installing, open **Task Scheduler**. **Expect:** no task named
+  **"Fridge Sheet - data-refresh"** or **"Fridge Sheet - open-work"** (the server removed
+  them at start); **"Fridge Sheet - web"** is still there.
+- [ ] On the **Schedules** page, turn on **Refresh the data** with a window that includes the
+  next hour, and Save. **Expect:** the row says **next:** with the next slot.
+- [ ] Wait past that slot. **Expect:** the **Runs** page has a **refresh** row started **On a
+  schedule**, and the Schedules row now says **last:** with its time and **OK**.
+- [ ] Tick **Run this on a schedule** for Open Work Sheet, a few minutes from now, today ticked,
+  **Print it** on, Save. Wait. **Expect:** it prints, and Runs shows it **On a schedule**.
+- [ ] Nobody needs to be signed in as the app's account for any of this. Check it with the
+  household's usual account signed in, not the app's.
 
 ## 6. The phone
 
@@ -411,8 +394,9 @@ a Refresh actually in flight, so `/T` has children to take down. So:
   Inno Setup does not check a `[UninstallRun]` entry's exit code — so if `schedule remove
   --all` fails partway through (leaves a task behind), nothing on screen will tell you.
   Open Task Scheduler and look through the **whole** list yourself for anything starting
-  with "Fridge Sheet - " (the built-in report, any custom reports you scheduled in section
-  5, and the logon task). **Expect:** none remain. If one does, that's a real finding, not a
+  with "Fridge Sheet - " (section 5's schedules never wrote a task in the first place; this
+  is only for a leftover task an install from before the in-app scheduler left behind, plus
+  the logon task itself). **Expect:** none remain. If one does, that's a real finding, not a
   false alarm — file it.
 - [ ] Confirm `%LOCALAPPDATA%\fridgesheet` still exists with your sheets, `fridgesheet.db`,
   `config.toml`, and logs intact.

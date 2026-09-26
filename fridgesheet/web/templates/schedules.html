@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Schedules · Fridge Sheet{% endblock %}
 {% block content %}
+{% macro status(item) -%}
+<p class="muted">
+  {% if item.problem %}<span class="warn">{{ item.problem }}</span>
+  {% elif item.enabled and item.next_run %}next: {{ item.next_run | wd_md_time }}
+  {% elif not item.enabled %}not scheduled{% endif %}
+  {% if item.enabled %} · {% if item.last_run %}last: {{ item.last_run }}{% else %}has not run on a schedule yet{% endif %}{% endif %}
+</p>
+{%- endmacro %}
 {% set page_title = "Schedules" %}{% include "_page_head.html" %}
-<p class="muted">A scheduled report builds and prints (or just keeps the PDF) from the last data refresh; it does not refresh first,
-   so keep <strong>Refresh the data</strong> below turned on -- saving a report schedule turns it on if it is off.
-   The time is also the earliest a catch-up run will print, so a run missed overnight does not print yesterday's sheet in the morning.</p>
+<p class="muted">Fridge Sheet runs these itself, while it is running: a scheduled report builds and prints
+   (or just keeps the PDF) from the last data refresh; it does not refresh first, so keep <strong>Refresh the data</strong>
+   below turned on -- saving a report schedule turns it on if it is off. The time is also the earliest a catch-up run
+   will print, so a run missed overnight does not print yesterday's sheet in the morning.</p>
+{% for n in notices %}<p class="warn">{{ n }}</p>{% endfor %}
 {% for m in messages %}<p class="ok">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="warn">{{ e }}</p>{% endfor %}
 {% if refresh_warning %}<p class="warn">{{ refresh_warning }}</p>{% endif %}
@@ -20,8 +30,9 @@
   <label>and <input type="time" name="end" value="{{ refresh_schedule.end }}"></label>
   <span>{% for d in days %}<label><input type="checkbox" name="days" value="{{ d }}"
     {{ "checked" if d in refresh_schedule.days }}> {{ d }}</label>{% endfor %}</span>
-  {% if refresh_schedule.problem %}<p class="warn">{{ refresh_schedule.problem }}</p>
-  {% elif refresh_schedule.times %}<p class="muted">Refreshes at {{ refresh_schedule.times | join(', ') }}.</p>{% endif %}
+  {# A window that does not expand is said once, by `status`, in place of the times. #}
+  {% if refresh_schedule.times and not refresh_schedule.problem %}<p class="muted">Refreshes at {{ refresh_schedule.times | join(', ') }}.</p>{% endif %}
+  {{ status(refresh_schedule) }}
   <button class="primary">Save</button>
 </form>
 {% endif %}
@@ -30,30 +41,22 @@
 <form method="post" action="/schedules" class="schedule">
   <input type="hidden" name="key" value="{{ r.key }}">
   <h3>{{ r.title }} <span class="muted">{{ r.key }}</span></h3>
-  <p class="muted">
-    {% if r.unsupported %}{{ r.unsupported }}
-    {% elif r.info and r.info.installed %}
-      {{ r.info.managed_by }}{% if r.info.next_run %} · next run {{ r.info.next_run }}{% endif %}
-      {% if not r.info.manageable %}<br>This one was written outside this app, so it is shown here but never changed here.{% endif %}
-    {% else %}not scheduled{% endif %}
-  </p>
-  {# A schedule this app did not write is shown, never changed: every control is off (#7). #}
-  {% set locked = "disabled" if r.info and not r.info.manageable else "" %}
-  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }} {{ locked }}> Run this on a schedule</label>
-  <label>Time <input type="time" name="time" value="{{ r.time }}" required {{ locked }}></label>
+  {{ status(r) }}
+  <label><input type="checkbox" name="enabled" {{ "checked" if r.enabled }}> Run this on a schedule</label>
+  <label>Time <input type="time" name="time" value="{{ r.time }}" required></label>
   <fieldset><legend>Days</legend>
     {% for d in days %}
-    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }} {{ locked }}> {{ d }}</label>
+    <label><input type="checkbox" name="days" value="{{ d }}" {{ "checked" if d in r.days }}> {{ d }}</label>
     {% endfor %}
   </fieldset>
   <label>Printer
-    <select name="printer" {{ locked }}>
+    <select name="printer">
       <option value="">(the printer on the Settings page)</option>
       {% for value, label, sel in printer_options[r.key] %}<option value="{{ value }}" {{ "selected" if sel }}>{{ label }}</option>{% endfor %}
     </select>
   </label>
-  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }} {{ locked }}> Print it (off: keep the PDF only)</label>
-  <button class="primary" {{ locked }}>Save</button>
+  <label><input type="checkbox" name="prints" {{ "checked" if r.prints }}> Print it (off: keep the PDF only)</label>
+  <button class="primary">Save</button>
 </form>
 {% endfor %}
 {% endblock %}

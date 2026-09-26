@@ -191,10 +191,11 @@ fridgesheet schedule install data-refresh   # step 5: every 3 hours, 06:00–21:
 fridgesheet schedule install open-work      # step 6: 14:00 Mon–Fri, unless [reports.open-work] says otherwise
 ```
 
-`check` counts as a passed **Test login**: it leaves the same `login-ok.txt` the button does,
-so the Schedules page and `schedule install` go ahead afterwards. (`schedule install` refuses
-until one of the two has passed; `--force` overrides that.) For a server with no desktop,
-read [§2.3 Headless server](#23-a-server-with-no-desktop-linux) first.
+`check` counts as a passed **Test login**: it leaves the same `login-ok.txt` the button does.
+`schedule install` only turns the schedule on in `config.toml`, the same switch as the
+Schedules page's Save, and needs no login first. The schedules then fire while
+`fridgesheet web` runs; to keep it running after you sign out, run `fridgesheet service install`.
+For a server with no desktop, read [§2.3 Headless server](#23-a-server-with-no-desktop-linux) first.
 
 ---
 
@@ -564,15 +565,18 @@ sheet does not print* is skipped.
 
 ## 10. Schedules: printing and refreshing on their own
 
-**Schedules** has one form for the data refresh and one per report.
+**Schedules** has one form for the data refresh and one per report. Fridge Sheet fires every
+schedule itself, once a minute, from inside the server that is already running in the
+background — there is no systemd timer or Windows task for a report's own schedule any more;
+**Save** only ever writes `config.toml`. That only works while the server itself is running:
+on Linux, `fridgesheet service install`; on Windows, the installer's own logon task.
 
 ### Refresh the data
 
 - **Refresh on a schedule**, **Every [N] hours**, **Between** [start] **and** [end], the
   days. The page previews the times ("Refreshes at 06:00, 09:00, …"). At most 12 a day; the
   window cannot cross midnight.
-- Installs a systemd timer (`fridgesheet-data-refresh`) on Linux or a task (**Fridge Sheet -
-  data-refresh**) on Windows.
+- **Save** writes `[refresh]` in `config.toml` and nothing else.
 
 ### Each report (the built-in *Open Work Sheet*, then any you saved)
 
@@ -582,8 +586,13 @@ sheet does not print* is skipped.
 - **Printer** — *(the printer on the Settings page)*, or a different one for this report.
 - **Print it (off: keep the PDF only)** — untick to build a PDF you can check before it
   goes on the fridge.
-- **Save** writes your settings *and* installs or removes the OS task. The state line says
-  when it next runs.
+- **Save** writes `[reports.<key>]` in `config.toml` and nothing else.
+
+Every row, refresh or report, shows **next:** with the next time it will fire, and either
+**last:** with when it last actually ran on a schedule and whether that was OK, or "has not
+run on a schedule yet" if it never has. If the scheduler inside Fridge Sheet itself has
+stopped, the page header says "Schedules are paused: …" instead of the rows quietly going
+stale.
 
 **How a scheduled run behaves**
 
@@ -593,15 +602,18 @@ sheet does not print* is skipped.
 4. Builds the PDF, saves a copy to your archive folder if set, prints (unless PDF only),
    records the run, and shows a desktop notification.
 
-Runs missed while the computer was asleep or signed out start when it wakes; if that is
-already the next day, it logs "outside print window" instead of printing yesterday's sheet.
-On Windows the computer must be **on and signed in** (a locked screen is fine).
+A slot missed while the server was down (asleep, signed out, or just not running) is caught
+up once the moment it is back, as long as that is still within the same day and at or after
+the scheduled time; a catch-up the next morning logs "outside print window" instead of
+printing yesterday's sheet. On Windows the computer must be **on and signed in** for the
+server to be running at all (a locked screen is fine).
 
 **Things to know**
 
-- Nothing is installed until **Test login** (or `fridgesheet check`) has passed once.
-- To stop a schedule: untick **Run this on a schedule** and Save — this removes the task,
-  not just the tick. (Leave at least one day ticked when you do.)
+- No login is needed before a schedule takes effect — **Save** works immediately, whether or
+  not **Test login** has ever passed.
+- To stop a schedule: untick **Run this on a schedule** and Save — this turns it off in
+  `config.toml`, not just the tick. (Leave at least one day ticked when you do.)
 - Weekends print if you tick Sat or Sun.
 - A report time that coincides with a refresh time (e.g. refreshing every 2 or 4 hours
   from 06:00 lands on 14:00) is fine: the report waits for the refresh to finish (up to
@@ -609,8 +621,6 @@ On Windows the computer must be **on and signed in** (a locked screen is fine).
   waited. Saving either form tells you when the two coincide. If a run is still going
   after 10 minutes the report gives up with a notification and a FAIL row, not a silent
   skip. The scheduled refresh waits the same way for a print in progress.
-- A schedule written by hand (outside the app) is shown disabled, with the `systemctl`
-  command to turn it off yourself.
 
 ---
 
@@ -847,7 +857,7 @@ Everything the web app does, plus a few things it doesn't. On Windows the comman
 | `fridgesheet run view:<id>` | The same for a saved report. |
 | `fridgesheet print-sheet` | The original name for `run open-work`; always uses 14/14 days. |
 | `fridgesheet reports` | Every report and its schedule. |
-| `fridgesheet schedule install\|remove\|show <key>` | Install/remove/show a report's OS schedule; `install data-refresh` is the refresh schedule. `install` refuses until a login has passed (`check` or Test login) unless `--force`. `remove --all` removes every one. |
+| `fridgesheet schedule install\|remove\|show <key>` | Turn a report's schedule on or off in `config.toml`, or show every schedule's next/last run; `install data-refresh` is the refresh schedule. No login check is needed first (`--force` is accepted and ignored). Schedules fire while `fridgesheet web` runs. `remove --all` cleans up whatever a much older version left behind in Task Scheduler/systemd — what the uninstaller runs. |
 | `fridgesheet printers` | Lists printers; `*` = default. |
 | `fridgesheet web` | Runs the web app in the foreground; `--no-browser` on a machine with no desktop. |
 | `fridgesheet service install\|remove\|show` | Keeps the web app running in the background. |
@@ -942,10 +952,10 @@ unencrypted. From a console: `FridgeSheet.exe self-update`.
 Settings card says the same and offers no button, because the release asset is a Windows
 installer.
 
-**Uninstall (Windows).** Settings → Apps → Fridge Sheet → **Uninstall**. It removes every
-task it installed and leaves your data folder and the Credential Manager entry
-*fridgesheet* for you to delete. Afterwards, check Task Scheduler for anything still named
-*Fridge Sheet - …*.
+**Uninstall (Windows).** Settings → Apps → Fridge Sheet → **Uninstall**. It removes the
+always-on server task, cleans up anything a much older version had left in Task Scheduler,
+and leaves your data folder and the Credential Manager entry *fridgesheet* for you to
+delete. Afterwards, check Task Scheduler for anything still named *Fridge Sheet - …*.
 
 **Upgrading from a version before 0.4, when the app had another name.** Install Fridge
 Sheet over it. The first start moves your data and password to the new names; notes, flags,

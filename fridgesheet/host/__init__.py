@@ -197,15 +197,6 @@ class SchedulingError(RuntimeError):
     """schtasks refused; its stderr is in the message."""
 
 
-@dataclass(frozen=True)
-class ScheduleInfo:
-    managed_by: str                 # "task-scheduler" | "systemd" | "systemd (hand-written)"
-    installed: bool
-    next_run: str | None
-    last_result: str | None
-    manageable: bool = True         # False: found, but this app did not write it and will not change it
-
-
 DAY_NAMES: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 #: The one HH:MM (24-hour) pattern every clock-time validator in this app matches against --
@@ -219,7 +210,6 @@ DAY_NAMES: tuple[str, ...] = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 #: its own exception type and message -- `ConfigError` and `SchedulingError` mean different
 #: things to different callers, and merging those would be its own kind of parallel-implementation.
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
-_UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def systemd_quote(word: str) -> str:
@@ -229,20 +219,6 @@ def systemd_quote(word: str) -> str:
     if word and not any(c.isspace() or c in '"\\\'' for c in word):
         return word
     return '"' + word.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def safe_key(key: str) -> str:
-    """A report key reduced to what a systemd unit name and a Task Scheduler task name both take.
-
-    `view:7` is a legal report key and illegal in both namespaces -- a colon introduces a unit
-    instance in systemd and is refused outright by Task Scheduler. `open-work` comes back
-    unchanged, so every task installed before this existed keeps the name it has.
-
-    The report's title is deliberately not part of this. A title is user-editable, and an
-    object named after one is orphaned by the first rename: still firing on its schedule, no
-    longer the name `remove` computes. The title goes in the description instead.
-    """
-    return _UNSAFE.sub("-", key).strip("-.") or "report"
 
 
 def check_schedule(time: str, days: list[str], *, require_days: bool = True) -> None:
@@ -272,34 +248,20 @@ def check_schedule_times(times: list[str], days: list[str], *, require_days: boo
         check_schedule(t, days, require_days=require_days)
 
 
-#: The app's own data-refresh schedule. Deliberately *not* "refresh": on Linux that would
-#: render to `fridgesheet-refresh.timer`, which `scheduling_linux._HAND_WRITTEN_REFRESH`
-#: protects by name. A distinct key lets a household's hand-written refresh timer and this
-#: one sit on the same machine, neither touching the other.
+#: The app's own data-refresh schedule. Deliberately *not* "refresh": earlier versions rendered
+#: a key to a systemd unit name, and "refresh" would have become the household's hand-written
+#: `fridgesheet-refresh.timer`. The key outlived the OS scheduler, so it keeps its spelling.
 DATA_REFRESH_KEY = "data-refresh"
 
-#: Keys a report may never claim. Compared stripped and case-folded, for the same reason
-#: `scheduling_windows._FOREIGN_TASKS_FOLDED` is: Task Scheduler treats "Fridge Sheet -
-#: Data-Refresh" and "Fridge Sheet - data-refresh" as one task, so a hand-edited
-#: `[reports.Data-Refresh]` in config.toml would otherwise reach this app's own schedule.
-#: The key is what is held here, not the rendered name: `task_name` only applies `safe_key`
-#: to keys containing a colon.
+#: Keys a report may never claim. Compared stripped and case-folded, so a hand-edited
+#: `[reports.Data-Refresh]` in config.toml can never be mistaken for this app's own refresh
+#: schedule.
 RESERVED_KEYS = frozenset({DATA_REFRESH_KEY})
 _RESERVED_FOLDED = frozenset(k.strip().casefold() for k in RESERVED_KEYS)
 
 
 def is_reserved(key: str) -> bool:
     return str(key).strip().casefold() in _RESERVED_FOLDED
-
-
-def task_name(key: str) -> str:
-    """The Windows task's display name. `safe_key`'s hyphens read badly in a title, so they
-    become spaces here; this is a label, not a file name."""
-    # Always `safe_key` (#7): a hand-edited key must not put a path separator in a task name.
-    # The hyphen-to-space is still only for `view:N`, so `open-work`'s installed task keeps
-    # its name.
-    safe = safe_key(key)
-    return f"Fridge Sheet - {safe.replace('-', ' ') if ':' in key else safe}"
 
 
 class ServiceError(RuntimeError):

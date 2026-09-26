@@ -254,7 +254,7 @@ def test_a_days_value_that_is_not_a_list_of_days_falls_back_to_the_default(tmp_p
     """`days` came straight off the document as `[str(d) for d in sect.get("days", WEEKDAYS)]`
     with no type check, so a hand-edited (or future-version) `days = 5` raised a bare
     `TypeError: 'int' object is not iterable` out of `settings_from_doc` -- and out of every
-    one of its callers, including the uninstaller's `_removal_settings`, where it killed
+    one of its callers, including the uninstaller's settings read (as `schedule remove --all` then was), where it killed
     `schedule remove --all` before a single task was removed. A string is just as wrong in a
     quieter way: `[str(d) for d in "Mon"]` yields `["M", "o", "n"]`.
 

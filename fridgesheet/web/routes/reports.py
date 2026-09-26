@@ -193,23 +193,16 @@ async def save(report_id: int, request: Request, conn: sqlite3.Connection = Db, 
 
 @router.post("/reports/{report_id}/delete")
 def remove(report_id: int, request: Request, conn: sqlite3.Connection = Db, state=State):
-    """Delete the report -- but only once its schedule is gone.
+    """Delete the report and its `[reports.view:<id>]` table with it.
 
-    The schedule goes first, and a removal that fails stops the delete. A saved report is
-    schedulable (`view:<id>`), and `reports.id` is an `INTEGER PRIMARY KEY` with no
-    `AUTOINCREMENT`, so sqlite reissues the id of a deleted row: a timer left behind would
-    have no row on the Schedules page to turn it off with, and would print the *next* report
-    on the deleted one's days, time and printer.
+    A saved report is schedulable (`view:<id>`), and `reports.id` is an `INTEGER PRIMARY KEY`
+    with no `AUTOINCREMENT`, so sqlite reissues the id of a deleted row: a table left behind
+    would make the *next* report print on the deleted one's days, time and printer.
     """
     row = store.by_id(conn, report_id)
     if row is None:
         raise HTTPException(404, "no such report")
-    lines: list[str] = []
-    out = schedules.forget(f"view:{report_id}", home=state.home, log=lines.append,
-                           title=row["name"], scheduling=state.extra.get("scheduling"))
-    if not out.ok:
-        return _page(request, conn, state,
-                     errors=[f"{row['name']} was not deleted: its schedule is still installed."] + out.errors)
+    out = schedules.forget(f"view:{report_id}", home=state.home, log=lambda _m: None, title=row["name"])
     if not store.delete(conn, report_id):
         raise HTTPException(404, "no such report")
     state.reload()

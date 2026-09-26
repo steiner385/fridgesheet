@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 from fridgesheet import host, late_rules, runner
 from fridgesheet.config import Settings
-from fridgesheet.host import ScheduleInfo, selfupdate
+from fridgesheet.host import selfupdate
 from fridgesheet.web import db
 from fridgesheet.web import updates as web_updates
 from fridgesheet.web.stores import reports as reportstore
@@ -316,19 +316,33 @@ def test_preview_and_print_now_can_force_a_refresh_first(tmp_path):
 
 
 def test_status_line_reports_last_run_and_next_run(tmp_path):
-    assert actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", False, None, None)) == "No runs yet · not scheduled"
+    now = datetime(2026, 9, 25, 9, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert actions.status_line(tmp_path, now=now) == "No runs yet · not scheduled"
     (tmp_path / runner.LOG_NAME).write_text("old line\n2026-09-14 14:05:00 OK    open-work printed job=1\n")
-    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", True, "9/15/2026 2:00:00 PM", "0"))
-    assert s == "2026-09-14 14:05:00 OK    open-work printed job=1 · next run 9/15/2026 2:00:00 PM"
-    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("systemd", True, "Tue 2026-09-15 14:00:00 EDT", None))
-    assert s.endswith("· next run Tue 2026-09-15 14:00:00 EDT (systemd)")
-    s = actions.status_line(tmp_path, describe=lambda k: ScheduleInfo("task-scheduler", True, None, None))
-    assert s.endswith("· scheduled (next run unknown)")
+    (tmp_path / "config.toml").write_text('[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Fri"]\n')
+    s = actions.status_line(tmp_path, now=now)
+    assert s == "2026-09-14 14:05:00 OK    open-work printed job=1 · next run Fri 9/25 2:00 PM"
+    (tmp_path / "config.toml").write_text('[reports.open-work]\nenabled = false\ntime = "14:00"\ndays = ["Fri"]\n')
+    assert actions.status_line(tmp_path, now=now).endswith("· not scheduled")
 
-    def boom(k):
+
+def test_status_line_reads_the_schedule_in_the_households_zone(tmp_path):
+    """Slots are the household's wall clock, as the server's clock fires them: 4 PM in New
+    York is 1 PM in Los Angeles, so a 2 PM Friday report there is still to come today."""
+    (tmp_path / "config.toml").write_text('[general]\ntimezone = "America/Los_Angeles"\n'
+                                          '[reports.open-work]\nenabled = true\ntime = "14:00"\ndays = ["Fri"]\n')
+    now = datetime(2026, 9, 25, 16, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert actions.status_line(tmp_path, now=now).endswith("· next run Fri 9/25 2:00 PM")
+
+
+def test_status_line_says_unknown_when_the_plan_cannot_be_read(tmp_path, monkeypatch):
+    from fridgesheet.web import clock
+
+    def boom(home, settings=None):
         raise RuntimeError("boom")
-    s = actions.status_line(tmp_path, describe=boom)
-    assert s.endswith("· schedule unknown")
+    monkeypatch.setattr(clock, "configured", boom)
+    now = datetime(2026, 9, 25, 9, 0, tzinfo=ZoneInfo("America/New_York"))
+    assert actions.status_line(tmp_path, now=now).endswith("· schedule unknown")
 
 
 def test_form_carries_web_fields_and_validates_the_port(tmp_path):

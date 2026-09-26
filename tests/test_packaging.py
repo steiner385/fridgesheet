@@ -43,7 +43,7 @@ def test_pyinstaller_spec_names_the_entry_point_and_the_package_data():
     spec = (WIN / "FridgeSheet.spec").read_text(encoding="utf-8")
     assert 'name="FridgeSheet"' in spec and "console=False" in spec
     assert "fridgesheet/web/__main__.py" in spec.replace("\\", "/")
-    assert "task.xml" in spec and "tzdata" in spec and 'copy_metadata("fridgesheet")' in spec and 'copy_metadata("keyring")' in spec
+    assert "tzdata" in spec and 'copy_metadata("fridgesheet")' in spec and 'copy_metadata("keyring")' in spec
     assert "keyring.backends.Windows" in spec
     assert 'collect_submodules("tzdata")' in spec
     # the browser app: the logon task's XML, the templates and the assets must ride along,
@@ -73,12 +73,10 @@ def test_smoke_script_runs_doctor_dry_run_the_server_and_a_no_args_launch():
     assert "app.log" in ps and "finally" in ps
     assert "$home" not in ps.replace("$smokeHome", ""), "never shadow PowerShell's automatic $HOME"
     assert "MainWindowHandle" not in ps, "the tkinter window is gone; the smoke test drives the server"
-    # --all: the exact command line installer.iss's [UninstallRun] issues, not a bare remove
-    # that would leave every command line except the default report's untested against a real
-    # schtasks.
-    # `--force`: the smoke home has no passed login check, and `schedule install` refuses
-    # without one (#154); dropping the flag fails every release at this step.
-    assert '"schedule","install","--force"' in ps and '"schedule","remove","--all"' in ps
+    # --all: the exact command line installer.iss's [UninstallRun] issues, run against a real
+    # schtasks. `schedule install` only turns a schedule on in config.toml now, so it has no
+    # schtasks to prove and the smoke test does not run it (#179 is superseded).
+    assert '"schedule","install"' not in ps and '"schedule","remove","--all"' in ps
     # the browser app: serve real pages, then prove the no-args launch and the logon task
     assert '"web","--no-browser"' in ps and "/health" in ps and "/diagnostics" in ps
     assert "FRIDGESHEET_WEB_NO_BROWSER" in ps
@@ -243,13 +241,12 @@ def test_windows_page_exists_and_names_the_limitations():
     # named the default report's task (cli.py's `report` positional defaults to "open-work");
     # a parent who scheduled another report on the Schedules page kept that task after
     # uninstalling. It now runs `schedule remove --all` (fridgesheet/cli.py's
-    # `_cmd_schedule_remove_all`), which enumerates the built-in reports, config.toml's
-    # `[reports.<key>]` tables and -- only if `fridgesheet.db` is already there -- the saved views
-    # in it. Deliberately *not* `reports.available(home)`: that call's `db.open_db` would
-    # recreate a database the parent deleted before uninstalling (commit bdac9e4). Whoever
-    # narrows that enumeration again, or drops back to a bare `schedule remove`, must come
-    # here and put the old caveat back -- otherwise this sentence promises something the
-    # installer no longer does.
+    # `_cmd_schedule_remove_all`), which asks Task Scheduler itself for every root-folder
+    # `Fridge Sheet - *` task except the web server's own (`host.scheduling_windows.leftovers`)
+    # -- no config.toml or database read, so nothing a parent deleted is recreated and no task
+    # left by a long-deleted report is missed. Whoever narrows that listing again, or drops back
+    # to a bare `schedule remove`, must come here and put the old caveat back -- otherwise this
+    # sentence promises something the installer no longer does.
     assert "removes both scheduled tasks" not in page          # never the literal old phrasing either
     assert "will keep running" not in page
     assert "every task it installed" in page

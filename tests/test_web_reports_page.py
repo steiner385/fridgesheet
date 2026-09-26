@@ -9,15 +9,11 @@ import tomllib
 from fridgesheet.web import db, schedules, views
 from fridgesheet.web.routes.reports import _chart_json
 from fridgesheet.web.stores import reports as store
-from tests.web_fixtures import FakeScheduling, app_for, seed, snapshot
+from tests.web_fixtures import app_for, seed, snapshot
 
 
-def _client(home, sched=None):
-    """A client whose scheduler is a fake: deleting a report now removes its schedule, and no
-    test may go anywhere near the machine's own systemctl."""
-    c = app_for(home)
-    c.app.state.fridgesheet.extra["scheduling"] = sched or FakeScheduling()
-    return c
+def _client(home):
+    return app_for(home)
 
 
 def _save(home, name="Mine", **over):
@@ -192,32 +188,12 @@ def test_deleting_a_scheduled_report_takes_its_schedule_with_it(tmp_path):
     schedule left behind would print the new report on the deleted one's days."""
     seed(tmp_path).close()
     rid = _save(tmp_path)
-    sched = FakeScheduling()
-    c = _client(tmp_path, sched)
-    (tmp_path / "login-ok.txt").write_text("ok")
+    c = _client(tmp_path)
     schedules.save(f"view:{rid}", enabled=True, time="16:00", days=["Mon"], printer="Brother",
-                   prints=True, home=tmp_path, log=lambda s: None, scheduling=sched)
+                   prints=True, home=tmp_path, log=lambda s: None)
     r = c.post(f"/reports/{rid}/delete")
-    assert r.status_code == 200 and "Deleted" in r.text
-    assert sched.removed == [f"view:{rid}"]
+    assert r.status_code == 200 and "Deleted" in r.text and "Its schedule was removed too." in r.text
     assert f"view:{rid}" not in tomllib.loads((tmp_path / "config.toml").read_text()).get("reports", {})
-
-
-def test_a_schedule_that_cannot_be_removed_stops_the_delete(tmp_path):
-    """An orphan timer must never outlive its report's row, so the row stays until the timer
-    is gone -- and the page says why."""
-    seed(tmp_path).close()
-    rid = _save(tmp_path)
-    good = FakeScheduling()
-    (tmp_path / "login-ok.txt").write_text("ok")
-    schedules.save(f"view:{rid}", enabled=True, time="16:00", days=["Mon"], printer="Brother",
-                   prints=True, home=tmp_path, log=lambda s: None, scheduling=good)
-    c = _client(tmp_path, FakeScheduling(fail="Failed to connect to bus: No medium found"))
-    r = c.post(f"/reports/{rid}/delete")
-    assert r.status_code == 200 and "No medium found" in r.text and "Mine" in r.text
-    conn = db.open_db(tmp_path)
-    assert store.by_id(conn, rid) is not None
-    conn.close()
 
 
 def test_export_csv_and_json(tmp_path):

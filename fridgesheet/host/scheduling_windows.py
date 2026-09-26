@@ -1,222 +1,55 @@
+"""Windows: remove the Task Scheduler tasks earlier versions of this app registered.
+
+Schedules are fired by the server's own clock now (web/clock.py). Every task an earlier
+version registered was `InteractiveToken` -- "run only when the user is logged on" -- and on
+the household's kiosk the app's account never is, so none of them ever ran. They are removed
+so that the day that account *does* sign in, they do not fire alongside the clock.
+"""
 from __future__ import annotations
 
 import csv
-import os
 import subprocess
-import tempfile
-from datetime import date, datetime, time as dtime
-from importlib import resources
-from xml.sax.saxutils import escape
-from zoneinfo import ZoneInfo
 
-from . import (CREATE_NO_WINDOW, DAY_NAMES, ScheduleInfo, SchedulingError, check_schedule_times, local_timezone,
-               task_name)
+from . import CREATE_NO_WINDOW, SchedulingError
 from .service_windows import NAME as _WEB_TASK
 
-#: Task Scheduler XML's day-element names, in `DAY_NAMES` order -- built *from* `DAY_NAMES`
-#: rather than hardcoding its own copy of the seven keys, so a day added or reordered there
-#: cannot silently leave this dict out of step with it (#31-#36 roll-up: `_DAY_TAGS`'s keys,
-#: `host.DAY_NAMES` and `routes/schedules.py`'s `DAYS` were three spellings of one list).
-#: `strict=True` makes that promise real rather than aspirational: without it, a `DAY_NAMES`
-#: grown to eight entries with `_DAY_FULL_NAMES` left at seven would `zip` truncate to seven
-#: silently, and the eighth day would pass `check_schedule` only to raise a bare `KeyError`
-#: out of `render_task_xml` below -- a 500 on the Schedules page instead of a `SchedulingError`.
-#: With `strict=True` the mismatch fails loudly here, at import time, instead.
-_DAY_FULL_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
-_DAY_TAGS = dict(zip(DAY_NAMES, _DAY_FULL_NAMES, strict=True))
-
-#: Where `schtasks /Query /FO CSV /V` puts the two fields `describe` reads. schtasks localises
-#: the header row's words on a non-English Windows but never reorders the columns, so a header
-#: that does not carry the English name is read by position instead (#151).
-_CSV_COLUMNS = {"Next Run Time": 2, "Last Result": 6}
-
-#: Task names this module must refuse, whatever key renders to them: `scheduling_linux` has
-#: `_FOREIGN_UNITS` for exactly this, and an ownership promise that holds on only one platform
-#: is not a promise. `task_name("web")` is byte-for-byte `service_windows.NAME`, the always-on
-#: logon task the installer registers -- deleting it as if it were a report's schedule takes
-#: the web server away until someone reinstalls. The name is imported, never re-spelled, so
-#: the two cannot drift.
-_FOREIGN_TASKS = frozenset({_WEB_TASK})
-
-#: The same names in the form `_check_ownership` actually compares against: stripped and
-#: case-folded, because the namespace being protected is.
-_FOREIGN_TASKS_FOLDED = frozenset(n.strip().casefold() for n in _FOREIGN_TASKS)
-
-
-def blocking_name(key: str) -> str:
-    """The task name to show a parent when `key`'s row is unmanageable. Task Scheduler has no
-    `LEGACY_TIMERS`-style aliasing -- `describe` never sets `manageable=False` here at all --
-    but this exists so `web/schedules.py` can call the same name on either platform without
-    caring which one it is running on."""
-    return task_name(key)
-
-
-def display_name(key: str) -> str:
-    """What the CLI says it installed or removed for `key`: on Windows that is the task's own
-    name, exactly as Task Scheduler lists it. `scheduling_linux.display_name` answers with the
-    unit pair instead, so `schedule remove --all` never names a Windows task on Linux."""
-    return task_name(key)
-
-
-def _check_ownership(key: str) -> None:
-    """Refuse before any schtasks call, for a task this app does not schedule reports with.
-
-    The comparison is stripped and case-folded because the namespace it is protecting is:
-    Task Scheduler treats "Fridge Sheet - Web" and "Fridge Sheet - web" as one and the same
-    task. An exact-string membership test guarded only the one spelling, so a `[reports.Web]`
-    table hand-edited into config.toml -- which `schedule remove --all` feeds straight through
-    from disk -- reached `schtasks /Delete /TN "Fridge Sheet - Web" /F` and took the web
-    server's logon task with it. `scheduling_linux` deliberately has no equivalent: systemd
-    unit names really are case-sensitive, so `fridgesheet-Web.timer` is a different unit.
-    """
-    name = task_name(key)
-    if name.strip().casefold() in _FOREIGN_TASKS_FOLDED:
-        raise SchedulingError(f"{name} is not a task this app schedules reports with; refusing to touch it")
-
-
-_TRIGGER = """    <CalendarTrigger>
-      <StartBoundary>2026-01-01T{time}:00</StartBoundary>
-      <Enabled>true</Enabled>
-      <ScheduleByWeek>
-        <DaysOfWeek>
-{days}
-        </DaysOfWeek>
-        <WeeksInterval>1</WeeksInterval>
-      </ScheduleByWeek>
-    </CalendarTrigger>"""
-
-
-def render_task_xml(name: str, times: list[str], days: list[str], exe: str, args: str, workdir: str,
-                    description: str | None = None) -> str:
-    """The task XML, with one `<CalendarTrigger>` per time.
-
-    A one-element `times` renders byte-for-byte what the single-trigger template rendered
-    before, so every task already installed keeps the XML it has.
-    """
-    check_schedule_times(times, days)
-    return _render(name, [(t, days) for t in times], exe, args, workdir, description)
-
-
-def _render(name: str, triggers: list[tuple[str, list[str]]], exe: str, args: str, workdir: str,
-            description: str | None) -> str:
-    """`render_task_xml` with the days chosen per time: `install` needs that once a
-    conversion to this PC's clock has carried one time over midnight and not another."""
-    template = resources.files("fridgesheet.host").joinpath("task.xml").read_text(encoding="utf-8")
-    xml = "\n".join(_TRIGGER.format(time=t, days="\n".join(f"          <{_DAY_TAGS[d]} />" for d in days))
-                    for t, days in triggers)
-    desc = description or f"Fridge Sheet: {name.split(' - ', 1)[-1]}"
-    return (template.replace("{description}", escape(desc))
-                    .replace("{triggers}", xml)
-                    .replace("{exe}", escape(exe)).replace("{args}", escape(args)).replace("{workdir}", escape(workdir)))
-
-
-def pc_local_times(times: list[str], timezone: str, *, pc_zone: str | None, today: date | None = None) -> list[tuple[str, int]]:
-    """Each HH:MM of the household's `timezone` as this PC's own HH:MM, with the day it lands
-    on relative to the household's: 0, or +1/-1 when the conversion crossed midnight.
-
-    `StartBoundary` is the PC's local time, full stop -- a systemd timer can name a zone, a
-    Task Scheduler trigger cannot -- so a household whose zone is not the PC's (a laptop from
-    another state, a PC never set) gets its task written at the PC-local hour that *is* its
-    hour (#122). Nothing is converted when no zone is configured, the two agree, or the PC's
-    cannot be read (`local_timezone` warned): the time is then taken as PC-local, which is
-    what it always was. The offset is worked out for `today`; the two zones' clocks move
-    together at daylight-saving changes, except against a zone that keeps none (Phoenix),
-    where a task installed in summer runs an hour off in winter until it is saved again.
-    """
-    if not timezone or not pc_zone or timezone == pc_zone:
-        return [(t, 0) for t in times]
-    today = today or date.today()
-    out: list[tuple[str, int]] = []
-    for t in times:
-        h, m = (int(x) for x in t.split(":", 1))
-        local = datetime.combine(today, dtime(h, m), tzinfo=ZoneInfo(timezone)).astimezone(ZoneInfo(pc_zone))
-        out.append((local.strftime("%H:%M"), (local.date() - today).days))
-    return out
-
-
-def _shift_days(days: list[str], by: int) -> list[str]:
-    """`days` moved `by` days along the week: Friday's 22:00 Pacific is Saturday's 01:00 Eastern."""
-    return [DAY_NAMES[(DAY_NAMES.index(d) + by) % len(DAY_NAMES)] for d in days]
+PREFIX = "Fridge Sheet - "
+_WEB_FOLDED = _WEB_TASK.strip().casefold()
 
 
 def _schtasks(cmd: list[str], run) -> subprocess.CompletedProcess:
     return run(["schtasks", *cmd], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW, timeout=60)
 
 
-def install(key: str, times: list[str], days: list[str], exe: str, args: str, workdir: str, run=subprocess.run,
-            *, title: str | None = None, home: str = "", timezone: str = "") -> None:
-    """`home` is accepted and unused: a task runs in the logged-in session's own environment.
-    `timezone` is the household's zone, and `StartBoundary` is this PC's local time by
-    definition -- so each time is converted to the PC's clock (`pc_local_times`), and a
-    conversion that crosses midnight moves the day with it. Both are in the signature so
-    `scheduling.install` is one call on both platforms.
-
-    The ownership check runs first, ahead of even `check_schedule_times`, as the Linux one
-    does: a key that renders to a task this app did not write must never reach a `schtasks`
-    call."""
-    _check_ownership(key)
-    check_schedule_times(times, days)
-    triggers = [(t, _shift_days(days, shift)) for t, shift in pc_local_times(times, timezone, pc_zone=local_timezone())]
-    xml = _render(task_name(key), triggers, exe, args, workdir, f"Fridge Sheet: {title}" if title else None)
-    fd, path = tempfile.mkstemp(prefix="fridgesheet-task-", suffix=".xml")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(xml.encode("utf-16"))          # BOM + UTF-16LE, what schtasks /XML expects
-        p = _schtasks(["/Create", "/TN", task_name(key), "/XML", path, "/F"], run)
-    finally:
-        try:
-            os.unlink(path)
-        except OSError:
-            pass
+def leftovers(run=subprocess.run) -> list[str]:
+    """Every task in the root folder named `Fridge Sheet - *`, except the web server's own logon
+    task in any casing (Task Scheduler's names are case-insensitive). Listed, not built from
+    config.toml's keys, so a task left by a report deleted long ago is found too."""
+    p = _schtasks(["/Query", "/FO", "CSV", "/NH"], run)
     if p.returncode != 0:
-        raise SchedulingError(f"schtasks /Create failed: {(p.stderr or p.stdout or '').strip()[:300]}")
+        raise SchedulingError(f"schtasks /Query failed: {(p.stderr or p.stdout or '').strip()[:300]}")
+    names = set()
+    for row in csv.reader((p.stdout or "").splitlines()):
+        if not row or not row[0].startswith("\\") or row[0].count("\\") != 1:
+            continue                                    # a header, a blank, or a task in a subfolder
+        name = row[0][1:]
+        if name.startswith(PREFIX) and name.strip().casefold() != _WEB_FOLDED:
+            names.add(name)
+    return sorted(names)
 
 
-def remove(key: str, run=subprocess.run) -> None:
-    """Delete this report's task. A task this app did not write is refused before anything
-    runs -- `remove` is the direction where getting it wrong costs the web server."""
-    _check_ownership(key)
-    p = _schtasks(["/Delete", "/TN", task_name(key), "/F"], run)
-    if p.returncode != 0 and _schtasks(["/Query", "/TN", task_name(key)], run).returncode == 0:
+def remove_task(name: str, run=subprocess.run) -> None:
+    if name.strip().casefold() == _WEB_FOLDED:
+        raise SchedulingError(f"{name} is the web server's own task; refusing to remove it")
+    p = _schtasks(["/Delete", "/TN", name, "/F"], run)
+    if p.returncode != 0 and _schtasks(["/Query", "/TN", name], run).returncode == 0:
         # Still registered, so the delete really failed. A task that is simply not there is
         # not an error -- and that is `/Query`'s exit code, not the words in `/Delete`'s
         # stderr: "cannot find the file" is "Das System kann die angegebene Datei nicht
         # finden." on a German Windows, and matching the English made every remove there
         # raise (#151).
-        raise SchedulingError(f"schtasks /Delete failed: {(p.stderr or p.stdout or '').strip()[:300]}")
+        raise SchedulingError((p.stderr or p.stdout or "").strip()[:300])
 
 
-def _csv_field(stdout: str, name: str) -> str | None:
-    """One field of `schtasks /Query /FO CSV /V`'s first row, or None when the output cannot
-    place it: by the English header when the header is English, by `_CSV_COLUMNS` position
-    when it is localised, and None for anything short, empty or not CSV at all -- `describe`
-    then says "installed, next run unknown" rather than crashing on a non-English Windows.
-    `/V` prints one row per trigger; the first is the next to fire. "N/A" is schtasks' own
-    blank."""
-    try:
-        rows = [r for r in csv.reader((stdout or "").splitlines()) if r]
-    except csv.Error:
-        return None
-    if len(rows) < 2:
-        return None
-    header, row = rows[0], rows[1]
-    i = header.index(name) if name in header else _CSV_COLUMNS[name]
-    value = row[i].strip() if i < len(row) else ""
-    return value if value and value != "N/A" else None
-
-
-def describe(key: str, run=subprocess.run, *, timezone: str = ""):
-    """What Task Scheduler has for `key`. The next run is in this PC's time, which is the
-    household's too -- unless `timezone` names another zone, when the line says whose clock
-    it is (#122). Callers that do not know the household's zone leave it blank."""
-    # CSV rather than LIST: a field with a comma (`Task To Run`) stays one quoted field, and
-    # the columns keep their order whatever the locale, which LIST's "Label: value" lines do
-    # not give a reader that does not know the localised labels.
-    p = _schtasks(["/Query", "/TN", task_name(key), "/FO", "CSV", "/V"], run)
-    if p.returncode != 0:
-        return ScheduleInfo("task-scheduler", False, None, None)
-    next_run = _csv_field(p.stdout, "Next Run Time")
-    pc_zone = local_timezone()
-    if next_run and timezone and pc_zone and timezone != pc_zone:
-        next_run += f" (this PC's clock, {pc_zone})"
-    return ScheduleInfo("task-scheduler", True, next_run, _csv_field(p.stdout, "Last Result"))
+def command_for(name: str) -> str:
+    return f'schtasks /Delete /TN "{name}" /F'

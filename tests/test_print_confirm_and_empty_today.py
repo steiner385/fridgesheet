@@ -17,7 +17,6 @@ def _client(home, **printers):
     c = app_for(home, worker=True)
     extra = c.app.state.fridgesheet.extra
     extra["printers"] = []
-    extra["scheduling"] = object()
     extra["credstore"] = object()
     s = c.app.state.fridgesheet.settings
     s.printer = printers.pop("shared", "")

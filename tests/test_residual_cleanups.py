@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from fridgesheet import config
-from fridgesheet.host import scheduling
 from fridgesheet.web import ingest
 from fridgesheet.web.stores import changes, flags
 from tests.web_fixtures import NOW, TZ, app_for, seed
@@ -69,9 +68,6 @@ def test_an_evicted_jobs_reload_says_so_instead_of_a_404_page(tmp_path):
 
 def test_a_scheduled_report_run_is_recorded_as_a_schedule(monkeypatch):
     """#8: `run` hard-coded trigger="cli", so every scheduled print read "cli" in Runs."""
-    monkeypatch.setattr(sys, "frozen", False, raising=False)
-    exe, args, _ = scheduling.command_for("open-work")
-    assert args.endswith("run open-work --no-refresh --trigger schedule")
     from fridgesheet import cli, runner
     seen = {}
     monkeypatch.setattr(runner, "run", lambda key, opts, settings: seen.setdefault("trigger", opts.trigger) and 0)
@@ -116,3 +112,20 @@ def test_the_web_lock_file_goes_before_the_lock_is_let_go(tmp_path, monkeypatch)
     assert lock2.acquire()
     monkeypatch.setattr(type(lock2.path), "unlink", lambda self, missing_ok=False: (_ for _ in ()).throw(PermissionError("in use")))
     lock2.release()                                         # does not raise
+
+
+def test_a_time_zone_change_reaches_the_clock_without_a_restart(tmp_path):
+    """The in-app scheduler builds its slots from `state.now()`: an app whose clock kept the
+    start-up zone after a Settings save would fire in the old zone while the runner judged
+    the slot in the new one -- fire early, SKIP, record the slot, print nothing."""
+    from zoneinfo import ZoneInfo
+    from fridgesheet.web.app import create_app
+    seed(tmp_path).close()
+    config.save_config_doc(tmp_path / "config.toml", {"general": {"timezone": "America/New_York"}})
+    s = config.Settings(home=tmp_path)
+    config.settings_from_doc(config.load_config_doc(tmp_path / "config.toml"), s)
+    state = create_app(s, home=tmp_path).state.fridgesheet
+    assert state.now().tzinfo == ZoneInfo("America/New_York")
+    config.save_config_doc(tmp_path / "config.toml", {"general": {"timezone": "America/Los_Angeles"}})
+    state.reload()
+    assert state.now().tzinfo == ZoneInfo("America/Los_Angeles")
