@@ -362,6 +362,25 @@ def test_a_saved_or_failed_late_rules_edit_comes_back_open(tmp_path):
     assert '<details class="fold" open>' in bad
     good = c.post("/settings/late-rules", data={"default_late_days": "14", "default_credit": "?", "quarter_date": ["2026-10-15"]}).text
     assert '<details class="fold" open>' in good and "Saved late-rules.toml" in good
+# --- the follow-up: #187 Runs and Changes fit a phone without a swipe ----------------------------------
+
+def test_runs_and_changes_are_four_columns_with_the_context_under_the_name(tmp_path):
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import runs
+    from tests.web_fixtures import history
+    history(tmp_path).close()
+    conn = db.open_db(tmp_path)
+    runs.record(conn, "open-work", "2026-09-15T07:00:00-04:00", "2026-09-15T07:01:00-04:00", "schedule", "OK", "Printed 1 page")
+    conn.close()
+    c = app_for(tmp_path)
+    runs_page = c.get("/runs").text
+    assert re.findall(r"<th>([^<]*)</th>", runs_page) == ["Started", "Report", "Outcome", "Message"]
+    assert re.search(r"<td>Open Work Sheet<small class=\"by\">On a schedule</small></td>", runs_page)
+    changes = c.get("/changes?window=30d").text
+    assert re.findall(r"<th>([^<]*)</th>", changes) == ["When", "What", "Item", "Detail"]
+    assert re.search(r'<small class="under"><a href="/kids/Alex">Alex</a> · Honors English 9 · canvas</small>', changes)
+    assert 'colspan="4"' in changes and 'colspan="7"' not in runs_page
+    assert re.search(r"table\.items td > small\s*\{[^}]*display: block", CSS)
 
 
 def test_the_print_pages_keep_the_head_on_screen_and_drop_its_chrome_on_paper():

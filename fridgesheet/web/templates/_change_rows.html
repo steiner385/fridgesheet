@@ -1,19 +1,20 @@
+{# Four columns, not six (#187): the kid and the class sit under the item, the way the work
+   list puts the class under the assignment, so the table fits a 390px phone without a swipe.
+   The kid is still a link to their page. #}
 <div class="table-wrap">
-<table class="items">
-  <thead><tr><th>When</th><th>Kid</th><th>What</th><th>Item</th><th>Class</th><th>Detail</th></tr></thead>
+<table class="items changes">
+  <thead><tr><th>When</th><th>What</th><th>Item</th><th>Detail</th></tr></thead>
   <tbody>
   {% for e in events %}
   <tr>
     <td>{{ e.at | wd_md_time }}</td>
-    <td><a href="/kids/{{ e.student_key }}">{{ e.student_key | nickname }}</a></td>
     <td><span class="badge">{{ e.label }}</span></td>
-    <td>{% if e.item_id %}<a href="#change-{{ loop.index }}" hx-get="/items/{{ e.item_id }}" hx-target="#change-{{ loop.index }}">{{ e.item_name }}</a>{% endif %}</td>
-    <td class="muted">{{ e.course_short or '' }}{% if e.source %} · {{ e.source }}{% endif %}</td>
+    <td>{% if e.item_id %}<a href="#change-{{ loop.index }}" hx-get="/items/{{ e.item_id }}" hx-target="#change-{{ loop.index }}">{{ e.item_name }}</a>{% endif %}<small class="under"><a href="/kids/{{ e.student_key }}">{{ e.student_key | nickname }}</a>{% if e.course_short %} · {{ e.course_short }}{% endif %}{% if e.source %} · {{ e.source }}{% endif %}</small></td>
     <td>{{ e.detail }}</td>
   </tr>
-  <tr class="detail" hidden><td colspan="6" id="change-{{ loop.index }}"></td></tr>
+  <tr class="detail" hidden><td colspan="4" id="change-{{ loop.index }}"></td></tr>
   {% else %}
-  <tr><td colspan="6" class="muted">Nothing has changed in this window.</td></tr>
+  <tr><td colspan="4" class="muted">Nothing has changed in this window.</td></tr>
   {% endfor %}
   </tbody>
 </table>

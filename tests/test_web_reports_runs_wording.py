@@ -96,7 +96,8 @@ def test_runs_says_who_started_it_in_words(tmp_path):
                     "2026-09-15T14:02:00-04:00", trigger, "OK", "2p")
     conn.close()
     body = app_for(tmp_path).get("/runs").text
-    assert ">How<" not in body and ">Started by<" in body
+    assert ">How<" not in body and ">Started by<" not in body       # under the report's name since #187, not a column
+    assert body.count('<small class="by">') == 3
     for jargon in (">web<", ">cli<", ">schedule<"):
         assert jargon not in body, jargon
     for words in ("In the app", "At a terminal", "On a schedule"):
