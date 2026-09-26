@@ -26,21 +26,23 @@ def grade_configs(body: str) -> list[dict]:
     return [c for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"]
 
 
-def test_the_grade_chart_has_one_stepped_series_per_course_and_source_on_a_time_axis(tmp_path):
+def test_the_grade_chart_has_one_stepped_series_per_course_on_a_time_axis(tmp_path):
+    """One line per class, from the family's grades source (HAC by default): the other
+    source's line is not drawn beside it, so a chart never mixes sources."""
     history(tmp_path).close()
     cfgs = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)
     assert len(cfgs) == 1 and cfgs[0]["type"] == "line"
     labels = {d["label"] for d in cfgs[0]["data"]["datasets"]}
-    assert "Honors English 9 (HAC average) · official" in labels and "Honors English 9 (Canvas current)" in labels
+    assert labels == {"Honors English 9 (HAC average)", "Algebra I (HAC average)"}
     hac = next(d for d in cfgs[0]["data"]["datasets"] if d["label"].startswith("Honors English 9 (HAC"))
     assert [p["y"] for p in hac["data"]][:2] == [85.0, 88.0]          # the observations; then the hold to now
     assert all(isinstance(p["x"], int) for p in hac["data"]) and hac["data"][0]["x"] < hac["data"][1]["x"]
-    assert hac["stepped"] == "before" and hac["borderWidth"] == 3      # hold until the next point
+    assert hac["stepped"] == "before"                                  # hold until the next point
     assert cfgs[0]["options"]["plugins"]["title"]["text"] == "Grade per class"
 
 
 def test_every_grade_line_runs_to_now_not_to_its_own_last_observation(tmp_path):
-    """Alex's HAC average last moved on 9/14 and the Canvas current on 9/15; both lines must
+    """Alex's English average last moved on 9/14 and Algebra's never did; both lines must
     reach `now`, or the class that has not changed looks like it stopped being tracked."""
     history(tmp_path).close()
     cfg, = grade_configs(app_for(tmp_path).get("/trends?kid=Alex").text)

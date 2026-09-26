@@ -31,11 +31,13 @@
   </div>
 </div>
 <h3>Grades</h3>
-<p class="muted">{{ course_names | join(", ") if course_names else "No grades recorded yet." }}</p>
+{# One line per class, from the gradebook the family's Settings name for class averages: a
+   chart must not mix HAC and Canvas. A class that source has no grade for shows the other's. #}
+<p class="muted">{% if course_names %}{{ course_names | join(", ") }} — one line per class, from the gradebook Settings names for class averages.{% else %}No grades recorded yet.{% endif %}</p>
 {# One chart per kid, not one chart for the house: three kids' classes in one legend was 28
    series and unreadable (#40 item 12). A kid's own view shows just theirs. #}
 {% for key, cfg in grade_charts %}
-{% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class and source" %}{% include "_chart_canvas.html" %}{% endwith %}
+{% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class from its grades source" %}{% include "_chart_canvas.html" %}{% endwith %}
 {% elif grade_charts | length > 1 %}<p class="muted">{{ key | nickname }}: no grades recorded yet.</p>{% endif %}
 {% endfor %}
 <h3>How the work due each week came out</h3>

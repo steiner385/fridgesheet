@@ -17,7 +17,7 @@ A parent checking in periodically rather than daily; either parent catching up a
 
 ## Desired outcome
 
-**Changes** is a feed of everything that moved since a chosen moment — new items, grades posted, items cleared, flags set — "what happened while I wasn't looking." **Trends** plots grade lines per class (HAC average, Canvas current) and weekly missing/late/on-time counts, computed from the same settled-outcome numbers as the Dashboard card, spread over the calendar by due week (not refresh week, so the chart reads correctly from day one of the year); it also lists what has sat open longest. Both read from the append-only observation history ([[canvas-hac-ingestion]]'s `item_observations`/`grade_observations` tables), not from a live re-derivation.
+**Changes** is a feed of everything that moved since a chosen moment — new items, grades posted, items cleared, flags set — "what happened while I wasn't looking." **Trends** plots one grade line per class, from the gradebook the family's source preference names for class averages (HAC by default; the other source fills in only for a class that one has no grade for, so a chart never mixes sources), and weekly missing/late/on-time counts, computed from the same settled-outcome numbers as the Dashboard card, spread over the calendar by due week (not refresh week, so the chart reads correctly from day one of the year); it also lists what has sat open longest. Both read from the append-only observation history ([[canvas-hac-ingestion]]'s `item_observations`/`grade_observations` tables), not from a live re-derivation.
 
 ## Success metrics
 
