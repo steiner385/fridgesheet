@@ -212,7 +212,10 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/check-in?saved=1#plan"
     page = c.get("/kids/Alex/check-in?saved=1").text
     assert "Saved. Your family plan is separate from the school record." in page
-    assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
+    # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
+    # missing flag), so the step the family just saved is shown as "The school has it" (spec
+    # 2026-09-27 §6) rather than a plain plan card; that card does not carry the family account.
+    assert "Ask Mr. Hoch to clear the missing flag" in page and "The school has it" in page
     assert "Quiz 1" not in _queues(page)["Worth checking"]      # covered by an active step
     rows = _step_rows(tmp_path)
     assert len(rows) == 1 and rows[0]["item_id"] == qid and rows[0]["state"] == "planned" and rows[0]["revision"] == 1
@@ -321,12 +324,12 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     c = app_for(tmp_path)
     _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15"), item_id=cid)
     sid = _step_rows(tmp_path)[0]["id"]
-    assert "20 min estimated for today" in c.get("/kids/Sam/plan").text
+    assert "Tonight: 1 step, 20 min" in c.get("/kids/Sam/plan").text
     r = _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15", state="done"), step_id=sid)
     assert r.status_code == 303
     page = c.get("/kids/Sam/check-in").text
     assert "Cell diagram" in _section(page, "overdue")                # back in Must finish: still not handed in
-    assert "0 min estimated for today" in page
+    assert "Tonight: 0 steps, 0 min" in page
     assert "The school decides what counts as submitted." in page
     assert f'href="/kids/Sam/check-in/step?item_id={cid}&amp;return_to=' in page  # a second step for the same work
     all_work = c.get("/kids/Sam?show=all").text
@@ -356,8 +359,12 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
     later = NOW + timedelta(days=1)
     _refresh(tmp_path, snapshot(), later)
     page = app_for(tmp_path, now=later).get("/kids/Alex/plan").text
-    assert "Took it in class; HAC shows 28/30." in page and "Check again Thu 9/17" in page
+    # Quiz 1 is done_offline (HAC's 28/30 beats Canvas's automatic missing flag), so the step
+    # shows as "The school has it" (spec 2026-09-27 §6); that card does not carry the family
+    # account or the "Check again" wording -- the commitment's own row is the record of it.
+    assert "The school has it" in page and "Planned for Thu 9/17" in page
     assert "School evidence changed" not in page                                # same facts, new refresh id
+    assert _step_rows(tmp_path)[0]["family_account"] == "Took it in class; HAC shows 28/30."
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])[qid]
     assert obs["canvas"]["missing"] == 1 and obs["hac"]["score"] == 28.0       # the school's facts, as the school said them
@@ -367,26 +374,30 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
 
 
 def test_evidence_change_notice_follows_facts_not_refresh_ids(tmp_path):
+    # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
+    # missing flag), so any step on it is shown as "The school has it" (spec 2026-09-27 §6),
+    # which never carries this notice -- Homework 4 (past its window, still open, no HAC row)
+    # stands in for the item whose Canvas record changes but stays a plain plan card.
     conn = seed(tmp_path)
-    qid, lid = _item_id(conn, "Quiz 1"), _item_id(conn, "Lab notebook")
+    hid, lid = _item_id(conn, "Homework 4"), _item_id(conn, "Lab notebook")
     conn.close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(state="waiting"), item_id=qid)
+    _post_step(c, "Alex", _form(title="Homework 4", state="waiting"), item_id=hid)
     _post_step(c, "Alex", _form(title="Lab notebook", state="waiting", family_account="On paper Tuesday"), item_id=lid)
     day2 = NOW + timedelta(days=1)
     _refresh(tmp_path, snapshot(), day2)
     assert "School evidence changed" not in app_for(tmp_path, now=day2).get("/kids/Alex/plan").text
     fixed = snapshot()
-    for a in fixed["students"]["Alex"]["canvas"]["courses"][0]["assignments"]:
-        if a["name"] == "Quiz 1":
-            a["missing"], a["state"], a["score"], a["grade"] = False, "graded", 28.0, "28"
+    for a in fixed["students"]["Alex"]["canvas"]["courses"][1]["assignments"]:
+        if a["name"] == "Homework 4":
+            a["missing"] = False
     day3 = NOW + timedelta(days=2)
     _refresh(tmp_path, fixed, day3)
     page = app_for(tmp_path, now=day3).get("/kids/Alex/plan").text
     cards = page.split('<article class="card plan-card">')[1:]
-    quiz = next(x for x in cards if "Quiz 1" in x)
+    homework = next(x for x in cards if "Homework 4" in x)
     lab = next(x for x in cards if "Lab notebook" in x)
-    assert "School evidence changed since this step was saved" in quiz
+    assert "School evidence changed since this step was saved" in homework
     assert "School evidence changed" not in lab and "On paper Tuesday" in lab
 
 
@@ -511,7 +522,7 @@ def test_the_plan_compares_todays_estimate_with_the_agreed_budget_and_flags_a_du
     _post_step(c, "Sam", _form(title="Ask Mr. Kim", owner="Sam", state="waiting", planned_for="2026-09-15"))
     c.post("/kids/Sam/check-in/finish", data=_finish(available_minutes="20", next_check="2026-09-14"), follow_redirects=False)
     page = c.get("/kids/Sam/plan").text
-    assert "25 min estimated for today" in page                                 # waiting steps carry no minutes today
+    assert "Tonight: 2 steps, 25 min" in page                                    # waiting steps carry no minutes today
     assert "25 min planned today, 20 min available: 5 min over. Move a step to another day." in page
     assert "time to check in" in page                                           # next check-in was yesterday
 
@@ -893,3 +904,81 @@ def test_today_load_leaves_out_steps_the_school_has(tmp_path):
     assert plans.today_load(conn, 1, "2026-09-15") == (2, 30)
     assert plans.today_load(conn, 1, "2026-09-15", exclude={vid}) == (1, 10)
     conn.close()
+
+
+def _plan_step_for(c, conn, key, name, **over):
+    iid = _item_id(conn, name)
+    _post_step(c, key, _form(title=name, planned_for="2026-09-15", **over), item_id=iid)
+    return iid
+
+
+def test_a_step_the_school_shows_as_in_is_greyed_with_canvas_as_the_witness(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft", minutes="20")          # submitted 9/14 8 pm
+    _plan_step_for(c, conn, "Alex", "Vocabulary", minutes="15")           # not handed in
+    conn.close()
+    body = c.get("/kids/Alex/plan").text
+    panel = body[body.index('id="plan"'):]
+    assert "The school has it" in panel
+    assert "Canvas: handed in Mon 9/14 8:00 PM" in panel
+    assert "Mark step complete" in panel
+    assert "Tonight: 1 step, 15 min" in panel and "1 the school has, not counted" in panel
+    assert "3 must-finish not picked yet" in panel                         # Worksheet 3, Lab notebook, Participation; Vocabulary is covered
+
+
+def test_the_familys_own_done_answer_is_named_as_theirs(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    vid = _plan_step_for(c, conn, "Alex", "Vocabulary")
+    flags.set_flag(conn, vid, "done", now="2026-09-15T13:00:00-04:00")
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "You answered It&#39;s handed in, Tue 9/15" in panel   # apostrophe escaped: say returns plain text, autoescaped
+    assert "Canvas: handed in" not in panel and "school says" not in panel.lower()
+
+
+def test_a_stale_answer_ungreys_the_step(tmp_path):
+    """Review Focus 3: the school contradicted the family's `done`; the step is live again."""
+    from tests.web_fixtures import history
+    conn = history(tmp_path)                                                # Quiz 1: HAC 28/30 day 2, Canvas MISSING day 3
+    c = app_for(tmp_path)
+    qid = _plan_step_for(c, conn, "Alex", "Quiz 1", minutes="10")
+    flags.set_flag(conn, qid, "done", now="2026-09-14T09:00:00-04:00")      # answered before day 3's mark
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "The school has it" not in panel
+    assert "Tonight: 1 step, 10 min" in panel
+
+
+def test_mark_step_complete_is_one_post_with_the_revision(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft")
+    (step,) = _step_rows(tmp_path)
+    conn.close()
+    r = c.post(f"/kids/Alex/check-in/step/{step['id']}/complete", data={"revision": "1", "recorded_by": "Mom"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/check-in?saved=1#plan"
+    (step,) = _step_rows(tmp_path)
+    assert (step["state"], step["revision"], step["recorded_by"]) == ("done", 2, "Mom")
+    r = c.post(f"/kids/Alex/check-in/step/{step['id']}/complete", data={"revision": "1"})
+    assert r.status_code == 409 and "changed in another window" in r.text
+
+
+def test_a_covered_step_carries_the_sheets_word(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Worksheet 3")
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "Must finish · DUE TOMORROW" in panel
+
+
+def test_asked_the_school_lines_sit_above_worth_checking(tmp_path):
+    conn = seed(tmp_path)
+    lab = _item_id(conn, "Lab notebook")
+    flags.set_flag(conn, lab, "ask_teacher", now="2026-09-13T09:00:00-04:00")
+    conn.close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert "Asked the school" in body and "Lab notebook</a>: Asked the teacher on Sun 9/13" in body
+    assert body.index("Asked the school") < body.index("Worth checking")

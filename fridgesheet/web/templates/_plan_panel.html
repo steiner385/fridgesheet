@@ -1,14 +1,15 @@
 {# "Our next steps": the family's plan for this kid. Rendered on the check-in and the plan
    page, and swapped in out of band after a one-tap plan answer (spec 6.5). #}
+{% set tier = student.key | tier_of %}
 <section id="plan" class="plan-panel" aria-labelledby="plan-heading"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
   <div class="workspace-heading"><h3 id="plan-heading">Our next steps</h3><a class="button-link" href="{{ base }}/step?return_to={{ here | urlencode }}">Add a task</a></div>
-  <p class="plan-total"><strong>{{ total_minutes }} min estimated for today</strong>{% if unestimated %} · {{ unestimated }} step{{ 's' if unestimated != 1 }} without an estimate{% endif %}</p>
+  <p class="plan-total"><strong>{{ 'copy.tonight_steps' | say(tier, {'steps': today_steps_n, 's': '' if today_steps_n == 1 else 's', 'minutes': total_minutes}) }}</strong>{% if unpicked %} · {{ 'copy.tonight_unpicked' | say(tier, {'n': unpicked}) }}{% endif %}{% if school_has_n %} · {{ 'copy.tonight_school_has' | say(tier, {'n': school_has_n}) }}{% endif %}</p>
   {% if last_check %}<p class="muted">Last agreed time budget: {{ last_check.available_minutes }} min{% if not budget_today %} (agreed {{ last_check.finished_at | wd_md }}, for that day){% endif %}{% if over > 0 %} · <strong class="warn">{{ total_minutes }} min planned today, {{ last_check.available_minutes }} min available: {{ over }} min over. Move a step to another day.</strong>{% endif %}</p>{% endif %}
   {% for label in ('planned', 'blocked', 'waiting') %}
   <h4>{{ states[label] }}</h4>
-  {% for step in steps if step.state == label %}
+  {% for step in steps if step.state == label and not step.witness %}
   <article class="card plan-card">
-    {% if step.view %}<p class="eyebrow">{{ step.view.course_short }}</p>{% endif %}
+    {% if step.view %}<p class="eyebrow">{{ step.view.course_short }}{% if step.must_word %} · <span class="badge">{{ 'badge.must_finish' | say(tier, {'word': step.must_word}) }}</span>{% endif %}</p>{% endif %}
     <h4>{{ step.title }}</h4><p class="next-step">{{ step.next_step }}</p>
     <p><strong>{{ step.owner }}</strong> · {{ 'Check again' if label in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
     {% if step.family_account %}<p class="family-account"><strong>Family account:</strong> {{ step.family_account }}</p>{% endif %}
@@ -20,6 +21,18 @@
   </article>
   {% else %}<p class="muted">No steps here yet.</p>{% endfor %}
   {% endfor %}
+  {% if school_has_n %}
+  <h4>{{ 'copy.school_has_it' | say(tier) }}</h4>
+  {% for step in steps if step.witness %}
+  <article class="card plan-card school-has-it">
+    {% if step.view %}<p class="eyebrow">{{ step.view.course_short }}</p>{% endif %}
+    <h4>{{ step.title }}</h4><p class="next-step">{{ step.next_step }}</p>
+    <p><strong>{{ step.owner }}</strong> · Planned for {{ step.planned_for | wd_md }}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
+    <p class="witness">{{ step.witness[0] | say(tier, step.witness[1]) }}</p>
+    <form method="post" action="{{ base }}/step/{{ step.id }}/complete" class="answers"><input type="hidden" name="revision" value="{{ step.revision }}"><input type="hidden" name="return_to" value="{{ here }}"><button>{{ 'a.mark_step_complete' | say(tier) }}</button> <a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></form>
+  </article>
+  {% endfor %}
+  {% endif %}
   <details class="queue-group"><summary>Completed steps <span class="badge">{{ completed | length }}</span></summary>
     <p class="muted">Finishing a step is our own record. The school decides what counts as submitted.</p>
     {% for step in completed %}<div class="card plan-card"><strong>{{ step.title }}</strong><p>{{ step.next_step }} · {{ step.owner }} · completed {{ step.updated_at | wd_md_time }}{% if step.recorded_by %} by {{ step.recorded_by }}{% endif %}</p>{% if step.family_account %}<p class="family-account">{{ step.family_account }}</p>{% endif %}<a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit or reopen</a>{% if step.item_id %} · <a href="{{ base }}/step?item_id={{ step.item_id }}&amp;return_to={{ here | urlencode }}">Add another step</a>{% endif %}</div>{% endfor %}

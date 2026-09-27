@@ -498,3 +498,7 @@ th .arrow { font-size: var(--type-small); }
 .mf-paper { border-left: 3px solid #a2bdb3; padding-left: 10px; margin: 6px 0 10px; color: #4f5754; font-size: var(--type-small); }
 details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 .asked-line { margin: 16px 0 0; }
+
+.plan-card.school-has-it { opacity: .75; background: #f4f6f4; }
+.plan-card.school-has-it > h4 { text-decoration: line-through; text-decoration-thickness: 1px; }
+.witness { border-left: 3px solid #6e8f85; padding-left: 10px; margin: 6px 0; }

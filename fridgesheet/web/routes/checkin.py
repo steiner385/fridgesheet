@@ -127,6 +127,37 @@ def _since(step, last_check) -> str:
     return "added"
 
 
+def witness(view, tz) -> tuple[str, dict] | None:
+    """Who says this assignment is in, or None (spec 2026-09-27 §6). Canvas, HAC or the
+    family, by name; never "the school" for the family's own answer. A stale answer -- the
+    school contradicted the family -- is nobody's witness: the step stays live."""
+    if view is None or view.verdict.kind == "stale_answer":
+        return None
+    c = view.canvas
+    if c is not None and c["submitted_at"]:
+        return "record.canvas_handed_in", {"when": dates.wd_md_time(datetime.fromisoformat(c["submitted_at"]).astimezone(tz))}
+    if view.outcome == outcomes.DONE_OFFLINE:
+        return "record.graded_in", {"source": "HAC" if view.grade_source == "hac" else "Canvas", "score": view.grade}
+    if view.flag == "done":
+        return "record.you_said_handed_in", {"when": dates.wd_md(datetime.fromisoformat(view.flag_set_at).astimezone(tz))}
+    if view.flag == "excused":
+        return "record.you_said_excused", {"when": dates.wd_md(datetime.fromisoformat(view.flag_set_at).astimezone(tz))}
+    if c is not None and c["excused"]:
+        return "record.canvas_excused", {}
+    return None
+
+
+def school_has_ids(conn, student, state) -> set[int]:
+    """Item ids of this kid's active steps whose assignment the school shows as in: what
+    the dashboard leaves out of "N steps planned today" (§8.3)."""
+    steps = [s for s in plans.for_student(conn, student["id"]) if s["state"] != "done" and s["item_id"] is not None]
+    if not steps:
+        return set()
+    views = {v.id: v for v in items.list_items(conn, student, now=state.now(), rules=state.rules(), show="all",
+                                                prefs=state.sources(), **state.window())}
+    return {s["item_id"] for s in steps if witness(views.get(s["item_id"]), state.tz) is not None}
+
+
 def _context(conn, student, state):
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
@@ -140,6 +171,8 @@ def _context(conn, student, state):
         step["view"] = view
         step["changed"] = view is not None and step["evidence"] != plans.evidence(view)
         step["since"] = _since(step, last_check)
+        step["witness"] = witness(view, state.tz) if step["state"] != "done" else None
+        step["must_word"] = ""
     # Finishing a small step does not complete its assignment: it returns to review, with the
     # family's earlier steps on it in view so the conversation does not start from zero.
     covered = {s["item_id"] for s in steps if s["state"] != "done"}
@@ -149,6 +182,13 @@ def _context(conn, student, state):
             completed_for.setdefault(s["item_id"], []).append(s)
     work = items.open_work(conn, student, now=now, rules=rules, prefs=state.sources(), **state.window())
     must = items.must_finish(work, now.date(), covered)
+    listed = {v.id: v for v in work.fixable + work.upcoming}
+    for step in steps:
+        if step["item_id"] in listed and step["state"] != "done":
+            step["must_word"] = items.sheet_status(listed[step["item_id"]])
+    asked = [(v, "where.asked" if v.flag == "ask_teacher" else "where.following_up",
+              dates.wd_md(datetime.fromisoformat(v.flag_set_at).astimezone(state.tz)))
+             for v in views if v.flag in ("ask_teacher", "follow_up") and v.id not in covered]
     seen = set(json.loads(last_check["seen"])) if last_check else set()
     seen_day = dates.wd_md(datetime.fromisoformat(last_check["finished_at"]).astimezone(state.tz)) if last_check else ""
     queues = {label: [] for label in QUEUES}
@@ -165,8 +205,9 @@ def _context(conn, student, state):
     for rows in queues.values():
         rows.sort(key=lambda v: bool(v.open_in) and not v.actionable)
     active = [s for s in steps if s["state"] != "done"]
-    today_steps = [s for s in active if s["state"] in ("planned", "blocked") and s["planned_for"] == today]
+    today_steps = [s for s in active if s["state"] in ("planned", "blocked") and s["planned_for"] == today and not s["witness"]]
     total = sum(s["minutes"] or 0 for s in today_steps)
+    school_has_n = sum(1 for s in active if s["witness"])
     # "Time available today" was agreed for the day of that check-in. Measured against a later
     # day's plan it told a child they were "80 min over" a budget nobody agreed to tonight (#21).
     budget_today = last_check is not None and _local_day(last_check["finished_at"], state.tz) == today
@@ -177,10 +218,11 @@ def _context(conn, student, state):
                 history=history, last_check=last_check, today=today, next_default=next_default,
                 total_minutes=total, budget_today=budget_today,
                 over=(total - last_check["available_minutes"]) if budget_today else 0,
-                unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
+                states=plans.STATES, today_steps_n=len(today_steps), unpicked=len(must.unpicked),
+                school_has_n=school_has_n, asked=asked,
                 finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
                 worth_group=WORTH_CHECKING, must_finish=must, seen=seen, seen_day=seen_day,
-                worth_open=worth_open, data_as_of=data_as_of, asked=[], queue_keys=QUEUE_KEYS)
+                worth_open=worth_open, data_as_of=data_as_of, queue_keys=QUEUE_KEYS)
 
 
 @router.get("/kids/{key}/check-in")
@@ -304,6 +346,26 @@ async def delete_step(key: str, step_id: int, request: Request, conn=Db):
     if not plans.delete(conn, student["id"], step_id):
         raise HTTPException(404, "No such plan step")
     return RedirectResponse(_after_save(key, safe_return(str(form.get("return_to", "")))), status_code=303)
+
+
+@router.post("/kids/{key}/check-in/step/{step_id}/complete")
+async def complete_step(key: str, step_id: int, request: Request, conn=Db, state=State):
+    """One tap on a step the school shows as in (spec 2026-09-27 §6). The family's own record,
+    with the same revision check the form makes; the app never completes a step itself."""
+    student = student_or_404(conn, key)
+    form = await request.form()
+    revision = str(form.get("revision", ""))
+    return_to = safe_return(str(form.get("return_to", "")))
+    try:
+        if not revision.isdigit():
+            raise plans.Conflict("Reload this page before completing the step.")
+        plans.complete(conn, student["id"], step_id, now=state.now().isoformat(), revision=int(revision),
+                       recorded_by=str(form.get("recorded_by", "")).strip()[:100])
+    except plans.Conflict as exc:
+        ctx = _context(conn, student, state)
+        ctx.update(error=str(exc), plan_only=request.url.path.endswith("/plan"))
+        return render(request, conn, "checkin.html", status_code=409, **ctx)
+    return RedirectResponse(_after_save(key, return_to), status_code=303)
 
 
 @router.post("/kids/{key}/check-in/finish")
