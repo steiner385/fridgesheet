@@ -175,6 +175,14 @@ PHRASES: dict[str, dict[str, str]] = {
     "record.you_said_excused": {"early": "You said it's excused, {when}", "middle": "You answered excused, {when}", "older": "You answered excused, {when}"},
     "record.canvas_excused": {"early": "Canvas: excused", "middle": "Canvas: excused", "older": "Canvas: excused"},
     "a.mark_step_complete":  {"early": "Mark step complete", "middle": "Mark step complete", "older": "Mark step complete"},
+    # --- kid mode: who is looking (spec 2026-09-27 §13) --------------------------------------
+    "copy.who_looking":   {"early": "Who's looking?", "middle": "Who's looking?", "older": "Who's looking?"},
+    "copy.who_remember":  {"early": "This browser will remember. You can change it any time.",
+                           "middle": "This browser will remember. You can change it any time.",
+                           "older": "This browser will remember. You can change it any time."},
+    "copy.a_grownup":     {"early": "A grown-up", "middle": "A grown-up", "older": "A grown-up"},
+    "copy.not_name":      {"early": "Not {name}?", "middle": "Not {name}?", "older": "Not {name}?"},
+    "copy.switch_to_kid": {"early": "Switch to a kid's view", "middle": "Switch to a kid's view", "older": "Switch to a kid's view"},
     # --- the record: what each gradebook holds about one item, as the facts it holds
     # (`_source_facts.html`, and the email to the teacher). One line per source, each a
     # submission fact and a grade fact. The detail card and the check-in card used to say these

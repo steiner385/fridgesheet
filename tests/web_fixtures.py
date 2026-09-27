@@ -147,7 +147,11 @@ def app_for(home: Path, now: datetime = NOW, worker: bool = False, *, service_in
     application.state.fridgesheet.clock = lambda: now
     application.state.fridgesheet.extra["describe_service"] = lambda: host.ServiceInfo(
         "task-scheduler", installed=service_installed, active=service_installed, detail="stub")
-    return TestClient(application, headers=LOCAL_HOST_HEADERS)
+    client = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    # Every page test is a grown-up unless it says otherwise (spec 2026-09-27 §13): without
+    # a choice, `/` is the chooser, and a hundred tests that read Today would break.
+    client.cookies.set(webapp.WHO_COOKIE, webapp.FAMILY)
+    return client
 
 
 def client_with_grades(home: Path, **grades) -> TestClient:

@@ -178,3 +178,8 @@ def test_a_witness_line_names_its_witness_not_the_school():
         assert phrasing.phrase("record.canvas_handed_in", t).startswith("Canvas")
         assert "You" in phrasing.phrase("record.you_said_handed_in", t)
         assert "school" not in phrasing.phrase("record.you_said_handed_in", t).lower()
+
+
+@pytest.mark.parametrize("key", ("copy.who_looking", "copy.who_remember", "copy.a_grownup", "copy.not_name", "copy.switch_to_kid"))
+def test_the_kid_mode_words_exist_in_three_tiers(key):
+    assert set(phrasing.PHRASES[key]) == set(tiers.TIERS), key

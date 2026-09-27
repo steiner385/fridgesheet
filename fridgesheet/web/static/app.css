@@ -502,3 +502,10 @@ details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 .plan-card.school-has-it { opacity: .75; background: #f4f6f4; }
 .plan-card.school-has-it > h4 { text-decoration: line-through; text-decoration-thickness: 1px; }
 .witness { border-left: 3px solid #6e8f85; padding-left: 10px; margin: 6px 0; }
+
+/* The chooser (spec 2026-09-27 §13.1): a kid's name is a big target; the grown-up's is quieter. */
+.who { max-width: 520px; margin: 48px auto; text-align: center; }
+.who h2 { font-size: 28px; margin: 0 0 8px; }
+.who form { display: grid; gap: 12px; }
+.who button { font-size: 22px; padding: 18px; border-radius: 12px; border: 1px solid var(--rule); background: var(--paper); cursor: pointer; }
+.who button.grownup { font-size: 16px; padding: 12px; background: var(--wash); color: var(--muted); margin-top: 12px; }

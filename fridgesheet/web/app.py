@@ -308,6 +308,36 @@ def safe_return(raw: str | None) -> str | None:
     return raw
 
 
+WHO_COOKIE = "fridgesheet_who"
+FAMILY = "family"
+WHO_MAX_AGE = 365 * 24 * 3600
+
+
+def who_of(request: Request, conn: sqlite3.Connection) -> tuple[str | None, sqlite3.Row | None]:
+    """Who this browser said is looking (spec 2026-09-27 §13.1): ("family", None) for a
+    grown-up, (key, row) for a visible student, (None, None) when nobody has chosen or the
+    cookie names a kid who is hidden or gone. Not a login: a cookie anyone can set."""
+    raw = request.cookies.get(WHO_COOKIE)
+    if not raw:
+        return None, None
+    if raw == FAMILY:
+        return FAMILY, None
+    s = students.by_key(conn, raw)
+    if s is None or s["hidden"]:
+        return None, None
+    return raw, s
+
+
+def remember_who(response, who: str):
+    response.set_cookie(WHO_COOKIE, who, max_age=WHO_MAX_AGE, path="/", samesite="lax", httponly=True)
+    return response
+
+
+def forget_who(response):
+    response.delete_cookie(WHO_COOKIE, path="/")
+    return response
+
+
 def page_context(request: Request, conn: sqlite3.Connection) -> dict:
     state = get_state(request)
     r = refreshes.latest(conn)
@@ -325,6 +355,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "staleness": staleness.check(conn, state.now()),
         "question_counts": question_counts(conn, state),
         "here": here(request),
+        "who": (who := who_of(request, conn))[0], "who_student": who[1],
     }
 
 
@@ -674,8 +705,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, questions as question_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes
-    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, questions as question_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes, who as who_routes
+    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router, who_routes.router):
         app.include_router(r)
     return app
 

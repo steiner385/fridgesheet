@@ -21,7 +21,9 @@ LOCAL_HOST_HEADERS = {"host": "127.0.0.1"}
 
 def _tc(app) -> TestClient:
     """A `TestClient` for an already-built app, with a Host this app actually answers to."""
-    return TestClient(app, headers=LOCAL_HOST_HEADERS)
+    c = TestClient(app, headers=LOCAL_HOST_HEADERS)
+    c.cookies.set(webapp.WHO_COOKIE, webapp.FAMILY)
+    return c
 
 
 def _snapshot(ok=True):

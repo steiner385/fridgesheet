@@ -160,6 +160,7 @@ def test_a_port_flag_reaches_the_middleware_not_just_uvicorn(tmp_path):
     (app,) = apps
     assert app.state.fridgesheet.settings.web_port == 9000
     c = TestClient(app, headers={"host": "127.0.0.1:9000"})
+    c.cookies.set("fridgesheet_who", "family")
     assert c.get("/").status_code == 200
     assert c.post("/notes", data={"target_type": "item", "target_id": 1, "body": "x"}).status_code != 403
 
@@ -175,6 +176,7 @@ def test_a_host_flag_reaches_the_middleware_too(tmp_path):
     (app,) = apps
     assert (app.state.fridgesheet.settings.web_host, app.state.fridgesheet.settings.web_host_explicit) == ("192.168.1.50", True)
     c = TestClient(app, headers={"host": "192.168.1.50:8433"})
+    c.cookies.set("fridgesheet_who", "family")
     assert c.get("/").status_code == 200
 
 
@@ -193,6 +195,7 @@ def test_reloading_settings_keeps_the_address_this_process_is_bound_to(tmp_path,
     app.state.fridgesheet.reload()
     assert app.state.fridgesheet.settings.web_port == 9000
     c = TestClient(app, headers={"host": "127.0.0.1:9000"})
+    c.cookies.set("fridgesheet_who", "family")
     assert c.get("/").status_code == 200
     asked = []
     monkeypatch.setattr(actions, "lan_url", lambda port, **k: asked.append(port) or f"http://192.168.1.50:{port}/")

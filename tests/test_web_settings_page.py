@@ -30,7 +30,9 @@ def _client(home, host="127.0.0.1"):
     application = webapp.create_app(s, worker=False)
     application.state.fridgesheet.extra["credstore"] = FakeCred()
     application.state.fridgesheet.extra["printers"] = ["Brother", "Canon"]
-    return TestClient(application, client=(host, 12345), headers=LOCAL_HOST_HEADERS), application
+    client = TestClient(application, client=(host, 12345), headers=LOCAL_HOST_HEADERS)
+    client.cookies.set(webapp.WHO_COOKIE, webapp.FAMILY)
+    return client, application
 
 
 FORM = {"username": "parent@example.org", "password": "", "printer": "Canon", "days_ahead": "10",
