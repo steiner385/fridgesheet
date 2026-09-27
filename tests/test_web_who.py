@@ -156,3 +156,34 @@ def test_kid_rail_links_are_url_encoded(tmp_path):
     seed(tmp_path, snap).close()
     rail = _rail(_kid(tmp_path, "Mary Ann").get("/kids/Mary%20Ann/plan").text)
     assert 'href="/kids/Mary%20Ann/check-in"' in rail and 'href="/trends?kid=Mary%20Ann"' in rail
+
+
+def test_trends_and_changes_scope_to_the_reader_without_a_parameter(tmp_path):
+    from tests.web_fixtures import history
+    history(tmp_path).close()
+    c = _kid(tmp_path, "Alex")
+    trends = c.get("/trends").text
+    assert "Kid:" not in trends and 'href="/trends?weeks=8"' not in trends            # no picker
+    assert "Grade per class" in trends and "Sam — grade per class" not in trends       # one kid, one chart
+    changes = c.get("/changes").text
+    assert "Kid:" not in changes
+    assert "Cell diagram" not in changes                                                # Sam's change stays off Alex's page
+    grown = app_for(tmp_path).get("/trends").text
+    assert "Kid:" in grown
+
+
+def test_a_kid_parameter_still_wins_in_kid_mode(tmp_path):
+    """Review Focus 4: the address is honoured; the picker stays hidden."""
+    from tests.web_fixtures import history
+    history(tmp_path).close()
+    body = _kid(tmp_path, "Alex").get("/trends?kid=Sam").text
+    assert "Kid:" not in body and "Grade per class" in body
+    assert "Honors English" not in body                                                # Alex's class is not drawn
+
+
+def test_trends_carries_the_readers_tier_in_kid_mode(tmp_path):
+    from tests.web_fixtures import client_with_grades
+    seed(tmp_path).close()
+    c = client_with_grades(tmp_path, Alex=5)
+    c.cookies.set("fridgesheet_who", "Alex")
+    assert 'data-tier="early"' in c.get("/trends").text
