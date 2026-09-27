@@ -333,8 +333,10 @@ states a number, date or time its adult equivalent does not):
 
 `copy.must_finish`, `copy.must_finish_hint`, `copy.due_tonight`, `copy.due_tomorrow`,
 `copy.overdue_fixable`, `copy.on_paper_no_grade`, `copy.handed_in_waiting`,
-`copy.coming_due_later`, `copy.worth_checking`, `copy.school_has_it`, `copy.tonight_total`,
-`copy.check_again`, `copy.asked_the_school`, `copy.nothing_due` (dashboard zero),
+`copy.coming_due_later`, `copy.worth_checking`, `copy.other_open`, `copy.waiting_on_school`,
+`copy.school_has_it`, `copy.tonight_steps`, `copy.tonight_unpicked`, `copy.tonight_school_has`,
+`copy.details`, `copy.due_on`, `copy.late_until`, `copy.browse_all_link`, `copy.browse_all_rest`,
+`copy.list_as_of`, `copy.list_changes_daily`, `copy.check_again`, `copy.asked_the_school`, `copy.nothing_due` (dashboard zero),
 `copy.not_done_due_by_tomorrow` (dashboard headline), `badge.must_finish`,
 `badge.zero_to_check`, `badge.changed_since_answer`, `badge.seen_at_checkin`,
 `badge.new_since_checkin`, `record.canvas_handed_in`, `record.graded_in` (with `{source}` and
@@ -345,7 +347,7 @@ states a number, date or time its adult equivalent does not):
 its new place under Worth checking.
 
 Early-tier wording, for the two the reviewers called out: `copy.school_has_it` is "The school
-has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
+has it"; `copy.tonight_unpicked` is "{n} not picked yet".
 
 ## 12. Mechanics
 
