@@ -194,6 +194,7 @@ witness line, or None:
 | Condition (from the item's view, in this order) | Line (older tier; `record.*` keys, three tiers) |
 |---|---|
 | `verdict.kind == "stale_answer"` | None: the school contradicted the family's answer; the step stays live |
+| outcome `not_done` | None: a zero in either source is not done, whatever Canvas's submission says (review finding 2) |
 | Canvas `submitted_at` set | "Canvas: handed in {when}" (`handed_in_at`, `wd_md_time`) |
 | outcome `done_offline` | "HAC: graded {score}" or "Canvas: graded {score}", whichever source holds the grade above zero |
 | flag `done` | "You answered It's handed in, {when}" (`flag_set_at`) |
@@ -250,8 +251,9 @@ collapsed groups are added so the kid alone sees the same page structure.)
 
 ### 8.1 The total line
 
-`_plan_panel.html`'s "N min estimated for today" becomes one sentence, `copy.tonight_total`,
-with values `{steps}`, `{minutes}`, `{unpicked}`, `{school_has}`:
+`_plan_panel.html`'s "N min estimated for today" becomes one sentence, three phrase keys
+joined with " · ": `copy.tonight_steps` (`{steps}`, `{minutes}`), `copy.tonight_unpicked`
+(`{unpicked}`) and `copy.tonight_school_has` (`{school_has}`):
 
 > Tonight: 2 steps, 25 min · 10 must-finish not picked yet · 1 the school has, not counted
 
@@ -280,16 +282,18 @@ The card **replaces** those two lines with one headline per kid:
 > **N** not done, due by tomorrow → `/kids/<kid>/plan`
 
 where N is the count of Must-finish rows in the Due tonight, Due tomorrow and Overdue
-sections (not the paper, grey or later groups). `Counts` gains `must_finish` computed from the
-same `open_work` result; `fixable`, `due_today` and `due_tomorrow` stay on `Counts` for the
-Open work page and tests but leave the card. A zero reads "Nothing due by tomorrow" so the
-parent can close the phone. The family line ("N steps planned today · M min") uses
-`today_load` with the section 6 exclusion.
+sections, with no covered set removed: work with an agreed family step is still not done, so
+covering every red row must not read as "Nothing due by tomorrow" (review finding 1). `Counts`
+does not gain a field for this; the dashboard route computes it with `items.must_finish(work,
+today)` (no `covered` argument) and passes it on the card as `must_finish`. `fixable`,
+`due_today` and `due_tomorrow` stay on `Counts` for the Open work page and tests but leave the
+card. A zero reads "Nothing due by tomorrow" so the parent can close the phone. The family line
+("N steps planned today · M min") uses `today_load` with the section 6 exclusion.
 
 ## 9. Check Canvas again
 
-The plan page and the check-in page get one button beside **Add a task**: **Check Canvas
-again** (`copy.check_again`, three tiers), an htmx POST to the existing `/jobs/refresh`, with
+The plan page and the check-in page get one button beside the Must finish heading: **Check
+Canvas again** (`copy.check_again`, three tiers), an htmx POST to the existing `/jobs/refresh`, with
 `hx-target="#job"` on a `<div id="job">` placed under the Must-finish heading, so the job card
 (`_job.html`) shows there with its log, and a 409 "Busy" card when a job is already running,
 as on Today. When the job finishes the page's data-as-of line is stale. `static/app.js`'s `attachSse`
@@ -351,10 +355,15 @@ has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
   done-line and its Undo occupy. After a plan answer the panel's total line and the covered
   set change; the row already shows its done-line, and the next full load moves it.
 - **Context.** `checkin._context` gains `must_finish` (the sectioned rows, from
-  `items.open_work` filtered by `covered`), `school_has` (item id → witness line), `asked`
+  `items.open_work` filtered by `covered`), `red_total` (the same red rows with no `covered`
+  argument, so the print page's empty state is judged against every red row, not just the
+  uncovered ones — review finding 1), `school_has` (item id → witness line), `asked`
   (the open "asked the school" lines), and `worth_checking_open` (the boolean from section 7).
   The review queue is built with Must-finish ids excluded. The function stays the one place
   the answer route calls for the panel.
+- **Answers.** `_answers.html`'s `first` (an action) moves one answer to the front and fills
+  it as the primary button even on a waiting card, whose own default is otherwise never the
+  filled one (kids' UX audit F9) — the zero-on-handed-in-work row (section 7) relies on this.
 - **Routes.** New: `POST /kids/{key}/check-in/step/{step_id}/complete`. Changed: `finish`
   passes `seen`. No change to `/items/{id}/answer` beyond the answers a row offers, which the
   template filters.
