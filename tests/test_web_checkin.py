@@ -10,6 +10,8 @@ import re
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from fridgesheet.web import db, ingest
 from fridgesheet.web.stores import flags, plans
 from tests.web_fixtures import NOW, TZ, _h, app_for, seed, snapshot
@@ -731,3 +733,44 @@ def test_order_is_optional_and_a_blank_one_goes_last(tmp_path):
     rows = {(r["title"], r["planned_for"]): r["position"] for r in _step_rows(tmp_path)}
     assert rows[("Quiz 1", "2026-09-16")] < rows[("Vocabulary", "2026-09-16")]      # second that day sorts after the first
     assert rows[("Reading log", "2026-09-17")] == rows[("Quiz 1", "2026-09-16")]     # a new day starts over
+
+
+# --- spec 2026-09-27: seen ids, one-tap complete, excluded steps -----------------------------
+
+def test_finishing_records_which_must_finish_ids_the_list_held(tmp_path):
+    conn = seed(tmp_path)
+    plans.finish(conn, 1, now=NOW.isoformat(), next_check="2026-09-20", available_minutes=30, summary="x",
+                 request_key=str(uuid4()), seen=[81, 80])
+    last = plans.last_checkin(conn, 1)
+    assert last["seen"] == "[80, 81]"
+    plans.finish(conn, 1, now=NOW.isoformat(), next_check="2026-09-21", available_minutes=30, summary="y", request_key=str(uuid4()))
+    assert plans.last_checkin(conn, 1)["seen"] == "[]"
+    conn.close()
+
+
+def test_complete_marks_a_step_done_with_the_revision_check(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    values = {k: v for k, v in _form(title="Vocabulary").items() if k in plans.FIELDS}
+    values.update(minutes=None, position=10, evidence="{}", recorded_by="")
+    sid = plans.save(conn, 1, values, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vid)
+    plans.complete(conn, 1, sid, now=NOW.isoformat(), revision=1, recorded_by="Dad")
+    step = plans.one(conn, 1, sid)
+    assert (step["state"], step["revision"], step["recorded_by"]) == ("done", 2, "Dad")
+    with pytest.raises(plans.Conflict):
+        plans.complete(conn, 1, sid, now=NOW.isoformat(), revision=1)        # stale revision
+    with pytest.raises(plans.Conflict):
+        plans.complete(conn, 2, sid, now=NOW.isoformat(), revision=2)        # another child's id
+    conn.close()
+
+
+def test_today_load_leaves_out_steps_the_school_has(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    base = {k: v for k, v in _form(planned_for="2026-09-15").items() if k in plans.FIELDS}
+    base.update(position=10, evidence="{}", recorded_by="")
+    plans.save(conn, 1, {**base, "minutes": 20}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vid)
+    plans.save(conn, 1, {**base, "title": "Other", "minutes": 10}, now=NOW.isoformat(), request_key=str(uuid4()))
+    assert plans.today_load(conn, 1, "2026-09-15") == (2, 30)
+    assert plans.today_load(conn, 1, "2026-09-15", exclude={vid}) == (1, 10)
+    conn.close()

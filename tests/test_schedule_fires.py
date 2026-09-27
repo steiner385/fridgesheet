@@ -12,7 +12,7 @@ TZ = ZoneInfo("America/New_York")
 
 def test_a_new_database_has_the_table_and_no_rows(tmp_path):
     conn = db.open_db(tmp_path)
-    assert db.SCHEMA_VERSION == 8
+    assert db.SCHEMA_VERSION == 9
     assert fires.all(conn) == {}
 
 
@@ -31,9 +31,10 @@ def test_recording_again_replaces_the_slot(tmp_path):
     assert fires.all(conn) == {"data-refresh": datetime(2026, 9, 25, 7, 0, tzinfo=TZ)}
 
 
-def test_a_version_7_file_migrates_to_8(tmp_path):
+def test_a_version_7_file_migrates_to_current(tmp_path):
     conn = db.open_db(tmp_path)
     conn.execute("DROP TABLE schedule_fires")
+    conn.execute("ALTER TABLE checkins DROP COLUMN seen")          # back to the v8 shape
     conn.execute("UPDATE schema_version SET version = 7")
-    assert db.migrate(conn) == 8
+    assert db.migrate(conn) == db.SCHEMA_VERSION == 9
     assert fires.all(conn) == {}
