@@ -22,13 +22,30 @@
   {% else %}<p class="muted">{{ 'copy.checkin_first' | say(tier) }}</p>{% endif %}
 </div>
 <div class="checkin-layout {{ 'plan-only' if plan_only }}">
+<div class="checkin-main">
+{% include "_must_finish.html" %}
+{% include "_plan_panel.html" %}
 {% if not plan_only %}
+<section class="card finish-checkin">
+  <h3>Agree and wrap up</h3><p>Check that the plan fits. Save what you agreed, including who will help and when you’ll meet again.</p>
+  {% set fv = finish_values | default({}) %}
+  <form method="post" action="{{ base }}/finish" class="plan-form">
+    <input type="hidden" name="request_key" value="{{ finish_token }}">
+    <div class="form-pair"><label>Time available today (minutes)<input type="number" name="available_minutes" min="1" max="1440" required value="{{ fv.get('available_minutes', last_check.available_minutes if last_check else 40) }}"></label>
+    <label>Next check-in<input type="date" name="next_check" required value="{{ fv.get('next_check', next_default) }}"></label></div>
+    <label>What we agreed<textarea name="summary" maxlength="4000" required placeholder="What will we do first? What help do we need?">{{ fv.get('summary', '') }}</textarea></label>
+    <label>Recorded by <span class="muted">(a grown-up helping · optional)</span><input name="recorded_by" maxlength="100" value="{{ fv.get('recorded_by', last_check.recorded_by if last_check else '') }}" placeholder="Mom, Dad, Grandma…"></label>
+    <button class="primary">Finish check-in</button>
+  </form>
+</section>
+{% endif %}
+{% if asked %}<p class="asked-line"><strong>{{ 'copy.asked_the_school' | say(tier) }}:</strong> {% for v, key, when in asked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ v.id }}">{{ v.name }}</a>: {{ key | say(tier, {'when': when}) }}{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
 <section class="review-queue" aria-labelledby="review-heading">
-  <h3 id="review-heading">Review together</h3>
-  <p class="muted">{{ 'copy.queue_hint' | say(tier) }}</p>
+  <h3 id="review-heading" class="sr-only">Review</h3>
   {% for label, rows in queues.items() %}
-  <details class="queue-group" {{ 'open' if rows }}>
+  <details class="queue-group" {{ 'open' if (label == worth_group and worth_open) }}>
     <summary>{{ label }} <span class="badge">{{ rows | length }}</span></summary>
+    {% if label == worth_group %}<p class="muted">{{ 'copy.queue_hint' | say(tier) }}</p>{% endif %}
     <div class="review-grid">
     {% for view in rows %}
     <article class="card review-card" id="qc-{{ view.id }}">
@@ -46,33 +63,16 @@
     </div>
   </details>
   {% endfor %}
-  <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this review queue.</p>
+  <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this list.</p>
   {# What the two systems the cards quote are: once, at the foot of the queue, where a reader
      who wondered can find it -- not above the first card (#190). #}
   {% include "_sources_hint.html" %}
 </section>
-{% endif %}
-<div class="checkin-side">
-{% include "_plan_panel.html" %}
-{% if not plan_only %}
-<section class="card finish-checkin">
-  <h3>Agree and wrap up</h3><p>Check that the plan fits. Save what you agreed, including who will help and when you’ll meet again.</p>
-  {% set fv = finish_values | default({}) %}
-  <form method="post" action="{{ base }}/finish" class="plan-form">
-    <input type="hidden" name="request_key" value="{{ finish_token }}">
-    <div class="form-pair"><label>Time available today (minutes)<input type="number" name="available_minutes" min="1" max="1440" required value="{{ fv.get('available_minutes', last_check.available_minutes if last_check else 40) }}"></label>
-    <label>Next check-in<input type="date" name="next_check" required value="{{ fv.get('next_check', next_default) }}"></label></div>
-    <label>What we agreed<textarea name="summary" maxlength="4000" required placeholder="What will we do first? What help do we need?">{{ fv.get('summary', '') }}</textarea></label>
-    <label>Recorded by <span class="muted">(a grown-up helping · optional)</span><input name="recorded_by" maxlength="100" value="{{ fv.get('recorded_by', last_check.recorded_by if last_check else '') }}" placeholder="Mom, Dad, Grandma…"></label>
-    <button class="primary">Finish check-in</button>
-  </form>
-</section>
-{% endif %}
 </div>
 </div>
 {# Under 1280px the queue and the plan stack, and the plan was five phone screens down (#189):
    a strip pinned to the bottom of the screen names both halves with their counts, each a
    link to its heading. Beside a sidebar the two are side by side and the strip is not drawn. #}
-{% if not plan_only %}<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review <span class="badge">{{ queues.values() | map('length') | sum }}</span></a><a href="#plan">Next steps <span class="badge">{{ steps | length }}</span></a></nav>{% endif %}
+{% if not plan_only %}<nav class="halves" aria-label="Check-in sections"><a href="#must-finish">{{ 'copy.must_finish' | say(tier) }} <span class="badge">{{ must_finish | length }}</span></a><a href="#plan">Next steps <span class="badge">{{ steps | length }}</span></a></nav>{% endif %}
 {% if history %}<details class="queue-group"><summary>Previous agreements <span class="badge">{{ history | length }}</span></summary>{% for check in history %}<article class="card plan-card"><h4>{{ check.finished_at | wd_md_time }}</h4><p>{{ check.summary }}</p><p>Next check-in {{ check.next_check | wd_md }} · {{ check.available_minutes }} min available{% if check.recorded_by %} · Recorded by {{ check.recorded_by }}{% endif %}</p><ul>{% for step in check.steps %}<li>{{ step.title }} · {{ step.owner }}: {{ step.next_step }} — {{ step.planned_for | wd_md }} ({{ states[step.state] }})</li>{% else %}<li>No active steps at this check-in.</li>{% endfor %}</ul></article>{% endfor %}</details>{% endif %}
 {% endblock %}

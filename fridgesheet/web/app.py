@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 import jinja2
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .. import config, dates, late_rules
+from .. import config, dates, late_rules, status_words
 from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
@@ -163,6 +163,13 @@ def _filters(state: AppState) -> dict:
     def tier_of(key: str) -> str:
         return tiers.for_student(state.settings, key)
 
+    def sheet_word(view, tier: str = "") -> str:
+        """The sheet's word for a row, in the kid's tier: DUE TONIGHT, MISSING, or "Teacher
+        hasn't got it" (status_words.status_word). Reads `status_words`, not `sheet`, so the
+        web process never pulls reportlab in (`sheet.py` imports it at module scope)."""
+        from .stores import items as items_store
+        return status_words.status_word(items_store.sheet_status(view), tier)
+
     def phrase(word, tier: str = "") -> str:
         # Stays a plain `str` -- autoescaped like everything else. `phrasing.phrase` echoes
         # an untranslated `word` straight back, and `v.grade` can be Canvas's own grade
@@ -230,7 +237,7 @@ def _filters(state: AppState) -> dict:
             "flag_label": lambda flag, form="state", tier="": phrasing.flag_label(flag or "", form, tier),
             "standing": lambda item, tier: verdicts.standing(item, tier),
             "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
-            "pace_key": verdicts.pace_key}
+            "pace_key": verdicts.pace_key, "sheet_word": sheet_word}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

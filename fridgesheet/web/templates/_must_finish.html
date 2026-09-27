@@ -1,0 +1,43 @@
+{# Must finish (spec 2026-09-27 §4): Open work's rows, sectioned for tonight. Computed from the
+   school record every time, never stored; a row leaves when the record says the work is in or
+   the family answers "It's handed in". Its own section, outside #plan, so the out-of-band swap
+   after an answer cannot replace the row a done-line and its Undo sit in (§12). #}
+{% set tier = student.key | tier_of %}
+<section id="must-finish" class="must-finish" aria-labelledby="mf-heading">
+  <div class="workspace-heading"><h3 id="mf-heading">{{ 'copy.must_finish' | say(tier) }}</h3>{% if jobs %}<button type="button" hx-post="/jobs/refresh" hx-vals='{"reload_page": "1"}' hx-target="#job" hx-swap="outerHTML">{{ 'copy.check_again' | say(tier) }}</button>{% endif %}</div>
+  <p class="muted">{{ 'copy.must_finish_hint' | say(tier) }}{% if data_as_of %} {{ 'copy.list_as_of' | say(tier, {'when': data_as_of | wd_md_time}) }}{% endif %}</p>
+  {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
+  {# One loop over the six sections, no macro: a Jinja macro cannot see the template's own
+     `{% set %}` variables (`tier`), and `_answers.html` is included per row with `item`, `qid`,
+     `vd`, `exclude` and `first` set in this scope. Each tuple: key, heading phrase, rows, red,
+     grey, the action to put first (or none), and whether the section folds. #}
+  {% set sections = [
+    ('tonight',  'copy.due_tonight',       must_finish.tonight,  true,  false, none,   false),
+    ('tomorrow', 'copy.due_tomorrow',      must_finish.tomorrow, true,  false, none,   false),
+    ('overdue',  'copy.overdue_fixable',   must_finish.overdue,  true,  false, none,   false),
+    ('paper',    'copy.on_paper_no_grade', must_finish.paper,    false, false, 'done', false),
+    ('waiting',  'copy.handed_in_waiting', must_finish.waiting,  false, true,  none,   true),
+    ('later',    'copy.coming_due_later',  must_finish.later,    false, false, none,   true),
+  ] %}
+  {% set exclude = ['too_late', 'ignore'] %}
+  {% for key, label, rows, red, grey, first, fold in sections if rows %}
+  {% if fold %}<details class="mf-fold"><summary>{{ label | say(tier) }} <span class="badge">{{ rows | length }}</span></summary>{% endif %}
+  <div class="mf-section" data-section="{{ key }}">{% if not fold %}<h4>{{ label | say(tier) }}</h4>{% endif %}
+    {% for view in rows %}{% set qid = 'qc-' ~ view.id %}{% set item = view %}{% set vd = view.verdict %}
+    {% if key == 'paper' %}{% set pk = vd | pace_key %}{% if pk and loop.changed(view.course_id) %}<p class="mf-paper">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% endif %}
+    <div class="mf-row{{ ' red' if red }}{{ ' grey' if grey }}" id="mf-{{ view.id }}">
+      <p class="line"><span class="eyebrow">{{ view.course_short }}</span><span class="word">{{ view | sheet_word(tier) }}</span>{% if view.due and not (view.upcoming and not view.overdue) %}<span class="muted">due {{ view.due | wd_md }}</span>{% elif view.due_time %}<span class="muted">{{ view.due_time }}</span>{% endif %}
+        {% if vd.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}<span class="badge">{{ 'badge.zero_to_check' | say(tier) }}</span>{% elif vd.kind == 'stale_answer' %}<span class="badge">{{ 'badge.changed_since_answer' | say(tier) }}</span>{% endif %}
+        {% if seen_day %}<span class="badge">{{ ('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day}) }}</span>{% endif %}</p>
+      <a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ view.id }}"><strong>{{ view.name }}</strong></a>
+      {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
+      {% if view.open_in and view.due and view.late_until %}<p class="muted">Late work is usually accepted until {{ view.late_until | wd_md }} (from your late-work rules). Ask the teacher if you need longer.</p>{% endif %}
+      <div id="{{ qid }}">{% if vd.answers and not grey %}{% include "_answers.html" %}{% endif %}</div>
+      <p class="row-links"><a href="{{ base }}/step?item_id={{ view.id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a> · <details class="inline"><summary>{{ 'copy.details' | say(tier) }}</summary>{% include "_planning_evidence.html" %}</details></p>
+    </div>
+    {% endfor %}
+  </div><!-- /{{ key }} -->
+  {% if fold %}</details>{% endif %}
+  {% endfor %}
+  {% if not must_finish | length %}<p class="muted">{{ 'copy.nothing_due' | say(tier) }}</p>{% endif %}
+</section>

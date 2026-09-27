@@ -289,14 +289,15 @@ def test_the_check_in_has_one_instruction_sentence_and_the_sources_hint_lives_in
 
 
 def test_a_stacked_check_in_names_its_two_halves_at_the_bottom_of_the_screen(tmp_path):
-    """#189: a link each to the review queue and the plan, with their counts; not on the
-    plan page (one half), not beside a sidebar (the CSS hides it from 1280px up)."""
+    """#189: a link each to Must finish and the plan, with their counts; not on the plan page
+    (one half), not beside a sidebar (the CSS hides it from 1280px up). Must finish (spec
+    2026-09-27 §4) replaced the review queue as the check-in's first half."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
     checkin = c.get("/kids/Alex/check-in").text
-    m = re.search(r'<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review <span class="badge">(\d+)</span></a><a href="#plan">Next steps <span class="badge">(\d+)</span></a></nav>', checkin)
+    m = re.search(r'<nav class="halves" aria-label="Check-in sections"><a href="#must-finish">Must finish <span class="badge">(\d+)</span></a><a href="#plan">Next steps <span class="badge">(\d+)</span></a></nav>', checkin)
     assert m and int(m.group(1)) >= 1
-    assert 'id="review-heading"' in checkin and 'id="plan"' in checkin
+    assert 'id="must-finish"' in checkin and 'id="plan"' in checkin
     assert 'class="halves"' not in c.get("/kids/Alex/plan").text
     assert re.search(r"\.halves\s*\{\s*display: none;\s*\}", CSS)
     wide = "\n".join(re.findall(r"@media \(max-width: 1279px\)\s*\{(.*?)^\}", CSS, re.S | re.M))

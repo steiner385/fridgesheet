@@ -6,6 +6,7 @@ review queue is built from the first; everything saved is the second and third.
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from urllib.parse import quote, urlsplit
 from uuid import uuid4
@@ -13,17 +14,23 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from ... import dates
 from .. import outcomes
 from ..app import Db, State, render, safe_return, student_or_404
-from ..stores import items, plans
+from ..stores import items, plans, refreshes
 
 router = APIRouter()
 
-#: The review groups, named after the verdicts (web/verdicts.py) so Check-in and Assignments say
-#: the same thing about the same item (#68, #69). "Waiting on the school" is not the plan's
-#: "Waiting" state: that one is our step on hold.
-QUESTIONS, WAITING, TO_DO = "Questions", "Waiting on the school", "To do"
-QUEUES = (QUESTIONS, WAITING, TO_DO)
+#: The review groups under the plan (spec 2026-09-27 §7). "Worth checking" is what the
+#: verdicts call a question; "Waiting on the school" is not the plan's "Waiting" state, which
+#: is our own step on hold; "Other open work" is open work Must finish does not list (past
+#: its window, undated and untouched, upcoming with no Canvas row).
+WORTH_CHECKING, WAITING, OTHER_OPEN = "Worth checking", "Waiting on the school", "Other open work"
+QUEUES = (WORTH_CHECKING, WAITING, OTHER_OPEN)
+#: A question kind that opens Worth checking by itself: a zero the school may have wrong, an
+#: answer it contradicted, or a question that was asked and has since been graded (§7).
+OPENS_WORTH_CHECKING = frozenset(("submitted_hac_zero", "excused_hac_zero", "hac_lower", "stale_answer",
+                                  "asked_then_graded", "followed_up_then_graded"))
 
 
 def root(key):
@@ -69,28 +76,28 @@ def _id(value: str | None) -> int | None:
 
 
 def _group(v) -> str | None:
-    """Work that is neither a question nor waiting on the school: "To do" when it is open,
-    coming due or undated and unfinished, else nothing to talk about. Handled work and
+    """Work that is neither a question nor waiting on the school: "Other open work" when it is
+    open, coming due or undated and unfinished, else nothing to talk about. Handled work and
     existing commitments are skipped by the caller."""
     if v.outcome in (outcomes.EXCUSED, outcomes.UNPUBLISHED):
         return None
     # Undated work (HAC lists some) is never "open" or "upcoming" by date; unfinished, it still
     # deserves a look rather than silence.
     undated = v.due is None and v.outcome == outcomes.NOT_DUE
-    return TO_DO if (v.open_in or v.upcoming or undated) else None
+    return OTHER_OPEN if (v.open_in or v.upcoming or undated) else None
 
 
-def queue_for(v, covered: set[int]) -> str | None:
-    """The review group for one item at a check-in, or None to leave it out. A question
-    (web/verdicts.py) is something to clarify together; waiting on the teacher is its own
-    group; work with an agreed step is already in the plan; handled work stays out unless the
-    school has since contradicted the answer."""
-    if v.id in covered:
+def queue_for(v, covered: set[int], listed: set[int] = frozenset()) -> str | None:
+    """The review group for one item at a check-in, or None to leave it out. Work Must finish
+    lists (`listed`) is in one place only (§5); a question is something to clarify together;
+    waiting on the teacher is its own group; work with an agreed step is already in the plan;
+    handled work stays out unless the school has since contradicted the answer."""
+    if v.id in covered or v.id in listed:
         return None
     if v.handled:
-        return QUESTIONS if v.verdict.kind == "stale_answer" else None
+        return WORTH_CHECKING if v.verdict.kind == "stale_answer" else None
     if v.verdict.state == "question":
-        return QUESTIONS
+        return WORTH_CHECKING
     if v.verdict.state == "waiting":
         return WAITING
     return _group(v)
@@ -135,11 +142,18 @@ def _context(conn, student, state):
     for s in steps:
         if s["state"] == "done" and s["item_id"] is not None:
             completed_for.setdefault(s["item_id"], []).append(s)
+    work = items.open_work(conn, student, now=now, rules=rules, prefs=state.sources(), **state.window())
+    must = items.must_finish(work, now.date(), covered)
+    seen = set(json.loads(last_check["seen"])) if last_check else set()
+    seen_day = dates.wd_md(datetime.fromisoformat(last_check["finished_at"]).astimezone(state.tz)) if last_check else ""
     queues = {label: [] for label in QUEUES}
     for v in views:
-        group = queue_for(v, covered)
+        group = queue_for(v, covered, must.ids)
         if group:
             queues[group].append(v)
+    worth_open = any(v.verdict.kind in OPENS_WORTH_CHECKING for v in queues[WORTH_CHECKING])
+    latest = refreshes.latest(conn)
+    data_as_of = latest["started_at"] if latest else None
     # Due date order, except that work past its late-credit window goes after work that can
     # still earn credit: a month-old zero must not sit above tonight's deadline. It stays
     # visible -- a cutoff in the rules is not the teacher's last word.
@@ -159,7 +173,9 @@ def _context(conn, student, state):
                 total_minutes=total, budget_today=budget_today,
                 over=(total - last_check["available_minutes"]) if budget_today else 0,
                 unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
-                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING)
+                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
+                worth_group=WORTH_CHECKING, must_finish=must, seen=seen, seen_day=seen_day,
+                worth_open=worth_open, data_as_of=data_as_of, asked=[])
 
 
 @router.get("/kids/{key}/check-in")

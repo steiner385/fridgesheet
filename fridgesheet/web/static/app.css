@@ -290,7 +290,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .child-nav a[aria-current] { border-bottom: 3px solid #286454; color: #214f43; font-weight: 650; }
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid #b7cdc5; border-radius: 6px; background: #edf5f1; color: #214f43; text-decoration: none; }
 .checkin-intro { max-width: var(--measure); margin-bottom: 24px; }
-.checkin-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 960px; gap: 24px; align-items: start; }
 .checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: var(--measure); }
 .checkin-layout h3 { margin-top: 0; }
 /* The plan and the wrap-up form stick beside the review queue while it scrolls, so "Choose a
@@ -478,3 +478,23 @@ th .arrow { font-size: var(--type-small); }
   main details > summary { min-height: 44px; padding-block: 10px; }
   .tick { min-height: 44px; }
 }
+
+/* Must finish (spec 2026-09-27 §4): the school's list, sectioned for tonight. Red is only for
+   rows the school records as not in; paper with no grade is not red; a hand-in waiting for a
+   grade is grey. */
+.must-finish { margin: 0 0 24px; }
+.must-finish h4 { margin: 18px 0 6px; font-size: 15px; }
+.mf-row { border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin: 8px 0; background: var(--paper); overflow-wrap: anywhere; }
+.mf-row.red { border-left-color: var(--warn); }
+.mf-row.grey { color: var(--muted); }
+.mf-row .line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 0 0 6px; }
+.mf-row .line .eyebrow { margin: 0; }
+.mf-row .line .word { font-weight: 700; }
+.mf-row.red .line .word { color: var(--warn); }
+.mf-row .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.mf-row .answers form { display: inline; margin: 0; }
+.mf-row .ask { font-weight: 600; margin: 4px 0 6px; }
+.mf-row .row-links { margin: 6px 0 0; font-size: var(--type-small); }
+.mf-paper { border-left: 3px solid #a2bdb3; padding-left: 10px; margin: 6px 0 10px; color: #4f5754; font-size: var(--type-small); }
+details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
+.asked-line { margin: 16px 0 0; }

@@ -38,7 +38,10 @@
       {% endif %}
       <div class="group">Work</div>
       <a href="/open" class="{{ 'current' if current == 'open' }}">Open work</a>
-      {% set asked = question_counts.values() | sum %}<a href="/questions" class="{{ 'current' if current == 'questions' }}">Questions <span id="qcount-all" class="count">{{ asked or '' }}</span></a>
+      {# Named apart from the check-in's own `asked` context key (spec 2026-09-27 §4-§9): a
+         top-level `set` in this shell template is visible inside every page's `content` block,
+         and `asked` there is a list of rows the family asked the school about, not a count. #}
+      {% set q_total = question_counts.values() | sum %}<a href="/questions" class="{{ 'current' if current == 'questions' }}">Questions <span id="qcount-all" class="count">{{ q_total or '' }}</span></a>
       <a href="/reports" class="{{ 'current' if current == 'reports' }}">Reports</a>
       <a href="/schedules" class="{{ 'current' if current == 'schedules' }}">Schedules</a>
       <div class="group">Time</div>

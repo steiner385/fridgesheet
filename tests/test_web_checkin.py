@@ -43,12 +43,12 @@ def _finish(**over):
 
 
 def _queues(body: str) -> dict[str, str]:
-    """The three review groups' HTML, by label, so a test can say which group a row is in."""
+    """The review groups' HTML, by label, so a test can say which group a row is in."""
     groups = re.split(r'<details class="queue-group"', body)[1:]
     out = {}
     for g in groups:
         label = re.search(r"<summary>(.*?) <span", g)
-        if label and label.group(1) in ("To do", "Questions", "Waiting on the school"):
+        if label and label.group(1) in ("Other open work", "Worth checking", "Waiting on the school"):
             out[label.group(1)] = g
     return out
 
@@ -65,14 +65,93 @@ def test_check_in_sorts_the_school_record_into_three_review_groups(tmp_path):
     r = app_for(tmp_path).get("/kids/Alex/check-in")
     assert r.status_code == 200
     q = _queues(r.text)
-    assert set(q) == {"To do", "Questions", "Waiting on the school"}
-    for name in ("Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):     # open or upcoming, nothing to explain
-        assert name in q["To do"], name
-    assert "Participation" in q["Questions"]                                     # HAC-only, a week with no grade
-    assert "Lab notebook" in q["Waiting on the school"]                          # paper, under a week: waiting, as on Assignments
-    assert "Quiz 1" not in r.text.split('id="plan"')[0]                          # HAC's 28/30 settles it (docs/outcomes.md)
+    assert set(q) == {"Other open work", "Worth checking", "Waiting on the school"}
+    assert "Homework 4" in q["Other open work"]                     # past its window: open, not fixable
+    for name in ("Vocabulary", "Worksheet 3", "Reading log", "Lab notebook", "Participation"):
+        assert name not in q["Other open work"], name               # these are in Must finish now
     assert "Essay draft" in q["Waiting on the school"]
-    assert "Essay draft" not in q["To do"]                            # submitted work is never "redo it"
+    assert "Quiz 1" not in r.text.split('id="plan"')[0]             # HAC's 28/30 settles it (docs/outcomes.md)
+
+
+def _section(body: str, key: str) -> str:
+    """The HTML of one Must-finish section, by its data-section key."""
+    m = re.search(rf'<div class="mf-section" data-section="{key}">(.*?)</div><!-- /{key} -->', body, re.S)
+    return m.group(1) if m else ""
+
+
+def test_must_finish_opens_the_plan_with_the_school_list_in_sections(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert body.index('id="must-finish"') < body.index('id="plan"')
+    assert "Vocabulary" in _section(body, "tonight") and "DUE TODAY" in _section(body, "tonight")
+    assert "Worksheet 3" in _section(body, "tomorrow")
+    assert "Reading log" in _section(body, "later")
+    paper = _section(body, "paper")
+    assert "Lab notebook" in paper and "Participation" in paper
+    assert "The school&#39;s list as of" in body      # apostrophe escaped: `say` returns plain text, autoescaped
+
+
+def test_a_must_finish_row_never_offers_too_late_or_let_it_go(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    body = c.get("/kids/Sam/plan").text
+    overdue = _section(body, "overdue")
+    assert "Cell diagram" in overdue and "Safety quiz" in overdue
+    assert 'value="too_late"' not in overdue and 'value="ignore"' not in overdue
+    assert 'value="done"' in overdue and 'value="plan:today"' in overdue
+    # The verdict table itself still carries them: the row filtered, the answers did not change.
+    from fridgesheet.web import verdicts as V
+    assert any(a.action == "too_late" for a in V.ANSWERS["not_done"])
+
+
+def test_a_paper_row_puts_handed_in_first(tmp_path):
+    seed(tmp_path).close()
+    paper = _section(app_for(tmp_path).get("/kids/Alex/plan").text, "paper")
+    lab = paper[paper.index("Lab notebook"):]
+    assert lab.index('value="done"') < lab.index('value="ask_teacher"')
+    assert re.search(r'<button name="answer" value="done" class="primary"', lab)
+
+
+def test_a_zero_on_handed_in_work_keeps_ask_the_teacher_first(tmp_path):
+    """Review Focus 2: finishing first must not mean tapping away a wrong zero."""
+    snap = snapshot()
+    sci = snap["students"]["Sam"]["canvas"]["courses"][0]
+    for a in sci["assignments"]:
+        if a["name"] == "Safety quiz":
+            a.update(state="submitted", submitted_at="2026-09-10T20:00:00-04:00", score=None, grade=None)
+    snap["students"]["Sam"]["hac"]["classes"][0]["assignments"] = [_h("Safety quiz", "09/11/2026", 0.0)]
+    conn = seed(tmp_path, snap)
+    qid = _item_id(conn, "Safety quiz")
+    conn.close()
+    overdue = _section(app_for(tmp_path).get("/kids/Sam/plan").text, "overdue")
+    # Scoped to this row alone: Safety quiz sorts before Cell diagram in "overdue" (its due
+    # date is earlier), and Cell diagram's own row legitimately has a primary "done" button --
+    # slicing to end-of-section would fail this row's checks on that account.
+    quiz = re.search(rf'<div class="mf-row[^"]*" id="mf-{qid}">.*?(?=<div class="mf-row|</div><!-- /overdue -->)',
+                     overdue, re.S).group(0)
+    assert "Zero to check" in quiz
+    assert re.search(r'<button name="answer" value="ask_teacher" class="primary"', quiz)
+    assert 'value="ignore"' not in quiz and 'value="done" class="primary"' not in quiz
+
+
+def test_a_must_finish_item_is_in_no_review_group(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    q = _queues(body)
+    for name in ("Lab notebook", "Participation"):                  # paper with no grade used to be a question or waiting
+        assert name in _section(body, "paper")
+        assert all(name not in g for g in q.values()), name
+
+
+def test_the_must_finish_ids_are_open_works_rows_minus_the_plan(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Vocabulary", planned_for="2026-09-15"), item_id=vid)
+    body = c.get("/kids/Alex/plan").text
+    ids = set(re.findall(r'id="mf-(\d+)"', body))
+    assert str(vid) not in ids and len(ids) == 4                    # Worksheet 3, Reading log, Lab notebook, Participation
 
 
 def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp_path):
@@ -87,22 +166,13 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
     assert "did no work" not in sam and "didn't do" not in sam
 
 
-def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path):
-    """Homework 4 is a month old and past its 14-day window; sorting by due date alone would put
-    it above tonight's Vocabulary. The queue keeps it visible but after the work that can still
-    earn credit."""
-    seed(tmp_path).close()
-    consider = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["To do"]
-    assert consider.index("Vocabulary") < consider.index("Worksheet 3") < consider.index("Reading log") < consider.index("Homework 4")
-
-
 def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
     snap = snapshot()
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
     seed(tmp_path, snap).close()
     q = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)
-    assert "Reading project" in q["To do"]
-    assert "no due date listed" in q["To do"]
+    assert "Reading project" in q["Other open work"]
+    assert "no due date listed" in q["Other open work"]
 
 
 def test_a_child_with_no_work_still_gets_a_working_check_in(tmp_path):
@@ -131,7 +201,7 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     page = c.get("/kids/Alex/check-in?saved=1").text
     assert "Saved. Your family plan is separate from the school record." in page
     assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
-    assert "Quiz 1" not in _queues(page)["Questions"]      # covered by an active step
+    assert "Quiz 1" not in _queues(page)["Worth checking"]      # covered by an active step
     rows = _step_rows(tmp_path)
     assert len(rows) == 1 and rows[0]["item_id"] == qid and rows[0]["state"] == "planned" and rows[0]["revision"] == 1
 
@@ -243,10 +313,10 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     r = _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15", state="done"), step_id=sid)
     assert r.status_code == 303
     page = c.get("/kids/Sam/check-in").text
-    assert "Cell diagram" in _queues(page)["To do"]                  # back in review: still not handed in
+    assert "Cell diagram" in _section(page, "overdue")                # back in Must finish: still not handed in
     assert "0 min estimated for today" in page
     assert "The school decides what counts as submitted." in page
-    assert f'href="/kids/Sam/check-in/step?item_id={cid}"' in page             # a second step for the same work
+    assert f'href="/kids/Sam/check-in/step?item_id={cid}&amp;return_to=' in page  # a second step for the same work
     all_work = c.get("/kids/Sam?show=all").text
     assert ">Missing · Canvas<" in all_work                                               # the school record is untouched
     conn = db.open_db(tmp_path)
@@ -374,7 +444,7 @@ def test_each_childs_pages_show_only_their_own_steps_even_with_shared_canvas_ids
     zoe = c.get("/kids/Zo%C3%AB%20Q/check-in").text
     assert "Alex asks Mr. Hoch" in alex and "Zoë asks Mr. Hoch" not in alex
     assert "Zoë asks Mr. Hoch" in zoe and "Alex asks Mr. Hoch" not in zoe
-    assert "Quiz 1" not in _queues(zoe)["Questions"]
+    assert "Quiz 1" not in _queues(zoe)["Worth checking"]
     assert 'href="/kids/Zo%C3%ABQ' not in zoe and 'href="/kids/Zo%C3%AB%20Q/plan"' in zoe   # the key survives every link
     assert 'href="/kids/Zo%C3%AB%20Q/check-in"' in c.get("/").text
 
@@ -466,7 +536,7 @@ def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path)
     # On a phone the queue runs screens before the plan: the check-in page's strip at the bottom
     # of the screen names both halves (#189); the plan page is one half and has none.
     checkin = c.get("/kids/Alex/check-in").text
-    assert '<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review ' in checkin
+    assert '<nav class="halves" aria-label="Check-in sections"><a href="#must-finish">Must finish ' in checkin
     assert 'href="#plan">Next steps ' in checkin
     assert 'class="halves"' not in c.get("/kids/Alex/plan").text
     table = c.get("/kids/Alex?show=all&flagged=none&sort=name").text
@@ -504,12 +574,15 @@ def test_finishing_needs_a_few_words_about_what_was_agreed(tmp_path):
     conn.close()
 
 
-def test_review_groups_with_something_in_them_start_open(tmp_path):
+def test_only_worth_checking_opens_itself_and_only_when_something_there_needs_a_look(tmp_path):
+    """Spec 2026-09-27 §7: a review group used to start open whenever it held a row; now only
+    "Worth checking" pries itself open, and only when one of its rows is a kind that opens it
+    by itself (`checkin.OPENS_WORTH_CHECKING`). Neither kid's fixture has one, so nothing before
+    Must finish grabs the family's attention on its own."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 3
-    sam = c.get("/kids/Sam/check-in").text                        # no questions, nothing waiting: only To do
-    assert sam.count('<details class="queue-group" open>') == 1
+    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 0
+    assert c.get("/kids/Sam/check-in").text.count('<details class="queue-group" open>') == 0
 
 
 def test_steps_say_who_recorded_them_and_when(tmp_path):
@@ -582,18 +655,21 @@ def test_a_child_with_no_check_in_yet_is_invited_on_today(tmp_path):
 
 
 def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps(tmp_path):
+    # Lab notebook is Must finish's now (paper, no grade): it never returns as a review card,
+    # so the completed-step count on a card is exercised with a row that stays one -- Essay
+    # draft, "waiting on the school", is not fixable or upcoming and so never listed there.
     conn = seed(tmp_path)
-    lid = _item_id(conn, "Lab notebook")
+    eid = _item_id(conn, "Essay draft")
     conn.close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=lid)
+    _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=eid)
     page = c.get("/kids/Alex/check-in").text
     completed = page.split("Completed steps")[1]
     assert "Mr. Hoch emailed: he has it." in completed
     card = _queues(page)["Waiting on the school"]
-    lab = card.split('<article class="card review-card"')
-    lab = next(x for x in lab if "Lab notebook" in x)
-    assert "1 completed step" in lab and "Mr. Hoch emailed: he has it." in lab
+    essay = card.split('<article class="card review-card"')
+    essay = next(x for x in essay if "Essay draft" in x)
+    assert "1 completed step" in essay and "Mr. Hoch emailed: he has it." in essay
 
 
 def test_the_manual_task_form_says_what_it_is_for(tmp_path):
