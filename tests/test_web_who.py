@@ -1,6 +1,7 @@
 """Kid mode (spec 2026-09-27 §13): a browser remembers who is looking."""
 from __future__ import annotations
 
+import html
 import re
 
 from fastapi.testclient import TestClient
@@ -90,3 +91,68 @@ def test_the_chooser_renders_with_an_empty_database(tmp_path):
     r = c.get("/who")
     assert r.status_code == 200 and "A grown-up" in r.text
     assert re.search(r'<button name="who" value="(?!family")', r.text) is None
+
+
+def _kid(tmp_path, key="Alex"):
+    c = app_for(tmp_path)
+    c.cookies.set("fridgesheet_who", key)
+    return c
+
+
+def _rail(body: str) -> str:
+    return re.search(r'<aside class="rail">(.*?)</aside>', body, re.S).group(1)
+
+
+def test_a_kids_rail_names_only_their_pages(tmp_path):
+    seed(tmp_path).close()
+    rail = _rail(_kid(tmp_path).get("/kids/Alex/plan").text)
+    links = re.findall(r'<a href="([^"]+)"', rail)
+    assert links == ["/", "/kids/Alex/plan", "/kids/Alex/plan", "/kids/Alex/check-in", "/kids/Alex", "/trends?kid=Alex", "/changes?kid=Alex", "/who"]
+    assert "Sam" not in rail and "Settings" not in rail and "Today" not in rail and "Questions" not in rail
+    assert "Not Alex?" in rail and 'id="qcount-Alex"' in rail and 'id="qcount-all"' not in rail
+
+
+def test_the_grown_up_rail_is_unchanged_but_for_the_switch_link(tmp_path):
+    seed(tmp_path).close()
+    rail = html.unescape(_rail(app_for(tmp_path).get("/").text))       # "kid's" -> kid&#39;s (see test_web_tier_wording.py)
+    for word in ("Today", "Alex", "Sam", "Open work", "Questions", "Settings", "Switch to a kid's view"):
+        assert word in rail, word
+    assert 'href="/who"' in rail
+
+
+def test_kid_mode_trims_the_status_bar_and_the_child_nav(tmp_path):
+    seed(tmp_path).close()
+    body = _kid(tmp_path).get("/kids/Alex/plan").text
+    header = re.search(r'<header class="status">(.*?)</header>', body, re.S).group(1)
+    assert "Refreshed" in header and "Canvas OK" in header
+    assert "Last run" not in header and "/settings" not in header
+    assert 'class="child-nav"' not in body
+    assert "What you agreed to do, day by day." in body                   # the tab hint stays
+
+
+def test_an_answer_swap_on_a_kid_mode_page_does_not_error(tmp_path):
+    """Review Focus 2: `_after_answer.html` targets ids the kid rail does not draw."""
+    from uuid import uuid4
+    conn = seed(tmp_path)
+    vid = conn.execute("SELECT id FROM items WHERE name = 'Vocabulary'").fetchone()["id"]
+    conn.close()
+    c = _kid(tmp_path)
+    r = c.post(f"/items/{vid}/answer", data={"answer": "plan:today", "prev": "", "request_key": str(uuid4()), "slot": f"qc-{vid}"})
+    assert r.status_code == 200 and 'id="plan"' in r.text
+
+
+def test_a_sibling_page_by_address_still_renders_with_the_readers_rail(tmp_path):
+    """Review Focus 3."""
+    seed(tmp_path).close()
+    body = _kid(tmp_path, "Alex").get("/kids/Sam/plan").text
+    assert "Not Alex?" in _rail(body) and "Sam" in body
+
+
+def test_kid_rail_links_are_url_encoded(tmp_path):
+    """Review Focus 5."""
+    snap = snapshot()
+    snap["students"]["Mary Ann"] = {"name": "Mary Ann Example", "canvas_id": 3, "hac_name": "Mary Ann Example",
+                                    "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
+    seed(tmp_path, snap).close()
+    rail = _rail(_kid(tmp_path, "Mary Ann").get("/kids/Mary%20Ann/plan").text)
+    assert 'href="/kids/Mary%20Ann/check-in"' in rail and 'href="/trends?kid=Mary%20Ann"' in rail

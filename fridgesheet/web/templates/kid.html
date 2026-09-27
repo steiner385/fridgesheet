@@ -2,7 +2,7 @@
 {% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
 {% set page_title = student.key | nickname %}{% include "_page_head.html" %}
-{% set workspace = "all" %}{% include "_child_nav.html" %}
+{% include "_child_nav.html" %}
 {# The one sentence about what went right (kids' UX audit F8), only once something has: a line
    that exists to say what was done does not appear to say nothing was. #}
 {% if done_so_far.done %}<p class="done-so-far">{{ 'copy.done_so_far' | say(student.key | tier_of, done_so_far) }}</p>{% endif %}
