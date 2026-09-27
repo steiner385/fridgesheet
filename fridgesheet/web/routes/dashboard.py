@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import sqlite3
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request
+from fastapi.responses import RedirectResponse
 
 from . import checkin
-from ..app import Db, State, render, safe_pdf
+from ..app import Db, State, WHO_COOKIE, forget_who, render, safe_pdf, who_of
 from ..stores import items, plans, runs, students
 
 router = APIRouter()
@@ -14,6 +16,12 @@ router = APIRouter()
 
 @router.get("/")
 def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
+    who, student = who_of(request, conn)
+    if who is None:
+        r = RedirectResponse("/who", status_code=303)
+        return forget_who(r) if request.cookies.get(WHO_COOKIE) else r
+    if student is not None:
+        return RedirectResponse(f"/kids/{quote(student['key'], safe='')}/plan", status_code=303)
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
     cards = []

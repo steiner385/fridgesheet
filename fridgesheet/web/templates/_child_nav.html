@@ -1,8 +1,10 @@
+{% if not who_student %}
 <nav class="child-nav" aria-label="Child workspace">
   <a href="/kids/{{ student.key | urlencode }}/check-in" {{ 'aria-current="page"' | safe if workspace == 'checkin' }}>Check-in</a>
   <a href="/kids/{{ student.key | urlencode }}/plan" {{ 'aria-current="page"' | safe if workspace == 'plan' }}>Plan</a>
   <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>Assignments</a>
 </nav>
+{% endif %}
 {# The one-line hint under the tabs follows the reader (kids' UX audit F3). What Canvas and HAC
    are is said where they are named: under the Assignments table, whose "Where it stands" column
    uses both words, and inside a record (`_record.html`) -- not on the check-in and plan tabs,

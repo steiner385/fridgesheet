@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 
 from ... import dates
 from .. import charts, outcomes
-from ..app import Db, State, render, student_or_404
+from ..app import Db, State, render, student_or_404, who_of
 from ..stores import students as students_store, trends
 
 router = APIRouter()
@@ -81,8 +81,11 @@ def _weeks(request: Request) -> int:
 
 
 def _student(conn, request: Request):
+    """The `kid` parameter, else the reader in kid mode (spec 2026-09-27 §13.3), else None."""
     kid = request.query_params.get("kid") or None
-    return student_or_404(conn, kid) if kid else None
+    if kid:
+        return student_or_404(conn, kid)
+    return who_of(request, conn)[1]
 
 
 def _since(weeks: int, now: datetime) -> datetime:

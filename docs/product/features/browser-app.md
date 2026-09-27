@@ -18,6 +18,8 @@ Both parents in the household, from a laptop primarily and optionally a phone; a
 
 `fridgesheet web` (or the Windows exe with no arguments) runs a small local FastAPI/uvicorn server rendering server-side Jinja2 pages with htmx for in-page updates, and opens it in the browser. One responsive layout (left rail on desktop, single column on phone) shows the last refresh time and source health in the header on every page. Long-running actions (refresh, build, print) run on a single background worker sharing the CLI runner's lock, streaming progress to the page over server-sent events, so a button press and a scheduled CLI run never collide. The app is the delivery surface for [[actionable-work-model]] (Dashboard, Kid, Reconcile), [[trends-and-changes]], [[view-reports]] and [[report-scheduling]] — this capability covers the shell, navigation, job-progress infrastructure and general settings/diagnostics UI those pages sit inside.
 
+A browser remembers who is looking (`/who`, one tap, no login): a kid's device opens on their plan with a rail naming only their pages; a grown-up's opens on Today. Spec: `docs/superpowers/specs/2026-09-27-plan-fills-itself-design.md` §13.
+
 ## Success metrics
 
 - Every page renders correctly with an empty database (first run) and with a populated one.
@@ -28,7 +30,7 @@ Both parents in the household, from a laptop primarily and optionally a phone; a
 ## Non-goals
 
 - Any login or account system — see [[credential-security]] for why, and what that implies about network exposure.
-- A kid-facing view or multiple households sharing one install.
+- Multiple households sharing one install.
 - A JavaScript build step — htmx plus one vendored charting library (Chart.js, with its date adapter) is the entire client-side dependency.
 
 ## Notes

@@ -237,7 +237,9 @@ def _context(conn, student, state):
 def page(key: str, request: Request, conn=Db, state=State):
     student = student_or_404(conn, key)
     ctx = _context(conn, student, state)
-    ctx.update(plan_only=request.url.path.endswith("/plan"), saved=request.query_params.get("saved") == "1")
+    plan_only = request.url.path.endswith("/plan")
+    ctx.update(plan_only=plan_only, saved=request.query_params.get("saved") == "1",
+               workspace="plan" if plan_only else "checkin")
     return render(request, conn, "checkin.html", **ctx)
 
 
@@ -370,7 +372,8 @@ async def complete_step(key: str, step_id: int, request: Request, conn=Db, state
                        recorded_by=str(form.get("recorded_by", "")).strip()[:100])
     except plans.Conflict as exc:
         ctx = _context(conn, student, state)
-        ctx.update(error=str(exc), plan_only=request.url.path.endswith("/plan"))
+        plan_only = request.url.path.endswith("/plan")
+        ctx.update(error=str(exc), plan_only=plan_only, workspace="plan" if plan_only else "checkin")
         return render(request, conn, "checkin.html", status_code=409, **ctx)
     return RedirectResponse(_after_save(key, return_to), status_code=303)
 
@@ -397,6 +400,6 @@ async def finish(key: str, request: Request, conn=Db, state=State):
                      seen=seen)
     except ValueError as exc:
         ctx = _context(conn, student, state)
-        ctx.update(error=str(exc), finish_values=dict(form), plan_only=False)
+        ctx.update(error=str(exc), finish_values=dict(form), plan_only=False, workspace="checkin")
         return render(request, conn, "checkin.html", status_code=422, **ctx)
     return RedirectResponse(f"/kids/{quote(key, safe='')}/plan?saved=1", status_code=303)

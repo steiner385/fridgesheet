@@ -275,9 +275,10 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .chart-key button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
 .chart-key button[aria-pressed="false"] .swatch { opacity: .3; }
 
-/* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
-.rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
-.rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+/* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. Also the
+   chooser's own heading (who.html), which has no `.rail` ancestor of its own. */
+.rail h1 .brand, .who h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
+.rail h1 .brand img, .who h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
 /* Check-in: school evidence, family context, and commitments stay visually distinct. */
 /* A section head with its own action beside it (the plan panel's "Add a task"). */
@@ -502,3 +503,15 @@ details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 .plan-card.school-has-it { opacity: .75; background: #f4f6f4; }
 .plan-card.school-has-it > h4 { text-decoration: line-through; text-decoration-thickness: 1px; }
 .witness { border-left: 3px solid #6e8f85; padding-left: 10px; margin: 6px 0; }
+
+/* The chooser (spec 2026-09-27 §13.1): a kid's name is a big target; the grown-up's is quieter. */
+.who { max-width: 520px; margin: 48px auto; text-align: center; }
+.who h2 { font-size: 28px; margin: 0 0 8px; }
+.who form { display: grid; gap: 12px; }
+.who button { font-size: 22px; padding: 18px; border-radius: 12px; border: 1px solid var(--rule); background: var(--paper); cursor: pointer; }
+.who button.grownup { font-size: 16px; padding: 12px; background: var(--wash); color: var(--muted); margin-top: 12px; }
+
+/* The kid rail's "Not {name}?" link (spec 2026-09-27 §13.2): set apart from the tabs above it,
+   not one more link in the list. */
+.rail nav a.foot { margin-top: 24px; font-size: var(--type-small); color: var(--muted); }
+@media (max-width: 1023px) { .rail nav a.foot { margin: 0; } }

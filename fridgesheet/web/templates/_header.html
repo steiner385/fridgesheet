@@ -8,17 +8,17 @@
   {% else %}
     <span>No refresh yet</span>
   {% endif %}
-  {% if last_run %}
+  {% if last_run and not who_student %}
     {# What happened, in two words, linking to the Runs page -- not the first 80 characters of a
        log line with a file path in it and an ellipsis nobody can click (#40 item 16). A run
        that succeeded is `quiet`: not shown under the strip breakpoint, where the bar is one
        line (page layout standard, section 2). A failed one shows at every width. #}
     <span{% if last_run.outcome == 'OK' %} class="quiet"{% endif %}>Last run <span class="badge {{ last_run.outcome }}">{{ last_run.outcome }}</span> {{ last_run.started_at | wd_md_time }} <a class="muted" href="/runs">{{ last_run_what.short }}</a></span>
   {% endif %}
-  {% if job %}<span class="badge"><a href="/">{{ job.label }}…</a></span>{% endif %}
+  {% if job %}<span class="badge"><a href="{{ '/kids/' ~ (who_student.key | urlencode) ~ '/plan#must-finish' if who_student else '/' }}">{{ job.label }}…</a></span>{% endif %}
   {# Two texts, one shown per width: the whole sentence beside a sidebar, two words under the
      strip, where the sentence wrapped the bar back to two lines (#195). Settings has the rest. #}
-  {% if update and update.available %}<span class="badge"><a href="/settings"><span class="long">Fridge Sheet {{ update.latest }} is available</span><span class="short">Update</span></a></span>{% endif %}
+  {% if update and update.available and not who_student %}<span class="badge"><a href="/settings"><span class="long">Fridge Sheet {{ update.latest }} is available</span><span class="short">Update</span></a></span>{% endif %}
   {% for w in warnings %}<span class="bad">{{ w }}</span>{% endfor %}
   <span class="muted quiet">{{ now | wd_md_time }}</span>
 </header>
@@ -29,5 +29,5 @@
 <p class="stale">⚠ <strong>{% if staleness.last_good %}This data is {{ staleness.hours }} hours old.{% else %}Nothing has been refreshed yet.{% endif %}</strong>
   {% if staleness.last_good %}Last good refresh {{ staleness.last_good | wd_md_time }}.{% endif %}
   {% if staleness.reason %} {{ staleness.reason }}.{% endif %}
-  <a href="/">Refresh now</a></p>
+  <a href="{{ '/kids/' ~ (who_student.key | urlencode) ~ '/plan#must-finish' if who_student else '/' }}">Refresh now</a></p>
 {% endif %}

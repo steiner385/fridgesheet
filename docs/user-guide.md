@@ -201,6 +201,23 @@ For a server with no desktop, read [§2.3 Headless server](#23-a-server-with-no-
 
 ## 4. Finding your way around
 
+### Who's looking?
+
+Open the app on a browser it hasn't met and it asks **Who's looking?** — one big button per
+kid's nickname, then **A grown-up** last. Tap one and the browser remembers for a year; `/`
+goes straight there from then on.
+
+A kid's button opens their plan, with **Must finish** first. Their rail names only their own
+pages — their name, then Plan, Check-in, Assignments, Trends and Changes — and ends with
+**Not *their name*?**, back to the chooser. The status bar drops the last-run line and the
+update badge, and Trends and Changes show only that kid, with no picker for the others.
+
+**A grown-up** opens today's app, same as ever, with **Switch to a kid's view** added under
+the rail's App group.
+
+This isn't a lock. Anyone on the household network can still open any page directly, tap **A
+grown-up**, or switch kids — the chooser only decides what a fresh browser lands on.
+
 Every page has a **left rail**:
 
 | Group | Links |

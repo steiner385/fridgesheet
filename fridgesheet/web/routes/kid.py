@@ -63,7 +63,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     # What got done, in the dashboard's five outcomes (docs/outcomes.md): on time, late and done
     # on paper are done; not done and unknown are not, or not yet. One line above the questions.
     record = items.record_for(everything)
-    return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f,
+    return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f, workspace="all",
                   done_so_far={"done": record.on_time + record.late + record.done_offline, "total": record.total, "on_time": record.on_time},
                   widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
                   questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],

@@ -16,6 +16,15 @@ def _settings(home):
     return config.Settings(home=home)
 
 
+def _tc(application):
+    """A `TestClient` for an already-built app, as a grown-up (spec 2026-09-27 §13): without
+    a cookie, `/` would redirect to the chooser instead of Today."""
+    from fastapi.testclient import TestClient
+    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c.cookies.set(webapp.WHO_COOKIE, webapp.FAMILY)
+    return c
+
+
 def test_refresh_collects_ingests_and_records_a_run(tmp_path):
     lines = []
     r = actions.refresh(home=tmp_path, log=lines.append, settings=_settings(tmp_path), collect=lambda s: snapshot(), now=NOW)
@@ -263,10 +272,9 @@ def test_events_stream_while_a_job_runs(tmp_path):
 
 
 def test_routes_start_a_job_answer_busy_and_stream_events(tmp_path):
-    from fastapi.testclient import TestClient
     fake = FakeActions()
     application, w = _worker(tmp_path, fake)
-    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c = _tc(application)
     r = c.post("/jobs/refresh")
     assert r.status_code == 200 and "Refreshing" in r.text and f'data-sse="/jobs/{w.current.id}/events"' in r.text
     assert c.post("/jobs/doctor").status_code == 409
@@ -285,15 +293,13 @@ def test_dashboard_offers_refresh_only_when_a_worker_exists(tmp_path):
     seed(tmp_path).close()
     assert 'hx-post="/jobs/refresh"' not in app_for(tmp_path).get("/").text
     application, w = _worker(tmp_path)
-    from fastapi.testclient import TestClient
-    assert 'hx-post="/jobs/refresh"' in TestClient(application, headers=LOCAL_HOST_HEADERS).get("/").text
+    assert 'hx-post="/jobs/refresh"' in _tc(application).get("/").text
 
 
 def test_a_job_carries_the_report_key(tmp_path):
-    from fastapi.testclient import TestClient
     fake = FakeActions()
     application, w = _worker(tmp_path, fake)
-    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c = _tc(application)
     assert c.post("/jobs/print", data={"report": "open-work"}).status_code == 200
     w.run_pending()
     assert ("print", "open-work") in [(k[0], k[2]) for k in fake.calls if isinstance(k, tuple) and k[0] == "print"]
@@ -304,10 +310,9 @@ def test_refresh_first_checkbox_reaches_the_action_only_when_checked(tmp_path):
     """The Dashboard's "Refresh data first" checkbox (and the Reports page's "Refresh first")
     is an ordinary unchecked-by-default HTML checkbox: unchecked, the browser omits the field
     entirely, and `preview`/`print_now` must default to the fast, no-live-pull path."""
-    from fastapi.testclient import TestClient
     fake = FakeActions()
     application, w = _worker(tmp_path, fake)
-    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c = _tc(application)
     assert c.post("/jobs/preview").status_code == 200
     w.run_pending()
     assert ("preview", "open-work", False) in fake.calls
@@ -318,10 +323,9 @@ def test_refresh_first_checkbox_reaches_the_action_only_when_checked(tmp_path):
 
 def test_a_refresh_from_the_plan_page_asks_for_a_page_reload_when_done(tmp_path):
     """The file's `_worker` helper wires a `FakeActions` worker that never touches Canvas."""
-    from fastapi.testclient import TestClient
     seed(tmp_path).close()
     application, w = _worker(tmp_path)
-    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c = _tc(application)
     r = c.post("/jobs/refresh", data={"reload_page": "1"})
     assert r.status_code == 200 and 'data-reload-page="1"' in r.text and f'data-sse="/jobs/{w.current.id}/events"' in r.text
     w.run_pending()
@@ -333,10 +337,9 @@ def test_a_refresh_from_the_plan_page_asks_for_a_page_reload_when_done(tmp_path)
 
 def test_a_busy_worker_answers_the_plan_page_with_the_busy_card(tmp_path):
     """Review Focus 5: the 409 card lands in #job; nothing reloads."""
-    from fastapi.testclient import TestClient
     seed(tmp_path).close()
     application, w = _worker(tmp_path)
-    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    c = _tc(application)
     assert c.post("/jobs/doctor").status_code == 200
     r = c.post("/jobs/refresh", data={"reload_page": "1"})
     assert r.status_code == 409 and 'id="job"' in r.text and "Busy" in r.text
