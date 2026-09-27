@@ -27,8 +27,11 @@
   <article class="card plan-card school-has-it">
     {% if step.view %}<p class="eyebrow">{{ step.view.course_short }}</p>{% endif %}
     <h4>{{ step.title }}</h4><p class="next-step">{{ step.next_step }}</p>
-    <p><strong>{{ step.owner }}</strong> · Planned for {{ step.planned_for | wd_md }}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
+    <p><strong>{{ step.owner }}</strong> · {{ 'Check again' if step.state in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
+    {% if step.family_account %}<p class="family-account"><strong>Family account:</strong> {{ step.family_account }}</p>{% endif %}
     <p class="witness">{{ step.witness[0] | say(tier, step.witness[1]) }}</p>
+    {% if step.changed %}<p class="review-note">School evidence changed since this step was saved. Review it together; your agreement is still here.</p>{% endif %}
+    {% if step.view %}<details><summary>School evidence</summary>{% with view=step.view %}{% include "_planning_evidence.html" %}{% endwith %}</details>{% endif %}
     <form method="post" action="{{ base }}/step/{{ step.id }}/complete" class="answers"><input type="hidden" name="revision" value="{{ step.revision }}"><input type="hidden" name="return_to" value="{{ here }}"><button>{{ 'a.mark_step_complete' | say(tier) }}</button> <a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></form>
   </article>
   {% endfor %}

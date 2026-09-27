@@ -214,8 +214,9 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     assert "Saved. Your family plan is separate from the school record." in page
     # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
     # missing flag), so the step the family just saved is shown as "The school has it" (spec
-    # 2026-09-27 §6) rather than a plain plan card; that card does not carry the family account.
-    assert "Ask Mr. Hoch to clear the missing flag" in page and "The school has it" in page
+    # 2026-09-27 §6) -- that card still carries the family account, same as a plain plan card.
+    assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
+    assert "The school has it" in page
     assert "Quiz 1" not in _queues(page)["Worth checking"]      # covered by an active step
     rows = _step_rows(tmp_path)
     assert len(rows) == 1 and rows[0]["item_id"] == qid and rows[0]["state"] == "planned" and rows[0]["revision"] == 1
@@ -360,17 +361,28 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
     _refresh(tmp_path, snapshot(), later)
     page = app_for(tmp_path, now=later).get("/kids/Alex/plan").text
     # Quiz 1 is done_offline (HAC's 28/30 beats Canvas's automatic missing flag), so the step
-    # shows as "The school has it" (spec 2026-09-27 §6); that card does not carry the family
-    # account or the "Check again" wording -- the commitment's own row is the record of it.
-    assert "The school has it" in page and "Planned for Thu 9/17" in page
-    assert "School evidence changed" not in page                                # same facts, new refresh id
-    assert _step_rows(tmp_path)[0]["family_account"] == "Took it in class; HAC shows 28/30."
+    # shows as "The school has it" (spec 2026-09-27 §6) -- but that card still carries the
+    # family's account and the step's own "Check again" wording, the same as a plain card.
+    assert "The school has it" in page and "Check again Thu 9/17" in page
+    assert "Took it in class; HAC shows 28/30." in page
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])[qid]
     assert obs["canvas"]["missing"] == 1 and obs["hac"]["score"] == 28.0       # the school's facts, as the school said them
     assert flags.active(conn, qid)["flag"] == "follow_up"                       # the old flag path is untouched
     assert conn.execute("SELECT COUNT(*) FROM refreshes").fetchone()[0] == 2
     conn.close()
+    # A witnessed step is still greyed, not silenced: a later refresh that actually changes
+    # Canvas's mark must still tell the family -- the worst case is a witnessed step whose
+    # school evidence moved and nobody is told.
+    moved = snapshot()
+    for a in moved["students"]["Alex"]["canvas"]["courses"][0]["assignments"]:
+        if a["name"] == "Quiz 1":
+            a["missing"] = False
+    day3 = NOW + timedelta(days=2)
+    _refresh(tmp_path, moved, day3)
+    page = app_for(tmp_path, now=day3).get("/kids/Alex/plan").text
+    assert "The school has it" in page                                          # still done_offline: still witnessed
+    assert "School evidence changed since this step was saved" in page
 
 
 def test_evidence_change_notice_follows_facts_not_refresh_ids(tmp_path):
