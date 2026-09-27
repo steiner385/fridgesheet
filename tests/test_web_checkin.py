@@ -940,6 +940,25 @@ def test_a_step_the_school_shows_as_in_is_greyed_with_canvas_as_the_witness(tmp_
     assert "3 must-finish not picked yet" in panel                         # Worksheet 3, Lab notebook, Participation; Vocabulary is covered
 
 
+def test_a_hac_zero_keeps_a_step_off_the_school_has_it_list(tmp_path):
+    """Review finding 2 (Review Focus 2): a HAC zero is not done whatever Canvas's submission
+    says -- the school has not "got it", so a step on it must not grey out as though it had."""
+    snap = snapshot()
+    sci = snap["students"]["Sam"]["canvas"]["courses"][0]
+    for a in sci["assignments"]:
+        if a["name"] == "Safety quiz":
+            a.update(state="submitted", submitted_at="2026-09-10T20:00:00-04:00", score=None, grade=None)
+    snap["students"]["Sam"]["hac"]["classes"][0]["assignments"] = [_h("Safety quiz", "09/11/2026", 0.0)]
+    conn = seed(tmp_path, snap)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Sam", "Safety quiz", owner="Sam", minutes="10")
+    conn.close()
+    panel = c.get("/kids/Sam/plan").text.split('id="plan"')[1]
+    assert "The school has it" not in panel
+    assert "Canvas: handed in" not in panel
+    assert "Tonight: 1 step, 10 min" in panel                              # the step counts; nothing greyed it out
+
+
 def test_the_familys_own_done_answer_is_named_as_theirs(tmp_path):
     conn = seed(tmp_path)
     c = app_for(tmp_path)
@@ -1057,6 +1076,19 @@ def test_the_printed_plan_leads_with_must_finish_as_boxes_and_names_people(tmp_p
     assert "Worth checking" not in body
 
 
+def test_a_covered_red_step_still_shows_as_due_on_the_printed_plan(tmp_path):
+    """Review finding 1: a step on Vocabulary covers it in Must finish's own list, but it is
+    still not done -- the printed plan must not say "Nothing due by tomorrow", and the step
+    itself must still carry the Must finish badge."""
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Vocabulary", minutes="15")
+    conn.close()
+    body = c.get("/kids/Alex/plan/print").text
+    assert "Nothing due by tomorrow" not in body
+    assert "Must finish · DUE TODAY" in body
+
+
 def test_the_plan_page_offers_check_canvas_again_only_with_a_worker(tmp_path):
     from fastapi.testclient import TestClient
     from fridgesheet import config
@@ -1069,3 +1101,38 @@ def test_the_plan_page_offers_check_canvas_again_only_with_a_worker(tmp_path):
     application.state.fridgesheet.jobs = jobs.Worker(application.state.fridgesheet, actions=None)
     with_worker = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
     assert "Check Canvas again" in with_worker and 'hx-post="/jobs/refresh"' in with_worker and '"reload_page": "1"' in with_worker
+
+
+def test_a_running_non_refresh_job_does_not_appear_under_must_finish(tmp_path):
+    """Review finding 5: a doctor (or any non-refresh) job in progress is not this button's own
+    progress card, and it would never reload the page when it finished, so it must not show."""
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    w = jobs.Worker(application.state.fridgesheet, actions=None)
+    application.state.fridgesheet.jobs = w
+    job = w.submit("doctor")
+    assert job is not None and not job.done                        # queued, never run: still "current"
+    body = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    section = body[body.index('id="must-finish"'):body.index('id="plan"')]
+    assert '<div id="job"></div>' in section
+    assert "Running diagnostics" not in section and "data-sse" not in section
+
+
+def test_a_running_refresh_job_still_shows_and_still_reloads_the_plan(tmp_path):
+    """The refresh button's own progress card is unaffected by finding 5's fix."""
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    w = jobs.Worker(application.state.fridgesheet, actions=None)
+    application.state.fridgesheet.jobs = w
+    job = w.submit("refresh")
+    assert job is not None and not job.done
+    body = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    assert 'data-reload-page="1"' in body

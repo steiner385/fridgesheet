@@ -83,6 +83,22 @@ def test_the_family_line_leaves_out_a_step_the_school_has(tmp_path):
     assert "No steps planned today" in _card(app_for(tmp_path).get("/").text, "Alex")
 
 
+def test_the_headline_still_counts_red_rows_a_family_step_covers(tmp_path):
+    """Review finding 1: work with an agreed step is still not done until the school -- or the
+    family -- says so. Covering tonight's and tomorrow's red rows with a step apiece must not
+    read as "Nothing due by tomorrow"."""
+    from uuid import uuid4
+    from fridgesheet.web.stores import plans
+    conn = seed(tmp_path)
+    vocab, worksheet = _item_id(conn, "Vocabulary"), _item_id(conn, "Worksheet 3")
+    base = dict(family_account="", next_step="x", owner="Alex", planned_for="2026-09-15",
+                minutes=20, state="planned", evidence="{}", recorded_by="")
+    plans.save(conn, 1, {**base, "title": "Vocabulary", "position": 10}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vocab)
+    plans.save(conn, 1, {**base, "title": "Worksheet 3", "position": 20}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=worksheet)
+    conn.close()
+    assert '<span class="big">2</span> not done, due by tomorrow' in _card(app_for(tmp_path).get("/").text, "Alex")
+
+
 def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_path):
     conn = seed(tmp_path)
     qid = _item_id(conn, "Lab notebook")

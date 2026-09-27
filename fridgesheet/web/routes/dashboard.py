@@ -20,9 +20,10 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
     for s in students.visible(conn):
         school_has = checkin.school_has_ids(conn, s, state)
         steps, minutes = plans.today_load(conn, s["id"], today, exclude=school_has)
-        covered = {st["item_id"] for st in plans.for_student(conn, s["id"]) if st["state"] != "done"}
         work = items.open_work(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window())
-        must = items.must_finish(work, now.date(), covered)
+        # The headline counts every red row, covered by a family step or not: a step is not
+        # done until the school (or the family) says so (spec 2026-09-27 §8.3, review finding 1).
+        must = items.must_finish(work, now.date())
         cards.append((s, items.dashboard_counts(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window()),
                       dict(last_check=plans.last_checkin(conn, s["id"]), steps_today=steps, minutes_today=minutes,
                            must_finish=len(must.red))))

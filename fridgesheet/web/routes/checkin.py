@@ -133,6 +133,10 @@ def witness(view, tz) -> tuple[str, dict] | None:
     school contradicted the family -- is nobody's witness: the step stays live."""
     if view is None or view.verdict.kind == "stale_answer":
         return None
+    # A zero in either source means not done, whatever Canvas's submission says (review
+    # finding 2): the school has not "got it".
+    if view.outcome == outcomes.NOT_DONE:
+        return None
     c = view.canvas
     if c is not None and c["submitted_at"]:
         return "record.canvas_handed_in", {"when": dates.wd_md_time(datetime.fromisoformat(c["submitted_at"]).astimezone(tz))}
@@ -182,6 +186,9 @@ def _context(conn, student, state):
             completed_for.setdefault(s["item_id"], []).append(s)
     work = items.open_work(conn, student, now=now, rules=rules, prefs=state.sources(), **state.window())
     must = items.must_finish(work, now.date(), covered)
+    # Every red row, covered or not: what "Nothing due by tomorrow" must be false against, even
+    # when a family step already covers every one of them (review finding 1).
+    red_total = len(items.must_finish(work, now.date()).red)
     listed = {v.id: v for v in work.fixable + work.upcoming}
     for step in steps:
         if step["item_id"] in listed and step["state"] != "done":
@@ -221,7 +228,7 @@ def _context(conn, student, state):
                 states=plans.STATES, today_steps_n=len(today_steps), unpicked=len(must.unpicked),
                 school_has_n=school_has_n, asked=asked,
                 finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
-                worth_group=WORTH_CHECKING, must_finish=must, seen=seen, seen_day=seen_day,
+                worth_group=WORTH_CHECKING, must_finish=must, red_total=red_total, seen=seen, seen_day=seen_day,
                 worth_open=worth_open, data_as_of=data_as_of, queue_keys=QUEUE_KEYS)
 
 

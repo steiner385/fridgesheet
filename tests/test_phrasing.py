@@ -150,7 +150,7 @@ def test_still_ungraded_says_longer_than_usual_at_every_tier_without_a_number():
 
 
 MUST_FINISH_KEYS = (
-    "copy.must_finish", "copy.must_finish_hint", "copy.list_as_of", "copy.due_tonight", "copy.due_tomorrow",
+    "copy.must_finish", "copy.must_finish_hint", "copy.list_as_of", "copy.list_changes_daily", "copy.due_tonight", "copy.due_tomorrow",
     "copy.overdue_fixable", "copy.on_paper_no_grade", "copy.handed_in_waiting", "copy.coming_due_later",
     "copy.worth_checking", "copy.waiting_on_school", "copy.other_open", "copy.school_has_it", "copy.tonight_steps",
     "copy.tonight_unpicked", "copy.tonight_school_has", "copy.check_again", "copy.asked_the_school", "copy.nothing_due",

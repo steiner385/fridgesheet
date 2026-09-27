@@ -6,7 +6,10 @@
 <section id="must-finish" class="must-finish" aria-labelledby="mf-heading">
   <div class="workspace-heading"><h3 id="mf-heading">{{ 'copy.must_finish' | say(tier) }}</h3>{% if jobs %}<button type="button" hx-post="/jobs/refresh" hx-vals='{"reload_page": "1"}' hx-target="#job" hx-swap="outerHTML">{{ 'copy.check_again' | say(tier) }}</button>{% endif %}</div>
   <p class="muted">{{ 'copy.must_finish_hint' | say(tier) }}{% if data_as_of %} {{ 'copy.list_as_of' | say(tier, {'when': data_as_of | wd_md_time}) }}{% endif %}</p>
-  {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
+  {# Only a refresh job's own card belongs here: a doctor or login job started elsewhere must
+     not show as if it were this button's progress, and only a refresh reloads the page when it
+     finishes (review finding 5). #}
+  {% if job and job.kind == 'refresh' %}{% with busy=false, reload_page=true %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
   {# One loop over the six sections, no macro: a Jinja macro cannot see the template's own
      `{% set %}` variables (`tier`), and `_answers.html` is included per row with `item`, `qid`,
      `vd`, `exclude` and `first` set in this scope. Each tuple: key, heading phrase, rows, red,
