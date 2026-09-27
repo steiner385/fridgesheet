@@ -35,6 +35,10 @@ After this change:
    they hold a zero to check or an answer the school has since contradicted.
 4. **The kid can ask Canvas again from the plan page**, so "I just submitted it" does not end
    with marking it done by hand.
+5. **The app opens on one kid.** A browser remembers who is looking, from one tap on a
+   chooser, and a kid's device then opens on their plan with a rail that names only their
+   pages: no siblings, no Settings, no household Today. The grown-up view is the app as it is
+   today, one tap away, and no longer the only layout (section 13).
 
 The app writes no family row on the family's behalf. "Must finish" is the school record,
 sectioned and ordered; the plan beneath it is still only what the family agreed.
@@ -52,6 +56,8 @@ sectioned and ordered; the plan beneath it is still only what the family agreed.
 | Order in Must finish | Due tonight, due tomorrow, then overdue and still fixable. The printed sheet keeps its overdue-first order; it is the quarter's record, the plan is tonight |
 | "Check Canvas again" | In scope: the existing refresh job, started from the kid's plan page |
 | Per-kid variation | Through settings that already exist (days ahead, overdue days, late-work rules, learned pace). No new setting |
+| How does the app know which kid is looking? | **A remembered choice per browser** (a cookie), set by one tap on a chooser and changed by one tap. No login, no password: the credential-security model is unchanged, and every page stays reachable by its address |
+| What does a kid's rail hold? | This kid's pages only: Plan, Check-in, Assignments, Trends, Changes, and "Not {name}?". The "App" fold on a child's page (kids' UX audit F5) is superseded in kid mode; it stays in the grown-up view |
 
 ## 3. What the page shows today
 
@@ -328,7 +334,10 @@ states a number, date or time its adult equivalent does not):
 `badge.zero_to_check`, `badge.changed_since_answer`, `badge.seen_at_checkin`,
 `badge.new_since_checkin`, `record.canvas_handed_in`, `record.graded_in` (with `{source}` and
 `{score}`), `record.you_said_handed_in`, `record.you_said_excused`, `record.canvas_excused`,
-`a.mark_step_complete`. `copy.queue_hint` is reworded for its new place under Worth checking.
+`a.mark_step_complete`, and for kid mode `copy.who_looking` ("Who's looking?"),
+`copy.a_grownup` ("A grown-up"), `copy.not_name` ("Not {name}?"), `copy.switch_to_kid`
+("Switch to a kid's view", grown-up rail only, one tier). `copy.queue_hint` is reworded for
+its new place under Worth checking.
 
 Early-tier wording, for the two the reviewers called out: `copy.school_has_it` is "The school
 has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
@@ -353,9 +362,88 @@ has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
   update with the revision check `save` uses). `items.Counts.must_finish`.
 - **Schema.** v9: `ALTER TABLE checkins ADD COLUMN seen TEXT NOT NULL DEFAULT '[]'`.
 
-## 13. Not in this design
+## 13. Kid mode: the app opens on one kid
+
+### 13.1 Who is looking
+
+Today `/` is the household's Today page and the rail names every child on every page; a
+child's page folds the rest under **App** (kids' UX audit F5), but Doug is still one tap from
+Settings and from his sister's plan, and typing the app's address on his phone lands him on
+his parents' dashboard.
+
+A browser remembers who is looking. `GET /who` is a chooser: one large button per visible
+student, in that kid's nickname, and **A grown-up** last. `POST /who` (form field `who`: a
+student key or `family`) sets a cookie `fridgesheet_who` for a year (`path=/`,
+`SameSite=Lax`, no `Secure`: the app is plain http on the LAN) and 303s to `/`. The chooser
+is reachable from every rail: **Not {name}?** at the foot of a kid's rail, **Switch to a
+kid's view** under the grown-up rail's App group.
+
+`/` then goes by the cookie: no cookie, the chooser; `family`, Today as it is now; a student
+key, 303 to `/kids/<key>/plan`. A key that names no visible student (a renamed or hidden
+kid) clears the cookie and shows the chooser.
+
+There is no login. A kid can tap **A grown-up**; a parent can bookmark a sibling's page on a
+kid's phone. This is the security model the app already has (`credential-security`: the
+household network is the boundary), and the chooser removes distraction, not access.
+
+### 13.2 The kid's rail
+
+When the cookie names a student, `base.html` draws the kid rail instead of the household
+rail, on every page:
+
+- the brand, linking to `/` (which is this kid's plan);
+- **{nickname}** with the question count `qcount-<key>`, linking to the plan;
+- **Plan**, **Check-in**, **Assignments** (the child nav's three, so the same three words
+  appear once, in the rail; `_child_nav.html` draws only its one-line tab hint in kid mode,
+  not the tabs);
+- **Trends** (`/trends?kid=<key>`) and **Changes** (`/changes?kid=<key>`);
+- **Not {nickname}?** (`/who`).
+
+No Today, no siblings, no Work, Time or App groups, no `qcount-all`. Out-of-band swaps that
+target a missing id are dropped, as they are today for pages without a `#plan`. The rail
+draws for the cookie's kid whatever page is showing; a page about a sibling reached by
+address renders as it does today, with the rail still the reader's own.
+
+The status bar keeps the refresh time and source health, and drops the last-run line and the
+update badge (both link to grown-up pages). The stale banner's **Refresh now** links to
+`#must-finish` on this kid's plan, where **Check Canvas again** (section 9) is, instead of to
+Today.
+
+### 13.3 Pages in kid mode
+
+- **Home** is the plan, with Must finish first (section 4).
+- **Trends** and **Changes** with no `kid` parameter scope to the cookie's kid, and their
+  kid picker badges (`all`, each sibling) are not drawn. `?kid=` for another kid still works
+  by address. Trends' one-chart-per-kid rule already gives a single kid a single chart.
+- **Grades** are the Assignments tab's class filter and each class's page
+  (`/kids/<key>/courses/<id>`), as today; the rail's Assignments entry is the way in.
+- **Questions** and **Open work** are not in the kid rail: Worth checking on the plan is the
+  kid's questions, and Must finish is the kid's open work. Both pages still answer by address.
+- **Print** pages are unchanged; they already carry no rail.
+- **Tier.** A page about a student carries that student's tier, as today. Trends and Changes,
+  which have no student in context, carry the cookie kid's tier in kid mode, so type size and
+  vocabulary follow the reader on every page of theirs. The parity rule holds: rows and
+  actions are the same on every tier and in both modes.
+
+### 13.4 The grown-up view
+
+The app as it is today, plus **Switch to a kid's view** under App. The child-page fold
+(`kid_page` in `base.html`) stays for a parent reading a kid's page in family mode.
+
+### 13.5 Mechanics
+
+`page_context` reads the cookie into `who` (`"family"`, a student key, or `None`) and
+`who_student` (the row, or `None`); `base.html` branches on `who_student`. Routes: `GET /who`,
+`POST /who`; the dashboard route checks `who` first. `trends._student` and the changes
+route's kid lookup fall back to `who_student` when the parameter is absent. `_header.html`
+and `_child_nav.html` read `who_student`. `docs/product/features/browser-app.md` drops "a
+kid-facing view" from its non-goals and names this section.
+
+## 14. Not in this design
 
 - Any write of a `plan_steps` row by the app, including auto-completing a step.
+- A login, a PIN on the grown-up view, or hiding any page from a kid who types its address.
+  The chooser is for focus; access is the network's boundary, as today.
 - A per-kid or per-class setting for what enters Must finish. Days ahead, overdue days, the
   late-work register and the learned pace are the knobs, as today.
 - Changing which rows the printed sheet prints, or its order.
@@ -364,7 +452,7 @@ has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
   follow-up).
 - A per-kid refresh. "Check Canvas again" runs the household refresh.
 
-## 14. Files
+## 15. Files
 
 | File | Change |
 |---|---|
@@ -381,11 +469,17 @@ has it"; `copy.tonight_total`'s unpicked clause is "{unpicked} not picked yet".
 | `templates/plan_print.html` | Must finish block; names on steps; greyed steps |
 | `fridgesheet/web/phrasing.py` | the keys in section 11 |
 | `fridgesheet/web/static/app.js` | `data-reload-page` on a finished job |
+| `fridgesheet/web/app.py` | `page_context`: `who`, `who_student` from the cookie |
+| `fridgesheet/web/routes/who.py` (new) | `GET /who`, `POST /who`; `templates/who.html` (new) |
+| `fridgesheet/web/routes/dashboard.py` | `/` goes by the cookie |
+| `fridgesheet/web/routes/trends.py`, `routes/changes.py` | fall back to the cookie's kid; hide the picker in kid mode |
+| `templates/base.html`, `_header.html`, `_child_nav.html`, `trends.html`, `changes.html` | the kid rail, the trimmed status bar, no child nav or kid picker in kid mode |
+| `docs/product/features/browser-app.md` | "a kid-facing view" leaves the non-goals |
 | `docs/outcomes.md` | a "Plan page" row in "Where each outcome shows up" |
 | `docs/product/features/check-in-planning.md` | desired outcome and notes updated |
 | `docs/user-guide.md` | the plan page section |
 
-## 15. Testing
+## 16. Testing
 
 **Sections** (`tests/test_must_finish.py`, new): from a seeded kid with one item of each
 kind (due tonight, due tomorrow, due in 5 days, overdue online missing, overdue zero with a
@@ -433,7 +527,15 @@ and absent without; the POST starts a refresh job and renders `_job.html` into `
 **Phrasing** (`tests/test_phrasing.py`, `tests/test_web_tier_parity.py`): every new key in
 three tiers; parity holds; the same rows render on every tier.
 
-## 16. Risks
+**Kid mode** (`tests/test_web_who.py`, new): `/` with no cookie is the chooser; choosing a
+kid sets the cookie and `/` 303s to that kid's plan; choosing a grown-up shows Today; a
+cookie naming an unknown key clears and shows the chooser; in kid mode the rail holds the
+kid's five links and the switch link, and no sibling, Settings or Today link; Trends and
+Changes with no parameter scope to the cookie's kid and draw no picker; Trends in kid mode
+carries the kid's tier; an out-of-band answer swap on a kid-mode page does not error on the
+missing `qcount-all`; the parity test passes with a kid cookie set.
+
+## 17. Risks
 
 - **A long red list for a kid with many overdue items.** The overdue-days setting bounds
   it, as it bounds the sheet; Due tonight and Due tomorrow come first, and Coming due later
@@ -447,3 +549,9 @@ three tiers; parity holds; the same rows render on every tier.
   too; the log says so. A per-kid refresh is a separate change.
 - **Two orders on two papers.** The sheet is overdue-first; the plan is tonight-first. Both
   headings say which they are.
+- **The chooser is not a lock.** A kid is one tap from the grown-up view and one address
+  from a sibling's page. That is the app's existing model; the chooser removes distraction.
+  A household that wants more has the PIN the self-update already uses as a pattern to
+  extend later; it is out of scope here.
+- **A shared family tablet.** Whoever last chose is who the tablet opens as. "Not {name}?"
+  is at the foot of every rail, and the grown-up view is one tap.
