@@ -1,7 +1,8 @@
 # The plan fills itself: what must be finished is on the plan before anyone taps: design
 
 Date: 2026-09-27. Status: design approved in discussion, reviewed by five persona agents;
-awaiting review of this document. Builds on "Learned pace and one-tap answers"
+awaiting review of this document. Static mockups (throwaway HTML over the real stylesheet,
+with desktop and phone renderings) are in `2026-09-27-plan-fills-itself-mockups/`. Builds on "Learned pace and one-tap answers"
 (`2026-09-23-learned-pace-and-one-tap-answers-design.md`) and on the check-in's three-layer
 rule (`docs/product/features/check-in-planning.md`): the school record, the family's account
 and the agreed step are never written by one another. Respects `docs/outcomes.md` and the

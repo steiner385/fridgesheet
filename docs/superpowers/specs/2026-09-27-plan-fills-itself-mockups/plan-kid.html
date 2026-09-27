@@ -1,0 +1,178 @@
+<!doctype html>
+<!-- MOCKUP, not product code. Doug's plan page in kid mode (older tier), Tue 9/29 7 pm, as
+     the 2026-09-27 spec describes it. Links the app's real stylesheet; the <style> block
+     below is what the real change would add to app.css. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doug · Plan · Fridge Sheet (mockup)</title>
+<link rel="stylesheet" href="../../../../fridgesheet/web/static/app.css">
+<style>
+  /* Mockup-only additions (spec §4, §6, §13). */
+  .must-finish { margin: 0 0 24px; }
+  .must-finish h3 { margin: 0; }
+  .must-finish .as-of { margin: 4px 0 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  .must-finish h4 { margin: 18px 0 6px; font-size: 15px; }
+  .must-finish h4 .badge { margin-left: 6px; font-weight: 400; }
+  .mf-row { border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin: 8px 0; background: var(--paper); }
+  .mf-row.red { border-left-color: var(--warn); }
+  .mf-row.grey { border-left-color: var(--rule); color: var(--muted); }
+  .mf-row .line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 0 0 6px; }
+  .mf-row .line .word { font-weight: 700; }
+  .mf-row.red .line .word { color: var(--warn); }
+  .mf-row .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+  .mf-row .answers form { display: inline; margin: 0; }
+  .mf-row .ask { font-weight: 600; margin: 4px 0 6px; }
+  .mf-row .add { margin-left: auto; font-size: var(--type-small); }
+  .mf-paper { border-left: 3px solid #a2bdb3; padding-left: 10px; margin: 6px 0 10px; color: #4f5754; font-size: var(--type-small); }
+  details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
+  .plan-card.school-has-it { opacity: .7; background: #f4f6f4; }
+  .plan-card.school-has-it h4 { text-decoration: line-through; text-decoration-thickness: 1px; }
+  .witness { border-left: 3px solid #6e8f85; padding-left: 10px; margin: 6px 0; }
+  .asked-line { margin: 12px 0 0; }
+  .rail nav .foot { margin-top: 24px; font-size: var(--type-small); color: var(--muted); }
+  @media (max-width: 1023px) { .rail nav .foot { margin: 0; } }
+</style>
+</head>
+<body data-tier="older">
+<div class="shell">
+  <aside class="rail">
+    <h1><a href="#" class="brand"><img src="../../../../fridgesheet/web/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    <nav>
+      <a href="#" class="current">Doug <span class="count">2</span></a>
+      <a href="#" class="current">Plan</a>
+      <a href="#">Check-in</a>
+      <a href="#">Assignments</a>
+      <a href="#">Trends</a>
+      <a href="#">Changes</a>
+      <a href="#" class="foot">Not Doug?</a>
+    </nav>
+  </aside>
+  <header class="status">
+    <span><span class="long">Refreshed Tue 9/29 3:05 PM</span><span class="short">Refreshed 9/29 3:05 PM</span></span>
+    <span class="ok">Canvas OK</span><span class="ok">HAC OK</span>
+    <span class="muted quiet">Tue 9/29 7:02 PM</span>
+  </header>
+  <main>
+    <div class="page-head">
+      <h2>Doug</h2>
+      <p class="page-actions"><a class="button-link" href="#">Print plan</a></p>
+    </div>
+    <p class="tab-hint muted">What you agreed to do, day by day.</p>
+    <div class="checkin-intro">
+      <p class="muted">Last check-in Sun 9/27 6:40 PM (recorded by Mom) · Next check-in Sun 10/4</p>
+      <p class="family-account"><strong>What we agreed:</strong> Reading guide first each night. Ask Mr. Ortiz about the retake before Friday.</p>
+    </div>
+
+    <div class="checkin-layout plan-only">
+    <div>
+
+    <section class="must-finish" id="must-finish" aria-labelledby="mf-heading">
+      <div class="workspace-heading"><h3 id="mf-heading">Must finish</h3><button type="button">Check Canvas again</button></div>
+      <p class="as-of muted">The school says these are not in yet. They leave when it says they are, or when you say so. <span>The school's list as of Tue 9/29 3:05 PM.</span></p>
+
+      <h4>Due tonight</h4>
+      <div class="mf-row red">
+        <p class="line"><span class="eyebrow" style="margin:0">AP Human Geo</span><span class="word">DUE TONIGHT</span><span class="muted">11:59pm</span><span class="badge">New since Sunday</span></p>
+        <a href="#"><strong>Unit 2 Reading Guide</strong></a>
+        <div class="answers"><form><button class="primary">Today</button></form><form><button>Tomorrow</button></form><form><button>It's handed in</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+
+      <h4>Due tomorrow</h4>
+      <div class="mf-row red">
+        <p class="line"><span class="eyebrow" style="margin:0">Chemistry</span><span class="word">DUE TOMORROW</span><span class="muted">7:20am</span><span class="badge">On Sunday's list</span></p>
+        <a href="#"><strong>Lab 3: Density</strong></a>
+        <div class="answers"><form><button class="primary">Today</button></form><form><button>Tomorrow</button></form><form><button>It's handed in</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+
+      <h4>Overdue, still fixable</h4>
+      <div class="mf-row red">
+        <p class="line"><span class="eyebrow" style="margin:0">Algebra II</span><span class="word">MISSING</span><span class="muted">due Thu 9/24</span><span class="badge">On Sunday's list</span></p>
+        <a href="#"><strong>Quiz 4: Functions</strong></a>
+        <p class="muted" style="margin:4px 0">Late work is usually accepted until Fri 10/2 (from your late-work rules). Ask the teacher if you need longer.</p>
+        <div class="answers"><form><button class="primary">It's handed in</button></form><form><button>Today</button></form><form><button>Tomorrow</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+      <div class="mf-row red">
+        <p class="line"><span class="eyebrow" style="margin:0">Spanish II</span><span class="word">ZERO</span><span class="muted">due Mon 9/21</span><span class="badge">Zero to check</span><span class="badge">On Sunday's list</span></p>
+        <a href="#"><strong>Vocab Set 3</strong></a>
+        <p class="ask">Handed in · HAC shows zero. Should the zero be a grade?</p>
+        <div class="answers"><form><button class="primary">Ask the teacher</button></form><form><button>The zero is right</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+
+      <h4>On paper, no grade yet</h4>
+      <p class="mf-paper">Fridge Sheet's count from 6 earlier assignments in Concert Band: a grade usually shows up within about 9 days, so look for it by Fri 10/2.</p>
+      <div class="mf-row">
+        <p class="line"><span class="eyebrow" style="margin:0">Concert Band</span><span class="word">PAPER — CHECK</span><span class="muted">due Wed 9/23</span><span class="badge">On Sunday's list</span></p>
+        <a href="#"><strong>Warm-up Scales</strong></a>
+        <div class="answers"><form><button class="primary">It's handed in</button></form><form><button>Ask the teacher</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+      <div class="mf-row">
+        <p class="line"><span class="eyebrow" style="margin:0">Chemistry</span><span class="word">PAPER — CHECK</span><span class="muted">due Fri 9/25</span><span class="badge">New since Sunday</span></p>
+        <a href="#"><strong>Ch. 5 Worksheet</strong></a>
+        <div class="answers"><form><button class="primary">It's handed in</button></form><form><button>Ask the teacher</button></form><a class="add" href="#">Add details</a></div>
+      </div>
+
+      <details class="mf-fold"><summary>Handed in, waiting for a grade <span class="badge">1</span></summary>
+        <div class="mf-row grey"><p class="line"><span class="eyebrow" style="margin:0">English 10</span><span class="word">LATE</span><span class="muted">handed in Mon 9/28</span></p><a href="#"><strong>Poem response</strong></a></div>
+      </details>
+      <details class="mf-fold"><summary>Coming due later <span class="badge">4</span></summary>
+        <div class="mf-row"><p class="line"><span class="eyebrow" style="margin:0">World History</span><span class="word">DUE FRI</span></p><a href="#"><strong>Map quiz prep</strong></a></div>
+        <div class="mf-row"><p class="line"><span class="eyebrow" style="margin:0">Algebra II</span><span class="word">DUE FRI</span></p><a href="#"><strong>Problem Set 6</strong></a></div>
+        <div class="mf-row"><p class="line"><span class="eyebrow" style="margin:0">AP Human Geo</span><span class="word">DUE MON</span></p><a href="#"><strong>Unit 2 Vocab</strong></a></div>
+        <div class="mf-row"><p class="line"><span class="eyebrow" style="margin:0">English 10</span><span class="word">DUE TUE</span></p><a href="#"><strong>Essay final</strong></a></div>
+      </details>
+    </section>
+
+    <section id="plan" class="plan-panel" aria-labelledby="plan-heading">
+      <div class="workspace-heading"><h3 id="plan-heading">Our next steps</h3><a class="button-link" href="#">Add a task</a></div>
+      <p class="plan-total"><strong>Tonight: 2 steps, 45 min</strong> · 6 must-finish not picked yet · 1 the school has, not counted</p>
+      <p class="muted">Last agreed time budget: 60 min</p>
+      <h4>Work to do</h4>
+      <article class="card plan-card">
+        <p class="eyebrow">English 10 · <span class="badge">Must finish · DUE TOMORROW</span></p>
+        <h4>Essay draft</h4><p class="next-step">Write the intro and two body paragraphs</p>
+        <p><strong>Doug</strong> · Planned for Tue 9/29 · today · 30 min</p>
+        <details><summary>School evidence</summary><div class="school-evidence"><p>Canvas: not handed in · due Wed 9/30 7:20am</p></div></details>
+        <p class="muted stamp"><span class="badge">Agreed at the Sun 9/27 check-in</span> Recorded Sun 9/27 6:31 PM by Mom</p>
+        <p><a href="#">Edit or complete step</a></p>
+      </article>
+      <article class="card plan-card">
+        <p class="eyebrow">World History</p>
+        <h4>Read ch. 7</h4><p class="next-step">Work on it</p>
+        <p><strong>Doug</strong> · Planned for Tue 9/29 · today · 15 min</p>
+        <p class="muted stamp"><span class="badge">Added since the Sun 9/27 check-in</span> Recorded Tue 9/29 6:58 PM</p>
+        <p><a href="#">Edit or complete step</a></p>
+      </article>
+      <h4>Need help</h4><p class="muted">No steps here yet.</p>
+      <h4>Waiting</h4><p class="muted">No steps here yet.</p>
+      <h4>The school has it</h4>
+      <article class="card plan-card school-has-it">
+        <p class="eyebrow">Algebra II</p>
+        <h4>Problem Set 5</h4><p class="next-step">Finish problems 8–15</p>
+        <p><strong>Doug</strong> · Planned for Mon 9/28 · 25 min</p>
+        <p class="witness">Canvas: handed in Mon 9/28, 8:14 PM</p>
+        <div class="answers"><form><button>Mark step complete</button></form></div>
+      </article>
+      <details class="queue-group"><summary>Completed steps <span class="badge">7</span></summary></details>
+    </section>
+
+    <p class="asked-line"><strong>Asked the school:</strong> <a href="#">Lab 2 report</a>: asked the teacher on Sun 9/27</p>
+
+    <details class="queue-group" open><summary>Worth checking <span class="badge">1</span></summary>
+      <p class="muted">These are options, not tonight's must-dos. What you already agreed is in your plan.</p>
+      <article class="card review-card">
+        <p class="eyebrow">Algebra II</p><h4><a href="#">Test 1 retake</a></h4>
+        <div class="school-evidence"><p><strong>School record</strong> · due Fri 9/18</p><p>Canvas: 18/20, graded Mon 9/28</p><p class="review-note">Graded since you asked. Is it settled?</p></div>
+        <div class="answers"><form><button class="primary">Yes, it's done</button></form><form><button>Keep asking</button></form></div>
+      </article>
+    </details>
+    <details class="queue-group"><summary>Waiting on the school <span class="badge">3</span></summary></details>
+    <details class="queue-group"><summary>Other open work <span class="badge">2</span></summary></details>
+
+    </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
