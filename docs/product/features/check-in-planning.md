@@ -39,6 +39,7 @@ A per-kid check-in workspace (`/kids/<kid>/check-in`) that separates three layer
 - Verification included five synthetic "persona" agents (busy parent, teenager, overwhelmed 12-year-old, second caregiver, security-minded multi-child parent) driving the workspace with Playwright at desktop and mobile/touch viewports plus print media — an unusually heavy verification bar for a single PR, reflecting how easy this kind of feature is to get subtly wrong for the people who'll actually use it.
 - Ships as a schema bump (`schema_version` 1 → 2, adding `plan_steps` and `checkins` tables) with tested migration of an already-populated database.
 - Not yet merged as of this writing (PR #12) — the routes and tables described here do not exist on `main` yet.
+- The plan is a kid's home page in kid mode (browser-app, §13 of the 2026-09-27 spec).
 
 ## Evidence
 
