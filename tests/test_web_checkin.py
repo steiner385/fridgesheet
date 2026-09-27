@@ -1038,3 +1038,20 @@ def test_a_row_that_appears_after_the_check_in_is_new_since(tmp_path):
     conn.close()
     body = c.get("/kids/Kim/plan").text
     assert "Sketchbook" in body and "New since Tue 9/15" in body and "'s list" not in body
+
+
+def test_the_printed_plan_leads_with_must_finish_as_boxes_and_names_people(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft", recorded_by="Mom")
+    conn.close()
+    c.post("/kids/Alex/check-in/finish", data=_finish(recorded_by="Dad"), follow_redirects=False)
+    body = c.get("/kids/Alex/plan/print").text
+    assert body.index("Must finish") < body.index("Our next steps")
+    assert "□ Vocabulary" in body and "□ Worksheet 3" in body
+    assert "□ Lab notebook" not in body and "Reading log" not in body                # paper and later stay off paper
+    assert "The school&#39;s list as of Tue 9/15" in body and "It changes daily" in body
+    assert "On Tue 9/15&#39;s list" in body
+    assert "Recorded by Dad" in body and "by Mom" in body
+    assert "The school has it" in body and "Canvas: handed in" in body and "□ Essay draft" not in body
+    assert "Worth checking" not in body
