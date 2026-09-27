@@ -384,8 +384,10 @@ async def finish(key: str, request: Request, conn=Db, state=State):
             raise ValueError("Recorded by: a name, up to 100 characters.")
         if not 1 <= len(token) <= 100:
             raise ValueError("Reload this page before finishing the check-in.")
+        seen = _context(conn, student, state)["must_finish"].ids
         plans.finish(conn, student["id"], now=state.now().isoformat(), next_check=next_check,
-                     available_minutes=available, summary=summary, request_key=token, recorded_by=recorded_by)
+                     available_minutes=available, summary=summary, request_key=token, recorded_by=recorded_by,
+                     seen=seen)
     except ValueError as exc:
         ctx = _context(conn, student, state)
         ctx.update(error=str(exc), finish_values=dict(form), plan_only=False)

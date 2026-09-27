@@ -6,6 +6,7 @@ one asserts the other two are untouched.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -14,7 +15,7 @@ import pytest
 
 from fridgesheet.web import db, ingest
 from fridgesheet.web.stores import flags, plans
-from tests.web_fixtures import NOW, TZ, _h, app_for, seed, snapshot
+from tests.web_fixtures import NOW, TZ, _a, _h, app_for, seed, snapshot
 
 
 def _item_id(conn, name):
@@ -994,3 +995,46 @@ def test_asked_the_school_lines_sit_above_worth_checking(tmp_path):
     body = app_for(tmp_path).get("/kids/Alex/plan").text
     assert "Asked the school" in body and "Lab notebook</a>: Asked the teacher on Sun 9/13" in body
     assert body.index("Asked the school") < body.index("Worth checking")
+
+
+def test_finishing_a_check_in_snapshots_the_must_finish_ids_and_rows_badge_against_it(tmp_path):
+    conn = seed(tmp_path)
+    vid, wid = _item_id(conn, "Vocabulary"), _item_id(conn, "Worksheet 3")
+    conn.close()
+    c = app_for(tmp_path)
+    assert "'s list" not in c.get("/kids/Alex/plan").text                       # no check-in yet: no badge
+    r = c.post("/kids/Alex/check-in/finish", data=_finish(), follow_redirects=False)
+    assert r.status_code == 303
+    conn = db.open_db(tmp_path)
+    seen = json.loads(plans.last_checkin(conn, 1)["seen"])
+    conn.close()
+    assert vid in seen and wid in seen
+    body = c.get("/kids/Alex/plan").text
+    assert body.count("On Tue 9/15&#39;s list") == 5                               # Vocabulary, Worksheet 3, Reading log, Lab notebook, Participation (apostrophe escaped)
+    assert "New since Tue 9/15" not in body
+
+
+def test_a_row_that_appears_after_the_check_in_is_new_since(tmp_path):
+    """Review Focus 4: an empty list at finish means nothing is "on the list" later."""
+    snap = snapshot()
+    snap["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
+                               "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
+    conn = seed(tmp_path, snap)
+    conn.close()
+    c = app_for(tmp_path)
+    c.post("/kids/Kim/check-in/finish", data=_finish(), follow_redirects=False)
+    conn = db.open_db(tmp_path)
+    kim = conn.execute("SELECT id FROM students WHERE key = 'Kim'").fetchone()["id"]
+    assert plans.last_checkin(conn, kim)["seen"] == "[]"
+    conn.close()
+    later = snapshot()
+    later["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
+                                "canvas": {"courses": [{"id": 9, "name": "Art 6 S1-2027-Ng", "course_code": "ART6",
+                                    "grade": {"current_score": None, "final_score": None, "current_grade": None, "hidden": False},
+                                    "staff": [], "assignments": [_a(300, "Sketchbook", "09-16")]}]},
+                                "hac": {"week_view": [], "classes": []}}
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, later, tz=TZ, now=NOW + timedelta(hours=1))
+    conn.close()
+    body = c.get("/kids/Kim/plan").text
+    assert "Sketchbook" in body and "New since Tue 9/15" in body and "'s list" not in body
