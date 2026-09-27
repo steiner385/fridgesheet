@@ -81,3 +81,12 @@ def test_every_existing_page_test_client_is_a_grown_up(tmp_path):
     c = app_for(tmp_path)
     assert c.cookies.get("fridgesheet_who") == "family"
     assert c.get("/").status_code == 200
+
+
+def test_the_chooser_renders_with_an_empty_database(tmp_path):
+    """Global constraint: every page renders with an empty database -- no seed, so no kids."""
+    c = app_for(tmp_path)
+    c.cookies.clear()
+    r = c.get("/who")
+    assert r.status_code == 200 and "A grown-up" in r.text
+    assert re.search(r'<button name="who" value="(?!family")', r.text) is None
