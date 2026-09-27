@@ -26,6 +26,9 @@ from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, Simple
 
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
 from .open_items import HANDLED_FLAGS, MARKED_FLAGS, Diff, Item, OpenWork
+from .status_words import STATUS_WORD, status_word     # re-exported: every existing caller of
+                                                         # sheet.STATUS_WORD / sheet.status_word
+                                                         # keeps working unchanged
 from .web import phrasing
 
 RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
@@ -34,11 +37,6 @@ STATUS_COLOR = {
     "PAPER — CHECK": PURPLE, "IN CLASS — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
     "DUE TODAY": BLUE, "DUE TONIGHT": BLUE, "DUE TOMORROW": BLUE,
 }
-#: The web page's status phrase -> the sheet's word for it: one table, read this way to print
-#: the page's rows (`reports.open_work.sheet_status`) and the other way to say a word in a
-#: kid's tier (`status_word`), so the two surfaces cannot name one fact differently (#137).
-STATUS_WORD = {"Missing": "MISSING", "Zero": "ZERO", "Late, ungraded": "LATE", "Paper, check": "PAPER — CHECK",
-               "In class, check": "IN CLASS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
 
 # 10pt cells and 8pt sub-lines: the kid reading the fridge is the reader NN/g puts at a 12pt
 # floor on screen, and 8.5/7 was the smallest text in the whole product. Two kids still fit
@@ -63,24 +61,6 @@ class KidSheet:
     diff: Diff | None = None
     prev_label: str | None = None
     tier: str = ""                   # web/tiers.py: "early", "middle", "older" or "" (no grade set)
-
-
-#: The sheet's status word -> the web page's, so the phrase table can say it for the kid's tier.
-#: Older and no-tier sections keep the capitals the parent knows from the legend.
-_STATUS_KEY = {word: phrase for phrase, word in STATUS_WORD.items()}
-
-
-def status_word(status: str, tier: str) -> str:
-    """"MISSING" for a parent; "Teacher hasn't got it" for a 5th grader; "Due today" rather than
-    DUE TODAY for either young tier. Same fact, same colour, the kid's words."""
-    if tier not in ("early", "middle"):
-        return status
-    key = _STATUS_KEY.get(status)
-    if key:
-        return phrasing.phrase(key, tier)
-    head, _, rest = status.partition(" ")       # DUE TODAY / DUE TONIGHT / DUE TOMORROW / DUE TUE
-    rest = rest.lower() if rest.lower() in ("today", "tonight", "tomorrow") else rest.title()
-    return f"{head.title()} {rest}".strip()
 
 
 def _esc(s: str) -> str:

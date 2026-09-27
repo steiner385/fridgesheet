@@ -550,14 +550,15 @@ def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, 
 
 def sheet_status(v: ItemView) -> str:
     """The sheet's word for a page row: DUE TODAY / DUE SUN for what is coming due, else the
-    capitals of its status phrase (`sheet.STATUS_WORD`), else ZERO for a gradebook's zero.
-    Lives here (not in `reports/open_work.py`) so a template can say it without importing
-    the report package."""
-    from ... import sheet                       # sheet imports phrasing only; no reportlab
+    capitals of its status phrase (`status_words.STATUS_WORD`), else ZERO for a gradebook's
+    zero. Lives here (not in `reports/open_work.py`) so a template can use it without
+    importing the report package -- and reads `status_words`, not `sheet`, so it never pulls
+    reportlab (`sheet.py` imports it at module scope) into the web process."""
+    from ... import status_words
     if v.upcoming and not v.overdue:
         return v.status.upper()
-    if v.status in sheet.STATUS_WORD:
-        return sheet.STATUS_WORD[v.status]
+    if v.status in status_words.STATUS_WORD:
+        return status_words.STATUS_WORD[v.status]
     if v.grade_zero:
         return "ZERO"
     return v.status.upper()

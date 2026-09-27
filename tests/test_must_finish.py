@@ -1,7 +1,11 @@
 """Must finish: the Open work rows, sectioned for tonight (spec 2026-09-27 §4)."""
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from fridgesheet import late_rules
 from fridgesheet.web.stores import items, students
@@ -79,6 +83,21 @@ def test_a_late_hand_in_with_no_grade_is_waiting(tmp_path):
 def test_unpicked_is_the_open_groups_not_the_folded_ones(tmp_path):
     mf = items.must_finish(_work(tmp_path), NOW.date())
     assert set(_names(mf.unpicked)) == {"Vocabulary", "Worksheet 3", "Lab notebook", "Participation"}
+
+
+def test_sheet_status_never_pulls_in_reportlab():
+    """`items.sheet_status` reads `status_words`, not `sheet.py` (which imports reportlab at
+    module scope) -- so a plan page can render without reportlab installed, the way
+    `tests/test_open_work_parity.py` already treats it as optional (`importorskip`). A fresh
+    interpreter is the only way to prove nothing already sitting in `sys.modules` from an
+    earlier import masks the regression (#137 follow-up)."""
+    code = ("import sys, fridgesheet.web.stores.items as i\n"
+            "assert 'reportlab' not in sys.modules, sorted(m for m in sys.modules if 'reportlab' in m)\n"
+            "assert 'fridgesheet.sheet' not in sys.modules\n")
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    result = subprocess.run([sys.executable, "-c", code], cwd=str(Path(__file__).resolve().parent.parent),
+                            env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_sheet_status_is_the_sheets_word(tmp_path):
