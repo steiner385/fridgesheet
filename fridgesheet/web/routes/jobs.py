@@ -28,7 +28,8 @@ def _worker(state) -> jobmod.Worker:
 
 @router.post("/jobs/{kind}")
 def start(kind: str, request: Request, date: str | None = Form(None), report: str = Form("open-work"),
-          refresh_first: bool = Form(False), run_id: int | None = Form(None), conn: sqlite3.Connection = Db, state=State):
+          refresh_first: bool = Form(False), run_id: int | None = Form(None), reload_page: bool = Form(False),
+          conn: sqlite3.Connection = Db, state=State):
     if kind not in jobmod.OPEN_KINDS:
         raise HTTPException(404, f"no job kind {kind!r}")
     w = _worker(state)
@@ -58,10 +59,10 @@ def start(kind: str, request: Request, date: str | None = Form(None), report: st
             job = w.submit(kind, **params)
         if job is None:
             blocker = blocker or w.current or w.last
-            r = render_partial(request, conn, "_job.html", job=blocker, busy=True, pdf=_pdf(state, blocker))
+            r = render_partial(request, conn, "_job.html", job=blocker, busy=True, pdf=_pdf(state, blocker), reload_page=False)
             r.status_code = 409
             return r
-    return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=_pdf(state, job))
+    return render_partial(request, conn, "_job.html", job=job, busy=False, pdf=_pdf(state, job), reload_page=reload_page)
 
 
 @router.get("/jobs/{job_id}")

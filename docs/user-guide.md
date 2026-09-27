@@ -383,10 +383,31 @@ edited or deleted from the app.
 
 ### 6.2 Plan
 
-The current steps against the agreed time budget, without the review queue and wrap-up.
+The current steps against the agreed time budget, without the wrap-up form.
 Steps can still be added and edited from here (doing so currently returns you to the Check-in tab — [#128](https://github.com/steiner385/fridgesheet/issues/128)). **Print plan** opens a clean page with that child's steps, owners, dates and
 the agreed summary, and **Print / save PDF** sends it to your browser's print dialog —
 good for the fridge next to the school sheet.
+
+At the top, **Must finish** is computed from the school record every time, not something
+anyone fills in: due tonight and due tomorrow, overdue work still fixable, paper with no
+grade yet, work handed in and waiting for a grade, and what's coming due later (folded, with
+a count). A row leaves the moment the school record settles it — Canvas records a hand-in, a
+grade above zero lands, the teacher excuses or unpublishes it — or the moment you answer
+"It's handed in" yourself, or once a step has been planned for it.
+
+A step in **Our next steps** greys out once the school shows its assignment as in — Canvas
+handed in, a grade posted, or your own earlier "It's handed in" answer — with that fact named
+in place of the usual "school evidence changed" notice, and it stops counting toward
+tonight's minutes. **Mark step complete** finishes it as the family's own record; the app
+never marks a step done on the school's say-so alone.
+
+Below the plan, **Worth checking** and **Waiting on the school** are the same collapsed
+groups Check-in shows, each with a count; Worth checking opens itself when something in it —
+a zero that may be wrong, an answer the school has since contradicted — is worth a second
+look. **Check Canvas again**, beside Add a task, re-pulls the school record without leaving
+the page; when it finishes, the page reloads so Must finish and the as-of line are current.
+It only appears when this server runs a jobs worker, the same condition as Today's Refresh
+now.
 
 ### 6.3 Assignments
 

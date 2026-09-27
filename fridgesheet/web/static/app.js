@@ -92,7 +92,13 @@ function attachSse(root) {
     pre.dataset.attached = "1";
     var es = new EventSource(pre.dataset.sse);
     es.onmessage = function (e) { pre.textContent += (pre.textContent ? "\n" : "") + e.data; pre.scrollTop = pre.scrollHeight; };
-    es.addEventListener("done", function () { es.close(); htmx.ajax("GET", pre.dataset.reload, { target: "#job", swap: "outerHTML" }); });
+    es.addEventListener("done", function () {
+      es.close();
+      // A refresh started from a kid's plan page (spec 2026-09-27 §9): the list above the
+      // card is stale now, so the page reloads instead of the card.
+      if (pre.dataset.reloadPage) { location.reload(); return; }
+      htmx.ajax("GET", pre.dataset.reload, { target: "#job", swap: "outerHTML" });
+    });
     // A dropped connection (the server restarted, the laptop slept) used to leave the log
     // frozen with no sign (#4): say so, then ask for the job card again, which reattaches
     // if the job is still running and shows its result if it is not.

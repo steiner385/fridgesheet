@@ -1055,3 +1055,17 @@ def test_the_printed_plan_leads_with_must_finish_as_boxes_and_names_people(tmp_p
     assert "Recorded by Dad" in body and "by Mom" in body
     assert "The school has it" in body and "Canvas: handed in" in body and "□ Essay draft" not in body
     assert "Worth checking" not in body
+
+
+def test_the_plan_page_offers_check_canvas_again_only_with_a_worker(tmp_path):
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    without = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert "Check Canvas again" not in without
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    application.state.fridgesheet.jobs = jobs.Worker(application.state.fridgesheet, actions=None)
+    with_worker = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    assert "Check Canvas again" in with_worker and 'hx-post="/jobs/refresh"' in with_worker and '"reload_page": "1"' in with_worker
