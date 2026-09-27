@@ -63,6 +63,20 @@ def test_a_cookie_naming_a_kid_who_is_gone_clears_and_shows_the_chooser(tmp_path
     assert 'fridgesheet_who=""' in r.headers.get("set-cookie", "") or "Max-Age=0" in r.headers.get("set-cookie", "")
 
 
+def test_a_cookie_naming_a_kid_who_is_hidden_clears_and_shows_the_chooser(tmp_path):
+    """Final review, finding 7: `hidden` is the other way a name in the cookie stops naming a
+    kid the app will show -- not just deleted outright (see the "gone" test above)."""
+    conn = seed(tmp_path)
+    conn.execute("UPDATE students SET hidden = 1 WHERE key = 'Alex'")
+    conn.commit()
+    conn.close()
+    c = _bare(tmp_path)
+    c.cookies.set("fridgesheet_who", "Alex")
+    r = c.get("/", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/who"
+    assert 'fridgesheet_who=""' in r.headers.get("set-cookie", "") or "Max-Age=0" in r.headers.get("set-cookie", "")
+
+
 def test_a_kid_key_that_needs_encoding_round_trips(tmp_path):
     """Review Focus 5."""
     snap = snapshot()
@@ -146,6 +160,17 @@ def test_a_sibling_page_by_address_still_renders_with_the_readers_rail(tmp_path)
     seed(tmp_path).close()
     body = _kid(tmp_path, "Alex").get("/kids/Sam/plan").text
     assert "Not Alex?" in _rail(body) and "Sam" in body
+    assert 'class="current"' not in _rail(body)                                        # final review 4
+
+
+def test_the_kids_own_plan_page_highlights_only_the_plan_link(tmp_path):
+    """Final review, finding 4: the name link and the tabs used to highlight together on every
+    kid page, and a sibling's tab highlighted by address (the test above). Alex's own tab is
+    the one link that should carry `current`."""
+    seed(tmp_path).close()
+    rail = _rail(_kid(tmp_path, "Alex").get("/kids/Alex/plan").text)
+    assert rail.count('class="current"') == 1
+    assert re.search(r'<a href="/kids/Alex/plan" class="current">Plan<', rail)
 
 
 def test_kid_rail_links_are_url_encoded(tmp_path):
@@ -170,6 +195,21 @@ def test_trends_and_changes_scope_to_the_reader_without_a_parameter(tmp_path):
     assert "Cell diagram" not in changes                                                # Sam's change stays off Alex's page
     grown = app_for(tmp_path).get("/trends").text
     assert "Kid:" in grown
+    assert "Kid:" in app_for(tmp_path).get("/changes").text                             # final review 8
+
+
+def test_a_kid_key_that_needs_encoding_is_encoded_in_trends_and_changes_links(tmp_path):
+    """Final review, finding 5: kid mode puts `kid` into the Window/Kind chips, the pager and
+    the Weeks chips by default -- an unencoded key with a space (or `&`) breaks the query."""
+    snap = snapshot()
+    snap["students"]["Mary Ann"] = {"name": "Mary Ann Example", "canvas_id": 3, "hac_name": "Mary Ann Example",
+                                    "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
+    seed(tmp_path, snap).close()
+    c = _kid(tmp_path, "Mary Ann")
+    for path in ("/changes", "/trends"):
+        body = c.get(path).text
+        assert "kid=Mary%20Ann" in body
+        assert "kid=Mary Ann" not in body
 
 
 def test_a_kid_parameter_still_wins_in_kid_mode(tmp_path):

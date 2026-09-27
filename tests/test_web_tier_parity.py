@@ -11,7 +11,7 @@ import re
 import pytest
 
 from fridgesheet.web import tiers
-from tests.web_fixtures import client_with_grades, seed
+from tests.web_fixtures import app_for, client_with_grades, seed
 
 
 GRADE_OF = {"early": 5, "middle": 7, "older": 11, "": None}
@@ -58,3 +58,27 @@ def test_no_tier_hides_a_question_or_a_decided_or_waiting_line(tmp_path_factory,
     older = _question_ids(tmp_path_factory, "older")
     assert older, "the fixture must render at least one question card or line"
     assert _question_ids(tmp_path_factory, tier) == older
+
+
+def _ids_and_actions(client, path: str) -> tuple[set[str], int, int]:
+    """The rows, questions and plan steps a page names, plus how many forms and buttons it
+    offers -- every id and action a reader can act on, not the words around them."""
+    body = client.get(path).text
+    ids = set(re.findall(r'id="(?:row|qc|q)-(\d+)"', body))
+    return ids, len(re.findall(r"<form", body)), len(re.findall(r"<button", body))
+
+
+@pytest.mark.parametrize("path", ["/kids/Alex?show=all", "/kids/Alex/plan", "/kids/Alex/check-in"])
+def test_kid_mode_and_family_mode_render_the_same_rows_and_actions(tmp_path, path):
+    """Final review, finding 1: `test_web_tier_parity.py` ran only in family mode now that
+    `app_for` defaults to a grown-up, so the parity rule this module is about (see the module
+    docstring) had no kid-mode coverage at all. A grown-up reading `/kids/Alex...` and Alex
+    reading the same address must see the same rows, questions, steps, forms and buttons --
+    kid mode changes the rail and the words, never what is offered."""
+    seed(tmp_path).close()
+    family = app_for(tmp_path)
+    kid = app_for(tmp_path)
+    kid.cookies.set("fridgesheet_who", "Alex")
+    family_seen, kid_seen = _ids_and_actions(family, path), _ids_and_actions(kid, path)
+    assert family_seen[0], "the fixture must render at least one id for this to mean anything"
+    assert family_seen == kid_seen

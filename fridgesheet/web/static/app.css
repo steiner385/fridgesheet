@@ -275,9 +275,10 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .chart-key button[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
 .chart-key button[aria-pressed="false"] .swatch { opacity: .3; }
 
-/* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. */
-.rail h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
-.rail h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
+/* The wordmark: the fridge-magnet mark (static/mark.svg) beside the name, one link. Also the
+   chooser's own heading (who.html), which has no `.rail` ancestor of its own. */
+.rail h1 .brand, .who h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
+.rail h1 .brand img, .who h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
 /* Check-in: school evidence, family context, and commitments stay visually distinct. */
 /* A section head with its own action beside it (the plan panel's "Add a task"). */

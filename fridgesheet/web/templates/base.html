@@ -26,10 +26,10 @@
        removes distraction, not access. #}
     {% set me = who_student.key %}{% set kt = me | tier_of %}
     <nav>
-      <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me }}">{{ me | nickname }} <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
-      <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if workspace is defined and workspace == 'plan' }}">Plan</a>
-      <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if workspace is defined and workspace == 'checkin' }}">Check-in</a>
-      <a href="/kids/{{ me | urlencode }}" class="{{ 'current' if workspace is defined and workspace == 'all' }}">Assignments</a>
+      <a href="/kids/{{ me | urlencode }}/plan">{{ me | nickname }} <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
+      <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'plan' }}">Plan</a>
+      <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'checkin' }}">Check-in</a>
+      <a href="/kids/{{ me | urlencode }}" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'all' }}">Assignments</a>
       <a href="/trends?kid={{ me | urlencode }}" class="{{ 'current' if current == 'trends' }}">Trends</a>
       <a href="/changes?kid={{ me | urlencode }}" class="{{ 'current' if current == 'changes' }}">Changes</a>
       <a href="/who" class="foot">{{ 'copy.not_name' | say(kt, {'name': me | nickname}) }}</a>
@@ -66,7 +66,7 @@
       <a href="/runs" class="{{ 'current' if current == 'runs' }}">Runs</a>
       <a href="/settings" class="{{ 'current' if current == 'settings' }}">Settings</a>
       <a href="/diagnostics" class="{{ 'current' if current == 'diagnostics' }}">Diagnostics</a>
-      <a href="/who" class="{{ 'current' if current == 'who' }}">{{ 'copy.switch_to_kid' | say('') }}</a>
+      <a href="/who">{{ 'copy.switch_to_kid' | say('') }}</a>
       {% block rail_extra %}{% endblock %}
       {% if kid_page %}</div></details>{% endif %}
     </nav>

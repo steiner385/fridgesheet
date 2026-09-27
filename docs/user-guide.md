@@ -209,7 +209,7 @@ goes straight there from then on.
 
 A kid's button opens their plan, with **Must finish** first. Their rail names only their own
 pages — their name, then Plan, Check-in, Assignments, Trends and Changes — and ends with
-**Not** *their name***?**, back to the chooser. The status bar drops the last-run line and the
+**Not *their name*?**, back to the chooser. The status bar drops the last-run line and the
 update badge, and Trends and Changes show only that kid, with no picker for the others.
 
 **A grown-up** opens today's app, same as ever, with **Switch to a kid's view** added under
