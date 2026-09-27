@@ -99,12 +99,6 @@ def test_days_ahead_setting_governs_the_web_window(tmp_path):
     assert "Reading log" in c.get("/kids/Alex?show=all").text
 
 
-def test_dashboard_due_counts_link_to_the_kids_section_of_the_open_page(tmp_path):
-    seed(tmp_path).close()
-    body = app_for(tmp_path).get("/").text
-    assert 'href="/open#Alex"' in body and "1 due today" in body
-
-
 def test_the_credit_text_reaches_the_page_and_the_column(tmp_path):
     """`credit` is the parent's own words next to a late-work rule -- "50% after Friday" --
     and the Credit thru column exists to show them.

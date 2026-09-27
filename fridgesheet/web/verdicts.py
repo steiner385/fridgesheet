@@ -62,7 +62,7 @@ ANSWERS = {
     "hac_lag": (ASK,),
     "teacher_grading": (ASK,),
     "still_ungraded": (Answer("a.handed_in", "done"), TODAY, TOMORROW, ASK),
-    "awaiting_grade": (ASK,),
+    "awaiting_grade": (ASK, Answer("a.handed_in", "done")),
     "stale_answer": (Answer("a.still_done", "confirm"), Answer("a.reopen", "clear"), ASK),
     # The family asked the teacher (or chose to follow up) and a grade has since appeared:
     # "still done?" would be the wrong question, and "ask the teacher" would change nothing.

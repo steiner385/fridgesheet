@@ -198,3 +198,22 @@ def test_the_frozen_entry_point_moves_the_home_before_it_opens_its_log(monkeypat
     assert entry.main([]) == 0
     assert seen == [["config.toml"]]                    # the log opened in the *moved* home
     assert old.is_symlink() or not old.exists()         # a link on Linux, gone on Windows
+
+
+# --- schema v9: checkins.seen ------------------------------------------------------------------
+
+def test_a_v8_database_gains_seen_with_an_empty_list_on_old_rows(tmp_path):
+    from fridgesheet.web import db
+    from tests.web_fixtures import NOW, seed
+    conn = seed(tmp_path)
+    conn.execute("INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, request_key) "
+                 "VALUES (1, ?, '2026-09-20', 30, 's', '[]', 'k1')", (NOW.isoformat(),))
+    conn.commit()
+    conn.execute("ALTER TABLE checkins DROP COLUMN seen")            # back to the v8 shape
+    conn.execute("UPDATE schema_version SET version = 8")
+    conn.commit()
+    conn.close()
+    conn = db.open_db(tmp_path)
+    assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION >= 9
+    assert conn.execute("SELECT seen FROM checkins").fetchone()[0] == "[]"
+    conn.close()

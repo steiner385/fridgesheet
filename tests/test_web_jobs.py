@@ -314,3 +314,31 @@ def test_refresh_first_checkbox_reaches_the_action_only_when_checked(tmp_path):
     assert c.post("/jobs/print", data={"refresh_first": "on"}).status_code == 200
     w.run_pending()
     assert ("print", None, "open-work", True) in fake.calls
+
+
+def test_a_refresh_from_the_plan_page_asks_for_a_page_reload_when_done(tmp_path):
+    """The file's `_worker` helper wires a `FakeActions` worker that never touches Canvas."""
+    from fastapi.testclient import TestClient
+    seed(tmp_path).close()
+    application, w = _worker(tmp_path)
+    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    r = c.post("/jobs/refresh", data={"reload_page": "1"})
+    assert r.status_code == 200 and 'data-reload-page="1"' in r.text and f'data-sse="/jobs/{w.current.id}/events"' in r.text
+    w.run_pending()
+    assert 'data-reload-page' not in c.get(f"/jobs/{w.last.id}").text        # the finished card never reloads
+    r = c.post("/jobs/refresh")
+    assert r.status_code == 200 and 'data-reload-page' not in r.text          # only the plan page asks for it
+    w.run_pending()
+
+
+def test_a_busy_worker_answers_the_plan_page_with_the_busy_card(tmp_path):
+    """Review Focus 5: the 409 card lands in #job; nothing reloads."""
+    from fastapi.testclient import TestClient
+    seed(tmp_path).close()
+    application, w = _worker(tmp_path)
+    c = TestClient(application, headers=LOCAL_HOST_HEADERS)
+    assert c.post("/jobs/doctor").status_code == 200
+    r = c.post("/jobs/refresh", data={"reload_page": "1"})
+    assert r.status_code == 409 and 'id="job"' in r.text and "Busy" in r.text
+    assert 'data-reload-page' not in r.text
+    w.run_pending()

@@ -36,8 +36,15 @@ def test_dashboard_cards_per_kid(tmp_path):
     assert r.status_code == 200
     body = r.text
     assert body.index("Alex") < body.index("Sam")
-    assert body.count('<span class="big">2</span> still fixable') == 2                        # Alex (Quiz 1 is settled by HAC's 28/30), Sam
-    assert "1 due today" in body and "1 due tomorrow" in body and "8 new since yesterday" in body
+    def card(key):
+        """One kid's card, by its heading; the rail names every kid before the cards do."""
+        start = body.index(f'<h3><a href="/kids/{key}/check-in">')
+        return body[start:body.index("</div>", start)]
+    assert '<span class="big">2</span> not done, due by tomorrow' in card("Alex")   # Vocabulary tonight, Worksheet 3 tomorrow
+    assert '<span class="big">2</span> not done, due by tomorrow' in card("Sam")    # Cell diagram, Safety quiz
+    assert 'href="/kids/Alex/plan"><span class="big">' in card("Alex")
+    assert "still fixable" not in body and "due today" not in body
+    assert "8 new since yesterday" in body
     # The card reads the run's log line for the parent instead of echoing it (#40 item 4):
     # "Previewed · 2 pages · Al 3, Sam 2", never the file path or "Al=3".
     assert "Today's sheet" in body and "2 pages" in body and "Al 3, Sam 2" in body
@@ -48,6 +55,48 @@ def test_dashboard_cards_per_kid(tmp_path):
 def test_dashboard_with_nothing_printed_says_so(tmp_path):
     seed(tmp_path).close()
     assert "No sheet built today yet" in app_for(tmp_path).get("/").text
+
+
+def _card(body: str, key: str) -> str:
+    start = body.index(f'<h3><a href="/kids/{key}/check-in">')
+    return body[start:body.index("</div>", start)]
+
+
+def test_a_kid_with_nothing_due_reads_nothing_due(tmp_path):
+    from tests.web_fixtures import snapshot
+    snap = snapshot()
+    snap["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
+                               "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
+    seed(tmp_path, snap).close()
+    assert "Nothing due by tomorrow" in _card(app_for(tmp_path).get("/").text, "Kim")
+
+
+def test_the_family_line_leaves_out_a_step_the_school_has(tmp_path):
+    from uuid import uuid4
+    from fridgesheet.web.stores import plans
+    conn = seed(tmp_path)
+    essay = _item_id(conn, "Essay draft")
+    values = dict(title="Essay draft", family_account="", next_step="x", owner="Alex", planned_for="2026-09-15",
+                  minutes=20, state="planned", position=10, evidence="{}", recorded_by="")
+    plans.save(conn, 1, values, now=NOW.isoformat(), request_key=str(uuid4()), item_id=essay)
+    conn.close()
+    assert "No steps planned today" in _card(app_for(tmp_path).get("/").text, "Alex")
+
+
+def test_the_headline_still_counts_red_rows_a_family_step_covers(tmp_path):
+    """Review finding 1: work with an agreed step is still not done until the school -- or the
+    family -- says so. Covering tonight's and tomorrow's red rows with a step apiece must not
+    read as "Nothing due by tomorrow"."""
+    from uuid import uuid4
+    from fridgesheet.web.stores import plans
+    conn = seed(tmp_path)
+    vocab, worksheet = _item_id(conn, "Vocabulary"), _item_id(conn, "Worksheet 3")
+    base = dict(family_account="", next_step="x", owner="Alex", planned_for="2026-09-15",
+                minutes=20, state="planned", evidence="{}", recorded_by="")
+    plans.save(conn, 1, {**base, "title": "Vocabulary", "position": 10}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vocab)
+    plans.save(conn, 1, {**base, "title": "Worksheet 3", "position": 20}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=worksheet)
+    conn.close()
+    assert '<span class="big">2</span> not done, due by tomorrow' in _card(app_for(tmp_path).get("/").text, "Alex")
 
 
 def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_path):

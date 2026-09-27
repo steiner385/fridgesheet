@@ -96,7 +96,7 @@ def test_a_question_on_open_work_links_to_its_card(tmp_path):
 
 # --- #85: Today leads with questions and still fixable ------------------------------------
 
-def test_today_counts_questions_and_still_fixable_not_actionable(tmp_path):
+def test_today_counts_questions_not_actionable(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/").text
@@ -109,7 +109,6 @@ def test_today_counts_questions_and_still_fixable_not_actionable(tmp_path):
         n = counts.questions
         words = f'<span class="big">{n}</span> question{"s" if n != 1 else ""} to answer' if n else "Nothing to answer"
         assert words in body
-        assert f'href="/open#{key}"><span class="big">{counts.fixable}</span> still fixable</a>' in body
     conn.close()
     assert 'href="/questions?kid=Alex"' in body
 

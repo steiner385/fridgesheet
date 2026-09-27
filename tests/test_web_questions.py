@@ -210,7 +210,7 @@ def test_the_response_carries_the_plan_panel_out_of_band(tmp_path):
     section = re.search(r'<section id="plan"[^>]*hx-swap-oob="true"[^>]*>.*?</section>', body, re.S)
     assert section, body[:2000]
     assert "Vocabulary" in section.group(0)                                 # the step is in the panel
-    assert "1 step without an estimate" in section.group(0)
+    assert "Tonight: 1 step, 0 min" in section.group(0)
 
 
 def test_undo_deletes_an_unedited_step_and_brings_the_card_back(tmp_path):
@@ -354,3 +354,9 @@ def test_not_right_on_a_line_the_records_settled_alone_asks_the_family(tmp_path)
     conn = db.open_db(tmp_path)
     assert flags.active(conn, qid) is None          # nothing recorded until the family answers
     conn.close()
+
+
+def test_the_plan_panel_after_an_answer_says_tonight_in_one_sentence(tmp_path):
+    c, vid = _setup(tmp_path, "Vocabulary")
+    body = _plan(c, vid).text
+    assert "Tonight: 1 step, 0 min" in body and "without an estimate" not in body

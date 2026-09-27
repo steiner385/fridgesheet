@@ -119,3 +119,23 @@ def test_the_sheets_words_for_the_pages_rows():
     for phrase, word in sheet.STATUS_WORD.items():
         assert sheet.status_word(word, "older") == word
         assert sheet.status_word(word, "early") == sheet.phrasing.phrase(phrase, "early")
+
+
+def test_must_finish_is_open_works_rows_minus_covered(tmp_path):
+    """Spec 2026-09-27 §4.1: the plan's list is exactly `fixable + upcoming`, less the plan."""
+    from fridgesheet.web.stores import plans
+    from uuid import uuid4
+    conn = seed(tmp_path)
+    page = _page(conn, NOW)
+    for key, w in page.items():
+        mf = items.must_finish(w, NOW.date())
+        assert mf.ids == {v.id for v in w.fixable + w.upcoming}, key
+    alex = students.by_key(conn, "Alex")
+    vocab = next(v for v in page["Alex"].upcoming if v.name == "Vocabulary")
+    values = dict(title="Vocabulary", family_account="", next_step="Do it", owner="Alex", planned_for="2026-09-15",
+                  minutes=None, state="planned", position=10, evidence="{}", recorded_by="")
+    plans.save(conn, alex["id"], values, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vocab.id)
+    covered = {s["item_id"] for s in plans.for_student(conn, alex["id"]) if s["state"] != "done"}
+    mf = items.must_finish(page["Alex"], NOW.date(), covered)
+    assert mf.ids == {v.id for v in page["Alex"].fixable + page["Alex"].upcoming} - {vocab.id}
+    conn.close()

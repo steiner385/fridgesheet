@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from ...dates import day_part, deadline_date, due_time
 from ... import config, sources
@@ -545,6 +545,68 @@ def open_work(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, 
         upcoming=sorted((v for v in live if v.upcoming and not v.overdue), key=due_key),
         past_window=sorted(filter(_past_window, views), key=due_key),
         handled=sorted(filter(_handled_open, views), key=due_key),
+    )
+
+
+def sheet_status(v: ItemView) -> str:
+    """The sheet's word for a page row: DUE TODAY / DUE SUN for what is coming due, else the
+    capitals of its status phrase (`status_words.STATUS_WORD`), else ZERO for a gradebook's
+    zero. Lives here (not in `reports/open_work.py`) so a template can use it without
+    importing the report package -- and reads `status_words`, not `sheet`, so it never pulls
+    reportlab (`sheet.py` imports it at module scope) into the web process."""
+    from ... import status_words
+    if v.upcoming and not v.overdue:
+        return v.status.upper()
+    if v.status in status_words.STATUS_WORD:
+        return status_words.STATUS_WORD[v.status]
+    if v.grade_zero:
+        return "ZERO"
+    return v.status.upper()
+
+
+@dataclass(frozen=True)
+class MustFinish:
+    """Open work's rows, sectioned for tonight (spec 2026-09-27 §4.2). The three `fixable`
+    sections partition it by outcome; the three `upcoming` sections by deadline."""
+    tonight: list[ItemView]
+    tomorrow: list[ItemView]
+    overdue: list[ItemView]
+    paper: list[ItemView]
+    waiting: list[ItemView]
+    later: list[ItemView]
+
+    @property
+    def red(self) -> list[ItemView]:
+        return self.tonight + self.tomorrow + self.overdue
+
+    @property
+    def unpicked(self) -> list[ItemView]:
+        """The rows shown open on the page: what "not picked yet" counts."""
+        return self.red + self.paper
+
+    @property
+    def ids(self) -> set[int]:
+        return {v.id for s in (self.tonight, self.tomorrow, self.overdue, self.paper, self.waiting, self.later) for v in s}
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+
+def must_finish(work: OpenWork, today: date, covered: set[int] = frozenset()) -> MustFinish:
+    """Open work's `fixable + upcoming`, minus items an active family step covers, in the
+    six sections. `fixable` and `upcoming` are disjoint (an upcoming row has nothing open),
+    and an open row's outcome is one of not done, unknown or late (`reconcile.open_sources`),
+    so every row lands in exactly one section."""
+    up = [v for v in work.upcoming if v.id not in covered]
+    fix = [v for v in work.fixable if v.id not in covered]
+    tomorrow = today + timedelta(days=1)
+    return MustFinish(
+        tonight=[v for v in up if deadline_date(v.due) <= today],
+        tomorrow=[v for v in up if deadline_date(v.due) == tomorrow],
+        later=[v for v in up if deadline_date(v.due) > tomorrow],
+        overdue=[v for v in fix if v.outcome == outcomes.NOT_DONE],
+        paper=[v for v in fix if v.outcome == outcomes.UNKNOWN],
+        waiting=[v for v in fix if v.outcome == outcomes.LATE],
     )
 
 

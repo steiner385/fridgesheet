@@ -160,9 +160,9 @@ def test_the_check_in_says_one_thing_before_the_cards(tmp_path):
 
 def test_the_check_in_copy_follows_the_reader(tmp_path):
     young = html.unescape(_client(tmp_path, Sam=5).get("/kids/Sam/check-in").text)
-    assert "You could do these" in young and "Ask before you assume" in young        # queue hint; Safety quiz's zero
+    assert "These aren't tonight's must-dos" in young and "Ask before you assume" in young        # queue hint; Safety quiz's zero
     older = html.unescape(_client(tmp_path, Sam=9).get("/kids/Sam/check-in").text)
-    assert "possibilities, not tonight" in older and "ask before assuming" in older
+    assert "These are not tonight's obligations" in older and "ask before assuming" in older
 
 
 def test_the_sources_line_follows_the_reader(tmp_path):
@@ -181,7 +181,10 @@ def test_the_same_due_hour_reads_the_same_on_every_surface(tmp_path):
     sid = conn.execute("SELECT id FROM items WHERE name = 'Safety quiz'").fetchone()["id"]   # Canvas, 23:59
     conn.close()
     young = client_with_grades(home, Sam=5)
-    card = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % sid, young.get("/kids/Sam/check-in").text, re.S).group(0)
+    # Safety quiz is a Must-finish row for Sam now (overdue, still fixable, spec 2026-09-27
+    # §4), not a review card.
+    card = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % sid,
+                     young.get("/kids/Sam/check-in").text, re.S).group(0)
     assert "evening" in card and "11:59pm" not in card
     detail = young.get(f"/items/{sid}").text
     assert "evening" in detail and "11:59pm" not in detail

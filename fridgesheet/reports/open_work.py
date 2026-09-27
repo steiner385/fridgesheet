@@ -45,15 +45,8 @@ def wanted(key: str, kid: str | None, names: dict[str, str], keys=()) -> bool:
 
 
 def sheet_status(v: items_store.ItemView) -> str:
-    """The sheet's word for a page row: DUE TODAY / DUE SUN for what is coming due, else the
-    capitals of its status phrase (`sheet.STATUS_WORD`), else ZERO for a gradebook's zero."""
-    if v.upcoming and not v.overdue:
-        return v.status.upper()
-    if v.status in sheet.STATUS_WORD:
-        return sheet.STATUS_WORD[v.status]
-    if v.grade_zero:
-        return "ZERO"
-    return v.status.upper()
+    """The sheet's word for a page row (moved to the items store; kept here by name)."""
+    return items_store.sheet_status(v)
 
 
 def from_views(work: items_store.OpenWork, kid: str, now: datetime) -> open_items.OpenWork:

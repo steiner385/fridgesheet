@@ -6,6 +6,7 @@ review queue is built from the first; everything saved is the second and third.
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from urllib.parse import quote, urlsplit
 from uuid import uuid4
@@ -13,17 +14,28 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from ... import dates
 from .. import outcomes
 from ..app import Db, State, render, safe_return, student_or_404
-from ..stores import items, plans
+from ..stores import items, plans, refreshes
 
 router = APIRouter()
 
-#: The review groups, named after the verdicts (web/verdicts.py) so Check-in and Assignments say
-#: the same thing about the same item (#68, #69). "Waiting on the school" is not the plan's
-#: "Waiting" state: that one is our step on hold.
-QUESTIONS, WAITING, TO_DO = "Questions", "Waiting on the school", "To do"
-QUEUES = (QUESTIONS, WAITING, TO_DO)
+#: The review groups under the plan (spec 2026-09-27 §7). "Worth checking" is what the
+#: verdicts call a question; "Waiting on the school" is not the plan's "Waiting" state, which
+#: is our own step on hold; "Other open work" is open work Must finish does not list (past
+#: its window, undated and untouched, upcoming with no Canvas row).
+WORTH_CHECKING, WAITING, OTHER_OPEN = "Worth checking", "Waiting on the school", "Other open work"
+QUEUES = (WORTH_CHECKING, WAITING, OTHER_OPEN)
+#: A question kind that opens Worth checking by itself: a zero the school may have wrong, an
+#: answer it contradicted, or a question that was asked and has since been graded (§7).
+OPENS_WORTH_CHECKING = frozenset(("submitted_hac_zero", "excused_hac_zero", "hac_lower", "stale_answer",
+                                  "asked_then_graded", "followed_up_then_graded"))
+#: The phrase key for each group's heading, so a child reads it in their own tier (spec
+#: 2026-09-27 §11). The constants above name the groups for the code and the "older" tier
+#: keeps them word for word, so `_queues()` in the tests still finds these on the default
+#: (no-grade) fixture without knowing about the phrase table.
+QUEUE_KEYS = {WORTH_CHECKING: "copy.worth_checking", WAITING: "copy.waiting_on_school", OTHER_OPEN: "copy.other_open"}
 
 
 def root(key):
@@ -69,28 +81,28 @@ def _id(value: str | None) -> int | None:
 
 
 def _group(v) -> str | None:
-    """Work that is neither a question nor waiting on the school: "To do" when it is open,
-    coming due or undated and unfinished, else nothing to talk about. Handled work and
+    """Work that is neither a question nor waiting on the school: "Other open work" when it is
+    open, coming due or undated and unfinished, else nothing to talk about. Handled work and
     existing commitments are skipped by the caller."""
     if v.outcome in (outcomes.EXCUSED, outcomes.UNPUBLISHED):
         return None
     # Undated work (HAC lists some) is never "open" or "upcoming" by date; unfinished, it still
     # deserves a look rather than silence.
     undated = v.due is None and v.outcome == outcomes.NOT_DUE
-    return TO_DO if (v.open_in or v.upcoming or undated) else None
+    return OTHER_OPEN if (v.open_in or v.upcoming or undated) else None
 
 
-def queue_for(v, covered: set[int]) -> str | None:
-    """The review group for one item at a check-in, or None to leave it out. A question
-    (web/verdicts.py) is something to clarify together; waiting on the teacher is its own
-    group; work with an agreed step is already in the plan; handled work stays out unless the
-    school has since contradicted the answer."""
-    if v.id in covered:
+def queue_for(v, covered: set[int], listed: set[int] = frozenset()) -> str | None:
+    """The review group for one item at a check-in, or None to leave it out. Work Must finish
+    lists (`listed`) is in one place only (§5); a question is something to clarify together;
+    waiting on the teacher is its own group; work with an agreed step is already in the plan;
+    handled work stays out unless the school has since contradicted the answer."""
+    if v.id in covered or v.id in listed:
         return None
     if v.handled:
-        return QUESTIONS if v.verdict.kind == "stale_answer" else None
+        return WORTH_CHECKING if v.verdict.kind == "stale_answer" else None
     if v.verdict.state == "question":
-        return QUESTIONS
+        return WORTH_CHECKING
     if v.verdict.state == "waiting":
         return WAITING
     return _group(v)
@@ -115,6 +127,41 @@ def _since(step, last_check) -> str:
     return "added"
 
 
+def witness(view, tz) -> tuple[str, dict] | None:
+    """Who says this assignment is in, or None (spec 2026-09-27 §6). Canvas, HAC or the
+    family, by name; never "the school" for the family's own answer. A stale answer -- the
+    school contradicted the family -- is nobody's witness: the step stays live."""
+    if view is None or view.verdict.kind == "stale_answer":
+        return None
+    # A zero in either source means not done, whatever Canvas's submission says (review
+    # finding 2): the school has not "got it".
+    if view.outcome == outcomes.NOT_DONE:
+        return None
+    c = view.canvas
+    if c is not None and c["submitted_at"]:
+        return "record.canvas_handed_in", {"when": dates.wd_md_time(datetime.fromisoformat(c["submitted_at"]).astimezone(tz))}
+    if view.outcome == outcomes.DONE_OFFLINE:
+        return "record.graded_in", {"source": "HAC" if view.grade_source == "hac" else "Canvas", "score": view.grade}
+    if view.flag == "done":
+        return "record.you_said_handed_in", {"when": dates.wd_md(datetime.fromisoformat(view.flag_set_at).astimezone(tz))}
+    if view.flag == "excused":
+        return "record.you_said_excused", {"when": dates.wd_md(datetime.fromisoformat(view.flag_set_at).astimezone(tz))}
+    if c is not None and c["excused"]:
+        return "record.canvas_excused", {}
+    return None
+
+
+def school_has_ids(conn, student, state) -> set[int]:
+    """Item ids of this kid's active steps whose assignment the school shows as in: what
+    the dashboard leaves out of "N steps planned today" (§8.3)."""
+    steps = [s for s in plans.for_student(conn, student["id"]) if s["state"] != "done" and s["item_id"] is not None]
+    if not steps:
+        return set()
+    views = {v.id: v for v in items.list_items(conn, student, now=state.now(), rules=state.rules(), show="all",
+                                                prefs=state.sources(), **state.window())}
+    return {s["item_id"] for s in steps if witness(views.get(s["item_id"]), state.tz) is not None}
+
+
 def _context(conn, student, state):
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
@@ -128,6 +175,8 @@ def _context(conn, student, state):
         step["view"] = view
         step["changed"] = view is not None and step["evidence"] != plans.evidence(view)
         step["since"] = _since(step, last_check)
+        step["witness"] = witness(view, state.tz) if step["state"] != "done" else None
+        step["must_word"] = ""
     # Finishing a small step does not complete its assignment: it returns to review, with the
     # family's earlier steps on it in view so the conversation does not start from zero.
     covered = {s["item_id"] for s in steps if s["state"] != "done"}
@@ -135,19 +184,37 @@ def _context(conn, student, state):
     for s in steps:
         if s["state"] == "done" and s["item_id"] is not None:
             completed_for.setdefault(s["item_id"], []).append(s)
+    work = items.open_work(conn, student, now=now, rules=rules, prefs=state.sources(), **state.window())
+    must = items.must_finish(work, now.date(), covered)
+    # Every red row, covered or not: what "Nothing due by tomorrow" must be false against, even
+    # when a family step already covers every one of them (review finding 1).
+    red_total = len(items.must_finish(work, now.date()).red)
+    listed = {v.id: v for v in work.fixable + work.upcoming}
+    for step in steps:
+        if step["item_id"] in listed and step["state"] != "done":
+            step["must_word"] = items.sheet_status(listed[step["item_id"]])
+    asked = [(v, "where.asked" if v.flag == "ask_teacher" else "where.following_up",
+              dates.wd_md(datetime.fromisoformat(v.flag_set_at).astimezone(state.tz)))
+             for v in views if v.flag in ("ask_teacher", "follow_up") and v.id not in covered]
+    seen = set(json.loads(last_check["seen"])) if last_check else set()
+    seen_day = dates.wd_md(datetime.fromisoformat(last_check["finished_at"]).astimezone(state.tz)) if last_check else ""
     queues = {label: [] for label in QUEUES}
     for v in views:
-        group = queue_for(v, covered)
+        group = queue_for(v, covered, must.ids)
         if group:
             queues[group].append(v)
+    worth_open = any(v.verdict.kind in OPENS_WORTH_CHECKING for v in queues[WORTH_CHECKING])
+    latest = refreshes.latest(conn)
+    data_as_of = latest["started_at"] if latest else None
     # Due date order, except that work past its late-credit window goes after work that can
     # still earn credit: a month-old zero must not sit above tonight's deadline. It stays
     # visible -- a cutoff in the rules is not the teacher's last word.
     for rows in queues.values():
         rows.sort(key=lambda v: bool(v.open_in) and not v.actionable)
     active = [s for s in steps if s["state"] != "done"]
-    today_steps = [s for s in active if s["state"] in ("planned", "blocked") and s["planned_for"] == today]
+    today_steps = [s for s in active if s["state"] in ("planned", "blocked") and s["planned_for"] == today and not s["witness"]]
     total = sum(s["minutes"] or 0 for s in today_steps)
+    school_has_n = sum(1 for s in active if s["witness"])
     # "Time available today" was agreed for the day of that check-in. Measured against a later
     # day's plan it told a child they were "80 min over" a budget nobody agreed to tonight (#21).
     budget_today = last_check is not None and _local_day(last_check["finished_at"], state.tz) == today
@@ -158,8 +225,11 @@ def _context(conn, student, state):
                 history=history, last_check=last_check, today=today, next_default=next_default,
                 total_minutes=total, budget_today=budget_today,
                 over=(total - last_check["available_minutes"]) if budget_today else 0,
-                unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
-                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING)
+                states=plans.STATES, today_steps_n=len(today_steps), unpicked=len(must.unpicked),
+                school_has_n=school_has_n, asked=asked,
+                finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
+                worth_group=WORTH_CHECKING, must_finish=must, red_total=red_total, seen=seen, seen_day=seen_day,
+                worth_open=worth_open, data_as_of=data_as_of, queue_keys=QUEUE_KEYS)
 
 
 @router.get("/kids/{key}/check-in")
@@ -285,6 +355,26 @@ async def delete_step(key: str, step_id: int, request: Request, conn=Db):
     return RedirectResponse(_after_save(key, safe_return(str(form.get("return_to", "")))), status_code=303)
 
 
+@router.post("/kids/{key}/check-in/step/{step_id}/complete")
+async def complete_step(key: str, step_id: int, request: Request, conn=Db, state=State):
+    """One tap on a step the school shows as in (spec 2026-09-27 §6). The family's own record,
+    with the same revision check the form makes; the app never completes a step itself."""
+    student = student_or_404(conn, key)
+    form = await request.form()
+    revision = str(form.get("revision", ""))
+    return_to = safe_return(str(form.get("return_to", "")))
+    try:
+        if not revision.isdigit():
+            raise plans.Conflict("Reload this page before completing the step.")
+        plans.complete(conn, student["id"], step_id, now=state.now().isoformat(), revision=int(revision),
+                       recorded_by=str(form.get("recorded_by", "")).strip()[:100])
+    except plans.Conflict as exc:
+        ctx = _context(conn, student, state)
+        ctx.update(error=str(exc), plan_only=request.url.path.endswith("/plan"))
+        return render(request, conn, "checkin.html", status_code=409, **ctx)
+    return RedirectResponse(_after_save(key, return_to), status_code=303)
+
+
 @router.post("/kids/{key}/check-in/finish")
 async def finish(key: str, request: Request, conn=Db, state=State):
     student = student_or_404(conn, key)
@@ -301,8 +391,10 @@ async def finish(key: str, request: Request, conn=Db, state=State):
             raise ValueError("Recorded by: a name, up to 100 characters.")
         if not 1 <= len(token) <= 100:
             raise ValueError("Reload this page before finishing the check-in.")
+        seen = _context(conn, student, state)["must_finish"].ids
         plans.finish(conn, student["id"], now=state.now().isoformat(), next_check=next_check,
-                     available_minutes=available, summary=summary, request_key=token, recorded_by=recorded_by)
+                     available_minutes=available, summary=summary, request_key=token, recorded_by=recorded_by,
+                     seen=seen)
     except ValueError as exc:
         ctx = _context(conn, student, state)
         ctx.update(error=str(exc), finish_values=dict(form), plan_only=False)

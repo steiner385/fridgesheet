@@ -252,7 +252,7 @@ Most weeks you need four screens. Everything else is for setup or for digging in
 
 | When | Do | Time |
 |---|---|---|
-| **Each evening** (phone is fine) | **Today** — each child's *N questions to answer* and *N still fixable*. Tap a number to see the rows. | 2 min |
+| **Each evening** (phone is fine) | **Today** — each child's *N questions to answer* and *N not done, due by tomorrow*. Tap a number to see the rows. | 2 min |
 | **When a question appears** | **Questions** — pick an answer, or **Email with these facts** to the teacher. | 1 min each |
 | **Once a week, with each child** | Child → **Check-in** — review together, plan a few steps, **Finish check-in**. **Print plan** for the fridge. | 15–20 min |
 | **When the sheet didn't print** | **Runs** — the reason is on the row. | 1 min |
@@ -263,12 +263,12 @@ The app and this guide use a few words that overlap. They mean:
 
 | You see | It means |
 |---|---|
-| **still fixable** (Today, Open work) | Not done or unknown, still inside its late-work window, not already answered. The short list for tonight. |
+| **still fixable** (Open work) | Not done or unknown, still inside its late-work window, not already answered. The short list for tonight. |
 | **Open** (the Assignments filter) | Still fixable, *plus* what is coming due. |
 | **Open work** (the page) | The printed sheet on a screen: still fixable, then coming due. |
-| **Questions** (page, check-in group, Assignments section) | The same question cards everywhere: only what *you* can settle. |
+| **Questions** (page, Assignments section) | The same question cards everywhere: only what *you* can settle. Check-in's own group for these is **Worth checking**. |
 | **Waiting** / **Waiting on the school** | Nothing to do yet; the app will ask you if it drags on. |
-| **To do** (check-in) | Work the child could act on — a question isn't needed. |
+| **Other open work** (check-in) | Work Must finish doesn't already list, that the child could still act on. |
 | **handled** | Answered *It's done*, *Excused*, *Let it go* or *Too late to submit*. |
 | **Let it go** → *let go* → *Let go* | One answer in three forms: the button you press, the state it leaves the item in (the row badge, the *Your answer* filter and line, Changes) and the confirmation. Every answer works this way: *Ask the teacher* → *asked the teacher* → *Asked the teacher*; *Follow up* → *following up* → *Following up*. The stored name (`ignore`) never appears on a page. |
 
@@ -281,9 +281,9 @@ The app and this guide use a few words that overlap. They mean:
 - **Start check-in · Open plan · Assignments** — the three ways into that child's pages.
 - The check-in line: *Check-in due (planned for Thu 9/24)*, *Next check-in …*, or *No
   check-in yet*; and *N steps planned today · M min*.
+- **N not done, due by tomorrow** → that child's plan, or *Nothing due by tomorrow*.
 - **N questions to answer** → the Questions page for that child, or *Nothing to answer*.
-- **N still fixable** → that child on Open work.
-- *N due today · N due tomorrow · N new since yesterday.*
+- *N new since yesterday.*
 - **School record so far** (folded): *N on time · N late · N not done · N on paper · N
   unknown · of N due so far.* Each number opens the Assignments tab filtered to those rows.
   What the words mean is in [§14](#the-outcomes).
@@ -322,21 +322,17 @@ three things apart and never lets one overwrite another:
 - **The family account** — the child's own words: "handed it in on paper Friday".
 - **The agreed next step** — one concrete step, who does it, which day.
 
-**Step 1 — Review together.** Three folded groups, each with a count:
-
-| Group | What is in it |
-|---|---|
-| **Questions** | The records disagree or say too little, and you can settle it ([§7](#questions)). |
-| **Waiting on the school** | Nothing to do yet — a grade is expected, HAC is catching up. |
-| **To do** | Work that is not done, or not due yet, that the child could act on. |
-
-Each card shows the class, the assignment (links to its row), its **School record**, any
-answer you gave before, how long late work is accepted ("Late work is usually accepted until
-… (from your late-work rules)"), and **Plan a step**. Work past its late-credit window is
-still shown, but below work that can still earn credit — the rule is your guess at the
-teacher's policy, not the teacher's last word. "These are possibilities, not tonight's
-obligations": pick a few. Anything not in the queue can be planned from **Browse all
-work**.
+**Step 1 — Must finish.** What the school record itself puts in front of you, computed fresh
+every time, not something anyone fills in: **Due tonight**, **Due tomorrow**, **Overdue, still
+fixable**, **On paper, no grade yet**, **Handed in, waiting for a grade** (folded) and **Due
+later** (folded), each with its own count. Each card shows the class, the assignment (links to
+its row), its **School record**, any answer you gave before, how long late work is accepted
+("Late work is usually accepted until … (from your late-work rules)"), and its answer buttons.
+Work past its late-credit window is still shown, but below work that can still earn credit —
+the rule is your guess at the teacher's policy, not the teacher's last word. A row leaves Must
+finish the moment the school record settles it — Canvas records a hand-in, a grade above zero
+lands, the teacher excuses or unpublishes it — or the moment you answer "It's handed in"
+yourself, or once a step has been planned for it.
 
 > **Doing this with a younger child.** The *School record* block is written in the app's
 > words, not the teacher's — "marked missing · 0 of 10" is a fact to check, not a verdict on
@@ -360,10 +356,15 @@ work**.
 **Save step**. The assignment leaves the review queue while it has a step.
 
 **Step 3 — Our next steps.** The plan so far, in **Work to do**, **Need help** and
-**Waiting**, with *M min estimated for today* against the time you last agreed ("X min over.
-Move a step to another day."). **Add a task** adds a step not tied to any assignment
-("pack gym clothes"). **Edit or complete step** opens a step again. A step whose school
-facts changed since it was saved says *School evidence changed since this step was saved*.
+**Waiting**. One line totals the night — *Tonight: N steps, M min · N must-finish not picked
+yet · N the school has, not counted* — against the time you last agreed ("X min over. Move a
+step to another day."). **Add a task** adds a step not tied to any assignment ("pack gym
+clothes"). **Edit or complete step** opens a step again. A step whose school facts changed
+since it was saved says *School evidence changed since this step was saved*.
+
+A step the school already shows as in greys out instead, with that fact named ("Canvas: handed
+in …") in place of the usual notice, and it stops counting toward tonight's minutes. **Mark
+step complete** finishes it as the family's own record.
 
 > Completing a step records the **family's** commitment, not the school's record. The
 > assignment comes back to review until Canvas or HAC shows it handed in or graded.
@@ -381,12 +382,41 @@ stood. Later edits show as *Edited since* or *Added since* that check-in instead
 rewriting it. Past agreements are listed under **Previous agreements**; they cannot be
 edited or deleted from the app.
 
+Beneath the wrap-up, three more folded groups cover what Must finish and the plan don't
+already list, each with a count: **Worth checking** — the records disagree or say too little,
+and you can settle it ([§7](#questions)); it opens itself when something there needs a second
+look, and "these are possibilities, not tonight's obligations". **Waiting on the school** —
+nothing to do yet; a grade is expected, HAC is catching up. **Other open work** — everything
+else still open that Must finish doesn't already list. Anything not in one of these can be
+planned from **Browse all work**.
+
 ### 6.2 Plan
 
-The current steps against the agreed time budget, without the review queue and wrap-up.
+The current steps against the agreed time budget, without the wrap-up form.
 Steps can still be added and edited from here (doing so currently returns you to the Check-in tab — [#128](https://github.com/steiner385/fridgesheet/issues/128)). **Print plan** opens a clean page with that child's steps, owners, dates and
 the agreed summary, and **Print / save PDF** sends it to your browser's print dialog —
 good for the fridge next to the school sheet.
+
+At the top, **Must finish** is computed from the school record every time, not something
+anyone fills in: due tonight and due tomorrow, overdue work still fixable, paper with no
+grade yet, work handed in and waiting for a grade, and what's coming due later (folded, with
+a count). A row leaves the moment the school record settles it — Canvas records a hand-in, a
+grade above zero lands, the teacher excuses or unpublishes it — or the moment you answer
+"It's handed in" yourself, or once a step has been planned for it.
+
+A step in **Our next steps** greys out once the school shows its assignment as in — Canvas
+handed in, a grade posted, or your own earlier "It's handed in" answer — with that fact named
+in place of the usual "school evidence changed" notice, and it stops counting toward
+tonight's minutes. **Mark step complete** finishes it as the family's own record; the app
+never marks a step done on the school's say-so alone.
+
+Below the plan, **Worth checking** and **Waiting on the school** are the same collapsed
+groups Check-in shows, each with a count; Worth checking opens itself when something in it —
+a zero that may be wrong, an answer the school has since contradicted — is worth a second
+look. **Check Canvas again**, beside the Must finish heading at the top of the plan, re-pulls the school record without leaving
+the page; when it finishes, the page reloads so Must finish and the as-of line are current.
+It only appears when this server runs a jobs worker, the same condition as Today's Refresh
+now.
 
 ### 6.3 Assignments
 

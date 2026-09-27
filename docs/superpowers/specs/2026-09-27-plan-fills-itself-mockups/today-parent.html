@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- MOCKUP, not product code. The grown-up Today page with the new headline per kid (spec
+     §8.3) and the "Switch to a kid's view" link under App (spec §13.4). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Today · Fridge Sheet (mockup)</title>
+<link rel="stylesheet" href="../../../../fridgesheet/web/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <h1><a href="#" class="brand"><img src="../../../../fridgesheet/web/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    <nav>
+      <a href="#" class="current">Today</a>
+      <a href="#">Doug <span class="count">2</span></a>
+      <a href="#">Maya <span class="count">5</span></a>
+      <a href="#">Sam <span class="count"></span></a>
+      <div class="group">Work</div>
+      <a href="#">Open work</a><a href="#">Questions <span class="count">7</span></a><a href="#">Reports</a><a href="#">Schedules</a>
+      <div class="group">Time</div>
+      <a href="#">Changes</a><a href="#">Trends</a>
+      <div class="group">App</div>
+      <a href="#">Runs</a><a href="#">Settings</a><a href="#">Diagnostics</a><a href="#">Switch to a kid's view</a>
+    </nav>
+  </aside>
+  <header class="status">
+    <span><span class="long">Refreshed Tue 9/29 3:05 PM</span><span class="short">Refreshed 9/29 3:05 PM</span></span>
+    <span class="ok">Canvas OK</span><span class="ok">HAC OK</span>
+    <span class="quiet">Last run <span class="badge OK">OK</span> Tue 9/29 3:06 PM <a class="muted" href="#">printed 2 pages</a></span>
+    <span class="muted quiet">Tue 9/29 7:02 PM</span>
+  </header>
+  <main>
+    <div class="page-head"><h2>Today</h2><p class="page-intro">What needs our attention?</p></div>
+    <div class="cards">
+      <div class="card">
+        <h3><a href="#">Doug</a></h3>
+        <p><a class="button-link" href="#">Start check-in</a> · <a href="#">Open plan</a> · <a href="#">Assignments</a></p>
+        <p class="family-plan">Next check-in Sun 10/4 · 2 steps planned today · 45 min</p>
+        <p class="tally"><a href="#"><span class="big">4</span> not done, due by tomorrow</a></p>
+        <p class="tally"><a href="#"><span class="big">2</span> questions to answer</a></p>
+        <details><summary>School record so far</summary><p class="record">31 on time · 2 late · <a class="warn" href="#">3 not done</a> · 12 on paper · <a class="warn" href="#">2 unknown</a> <span class="muted">· of 50 due so far</span></p></details>
+      </div>
+      <div class="card">
+        <h3><a href="#">Maya</a></h3>
+        <p><a class="button-link" href="#">Start check-in</a> · <a href="#">Open plan</a> · <a href="#">Assignments</a></p>
+        <p class="family-plan"><strong class="warn">Check-in due (planned for Mon 9/28)</strong> · No steps planned today</p>
+        <p class="tally"><a href="#"><span class="big">6</span> not done, due by tomorrow</a></p>
+        <p class="tally"><a href="#"><span class="big">5</span> questions to answer</a></p>
+        <details><summary>School record so far</summary><p class="record">20 on time · 1 late · <a class="warn" href="#">4 not done</a> · 9 on paper · <a class="warn" href="#">8 unknown</a> <span class="muted">· of 42 due so far</span></p></details>
+      </div>
+      <div class="card">
+        <h3><a href="#">Sam</a></h3>
+        <p><a class="button-link" href="#">Start check-in</a> · <a href="#">Open plan</a> · <a href="#">Assignments</a></p>
+        <p class="family-plan">Next check-in Sat 10/3 · 1 step planned today · 20 min</p>
+        <p class="tally">Nothing due by tomorrow</p>
+        <p class="tally">Nothing to answer</p>
+        <details><summary>School record so far</summary><p class="record">18 on time · 0 late · 0 not done · 6 on paper · 0 unknown <span class="muted">· of 24 due so far</span></p></details>
+      </div>
+      <div class="card">
+        <h3>Today's sheet</h3>
+        <p>3:06 PM <strong>Printed</strong> · 2 pages · Doug 6, Maya 9, Sam 1 · <a href="#">open the PDF</a></p>
+        <p class="actions"><button>Refresh now</button> <label><input type="checkbox"> Refresh data first</label> <button>Preview today's sheet</button> <button class="primary">Print now</button></p>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

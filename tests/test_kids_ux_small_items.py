@@ -41,7 +41,9 @@ def test_the_sorted_column_is_visible_without_the_arrow():
 def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     """"Fridge Sheet has no earlier grades from this class to go on, so it allows 7 days" is
     honest and it is 17 words of app reasoning on every card of a fresh install. It stays
-    on the page, inside the record."""
+    on the page, inside the record. Participation is a Must-finish row now (paper, no grade,
+    spec 2026-09-27 §4): its own "Details" disclosure still folds the same sentence, alongside
+    the once-per-class banner that leads the paper section."""
     pid = _id(tmp_path, "Participation")
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
@@ -49,8 +51,9 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     assert "allows 7 days" in card
     assert card.index('<details class="more">') < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text
-    review = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, checkin, re.S).group(0)
-    assert "allows 7 days" in review and re.search(r"<details[^>]*>\s*<summary>[^<]*</summary>\s*<p[^>]*app-count", review)
+    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
+                    checkin, re.S).group(0)
+    assert "allows 7 days" in row and re.search(r"<details[^>]*>\s*<summary>[^<]*</summary>\s*<p[^>]*app-count", row)
 
 
 def test_the_print_page_keeps_its_printer_note_off_the_page(tmp_path):

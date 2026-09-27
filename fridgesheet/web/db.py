@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -225,6 +225,14 @@ CREATE TABLE schedule_fires (
 """
 
 
+_SCHEMA_V9 = """
+-- The Must-finish item ids the list held when the check-in was finished (spec 2026-09-27
+-- §8.2): a JSON list. Not an agreement -- the school record, so a later reader can tell
+-- "seen on Sunday" from "new since Sunday". Existing rows read as an empty list.
+ALTER TABLE checkins ADD COLUMN seen TEXT NOT NULL DEFAULT '[]';
+"""
+
+
 def _migrate_v5(conn: sqlite3.Connection) -> None:
     """When the observation's missing mark, and its score, first appeared: the refresh that
     began the current run of each, carried forward across rewrites for other fields. An
@@ -424,6 +432,9 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 8:
         conn.executescript("BEGIN;\n" + _SCHEMA_V8 + "\nUPDATE schema_version SET version = 8;\nCOMMIT;")
         v = 8
+    if v < 9:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V9 + "\nUPDATE schema_version SET version = 9;\nCOMMIT;")
+        v = 9
     return v
 
 

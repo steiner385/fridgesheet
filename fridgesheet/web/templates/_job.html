@@ -7,6 +7,6 @@
     {% if pdf %}<p><a href="/jobs/{{ job.id }}/pdf">open the PDF</a></p>{% endif %}
     <pre class="log">{{ job.lines | join('\n') }}</pre>
   {% else %}
-    <pre class="log" data-sse="/jobs/{{ job.id }}/events" data-reload="/jobs/{{ job.id }}">{{ job.lines | join('\n') }}</pre>
+    <pre class="log" data-sse="/jobs/{{ job.id }}/events" data-reload="/jobs/{{ job.id }}"{% if reload_page is defined and reload_page %} data-reload-page="1"{% endif %}>{{ job.lines | join('\n') }}</pre>
   {% endif %}
 </div>

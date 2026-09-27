@@ -21,11 +21,11 @@ def test_handled_work_stays_out_of_review():
 
 def test_a_stale_answer_needs_clarification_even_when_handled():
     v = view(handled=True, open_in=set(), verdict=V.Verdict(V.QUESTION, "stale_answer"))
-    assert checkin.queue_for(v, covered=set()) == "Questions"
+    assert checkin.queue_for(v, covered=set()) == "Worth checking"
 
 
 def test_any_question_needs_clarification():
-    assert checkin.queue_for(view(verdict=V.Verdict(V.QUESTION, "hac_lower")), covered=set()) == "Questions"
+    assert checkin.queue_for(view(verdict=V.Verdict(V.QUESTION, "hac_lower")), covered=set()) == "Worth checking"
 
 
 def test_waiting_on_the_teacher_is_the_waiting_group():
@@ -38,4 +38,4 @@ def test_work_with_an_agreed_step_stays_out_of_review():
 
 
 def test_open_work_is_work_to_consider():
-    assert checkin.queue_for(view(), covered=set()) == "To do"
+    assert checkin.queue_for(view(), covered=set()) == "Other open work"

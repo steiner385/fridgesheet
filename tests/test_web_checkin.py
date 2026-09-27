@@ -6,13 +6,16 @@ one asserts the other two are untouched.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from fridgesheet.web import db, ingest
 from fridgesheet.web.stores import flags, plans
-from tests.web_fixtures import NOW, TZ, _h, app_for, seed, snapshot
+from tests.web_fixtures import NOW, TZ, _a, _h, app_for, seed, snapshot
 
 
 def _item_id(conn, name):
@@ -41,12 +44,12 @@ def _finish(**over):
 
 
 def _queues(body: str) -> dict[str, str]:
-    """The three review groups' HTML, by label, so a test can say which group a row is in."""
+    """The review groups' HTML, by label, so a test can say which group a row is in."""
     groups = re.split(r'<details class="queue-group"', body)[1:]
     out = {}
     for g in groups:
         label = re.search(r"<summary>(.*?) <span", g)
-        if label and label.group(1) in ("To do", "Questions", "Waiting on the school"):
+        if label and label.group(1) in ("Other open work", "Worth checking", "Waiting on the school"):
             out[label.group(1)] = g
     return out
 
@@ -63,14 +66,93 @@ def test_check_in_sorts_the_school_record_into_three_review_groups(tmp_path):
     r = app_for(tmp_path).get("/kids/Alex/check-in")
     assert r.status_code == 200
     q = _queues(r.text)
-    assert set(q) == {"To do", "Questions", "Waiting on the school"}
-    for name in ("Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):     # open or upcoming, nothing to explain
-        assert name in q["To do"], name
-    assert "Participation" in q["Questions"]                                     # HAC-only, a week with no grade
-    assert "Lab notebook" in q["Waiting on the school"]                          # paper, under a week: waiting, as on Assignments
-    assert "Quiz 1" not in r.text.split('id="plan"')[0]                          # HAC's 28/30 settles it (docs/outcomes.md)
+    assert set(q) == {"Other open work", "Worth checking", "Waiting on the school"}
+    assert "Homework 4" in q["Other open work"]                     # past its window: open, not fixable
+    for name in ("Vocabulary", "Worksheet 3", "Reading log", "Lab notebook", "Participation"):
+        assert name not in q["Other open work"], name               # these are in Must finish now
     assert "Essay draft" in q["Waiting on the school"]
-    assert "Essay draft" not in q["To do"]                            # submitted work is never "redo it"
+    assert "Quiz 1" not in r.text.split('id="plan"')[0]             # HAC's 28/30 settles it (docs/outcomes.md)
+
+
+def _section(body: str, key: str) -> str:
+    """The HTML of one Must-finish section, by its data-section key."""
+    m = re.search(rf'<div class="mf-section" data-section="{key}">(.*?)</div><!-- /{key} -->', body, re.S)
+    return m.group(1) if m else ""
+
+
+def test_must_finish_opens_the_plan_with_the_school_list_in_sections(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert body.index('id="must-finish"') < body.index('id="plan"')
+    assert "Vocabulary" in _section(body, "tonight") and "DUE TODAY" in _section(body, "tonight")
+    assert "Worksheet 3" in _section(body, "tomorrow")
+    assert "Reading log" in _section(body, "later")
+    paper = _section(body, "paper")
+    assert "Lab notebook" in paper and "Participation" in paper
+    assert "The school&#39;s list as of" in body      # apostrophe escaped: `say` returns plain text, autoescaped
+
+
+def test_a_must_finish_row_never_offers_too_late_or_let_it_go(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    body = c.get("/kids/Sam/plan").text
+    overdue = _section(body, "overdue")
+    assert "Cell diagram" in overdue and "Safety quiz" in overdue
+    assert 'value="too_late"' not in overdue and 'value="ignore"' not in overdue
+    assert 'value="done"' in overdue and 'value="plan:today"' in overdue
+    # The verdict table itself still carries them: the row filtered, the answers did not change.
+    from fridgesheet.web import verdicts as V
+    assert any(a.action == "too_late" for a in V.ANSWERS["not_done"])
+
+
+def test_a_paper_row_puts_handed_in_first(tmp_path):
+    seed(tmp_path).close()
+    paper = _section(app_for(tmp_path).get("/kids/Alex/plan").text, "paper")
+    lab = paper[paper.index("Lab notebook"):]
+    assert lab.index('value="done"') < lab.index('value="ask_teacher"')
+    assert re.search(r'<button name="answer" value="done" class="primary"', lab)
+
+
+def test_a_zero_on_handed_in_work_keeps_ask_the_teacher_first(tmp_path):
+    """Review Focus 2: finishing first must not mean tapping away a wrong zero."""
+    snap = snapshot()
+    sci = snap["students"]["Sam"]["canvas"]["courses"][0]
+    for a in sci["assignments"]:
+        if a["name"] == "Safety quiz":
+            a.update(state="submitted", submitted_at="2026-09-10T20:00:00-04:00", score=None, grade=None)
+    snap["students"]["Sam"]["hac"]["classes"][0]["assignments"] = [_h("Safety quiz", "09/11/2026", 0.0)]
+    conn = seed(tmp_path, snap)
+    qid = _item_id(conn, "Safety quiz")
+    conn.close()
+    overdue = _section(app_for(tmp_path).get("/kids/Sam/plan").text, "overdue")
+    # Scoped to this row alone: Safety quiz sorts before Cell diagram in "overdue" (its due
+    # date is earlier), and Cell diagram's own row legitimately has a primary "done" button --
+    # slicing to end-of-section would fail this row's checks on that account.
+    quiz = re.search(rf'<div class="mf-row[^"]*" id="mf-{qid}">.*?(?=<div class="mf-row|</div><!-- /overdue -->)',
+                     overdue, re.S).group(0)
+    assert "Zero to check" in quiz
+    assert re.search(r'<button name="answer" value="ask_teacher" class="primary"', quiz)
+    assert 'value="ignore"' not in quiz and 'value="done" class="primary"' not in quiz
+
+
+def test_a_must_finish_item_is_in_no_review_group(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    q = _queues(body)
+    for name in ("Lab notebook", "Participation"):                  # paper with no grade used to be a question or waiting
+        assert name in _section(body, "paper")
+        assert all(name not in g for g in q.values()), name
+
+
+def test_the_must_finish_ids_are_open_works_rows_minus_the_plan(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Vocabulary", planned_for="2026-09-15"), item_id=vid)
+    body = c.get("/kids/Alex/plan").text
+    ids = set(re.findall(r'id="mf-(\d+)"', body))
+    assert str(vid) not in ids and len(ids) == 4                    # Worksheet 3, Reading log, Lab notebook, Participation
 
 
 def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp_path):
@@ -86,12 +168,15 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
 
 
 def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path):
-    """Homework 4 is a month old and past its 14-day window; sorting by due date alone would put
-    it above tonight's Vocabulary. The queue keeps it visible but after the work that can still
-    earn credit."""
-    seed(tmp_path).close()
-    consider = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["To do"]
-    assert consider.index("Vocabulary") < consider.index("Worksheet 3") < consider.index("Reading log") < consider.index("Homework 4")
+    """Homework 4 is a month old and past its 14-day window; sorting by due date alone (or not
+    at all) would not put it after work that is still open and not yet past its window. The
+    queue keeps it visible but after that work -- undated, unfinished Reading project among it
+    (`checkin._context`'s `rows.sort(key=lambda v: bool(v.open_in) and not v.actionable)`)."""
+    snap = snapshot()
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
+    seed(tmp_path, snap).close()
+    other = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["Other open work"]
+    assert other.index("Reading project") < other.index("Homework 4")
 
 
 def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
@@ -99,8 +184,8 @@ def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
     seed(tmp_path, snap).close()
     q = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)
-    assert "Reading project" in q["To do"]
-    assert "no due date listed" in q["To do"]
+    assert "Reading project" in q["Other open work"]
+    assert "no due date listed" in q["Other open work"]
 
 
 def test_a_child_with_no_work_still_gets_a_working_check_in(tmp_path):
@@ -128,8 +213,12 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/check-in?saved=1#plan"
     page = c.get("/kids/Alex/check-in?saved=1").text
     assert "Saved. Your family plan is separate from the school record." in page
+    # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
+    # missing flag), so the step the family just saved is shown as "The school has it" (spec
+    # 2026-09-27 §6) -- that card still carries the family account, same as a plain plan card.
     assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
-    assert "Quiz 1" not in _queues(page)["Questions"]      # covered by an active step
+    assert "The school has it" in page
+    assert "Quiz 1" not in _queues(page)["Worth checking"]      # covered by an active step
     rows = _step_rows(tmp_path)
     assert len(rows) == 1 and rows[0]["item_id"] == qid and rows[0]["state"] == "planned" and rows[0]["revision"] == 1
 
@@ -237,14 +326,14 @@ def test_completing_a_step_does_not_mark_the_assignment_submitted(tmp_path):
     c = app_for(tmp_path)
     _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15"), item_id=cid)
     sid = _step_rows(tmp_path)[0]["id"]
-    assert "20 min estimated for today" in c.get("/kids/Sam/plan").text
+    assert "Tonight: 1 step, 20 min" in c.get("/kids/Sam/plan").text
     r = _post_step(c, "Sam", _form(title="Cell diagram", next_step="Label the 6 parts", owner="Sam", minutes="20", planned_for="2026-09-15", state="done"), step_id=sid)
     assert r.status_code == 303
     page = c.get("/kids/Sam/check-in").text
-    assert "Cell diagram" in _queues(page)["To do"]                  # back in review: still not handed in
-    assert "0 min estimated for today" in page
+    assert "Cell diagram" in _section(page, "overdue")                # back in Must finish: still not handed in
+    assert "Tonight: 0 steps, 0 min" in page
     assert "The school decides what counts as submitted." in page
-    assert f'href="/kids/Sam/check-in/step?item_id={cid}"' in page             # a second step for the same work
+    assert f'href="/kids/Sam/check-in/step?item_id={cid}&amp;return_to=' in page  # a second step for the same work
     all_work = c.get("/kids/Sam?show=all").text
     assert ">Missing · Canvas<" in all_work                                               # the school record is untouched
     conn = db.open_db(tmp_path)
@@ -272,37 +361,56 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
     later = NOW + timedelta(days=1)
     _refresh(tmp_path, snapshot(), later)
     page = app_for(tmp_path, now=later).get("/kids/Alex/plan").text
-    assert "Took it in class; HAC shows 28/30." in page and "Check again Thu 9/17" in page
-    assert "School evidence changed" not in page                                # same facts, new refresh id
+    # Quiz 1 is done_offline (HAC's 28/30 beats Canvas's automatic missing flag), so the step
+    # shows as "The school has it" (spec 2026-09-27 §6) -- but that card still carries the
+    # family's account and the step's own "Check again" wording, the same as a plain card.
+    assert "The school has it" in page and "Check again Thu 9/17" in page
+    assert "Took it in class; HAC shows 28/30." in page
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])[qid]
     assert obs["canvas"]["missing"] == 1 and obs["hac"]["score"] == 28.0       # the school's facts, as the school said them
     assert flags.active(conn, qid)["flag"] == "follow_up"                       # the old flag path is untouched
     assert conn.execute("SELECT COUNT(*) FROM refreshes").fetchone()[0] == 2
     conn.close()
+    # A witnessed step is still greyed, not silenced: a later refresh that actually changes
+    # Canvas's mark must still tell the family -- the worst case is a witnessed step whose
+    # school evidence moved and nobody is told.
+    moved = snapshot()
+    for a in moved["students"]["Alex"]["canvas"]["courses"][0]["assignments"]:
+        if a["name"] == "Quiz 1":
+            a["missing"] = False
+    day3 = NOW + timedelta(days=2)
+    _refresh(tmp_path, moved, day3)
+    page = app_for(tmp_path, now=day3).get("/kids/Alex/plan").text
+    assert "The school has it" in page                                          # still done_offline: still witnessed
+    assert "School evidence changed since this step was saved" in page
 
 
 def test_evidence_change_notice_follows_facts_not_refresh_ids(tmp_path):
+    # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
+    # missing flag), so any step on it is shown as "The school has it" (spec 2026-09-27 §6),
+    # which never carries this notice -- Homework 4 (past its window, still open, no HAC row)
+    # stands in for the item whose Canvas record changes but stays a plain plan card.
     conn = seed(tmp_path)
-    qid, lid = _item_id(conn, "Quiz 1"), _item_id(conn, "Lab notebook")
+    hid, lid = _item_id(conn, "Homework 4"), _item_id(conn, "Lab notebook")
     conn.close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(state="waiting"), item_id=qid)
+    _post_step(c, "Alex", _form(title="Homework 4", state="waiting"), item_id=hid)
     _post_step(c, "Alex", _form(title="Lab notebook", state="waiting", family_account="On paper Tuesday"), item_id=lid)
     day2 = NOW + timedelta(days=1)
     _refresh(tmp_path, snapshot(), day2)
     assert "School evidence changed" not in app_for(tmp_path, now=day2).get("/kids/Alex/plan").text
     fixed = snapshot()
-    for a in fixed["students"]["Alex"]["canvas"]["courses"][0]["assignments"]:
-        if a["name"] == "Quiz 1":
-            a["missing"], a["state"], a["score"], a["grade"] = False, "graded", 28.0, "28"
+    for a in fixed["students"]["Alex"]["canvas"]["courses"][1]["assignments"]:
+        if a["name"] == "Homework 4":
+            a["missing"] = False
     day3 = NOW + timedelta(days=2)
     _refresh(tmp_path, fixed, day3)
     page = app_for(tmp_path, now=day3).get("/kids/Alex/plan").text
     cards = page.split('<article class="card plan-card">')[1:]
-    quiz = next(x for x in cards if "Quiz 1" in x)
+    homework = next(x for x in cards if "Homework 4" in x)
     lab = next(x for x in cards if "Lab notebook" in x)
-    assert "School evidence changed since this step was saved" in quiz
+    assert "School evidence changed since this step was saved" in homework
     assert "School evidence changed" not in lab and "On paper Tuesday" in lab
 
 
@@ -372,7 +480,7 @@ def test_each_childs_pages_show_only_their_own_steps_even_with_shared_canvas_ids
     zoe = c.get("/kids/Zo%C3%AB%20Q/check-in").text
     assert "Alex asks Mr. Hoch" in alex and "Zoë asks Mr. Hoch" not in alex
     assert "Zoë asks Mr. Hoch" in zoe and "Alex asks Mr. Hoch" not in zoe
-    assert "Quiz 1" not in _queues(zoe)["Questions"]
+    assert "Quiz 1" not in _queues(zoe)["Worth checking"]
     assert 'href="/kids/Zo%C3%ABQ' not in zoe and 'href="/kids/Zo%C3%AB%20Q/plan"' in zoe   # the key survives every link
     assert 'href="/kids/Zo%C3%AB%20Q/check-in"' in c.get("/").text
 
@@ -427,7 +535,7 @@ def test_the_plan_compares_todays_estimate_with_the_agreed_budget_and_flags_a_du
     _post_step(c, "Sam", _form(title="Ask Mr. Kim", owner="Sam", state="waiting", planned_for="2026-09-15"))
     c.post("/kids/Sam/check-in/finish", data=_finish(available_minutes="20", next_check="2026-09-14"), follow_redirects=False)
     page = c.get("/kids/Sam/plan").text
-    assert "25 min estimated for today" in page                                 # waiting steps carry no minutes today
+    assert "Tonight: 2 steps, 25 min" in page                                    # waiting steps carry no minutes today
     assert "25 min planned today, 20 min available: 5 min over. Move a step to another day." in page
     assert "time to check in" in page                                           # next check-in was yesterday
 
@@ -464,7 +572,7 @@ def test_child_nav_joins_the_workspaces_and_all_work_keeps_its_filters(tmp_path)
     # On a phone the queue runs screens before the plan: the check-in page's strip at the bottom
     # of the screen names both halves (#189); the plan page is one half and has none.
     checkin = c.get("/kids/Alex/check-in").text
-    assert '<nav class="halves" aria-label="Check-in sections"><a href="#review-heading">Review ' in checkin
+    assert '<nav class="halves" aria-label="Check-in sections"><a href="#must-finish">Must finish ' in checkin
     assert 'href="#plan">Next steps ' in checkin
     assert 'class="halves"' not in c.get("/kids/Alex/plan").text
     table = c.get("/kids/Alex?show=all&flagged=none&sort=name").text
@@ -502,12 +610,33 @@ def test_finishing_needs_a_few_words_about_what_was_agreed(tmp_path):
     conn.close()
 
 
-def test_review_groups_with_something_in_them_start_open(tmp_path):
+def test_only_worth_checking_opens_itself_and_only_when_something_there_needs_a_look(tmp_path):
+    """Spec 2026-09-27 §7: a review group used to start open whenever it held a row; now only
+    "Worth checking" pries itself open, and only when one of its rows is a kind that opens it
+    by itself (`checkin.OPENS_WORTH_CHECKING`). Neither kid's fixture has one, so nothing before
+    Must finish grabs the family's attention on its own."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 3
-    sam = c.get("/kids/Sam/check-in").text                        # no questions, nothing waiting: only To do
-    assert sam.count('<details class="queue-group" open>') == 1
+    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 0
+    assert c.get("/kids/Sam/check-in").text.count('<details class="queue-group" open>') == 0
+
+
+def test_worth_checking_opens_itself_when_a_row_there_is_the_kind_that_does(tmp_path):
+    """The positive case: a `checkin.OPENS_WORTH_CHECKING` kind (here `hac_lower` -- Canvas
+    graded higher than HAC on the same item) opens "Worth checking" by itself, and only that
+    group."""
+    snap = snapshot()
+    eng = snap["students"]["Alex"]["canvas"]["courses"][0]
+    for a in eng["assignments"]:
+        if a["name"] == "Quiz 1":
+            a.update(missing=False, state="graded", score=30.0, grade="30")
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"] = [_h("Quiz 1", "09/12/2026", 20.0, points=30.0)]
+    seed(tmp_path, snap).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    assert body.count('<details class="queue-group" open>') == 1
+    assert '<details class="queue-group" open>\n    <summary>Worth checking' in body
+    assert '<details class="queue-group" >\n    <summary>Waiting on the school' in body
+    assert '<details class="queue-group" >\n    <summary>Other open work' in body
 
 
 def test_steps_say_who_recorded_them_and_when(tmp_path):
@@ -580,6 +709,8 @@ def test_a_child_with_no_check_in_yet_is_invited_on_today(tmp_path):
 
 
 def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps(tmp_path):
+    # Lab notebook is Must finish's now (paper, no grade), never a review card again -- but its
+    # row still carries the same "N completed steps · last account" line (spec 2026-09-27 §4).
     conn = seed(tmp_path)
     lid = _item_id(conn, "Lab notebook")
     conn.close()
@@ -588,10 +719,24 @@ def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps
     page = c.get("/kids/Alex/check-in").text
     completed = page.split("Completed steps")[1]
     assert "Mr. Hoch emailed: he has it." in completed
+    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % lid,
+                    page, re.S).group(0)
+    assert "1 completed step" in row and "Mr. Hoch emailed: he has it." in row
+
+
+def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
+    """The same line, on a row that stays a review card (Essay draft, "waiting on the school",
+    is not fixable or upcoming and so is never Must finish's)."""
+    conn = seed(tmp_path)
+    eid = _item_id(conn, "Essay draft")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=eid)
+    page = c.get("/kids/Alex/check-in").text
     card = _queues(page)["Waiting on the school"]
-    lab = card.split('<article class="card review-card"')
-    lab = next(x for x in lab if "Lab notebook" in x)
-    assert "1 completed step" in lab and "Mr. Hoch emailed: he has it." in lab
+    essay = card.split('<article class="card review-card"')
+    essay = next(x for x in essay if "Essay draft" in x)
+    assert "1 completed step" in essay and "Mr. Hoch emailed: he has it." in essay
 
 
 def test_the_manual_task_form_says_what_it_is_for(tmp_path):
@@ -731,3 +876,263 @@ def test_order_is_optional_and_a_blank_one_goes_last(tmp_path):
     rows = {(r["title"], r["planned_for"]): r["position"] for r in _step_rows(tmp_path)}
     assert rows[("Quiz 1", "2026-09-16")] < rows[("Vocabulary", "2026-09-16")]      # second that day sorts after the first
     assert rows[("Reading log", "2026-09-17")] == rows[("Quiz 1", "2026-09-16")]     # a new day starts over
+
+
+# --- spec 2026-09-27: seen ids, one-tap complete, excluded steps -----------------------------
+
+def test_finishing_records_which_must_finish_ids_the_list_held(tmp_path):
+    conn = seed(tmp_path)
+    plans.finish(conn, 1, now=NOW.isoformat(), next_check="2026-09-20", available_minutes=30, summary="x",
+                 request_key=str(uuid4()), seen=[81, 80])
+    last = plans.last_checkin(conn, 1)
+    assert last["seen"] == "[80, 81]"
+    plans.finish(conn, 1, now=NOW.isoformat(), next_check="2026-09-21", available_minutes=30, summary="y", request_key=str(uuid4()))
+    assert plans.last_checkin(conn, 1)["seen"] == "[]"
+    conn.close()
+
+
+def test_complete_marks_a_step_done_with_the_revision_check(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    values = {k: v for k, v in _form(title="Vocabulary").items() if k in plans.FIELDS}
+    values.update(minutes=None, position=10, evidence="{}", recorded_by="")
+    sid = plans.save(conn, 1, values, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vid)
+    plans.complete(conn, 1, sid, now=NOW.isoformat(), revision=1, recorded_by="Dad")
+    step = plans.one(conn, 1, sid)
+    assert (step["state"], step["revision"], step["recorded_by"]) == ("done", 2, "Dad")
+    with pytest.raises(plans.Conflict):
+        plans.complete(conn, 1, sid, now=NOW.isoformat(), revision=1)        # stale revision
+    with pytest.raises(plans.Conflict):
+        plans.complete(conn, 2, sid, now=NOW.isoformat(), revision=2)        # another child's id
+    conn.close()
+
+
+def test_today_load_leaves_out_steps_the_school_has(tmp_path):
+    conn = seed(tmp_path)
+    vid = _item_id(conn, "Vocabulary")
+    base = {k: v for k, v in _form(planned_for="2026-09-15").items() if k in plans.FIELDS}
+    base.update(position=10, evidence="{}", recorded_by="")
+    plans.save(conn, 1, {**base, "minutes": 20}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vid)
+    plans.save(conn, 1, {**base, "title": "Other", "minutes": 10}, now=NOW.isoformat(), request_key=str(uuid4()))
+    assert plans.today_load(conn, 1, "2026-09-15") == (2, 30)
+    assert plans.today_load(conn, 1, "2026-09-15", exclude={vid}) == (1, 10)
+    conn.close()
+
+
+def _plan_step_for(c, conn, key, name, **over):
+    iid = _item_id(conn, name)
+    _post_step(c, key, _form(title=name, planned_for="2026-09-15", **over), item_id=iid)
+    return iid
+
+
+def test_a_step_the_school_shows_as_in_is_greyed_with_canvas_as_the_witness(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft", minutes="20")          # submitted 9/14 8 pm
+    _plan_step_for(c, conn, "Alex", "Vocabulary", minutes="15")           # not handed in
+    conn.close()
+    body = c.get("/kids/Alex/plan").text
+    panel = body[body.index('id="plan"'):]
+    assert "The school has it" in panel
+    assert "Canvas: handed in Mon 9/14 8:00 PM" in panel
+    assert "Mark step complete" in panel
+    assert "Tonight: 1 step, 15 min" in panel and "1 the school has, not counted" in panel
+    assert "3 must-finish not picked yet" in panel                         # Worksheet 3, Lab notebook, Participation; Vocabulary is covered
+
+
+def test_a_hac_zero_keeps_a_step_off_the_school_has_it_list(tmp_path):
+    """Review finding 2 (Review Focus 2): a HAC zero is not done whatever Canvas's submission
+    says -- the school has not "got it", so a step on it must not grey out as though it had."""
+    snap = snapshot()
+    sci = snap["students"]["Sam"]["canvas"]["courses"][0]
+    for a in sci["assignments"]:
+        if a["name"] == "Safety quiz":
+            a.update(state="submitted", submitted_at="2026-09-10T20:00:00-04:00", score=None, grade=None)
+    snap["students"]["Sam"]["hac"]["classes"][0]["assignments"] = [_h("Safety quiz", "09/11/2026", 0.0)]
+    conn = seed(tmp_path, snap)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Sam", "Safety quiz", owner="Sam", minutes="10")
+    conn.close()
+    panel = c.get("/kids/Sam/plan").text.split('id="plan"')[1]
+    assert "The school has it" not in panel
+    assert "Canvas: handed in" not in panel
+    assert "Tonight: 1 step, 10 min" in panel                              # the step counts; nothing greyed it out
+
+
+def test_the_familys_own_done_answer_is_named_as_theirs(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    vid = _plan_step_for(c, conn, "Alex", "Vocabulary")
+    flags.set_flag(conn, vid, "done", now="2026-09-15T13:00:00-04:00")
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "You answered It&#39;s handed in, Tue 9/15" in panel   # apostrophe escaped: say returns plain text, autoescaped
+    assert "Canvas: handed in" not in panel and "school says" not in panel.lower()
+
+
+def test_a_stale_answer_ungreys_the_step(tmp_path):
+    """Review Focus 3: the school contradicted the family's `done`; the step is live again."""
+    from tests.web_fixtures import history
+    conn = history(tmp_path)                                                # Quiz 1: HAC 28/30 day 2, Canvas MISSING day 3
+    c = app_for(tmp_path)
+    qid = _plan_step_for(c, conn, "Alex", "Quiz 1", minutes="10")
+    flags.set_flag(conn, qid, "done", now="2026-09-14T09:00:00-04:00")      # answered before day 3's mark
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "The school has it" not in panel
+    assert "Tonight: 1 step, 10 min" in panel
+
+
+def test_mark_step_complete_is_one_post_with_the_revision(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft")
+    (step,) = _step_rows(tmp_path)
+    conn.close()
+    r = c.post(f"/kids/Alex/check-in/step/{step['id']}/complete", data={"revision": "1", "recorded_by": "Mom"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/kids/Alex/check-in?saved=1#plan"
+    (step,) = _step_rows(tmp_path)
+    assert (step["state"], step["revision"], step["recorded_by"]) == ("done", 2, "Mom")
+    r = c.post(f"/kids/Alex/check-in/step/{step['id']}/complete", data={"revision": "1"})
+    assert r.status_code == 409 and "changed in another window" in r.text
+
+
+def test_a_covered_step_carries_the_sheets_word(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Worksheet 3")
+    conn.close()
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "Must finish · DUE TOMORROW" in panel
+
+
+def test_asked_the_school_lines_sit_above_worth_checking(tmp_path):
+    conn = seed(tmp_path)
+    lab = _item_id(conn, "Lab notebook")
+    flags.set_flag(conn, lab, "ask_teacher", now="2026-09-13T09:00:00-04:00")
+    conn.close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert "Asked the school" in body and "Lab notebook</a>: Asked the teacher on Sun 9/13" in body
+    assert body.index("Asked the school") < body.index("Worth checking")
+
+
+def test_finishing_a_check_in_snapshots_the_must_finish_ids_and_rows_badge_against_it(tmp_path):
+    conn = seed(tmp_path)
+    vid, wid = _item_id(conn, "Vocabulary"), _item_id(conn, "Worksheet 3")
+    conn.close()
+    c = app_for(tmp_path)
+    assert "'s list" not in c.get("/kids/Alex/plan").text                       # no check-in yet: no badge
+    r = c.post("/kids/Alex/check-in/finish", data=_finish(), follow_redirects=False)
+    assert r.status_code == 303
+    conn = db.open_db(tmp_path)
+    seen = json.loads(plans.last_checkin(conn, 1)["seen"])
+    conn.close()
+    assert vid in seen and wid in seen
+    body = c.get("/kids/Alex/plan").text
+    assert body.count("On Tue 9/15&#39;s list") == 5                               # Vocabulary, Worksheet 3, Reading log, Lab notebook, Participation (apostrophe escaped)
+    assert "New since Tue 9/15" not in body
+
+
+def test_a_row_that_appears_after_the_check_in_is_new_since(tmp_path):
+    """Review Focus 4: an empty list at finish means nothing is "on the list" later."""
+    snap = snapshot()
+    snap["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
+                               "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
+    conn = seed(tmp_path, snap)
+    conn.close()
+    c = app_for(tmp_path)
+    c.post("/kids/Kim/check-in/finish", data=_finish(), follow_redirects=False)
+    conn = db.open_db(tmp_path)
+    kim = conn.execute("SELECT id FROM students WHERE key = 'Kim'").fetchone()["id"]
+    assert plans.last_checkin(conn, kim)["seen"] == "[]"
+    conn.close()
+    later = snapshot()
+    later["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
+                                "canvas": {"courses": [{"id": 9, "name": "Art 6 S1-2027-Ng", "course_code": "ART6",
+                                    "grade": {"current_score": None, "final_score": None, "current_grade": None, "hidden": False},
+                                    "staff": [], "assignments": [_a(300, "Sketchbook", "09-16")]}]},
+                                "hac": {"week_view": [], "classes": []}}
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, later, tz=TZ, now=NOW + timedelta(hours=1))
+    conn.close()
+    body = c.get("/kids/Kim/plan").text
+    assert "Sketchbook" in body and "New since Tue 9/15" in body and "'s list" not in body
+
+
+def test_the_printed_plan_leads_with_must_finish_as_boxes_and_names_people(tmp_path):
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Essay draft", recorded_by="Mom")
+    conn.close()
+    c.post("/kids/Alex/check-in/finish", data=_finish(recorded_by="Dad"), follow_redirects=False)
+    body = c.get("/kids/Alex/plan/print").text
+    assert body.index("Must finish") < body.index("Our next steps")
+    assert "□ Vocabulary" in body and "□ Worksheet 3" in body
+    assert "□ Lab notebook" not in body and "Reading log" not in body                # paper and later stay off paper
+    assert "The school&#39;s list as of Tue 9/15" in body and "It changes daily" in body
+    assert "On Tue 9/15&#39;s list" in body
+    assert "Recorded by Dad" in body and "by Mom" in body
+    assert "The school has it" in body and "Canvas: handed in" in body and "□ Essay draft" not in body
+    assert "Worth checking" not in body
+
+
+def test_a_covered_red_step_still_shows_as_due_on_the_printed_plan(tmp_path):
+    """Review finding 1: a step on Vocabulary covers it in Must finish's own list, but it is
+    still not done -- the printed plan must not say "Nothing due by tomorrow", and the step
+    itself must still carry the Must finish badge."""
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Vocabulary", minutes="15")
+    conn.close()
+    body = c.get("/kids/Alex/plan/print").text
+    assert "Nothing due by tomorrow" not in body
+    assert "Must finish · DUE TODAY" in body
+
+
+def test_the_plan_page_offers_check_canvas_again_only_with_a_worker(tmp_path):
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    without = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert "Check Canvas again" not in without
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    application.state.fridgesheet.jobs = jobs.Worker(application.state.fridgesheet, actions=None)
+    with_worker = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    assert "Check Canvas again" in with_worker and 'hx-post="/jobs/refresh"' in with_worker and '"reload_page": "1"' in with_worker
+
+
+def test_a_running_non_refresh_job_does_not_appear_under_must_finish(tmp_path):
+    """Review finding 5: a doctor (or any non-refresh) job in progress is not this button's own
+    progress card, and it would never reload the page when it finished, so it must not show."""
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    w = jobs.Worker(application.state.fridgesheet, actions=None)
+    application.state.fridgesheet.jobs = w
+    job = w.submit("doctor")
+    assert job is not None and not job.done                        # queued, never run: still "current"
+    body = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    section = body[body.index('id="must-finish"'):body.index('id="plan"')]
+    assert '<div id="job"></div>' in section
+    assert "Running diagnostics" not in section and "data-sse" not in section
+
+
+def test_a_running_refresh_job_still_shows_and_still_reloads_the_plan(tmp_path):
+    """The refresh button's own progress card is unaffected by finding 5's fix."""
+    from fastapi.testclient import TestClient
+    from fridgesheet import config
+    from fridgesheet.web import app as webapp, jobs
+    from tests.web_fixtures import LOCAL_HOST_HEADERS
+    seed(tmp_path).close()
+    application = webapp.create_app(config.Settings(home=tmp_path), worker=False)
+    w = jobs.Worker(application.state.fridgesheet, actions=None)
+    application.state.fridgesheet.jobs = w
+    job = w.submit("refresh")
+    assert job is not None and not job.done
+    body = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
+    assert 'data-reload-page="1"' in body

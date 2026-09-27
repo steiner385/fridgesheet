@@ -84,24 +84,39 @@ def history(conn, student_id):
     return result
 
 
-def finish(conn, student_id, *, now, next_check, available_minutes, summary, request_key, recorded_by=""):
+def finish(conn, student_id, *, now, next_check, available_minutes, summary, request_key, recorded_by="", seen=()):
     # Keep a snapshot of the agreement, so subsequent edits do not rewrite the conversation.
+    # `seen` is the school's list at that moment, kept apart from the plan (spec 2026-09-27 §8.2).
     with conn:
         conn.execute("BEGIN IMMEDIATE")
         plan = [s for s in for_student(conn, student_id) if s["state"] != "done"]
         conn.execute(
-            "INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, recorded_by, request_key) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_key) DO NOTHING",
-            (student_id, now, next_check, available_minutes, summary, json.dumps(plan), recorded_by, request_key))
+            "INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, recorded_by, request_key, seen) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(request_key) DO NOTHING",
+            (student_id, now, next_check, available_minutes, summary, json.dumps(plan), recorded_by, request_key,
+             json.dumps(sorted(int(i) for i in seen))))
 
 
-def today_load(conn, student_id, today: str) -> tuple[int, int]:
+def complete(conn, student_id, step_id, *, now, revision, recorded_by=""):
+    """One tap: the step is done, in the family's own record. The same revision check `save`
+    makes, so a step edited in another window is not closed underneath its editor."""
+    cur = conn.execute(
+        "UPDATE plan_steps SET state = 'done', recorded_by = ?, updated_at = ?, revision = revision + 1 "
+        "WHERE student_id = ? AND id = ? AND revision = ?", (recorded_by, now, student_id, step_id, revision))
+    if not cur.rowcount:
+        raise Conflict("This step changed in another window. Reload the page and try again.")
+
+
+def today_load(conn, student_id, today: str, exclude=frozenset()) -> tuple[int, int]:
     """(steps, minutes) the family planned for `today`: work to do and help-needed steps dated
-    today. Waiting steps are on the teacher, and their date is when to look again."""
-    row = conn.execute(
-        "SELECT COUNT(*) AS n, COALESCE(SUM(minutes), 0) AS m FROM plan_steps "
-        "WHERE student_id = ? AND planned_for = ? AND state IN ('planned', 'blocked')", (student_id, today)).fetchone()
-    return row["n"], row["m"]
+    today. Waiting steps are on the teacher, and their date is when to look again. Steps on
+    work the school now shows as handed in (`exclude`, item ids) are left out, as the plan
+    page leaves them out of its total (spec 2026-09-27 §6)."""
+    rows = conn.execute(
+        "SELECT item_id, minutes FROM plan_steps WHERE student_id = ? AND planned_for = ? AND state IN ('planned', 'blocked')",
+        (student_id, today)).fetchall()
+    kept = [r for r in rows if r["item_id"] is None or r["item_id"] not in exclude]
+    return len(kept), sum(r["minutes"] or 0 for r in kept)
 
 
 def last_checkin(conn, student_id):

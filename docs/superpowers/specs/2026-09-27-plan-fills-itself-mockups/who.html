@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- MOCKUP, not product code. The chooser at /who (spec §13.1). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who's looking? · Fridge Sheet (mockup)</title>
+<link rel="stylesheet" href="../../../../fridgesheet/web/static/app.css">
+<style>
+  .who { max-width: 520px; margin: 48px auto; text-align: center; }
+  .who h2 { font-size: 28px; margin: 0 0 8px; }
+  .who p { color: var(--muted); margin: 0 0 24px; }
+  .who form { display: grid; gap: 12px; }
+  .who button { font-size: 22px; padding: 18px; border-radius: 12px; border: 1px solid var(--rule); background: var(--paper); cursor: pointer; }
+  .who button.grownup { font-size: 16px; padding: 12px; background: var(--wash); color: var(--muted); margin-top: 12px; }
+</style>
+</head>
+<body class="print-page">
+<main>
+  <div class="who">
+    <h1><a href="#" class="brand"><img src="../../../../fridgesheet/web/static/mark.svg" alt="" width="28" height="28"> Fridge Sheet</a></h1>
+    <h2>Who's looking?</h2>
+    <p>This browser will remember. You can change it any time.</p>
+    <form>
+      <button type="button">Doug</button>
+      <button type="button">Maya</button>
+      <button type="button">Sam</button>
+      <button type="button" class="grownup">A grown-up</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>

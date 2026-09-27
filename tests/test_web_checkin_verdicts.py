@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from tests.web_fixtures import app_for, seed
+from tests.web_fixtures import _h, app_for, seed, snapshot
 
 
 def _groups(body):
@@ -29,11 +29,15 @@ def _id(tmp_path, name):
 def test_check_in_groups_follow_the_verdicts(tmp_path):
     seed(tmp_path).close()
     g = _groups(app_for(tmp_path).get("/kids/Alex/check-in").text)
-    assert list(g)[:3] == ["Questions", "Waiting on the school", "To do"]     # the review groups, in this order
-    assert "Participation" in g["Questions"] and "Lab notebook" not in g["Questions"]
-    assert "Lab notebook" in g["Waiting on the school"] and "Essay draft" in g["Waiting on the school"]
-    for name in ("Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
-        assert name in g["To do"], name
+    # "Completed steps" (the plan panel's own fold) now sits ahead of the review groups in the
+    # document (Must finish, then the plan, then the queue -- spec 2026-09-27 §4-§7).
+    assert list(g)[1:4] == ["Worth checking", "Waiting on the school", "Other open work"]
+    assert "Lab notebook" not in g["Waiting on the school"]           # paper, no grade: Must finish's now
+    assert "Participation" not in "".join(g.values())                 # HAC-only, a week with no grade: same
+    assert "Essay draft" in g["Waiting on the school"]
+    assert "Homework 4" in g["Other open work"]
+    for name in ("Vocabulary", "Worksheet 3", "Reading log"):         # upcoming: Must finish's now
+        assert name not in g["Other open work"], name
     assert "Quiz 1" not in "".join(g.values())                     # decided: nothing to talk about
 
 
@@ -44,18 +48,28 @@ def test_the_evidence_never_asks_what_the_verdict_has_not(tmp_path):
 
 
 def test_the_rail_count_is_the_check_ins_questions(tmp_path):
+    """The rail count is every "asks" verdict for the kid, wherever it now renders: a review
+    card in "Worth checking", or a Must-finish row (spec 2026-09-27 §4) -- Participation,
+    HAC-only with no grade, still asks from its own row there ("Was it handed in?")."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     rail = re.search(r'href="/kids/Alex/check-in"[^>]*>Alex <span id="qcount-Alex" class="count">(\d+)</span>', body)
-    assert rail and int(rail.group(1)) == len(re.findall(r'<article class="card review-card', _groups(body)["Questions"]))
+    worth_asks = len(re.findall(r'<article class="card review-card', _groups(body)["Worth checking"]))
+    must_finish = re.search(r'<section id="must-finish".*?</section>', body, re.S).group(0)
+    mf_rows = re.split(r'id="mf-\d+"', must_finish)[1:]           # one split per row's own id
+    mf_asks = sum(1 for row in mf_rows if '<p class="ask">' in row)
+    assert rail and int(rail.group(1)) == worth_asks + mf_asks
 
 
 # --- #69: same words, answers on the card, a link to the item ---------------------------------
 
 def test_a_check_in_question_card_can_be_answered_and_opens_the_item(tmp_path):
+    """Participation (HAC-only, a week with no grade) asks, and it is a Must-finish row now
+    (paper, no grade) -- not a review card, but the same one-tap answer pattern (spec
+    2026-09-27 §4: Must-finish rows use `qc-<id>` too, so the answer route swaps either)."""
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
-    card = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S).group(0)
+    card = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?</div><!-- /paper -->' % pid, body, re.S).group(0)
     assert "Was it handed in?" in card
     assert f'hx-post="/items/{pid}/answer"' in card and 'name="slot" value="qc-%d"' % pid in card
     assert f'href="/kids/Alex?show=all#row-{pid}"' in card
@@ -90,7 +104,9 @@ def test_canvas_and_hac_are_explained(tmp_path):
 # --- the pace sentence (spec 4.6) --------------------------------------------------------------
 
 def test_a_waiting_card_says_what_fridge_sheet_expects_and_why(tmp_path):
-    """Lab notebook: paper, due 9/10, no grade, no history -> the default sentence."""
+    """Essay draft: submitted, ungraded, no history -> the default sentence. (Lab notebook
+    carries the same pace facts, but it is Must finish's now -- paper, no grade -- and no
+    longer a review card; Essay draft is still one, and still shows it.)"""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     card = _groups(body)["Waiting on the school"]
@@ -108,7 +124,13 @@ def test_the_pace_sentence_shows_on_the_question_card_too(tmp_path):
 # --- one tap on every card (spec 6.2, 6.5) --------------------------------------------------------
 
 def _card(body, pid):
-    return re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S).group(0)
+    """One item's card, wherever it lives now: a review-card in a queue, or a Must-finish row
+    (spec 2026-09-27 §4 moved the upcoming/fixable rows there, out of the review groups)."""
+    m = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S)
+    if m:
+        return m.group(0)
+    return re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
+                     body, re.S).group(0)
 
 
 def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
@@ -119,9 +141,12 @@ def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
 
 
 def test_an_upcoming_card_also_offers_too_late_to_submit(tmp_path):
-    """The manual override sits beside done/plan:today/plan:tomorrow on any not-yet-done card."""
-    vid = _id(tmp_path, "Vocabulary")
-    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, vid)
+    """The manual override sits beside done/plan:today/plan:tomorrow on any not-yet-done review
+    card. Vocabulary would have shown it too, before it was Must finish's -- Must finish drops
+    "too late" and "let it go" from every row on purpose (spec 2026-09-27 §4.4), so this now
+    uses Homework 4, past its window and still a review card ("Other open work")."""
+    hid = _id(tmp_path, "Homework 4")
+    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, hid)
     assert 'value="too_late"' in card and "Too late to submit" in card
 
 
