@@ -404,7 +404,7 @@ never marks a step done on the school's say-so alone.
 Below the plan, **Worth checking** and **Waiting on the school** are the same collapsed
 groups Check-in shows, each with a count; Worth checking opens itself when something in it —
 a zero that may be wrong, an answer the school has since contradicted — is worth a second
-look. **Check Canvas again**, beside Add a task, re-pulls the school record without leaving
+look. **Check Canvas again**, beside the Must finish heading at the top of the plan, re-pulls the school record without leaving
 the page; when it finishes, the page reloads so Must finish and the as-of line are current.
 It only appears when this server runs a jobs worker, the same condition as Today's Refresh
 now.
