@@ -147,3 +147,33 @@ def test_still_ungraded_says_longer_than_usual_at_every_tier_without_a_number():
     for tier in tiers.TIERS:
         words = phrasing.phrase("facts.still_ungraded", tier)
         assert "week" not in words.lower() and not re.search(r"\d", words), (tier, words)
+
+
+MUST_FINISH_KEYS = (
+    "copy.must_finish", "copy.must_finish_hint", "copy.list_as_of", "copy.due_tonight", "copy.due_tomorrow",
+    "copy.overdue_fixable", "copy.on_paper_no_grade", "copy.handed_in_waiting", "copy.coming_due_later",
+    "copy.worth_checking", "copy.other_open", "copy.school_has_it", "copy.tonight_steps", "copy.tonight_unpicked",
+    "copy.tonight_school_has", "copy.check_again", "copy.asked_the_school", "copy.nothing_due",
+    "copy.not_done_due_by_tomorrow", "copy.details", "badge.must_finish", "badge.zero_to_check", "badge.changed_since_answer",
+    "badge.seen_at_checkin", "badge.new_since_checkin", "record.canvas_handed_in", "record.graded_in",
+    "record.you_said_handed_in", "record.you_said_excused", "record.canvas_excused", "a.mark_step_complete",
+)
+
+
+@pytest.mark.parametrize("key", MUST_FINISH_KEYS)
+def test_the_must_finish_words_exist_in_three_tiers(key):
+    """Spec 2026-09-27 §11: every heading, badge and button on the plan page is in the table."""
+    assert set(phrasing.PHRASES[key]) == set(tiers.TIERS), key
+    assert all(phrasing.PHRASES[key][t].strip() for t in tiers.TIERS), key
+
+
+def test_the_early_tier_says_the_school_has_it_and_never_says_estimate():
+    assert phrasing.phrase("copy.school_has_it", "early") == "The school has it"
+    assert "estimate" not in phrasing.phrase("copy.tonight_unpicked", "early")
+
+
+def test_a_witness_line_names_its_witness_not_the_school():
+    for t in tiers.TIERS:
+        assert phrasing.phrase("record.canvas_handed_in", t).startswith("Canvas")
+        assert "You" in phrasing.phrase("record.you_said_handed_in", t)
+        assert "school" not in phrasing.phrase("record.you_said_handed_in", t).lower()

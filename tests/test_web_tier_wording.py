@@ -160,9 +160,9 @@ def test_the_check_in_says_one_thing_before_the_cards(tmp_path):
 
 def test_the_check_in_copy_follows_the_reader(tmp_path):
     young = html.unescape(_client(tmp_path, Sam=5).get("/kids/Sam/check-in").text)
-    assert "You could do these" in young and "Ask before you assume" in young        # queue hint; Safety quiz's zero
+    assert "These aren't tonight's must-dos" in young and "Ask before you assume" in young        # queue hint; Safety quiz's zero
     older = html.unescape(_client(tmp_path, Sam=9).get("/kids/Sam/check-in").text)
-    assert "possibilities, not tonight" in older and "ask before assuming" in older
+    assert "These are not tonight's obligations" in older and "ask before assuming" in older
 
 
 def test_the_sources_line_follows_the_reader(tmp_path):
