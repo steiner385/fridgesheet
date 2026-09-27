@@ -44,7 +44,7 @@
   <h3 id="review-heading" class="sr-only">Review</h3>
   {% for label, rows in queues.items() %}
   <details class="queue-group" {{ 'open' if (label == worth_group and worth_open) }}>
-    <summary>{{ label }} <span class="badge">{{ rows | length }}</span></summary>
+    <summary>{{ queue_keys[label] | say(tier) }} <span class="badge">{{ rows | length }}</span></summary>
     {% if label == worth_group %}<p class="muted">{{ 'copy.queue_hint' | say(tier) }}</p>{% endif %}
     <div class="review-grid">
     {% for view in rows %}
@@ -54,7 +54,7 @@
       {% if view.verdict.answers %}{% set item = view %}{% set qid = 'qc-' ~ view.id %}{% set vd = view.verdict %}{% set tier = student.key | tier_of %}
       {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
       {% include "_answers.html" %}{% endif %}
-      {% if view.open_in and view.due %}<p class="muted">Late work is usually accepted until {{ view.late_until | wd_md }} (from your late-work rules). Ask the teacher if you need longer.</p>{% endif %}
+      {% if view.open_in and view.due %}<p class="muted">{{ 'copy.late_until' | say(tier, {'when': view.late_until | wd_md}) }}</p>{% endif %}
       {% set earlier = completed_for.get(view.id) %}
       {% if earlier %}<p class="family-account">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
       <a class="button-link" href="{{ base }}/step?item_id={{ view.id }}{% if label == waiting_group %}&amp;state=waiting{% endif %}">Plan a step</a>
@@ -63,7 +63,7 @@
     </div>
   </details>
   {% endfor %}
-  <p><a href="/kids/{{ student.key | urlencode }}?show=all">Browse all work</a> to plan something outside this list.</p>
+  <p><a href="/kids/{{ student.key | urlencode }}?show=all">{{ 'copy.browse_all_link' | say(tier) }}</a> {{ 'copy.browse_all_rest' | words(tier) }}</p>
   {# What the two systems the cards quote are: once, at the foot of the queue, where a reader
      who wondered can find it -- not above the first card (#190). #}
   {% include "_sources_hint.html" %}

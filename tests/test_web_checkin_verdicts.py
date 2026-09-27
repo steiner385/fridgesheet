@@ -48,20 +48,17 @@ def test_the_evidence_never_asks_what_the_verdict_has_not(tmp_path):
 
 
 def test_the_rail_count_is_the_check_ins_questions(tmp_path):
-    """The rail count is every "asks" verdict for the kid. Participation (HAC-only, no grade)
-    would also ask, but it is Must finish's now (paper) and no longer a review card, so this
-    isolates a kind that stays one: hac_lower, a graded item HAC scored under Canvas -- not
-    open or upcoming, so never Must finish's."""
-    snap = snapshot()
-    eng = snap["students"]["Alex"]["canvas"]["courses"][0]
-    for a in eng["assignments"]:
-        if a["name"] == "Quiz 1":
-            a.update(missing=False, state="graded", score=30.0, grade="30")
-    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"] = [_h("Quiz 1", "09/12/2026", 20.0, points=30.0)]
-    seed(tmp_path, snap).close()
+    """The rail count is every "asks" verdict for the kid, wherever it now renders: a review
+    card in "Worth checking", or a Must-finish row (spec 2026-09-27 §4) -- Participation,
+    HAC-only with no grade, still asks from its own row there ("Was it handed in?")."""
+    seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     rail = re.search(r'href="/kids/Alex/check-in"[^>]*>Alex <span id="qcount-Alex" class="count">(\d+)</span>', body)
-    assert rail and int(rail.group(1)) == len(re.findall(r'<article class="card review-card', _groups(body)["Worth checking"]))
+    worth_asks = len(re.findall(r'<article class="card review-card', _groups(body)["Worth checking"]))
+    must_finish = re.search(r'<section id="must-finish".*?</section>', body, re.S).group(0)
+    mf_rows = re.split(r'id="mf-\d+"', must_finish)[1:]           # one split per row's own id
+    mf_asks = sum(1 for row in mf_rows if '<p class="ask">' in row)
+    assert rail and int(rail.group(1)) == worth_asks + mf_asks
 
 
 # --- #69: same words, answers on the card, a link to the item ---------------------------------

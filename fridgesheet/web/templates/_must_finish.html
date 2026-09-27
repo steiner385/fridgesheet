@@ -26,12 +26,13 @@
     {% for view in rows %}{% set qid = 'qc-' ~ view.id %}{% set item = view %}{% set vd = view.verdict %}
     {% if key == 'paper' %}{% set pk = vd | pace_key %}{% if pk and loop.changed(view.course_id) %}<p class="mf-paper">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% endif %}
     <div class="mf-row{{ ' red' if red }}{{ ' grey' if grey }}" id="mf-{{ view.id }}">
-      <p class="line"><span class="eyebrow">{{ view.course_short }}</span><span class="word">{{ view | sheet_word(tier) }}</span>{% if view.due and not (view.upcoming and not view.overdue) %}<span class="muted">due {{ view.due | wd_md }}</span>{% elif view.due_time %}<span class="muted">{{ view.due_time }}</span>{% endif %}
+      <p class="line"><span class="eyebrow">{{ view.course_short }}</span><span class="word">{{ view | sheet_word(tier) }}</span>{% if view.due and not (view.upcoming and not view.overdue) %}<span class="muted">{{ 'copy.due_on' | words(tier, {'when': view.due | wd_md}) }}</span>{% elif view.due_time %}<span class="muted">{{ view.due_time }}</span>{% endif %}
         {% if vd.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}<span class="badge">{{ 'badge.zero_to_check' | say(tier) }}</span>{% elif vd.kind == 'stale_answer' %}<span class="badge">{{ 'badge.changed_since_answer' | say(tier) }}</span>{% endif %}
         {% if seen_day %}<span class="badge">{{ ('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day}) }}</span>{% endif %}</p>
       <a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ view.id }}"><strong>{{ view.name }}</strong></a>
+      {% set earlier = completed_for.get(view.id) %}{% if earlier %}<p class="family-account">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
       {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
-      {% if view.open_in and view.due and view.late_until %}<p class="muted">Late work is usually accepted until {{ view.late_until | wd_md }} (from your late-work rules). Ask the teacher if you need longer.</p>{% endif %}
+      {% if view.open_in and view.due and view.late_until %}<p class="muted">{{ 'copy.late_until' | say(tier, {'when': view.late_until | wd_md}) }}</p>{% endif %}
       <div id="{{ qid }}">{% if vd.answers and not grey %}{% include "_answers.html" %}{% endif %}</div>
       <p class="row-links"><a href="{{ base }}/step?item_id={{ view.id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a> · <details class="inline"><summary>{{ 'copy.details' | say(tier) }}</summary>{% include "_planning_evidence.html" %}</details></p>
     </div>

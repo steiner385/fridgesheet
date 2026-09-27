@@ -166,6 +166,18 @@ def test_review_evidence_states_facts_and_leaves_room_for_the_childs_account(tmp
     assert "did no work" not in sam and "didn't do" not in sam
 
 
+def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path):
+    """Homework 4 is a month old and past its 14-day window; sorting by due date alone (or not
+    at all) would not put it after work that is still open and not yet past its window. The
+    queue keeps it visible but after that work -- undated, unfinished Reading project among it
+    (`checkin._context`'s `rows.sort(key=lambda v: bool(v.open_in) and not v.actionable)`)."""
+    snap = snapshot()
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
+    seed(tmp_path, snap).close()
+    other = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)["Other open work"]
+    assert other.index("Reading project") < other.index("Homework 4")
+
+
 def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
     snap = snapshot()
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
@@ -585,6 +597,24 @@ def test_only_worth_checking_opens_itself_and_only_when_something_there_needs_a_
     assert c.get("/kids/Sam/check-in").text.count('<details class="queue-group" open>') == 0
 
 
+def test_worth_checking_opens_itself_when_a_row_there_is_the_kind_that_does(tmp_path):
+    """The positive case: a `checkin.OPENS_WORTH_CHECKING` kind (here `hac_lower` -- Canvas
+    graded higher than HAC on the same item) opens "Worth checking" by itself, and only that
+    group."""
+    snap = snapshot()
+    eng = snap["students"]["Alex"]["canvas"]["courses"][0]
+    for a in eng["assignments"]:
+        if a["name"] == "Quiz 1":
+            a.update(missing=False, state="graded", score=30.0, grade="30")
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"] = [_h("Quiz 1", "09/12/2026", 20.0, points=30.0)]
+    seed(tmp_path, snap).close()
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    assert body.count('<details class="queue-group" open>') == 1
+    assert '<details class="queue-group" open>\n    <summary>Worth checking' in body
+    assert '<details class="queue-group" >\n    <summary>Waiting on the school' in body
+    assert '<details class="queue-group" >\n    <summary>Other open work' in body
+
+
 def test_steps_say_who_recorded_them_and_when(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
@@ -655,17 +685,30 @@ def test_a_child_with_no_check_in_yet_is_invited_on_today(tmp_path):
 
 
 def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps(tmp_path):
-    # Lab notebook is Must finish's now (paper, no grade): it never returns as a review card,
-    # so the completed-step count on a card is exercised with a row that stays one -- Essay
-    # draft, "waiting on the school", is not fixable or upcoming and so never listed there.
+    # Lab notebook is Must finish's now (paper, no grade), never a review card again -- but its
+    # row still carries the same "N completed steps · last account" line (spec 2026-09-27 §4).
+    conn = seed(tmp_path)
+    lid = _item_id(conn, "Lab notebook")
+    conn.close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=lid)
+    page = c.get("/kids/Alex/check-in").text
+    completed = page.split("Completed steps")[1]
+    assert "Mr. Hoch emailed: he has it." in completed
+    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % lid,
+                    page, re.S).group(0)
+    assert "1 completed step" in row and "Mr. Hoch emailed: he has it." in row
+
+
+def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
+    """The same line, on a row that stays a review card (Essay draft, "waiting on the school",
+    is not fixable or upcoming and so is never Must finish's)."""
     conn = seed(tmp_path)
     eid = _item_id(conn, "Essay draft")
     conn.close()
     c = app_for(tmp_path)
     _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=eid)
     page = c.get("/kids/Alex/check-in").text
-    completed = page.split("Completed steps")[1]
-    assert "Mr. Hoch emailed: he has it." in completed
     card = _queues(page)["Waiting on the school"]
     essay = card.split('<article class="card review-card"')
     essay = next(x for x in essay if "Essay draft" in x)

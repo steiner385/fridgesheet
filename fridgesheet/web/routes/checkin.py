@@ -31,6 +31,11 @@ QUEUES = (WORTH_CHECKING, WAITING, OTHER_OPEN)
 #: answer it contradicted, or a question that was asked and has since been graded (§7).
 OPENS_WORTH_CHECKING = frozenset(("submitted_hac_zero", "excused_hac_zero", "hac_lower", "stale_answer",
                                   "asked_then_graded", "followed_up_then_graded"))
+#: The phrase key for each group's heading, so a child reads it in their own tier (spec
+#: 2026-09-27 §11). The constants above name the groups for the code and the "older" tier
+#: keeps them word for word, so `_queues()` in the tests still finds these on the default
+#: (no-grade) fixture without knowing about the phrase table.
+QUEUE_KEYS = {WORTH_CHECKING: "copy.worth_checking", WAITING: "copy.waiting_on_school", OTHER_OPEN: "copy.other_open"}
 
 
 def root(key):
@@ -175,7 +180,7 @@ def _context(conn, student, state):
                 unestimated=sum(s["minutes"] is None for s in today_steps), states=plans.STATES,
                 finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
                 worth_group=WORTH_CHECKING, must_finish=must, seen=seen, seen_day=seen_day,
-                worth_open=worth_open, data_as_of=data_as_of, asked=[])
+                worth_open=worth_open, data_as_of=data_as_of, asked=[], queue_keys=QUEUE_KEYS)
 
 
 @router.get("/kids/{key}/check-in")
