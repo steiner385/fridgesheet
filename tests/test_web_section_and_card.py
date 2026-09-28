@@ -269,3 +269,20 @@ def test_a_finished_check_in_shows_in_the_state_line(tmp_path):
     assert r.status_code == 303
     line = re.search(r'<p class="tab-hint">(.*?)</p>', c.get("/kids/Alex/check-in").text, re.S).group(1)
     assert "Last check-in" in line and "recorded by Mom" in line and "time to check in" in line and "What we agreed: Biology first." in line
+
+
+# --- §3 every other page ----------------------------------------------------------------------------
+
+def test_today_open_work_and_a_class_page_head_their_sections_the_one_way(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    today = c.get("/").text
+    assert re.search(r'<section class="sec kids"[^>]*>\s*<div class="cards">', today)
+    assert 'class="outcome-line"' in today and 'class="record"' not in today
+    open_work = c.get("/open").text
+    assert open_work.count('<section class="sec kid"') == 2
+    course = c.get("/kids/Alex").text
+    cid = re.search(r'/kids/Alex/courses/(\d+)', course).group(1)
+    page = c.get(f"/kids/Alex/courses/{cid}").text
+    heads = re.findall(r'<section class="sec[^"]*"[^>]*>\s*<div class="sec-head"><h3>([^<]*)</h3>', page)
+    assert heads == ["Grade history", "Notes", "Items"]

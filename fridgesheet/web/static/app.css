@@ -108,6 +108,10 @@ header.status .short { display: none; }
 .record { font-size: var(--type-small); line-height: 1.7; }
 .record a { text-decoration: none; }
 .record a.warn { font-weight: 600; }
+/* The Today card's outcome line: the same shape, its own class name (spec 2026-09-28 §3). */
+.outcome-line { font-size: var(--type-small); line-height: 1.7; }
+.outcome-line a { text-decoration: none; }
+.outcome-line a.warn { font-weight: 600; }
 table.items { width: 100%; border-collapse: collapse; background: var(--paper); }
 table.items th, table.items td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 table.items th a { text-decoration: none; }
@@ -472,7 +476,7 @@ th .arrow { font-size: var(--type-small); }
      secondary links beneath or beside them take padding, so a row grows by one line, not two.
      Disclosures keep their marker (no flex), so they grow by padding as well. */
   table.items td.item > a, table.items th a { min-height: 44px; display: inline-flex; align-items: center; }
-  table.work td.item small a, .record a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
+  table.work td.item small a, .record a, .outcome-line a, .inset a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
   main details > summary { min-height: 44px; padding-block: 10px; }
   .tick { min-height: 44px; }
 }
@@ -525,6 +529,8 @@ details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 .sec { margin: 0 0 var(--s6); }
 .sec-head, details.sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); }
 .sec-head h3, details.sec > summary h3 { margin: 0; font-size: 18px; font-weight: 650; display: inline; }
+/* Open work's kid sections keep the layout standard's 22px (its own type table). */
+.sec-head h3.kid-head { font-size: 22px; }
 .sec-head .count, details.sec > summary .count { font-size: var(--type-small); color: var(--muted); font-weight: 400; }
 /* Full-width so the lead always wraps under the head; the measure is kept as right padding,
    because a max-width would let a short lead fit beside the controls instead. */

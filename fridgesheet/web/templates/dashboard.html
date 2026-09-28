@@ -4,6 +4,7 @@
 {% block partial %}
 {# The title is the rail's word; the question is the page's one intro sentence (page layout standard). #}
 {% set page_title = "Today" %}{% set page_intro = "What needs our attention?" %}{% include "_page_head.html" %}
+<section class="sec kids" aria-label="Kids">
 <div class="cards">
   {% for s, c, plan in cards %}
   <div class="card">
@@ -19,7 +20,7 @@
     <p class="muted">{{ c.new_since_yesterday }} new since yesterday</p>
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
     <details><summary>School record so far</summary>
-    <p class="record">
+    <p class="outcome-line">
       <a href="/kids/{{ s.key | urlencode }}?outcome=on_time">{{ c.record.on_time }} on time</a> ·
       <a href="/kids/{{ s.key | urlencode }}?outcome=late">{{ c.record.late }} late</a> ·
       <a href="/kids/{{ s.key | urlencode }}?outcome=not_done" class="{{ 'warn' if c.record.not_done }}">{{ c.record.not_done }} not done</a> ·
@@ -56,5 +57,6 @@
     {% endif %}
   </div>
 </div>
+</section>
 {% endblock %}
 {% endblock %}

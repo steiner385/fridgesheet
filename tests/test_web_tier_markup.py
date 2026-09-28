@@ -27,8 +27,8 @@ def test_a_child_with_no_grade_set_gets_no_tier_attribute(tmp_path):
 def test_two_children_on_one_page_each_carry_their_own_tier(tmp_path):
     seed(tmp_path).close()
     body = client_with_grades(tmp_path, Alex=9, Sam=5).get("/open").text
-    assert re.search(r'<section class="kid"[^>]*id="Alex"[^>]*data-tier="older"', body) \
-        or re.search(r'<section class="kid"[^>]*data-tier="older"[^>]*id="Alex"', body)
+    assert re.search(r'<section class="sec kid"[^>]*id="Alex"[^>]*data-tier="older"', body) \
+        or re.search(r'<section class="sec kid"[^>]*data-tier="older"[^>]*id="Alex"', body)
     assert 'data-tier="early"' in body and 'data-tier="older"' in body
 
 

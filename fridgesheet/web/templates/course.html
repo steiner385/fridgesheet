@@ -4,7 +4,7 @@
 {% set page_crumb = student.key | nickname %}{% set page_crumb_href = "/kids/" ~ (student.key | urlencode) %}
 {% set page_title = course.short_name %}{% set page_subtitle = course.name %}
 {% include "_page_head.html" %}
-<div class="cards">
+<section class="sec"><div class="cards">
   <div class="card"><h3>Grade</h3>
     {% for g in grade_lines %}
     <p>{% if loop.first %}<span class="big">{{ g.value }}</span>{% else %}{{ g.value }}{% endif %} {{ g.label }}{% if g.extra %} <span class="muted">{{ g.extra }}</span>{% endif %}{% if loop.first and grade_lines | length > 1 %} <span class="muted">· official</span>{% endif %}</p>
@@ -29,18 +29,20 @@
     <p><button>Save</button></p>
     </form>
   </div>
-</div>
-<h3>Grade history</h3>
+</div></section>
+<section class="sec"><div class="sec-head"><h3>Grade history</h3></div>
 <div class="table-wrap"><table class="items"><tr><th>Seen</th><th>Canvas current</th><th>Canvas final</th><th>HAC average</th><th>Letter</th></tr>
 {% for g in history %}<tr><td>{{ g.started_at | wd_md_time }}</td><td>{{ g.current if g.current is not none else '' }}</td><td>{{ g.final if g.final is not none else '' }}</td><td>{{ g.average if g.average is not none else '' }}</td><td>{{ g.letter or '' }}</td></tr>{% else %}<tr><td colspan="5" class="muted">Nothing yet.</td></tr>{% endfor %}
 </table></div>
 {% include "_chart_scripts.html" %}
 {% if grade_chart_json %}{% with config = grade_chart_json, height = 220, label = "This class's grade over time" %}{% include "_chart_canvas.html" %}{% endwith %}
 {% else %}<p class="muted">No grades recorded yet.</p>{% endif %}
-<h3>Notes</h3>
+</section>
+<section class="sec"><div class="sec-head"><h3>Notes</h3></div>
 {% set target_type = "course" %}{% set target_id = course.id %}
 {% include "_notes.html" %}
-<h3>Items</h3>
+</section>
+<section class="sec"><div class="sec-head"><h3>Items</h3></div>
 <div id="items">
 {% block partial %}
 {# This page has no question cards; the tag on a row with a question opens the kid page's. #}
@@ -48,4 +50,5 @@
 {% include "_item_rows.html" %}
 {% endblock %}
 </div>
+</section>
 {% endblock %}

@@ -21,20 +21,22 @@
 <article class="print-plan">
 <p>Printed {{ now | wd_md_time }}</p>
 {% if last_check %}<p>Next check-in: {{ last_check.next_check | wd_md }} · Last agreed time budget: {{ last_check.available_minutes }} minutes · Agreed {{ last_check.finished_at | wd_md_time }}{% if last_check.recorded_by %} · Recorded by {{ last_check.recorded_by }}{% endif %}</p>{% if last_check.summary %}<p class="family-account">{{ last_check.summary }}</p>{% endif %}{% endif %}
-<h3>{{ 'copy.must_finish' | say(tier) }}</h3>
+<section class="sec"><div class="sec-head"><h3>{{ 'copy.must_finish' | say(tier) }}</h3></div>
 <p class="muted">{% if data_as_of %}{{ 'copy.list_as_of' | say(tier, {'when': data_as_of | wd_md_time}) }} {% endif %}{{ 'copy.list_changes_daily' | say(tier) }}</p>
 {% for label, rows in (('copy.due_tonight', must_finish.tonight), ('copy.due_tomorrow', must_finish.tomorrow), ('copy.overdue_fixable', must_finish.overdue)) if rows %}
 <h4>{{ label | say(tier) }}</h4>
 {% for v in rows %}<div class="print-step"><h4>□ {{ v.name }} <span class="muted">· {{ v.course_short }} · {{ v | sheet_word(tier) }}</span></h4>{% if seen_day %}<p class="muted">{{ ('badge.seen_at_checkin' if v.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day}) }}</p>{% endif %}</div>{% endfor %}
 {% endfor %}
 {% if red_total == 0 %}<p class="muted">{{ 'copy.nothing_due' | say(tier) }}</p>{% endif %}
-<h3>Our next steps</h3>
+</section>
+<section class="sec"><div class="sec-head"><h3>Our next steps</h3></div>
 {% for label in ('planned', 'blocked', 'waiting') %}
 <h4>{{ states[label] }}</h4>
 {% for step in steps if step.state == label and not step.witness %}<div class="print-step"><h4>□ {{ step.title }}{% if step.must_word %} {{ 'badge.must_finish' | say(tier, {'word': step.must_word}) }}{% endif %}{% if step.view %} <span class="muted">· {{ step.view.course_short }}</span>{% endif %}</h4><p>{{ step.next_step }}</p><p><strong>{{ step.owner }}</strong> · {{ 'Check again' if label in ('waiting', 'blocked') else 'Planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · revisit this date{% endif %}{% if step.minutes %} · {{ step.minutes }} minutes{% endif %}{% if step.changed %} · school record changed since this step was saved{% endif %}{% if step.since == 'added' %} · added since the check-in{% elif step.since == 'edited' %} · edited since the check-in{% endif %}{% if step.created_by %} · recorded by {{ step.created_by }}{% elif step.recorded_by %} · by {{ step.recorded_by }}{% endif %}</p></div>{% else %}<p class="muted">None.</p>{% endfor %}
 {% endfor %}
 {% if school_has_n %}<h4>{{ 'copy.school_has_it' | say(tier) }}</h4>
 {% for step in steps if step.witness %}<div class="print-step"><h4>{{ step.title }}{% if step.view %} <span class="muted">· {{ step.view.course_short }}</span>{% endif %}</h4><p class="muted">{{ step.witness[0] | say(tier, step.witness[1]) }}{% if step.changed %} · school record changed since this step was saved{% endif %}{% if step.created_by %} · recorded by {{ step.created_by }}{% elif step.recorded_by %} · by {{ step.recorded_by }}{% endif %}</p></div>{% endfor %}{% endif %}
+</section>
 <p class="muted">Checking off a step records your progress. Confirm hand-in separately when the school requires it.</p>
 </article>
 </main>

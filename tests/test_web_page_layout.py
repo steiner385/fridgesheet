@@ -219,7 +219,7 @@ def test_the_page_title_is_the_only_h2_on_the_page(tmp_path, path):
 def test_open_works_kids_are_sections_and_their_lists_parts_of_them(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
-    assert re.search(r'<h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3>', body)
+    assert re.search(r'<div class="sec-head"><h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3></div>', body)
     assert "<h4>Still fixable" in body and "<h4>Coming due" in body
 
 
