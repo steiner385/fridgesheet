@@ -224,3 +224,48 @@ def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
     r = app_for(tmp_path).post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": f"q-{pid}"})
     assert re.match(rf'\s*<div class="line ok done-line" id="q-{pid}" data-focus', r.text)
     assert "Undo" in r.text
+
+
+# --- §4.3 Check-in and Plan ---------------------------------------------------------------------------
+
+def test_a_must_finish_row_is_the_item_with_the_sheets_word_at_the_right_and_no_ask(tmp_path):
+    vid = _id(tmp_path, "Vocabulary")                                          # due today, nothing handed in
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    row = re.search(r'<div class="item red" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % vid, body, re.S).group(0)
+    head = re.search(r'<div class="item-head">(.*?)</div>', row, re.S).group(1)
+    assert re.search(r'<span class="name"><a href="/kids/Alex\?show=all#row-%d" data-focus-target>Vocabulary</a></span>' % vid, head)
+    assert re.search(r'<span class="when word">DUE TODAY</span>', head)          # sheet_word's own word for a due-today row
+    assert 'class="ask-line"' not in row and 'id="qc-%d"' % vid in row       # answers keep their own slot
+    foot = _element(row, '<div class="item-foot">')                              # the Record fold nests a </div> of its own
+    assert "<summary>Record</summary>" in foot and "Plan a step" in foot and "Add details" not in foot and "Notes (" not in foot
+
+
+def test_the_plan_is_sections_and_a_step_is_the_item_with_its_provenance_in_the_foot(tmp_path):
+    from uuid import uuid4
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    r = c.post("/kids/Alex/check-in/step", data=dict(title="Pick up the form", family_account="", next_step="Bring it home", owner="Alex",
+               planned_for="2026-09-15", minutes="20", state="planned", position="", request_key=str(uuid4()), revision="0"), follow_redirects=False)
+    assert r.status_code == 303
+    body = c.get("/kids/Alex/plan").text
+    # A section/details tag's `class="sec..."` need not be its first attribute (`_must_finish.html`
+    # and `_plan_panel.html` carry `id` first, for their own anchors) -- the lookahead finds it
+    # wherever it sits in the tag.
+    heads = re.findall(r'<(?:section|details)(?=[^>]*\sclass="sec)[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', body)
+    assert "Must finish" in heads and "Our next steps" in heads and "Worth checking" in heads and "Waiting on the school" in heads
+    assert body.index(">Must finish<") < body.index(">Our next steps<") < body.index(">Worth checking<")
+    step = re.search(r'<div class="item step">.*?<div class="item-foot">(.*?)</div>\s*</div>', body, re.S)
+    assert step and "Edit or complete step" in step.group(1) and re.search(r'<span class="stamp">Recorded \w{3} 9/15', step.group(1))
+    assert re.search(r'<p class="ours">Alex · 20 min</p>', body)
+    assert "checkin-intro" not in body and 'class="eyebrow"' not in body
+
+
+def test_a_finished_check_in_shows_in_the_state_line(tmp_path):
+    from uuid import uuid4
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    r = c.post("/kids/Alex/check-in/finish", data={"available_minutes": "40", "next_check": "2026-09-14", "summary": "Biology first.",
+                                                   "recorded_by": "Mom", "request_key": str(uuid4())}, follow_redirects=False)
+    assert r.status_code == 303
+    line = re.search(r'<p class="tab-hint">(.*?)</p>', c.get("/kids/Alex/check-in").text, re.S).group(1)
+    assert "Last check-in" in line and "recorded by Mom" in line and "time to check in" in line and "What we agreed: Biology first." in line

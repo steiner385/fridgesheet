@@ -51,9 +51,9 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     assert "allows 7 days" in card
     assert card.index("<summary>Record</summary>") < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text
-    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
+    row = re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % pid,
                     checkin, re.S).group(0)
-    assert "allows 7 days" in row and re.search(r"<details[^>]*>\s*<summary>[^<]*</summary>\s*<p[^>]*app-count", row)
+    assert "allows 7 days" in row and row.index("<summary>Record</summary>") < row.index("allows 7 days")
 
 
 def test_the_print_page_keeps_its_printer_note_off_the_page(tmp_path):

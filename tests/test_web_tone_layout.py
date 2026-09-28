@@ -101,5 +101,5 @@ def test_layout_and_names(tmp_path):
 
 def test_check_in_answer_buttons_sit_in_a_row_like_on_assignments():
     """Found in Chrome after #79: the check-in's review cards reuse _answers.html but the row
-    styling was scoped to .q cards, so the buttons stacked one per line."""
-    assert re.search(r"\.review-card \.answers[^{]*\{[^}]*display:\s*flex", CSS)
+    styling is the item's, on every page."""
+    assert re.search(r"\.item \.answers[^{]*\{[^}]*display:\s*flex", CSS)

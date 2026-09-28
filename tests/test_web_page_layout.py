@@ -54,7 +54,7 @@ def test_main_has_one_ceiling_and_no_page_asks_for_another():
 
 
 def test_prose_and_forms_are_bounded_by_the_measure_not_by_pixels():
-    for sel in (r"\.page-head \.page-intro", r"\.checkin-intro", r"\.plan-form", r"\.finish-checkin", r"\.notice"):
+    for sel in (r"\.page-head \.page-intro", r"\.plan-form", r"\.finish-checkin", r"\.notice"):
         block = re.search(sel + r"\s*\{([^}]*)\}", CSS)
         assert block, sel
         assert "max-width: var(--measure)" in block.group(1), sel

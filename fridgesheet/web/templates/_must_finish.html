@@ -1,19 +1,18 @@
 {# Must finish (spec 2026-09-27 §4): Open work's rows, sectioned for tonight. Computed from the
    school record every time, never stored; a row leaves when the record says the work is in or
    the family answers "It's handed in". Its own section, outside #plan, so the out-of-band swap
-   after an answer cannot replace the row a done-line and its Undo sit in (§12). #}
+   after an answer cannot replace the row a done-line and its Undo sit in (§12). Each row is the
+   item surface (spec 2026-09-28 §4) with the row's own id `mf-<id>` and the answers in `qc-<id>`. #}
 {% set tier = student.key | tier_of %}
-<section id="must-finish" class="must-finish" aria-labelledby="mf-heading">
-  <div class="workspace-heading"><h3 id="mf-heading">{{ 'copy.must_finish' | say(tier) }}</h3>{% if jobs %}<button type="button" hx-post="/jobs/refresh" hx-vals='{"reload_page": "1"}' hx-target="#job" hx-swap="outerHTML">{{ 'copy.check_again' | say(tier) }}</button>{% endif %}</div>
-  <p class="muted">{{ 'copy.must_finish_hint' | say(tier) }}{% if data_as_of %} {{ 'copy.list_as_of' | say(tier, {'when': data_as_of | wd_md_time}) }}{% endif %}</p>
+<section id="must-finish" class="sec must-finish" aria-labelledby="mf-heading">
+  <div class="sec-head"><h3 id="mf-heading">{{ 'copy.must_finish' | say(tier) }}</h3><span class="count">{{ must_finish | length }}</span>{% if jobs %}<span class="controls"><button type="button" hx-post="/jobs/refresh" hx-vals='{"reload_page": "1"}' hx-target="#job" hx-swap="outerHTML">{{ 'copy.check_again' | say(tier) }}</button></span>{% endif %}
+    <p class="lead">{{ 'copy.must_finish_hint' | say(tier) }}{% if data_as_of %} {{ 'copy.list_as_of' | say(tier, {'when': data_as_of | wd_md_time}) }}{% endif %}</p></div>
   {# Only a refresh job's own card belongs here: a doctor or login job started elsewhere must
      not show as if it were this button's progress, and only a refresh reloads the page when it
      finishes (review finding 5). #}
   {% if job and job.kind == 'refresh' %}{% with busy=false, reload_page=true %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
-  {# One loop over the six sections, no macro: a Jinja macro cannot see the template's own
-     `{% set %}` variables (`tier`), and `_answers.html` is included per row with `item`, `qid`,
-     `vd`, `exclude` and `first` set in this scope. Each tuple: key, heading phrase, rows, red,
-     grey, the action to put first (or none), and whether the section folds. #}
+  {# Each tuple: key, heading phrase, rows, red, grey, the action to put first (or none), and
+     whether the section folds. #}
   {% set sections = [
     ('tonight',  'copy.due_tonight',       must_finish.tonight,  true,  false, none,   false),
     ('tomorrow', 'copy.due_tomorrow',      must_finish.tomorrow, true,  false, none,   false),
@@ -24,21 +23,19 @@
   ] %}
   {% set exclude = ['too_late', 'ignore'] %}
   {% for key, label, rows, red, grey, first, fold in sections if rows %}
-  {% if fold %}<details class="mf-fold"><summary>{{ label | say(tier) }} <span class="badge">{{ rows | length }}</span></summary>{% endif %}
+  {% if fold %}<details class="sec quiet mf-fold"><summary><h3>{{ label | say(tier) }}</h3> <span class="count">{{ rows | length }}</span></summary>{% endif %}
   <div class="mf-section" data-section="{{ key }}">{% if not fold %}<h4>{{ label | say(tier) }}</h4>{% endif %}
-    {% for view in rows %}{% set qid = 'qc-' ~ view.id %}{% set item = view %}{% set vd = view.verdict %}
-    {% if key == 'paper' %}{% set pk = vd | pace_key %}{% if pk and loop.changed(view.course_id) %}<p class="mf-paper">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% endif %}
-    <div class="mf-row{{ ' red' if red }}{{ ' grey' if grey }}" id="mf-{{ view.id }}">
-      <p class="line"><span class="eyebrow">{{ view.course_short }}</span><span class="word">{{ view | sheet_word(tier) }}</span>{% if view.due and not (view.upcoming and not view.overdue) %}<span class="muted">{{ 'copy.due_on' | words(tier, {'when': view.due | wd_md}) }}</span>{% elif view.due_time %}<span class="muted">{{ view.due_time }}</span>{% endif %}
-        {% if vd.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}<span class="badge">{{ 'badge.zero_to_check' | say(tier) }}</span>{% elif vd.kind == 'stale_answer' %}<span class="badge">{{ 'badge.changed_since_answer' | say(tier) }}</span>{% endif %}
-        {% if seen_day %}<span class="badge">{{ ('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day}) }}</span>{% endif %}</p>
-      <a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ view.id }}"><strong>{{ view.name }}</strong></a>
-      {% set earlier = completed_for.get(view.id) %}{% if earlier %}<p class="family-account">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
-      {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
-      {% if view.open_in and view.due and view.late_until %}<p class="muted">{{ 'copy.late_until' | say(tier, {'when': view.late_until | wd_md}) }}</p>{% endif %}
-      <div id="{{ qid }}">{% if vd.answers and not grey %}{% include "_answers.html" %}{% endif %}</div>
-      <p class="row-links"><a href="{{ base }}/step?item_id={{ view.id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a> · <details class="inline"><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_planning_evidence.html" %}</details></p>
-    </div>
+    {% for view in rows %}
+    {% if key == 'paper' %}{% set pk = view.verdict | pace_key %}{% if pk and loop.changed(view.course_id) %}<p class="inset">{{ pk | say(tier, view.verdict.pace) }}</p>{% endif %}{% endif %}
+    {% set item = view %}{% set density = 'card' %}{% set slot = 'qc-' ~ view.id %}{% set box_id = 'mf-' ~ view.id %}
+    {% set tone = 'red' if red else 'grey' if grey else '' %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}
+    {% set badges = [] %}
+    {% if view.verdict.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}{% set badges = badges + [('badge.zero_to_check' | say(tier))] %}{% elif view.verdict.kind == 'stale_answer' %}{% set badges = badges + [('badge.changed_since_answer' | say(tier))] %}{% endif %}
+    {% set stamp = (('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day})) if seen_day else '' %}
+    {% set earlier = completed_for.get(view.id) %}
+    {% if grey %}{% set exclude = ['too_late', 'ignore', 'done', 'plan:today', 'plan:tomorrow', 'ask_teacher', 'follow_up', 'excused'] %}{% endif %}
+    {% include "_item.html" %}
+    {% if grey %}{% set exclude = ['too_late', 'ignore'] %}{% endif %}
     {% endfor %}
   </div><!-- /{{ key }} -->
   {% if fold %}</details>{% endif %}

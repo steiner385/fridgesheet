@@ -45,10 +45,10 @@ def _finish(**over):
 
 def _queues(body: str) -> dict[str, str]:
     """The review groups' HTML, by label, so a test can say which group a row is in."""
-    groups = re.split(r'<details class="queue-group"', body)[1:]
+    groups = re.split(r'<details class="sec queue-group', body)[1:]
     out = {}
     for g in groups:
-        label = re.search(r"<summary>(.*?) <span", g)
+        label = re.search(r"<summary><h3>(.*?)</h3>", g)
         if label and label.group(1) in ("Other open work", "Worth checking", "Waiting on the school"):
             out[label.group(1)] = g
     return out
@@ -128,7 +128,7 @@ def test_a_zero_on_handed_in_work_keeps_ask_the_teacher_first(tmp_path):
     # Scoped to this row alone: Safety quiz sorts before Cell diagram in "overdue" (its due
     # date is earlier), and Cell diagram's own row legitimately has a primary "done" button --
     # slicing to end-of-section would fail this row's checks on that account.
-    quiz = re.search(rf'<div class="mf-row[^"]*" id="mf-{qid}">.*?(?=<div class="mf-row|</div><!-- /overdue -->)',
+    quiz = re.search(rf'<div class="item[^"]*" id="mf-{qid}".*?(?=<div class="item[ "]|</div><!-- /overdue -->)',
                      overdue, re.S).group(0)
     assert "Zero to check" in quiz
     assert re.search(r'<button name="answer" value="ask_teacher" class="primary"', quiz)
@@ -180,12 +180,16 @@ def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path)
 
 
 def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
+    """Task 6 (spec 2026-09-28 §4.3): the queue card is the item surface now, and its Record
+    (`_record.html`) states only the sources, the pace and the teacher -- the old "no due date
+    listed" line was `_planning_evidence.html`'s own summary sentence, gone with it. Undated work
+    still sorts into "Other open work" and is still reviewable there; nothing states its date
+    because it has none."""
     snap = snapshot()
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
     seed(tmp_path, snap).close()
     q = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)
     assert "Reading project" in q["Other open work"]
-    assert "no due date listed" in q["Other open work"]
 
 
 def test_a_child_with_no_work_still_gets_a_working_check_in(tmp_path):
@@ -240,7 +244,7 @@ def test_the_form_for_submitted_ungraded_work_defaults_to_waiting(tmp_path):
     conn.close()
     c = app_for(tmp_path)
     page = c.get("/kids/Alex/check-in").text
-    assert f'href="/kids/Alex/check-in/step?item_id={eid}&amp;state=waiting"' in page
+    assert f'href="/kids/Alex/check-in/step?item_id={eid}&amp;state=waiting&amp;return_to=' in page
     form = c.get(f"/kids/Alex/check-in/step?item_id={eid}&state=waiting").text
     assert re.search(r'<option value="waiting"\s+selected', form)
     form = c.get(f"/kids/Alex/check-in/step?item_id={eid}&state=bogus").text
@@ -364,7 +368,7 @@ def test_commitments_survive_a_refresh_and_never_write_school_facts(tmp_path):
     # Quiz 1 is done_offline (HAC's 28/30 beats Canvas's automatic missing flag), so the step
     # shows as "The school has it" (spec 2026-09-27 §6) -- but that card still carries the
     # family's account and the step's own "Check again" wording, the same as a plain card.
-    assert "The school has it" in page and "Check again Thu 9/17" in page
+    assert "The school has it" in page and "check again Thu 9/17" in page
     assert "Took it in class; HAC shows 28/30." in page
     conn = db.open_db(tmp_path)
     obs = db.latest_observations(conn, conn.execute("SELECT id FROM students WHERE key='Alex'").fetchone()[0])[qid]
@@ -407,7 +411,7 @@ def test_evidence_change_notice_follows_facts_not_refresh_ids(tmp_path):
     day3 = NOW + timedelta(days=2)
     _refresh(tmp_path, fixed, day3)
     page = app_for(tmp_path, now=day3).get("/kids/Alex/plan").text
-    cards = page.split('<article class="card plan-card">')[1:]
+    cards = page.split('<div class="item step">')[1:]
     homework = next(x for x in cards if "Homework 4" in x)
     lab = next(x for x in cards if "Lab notebook" in x)
     assert "School evidence changed since this step was saved" in homework
@@ -415,6 +419,9 @@ def test_evidence_change_notice_follows_facts_not_refresh_ids(tmp_path):
 
 
 def test_a_step_on_work_the_school_dropped_is_kept_and_labelled(tmp_path):
+    """Task 6 (spec 2026-09-28 §4.3): the step's card is the item surface now, and its own head
+    meta says "no longer on the school list" -- the old full-sentence `.muted` line was
+    `_plan_panel.html`'s own paragraph, folded into the head."""
     conn = seed(tmp_path)
     lid = _item_id(conn, "Lab notebook")
     conn.close()
@@ -427,7 +434,7 @@ def test_a_step_on_work_the_school_dropped_is_kept_and_labelled(tmp_path):
     _refresh(tmp_path, dropped, later)
     page = app_for(tmp_path, now=later).get("/kids/Alex/plan").text
     assert "Handed in on paper" in page
-    assert "This assignment is no longer in the current school list. Your step is still saved." in page
+    assert "no longer on the school list" in page
 
 
 # --- siblings and strangers ----------------------------------------------------------------------
@@ -617,8 +624,8 @@ def test_only_worth_checking_opens_itself_and_only_when_something_there_needs_a_
     Must finish grabs the family's attention on its own."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    assert c.get("/kids/Alex/check-in").text.count('<details class="queue-group" open>') == 0
-    assert c.get("/kids/Sam/check-in").text.count('<details class="queue-group" open>') == 0
+    assert c.get("/kids/Alex/check-in").text.count('<details class="sec queue-group" open>') == 0
+    assert c.get("/kids/Sam/check-in").text.count('<details class="sec queue-group" open>') == 0
 
 
 def test_worth_checking_opens_itself_when_a_row_there_is_the_kind_that_does(tmp_path):
@@ -633,10 +640,10 @@ def test_worth_checking_opens_itself_when_a_row_there_is_the_kind_that_does(tmp_
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"] = [_h("Quiz 1", "09/12/2026", 20.0, points=30.0)]
     seed(tmp_path, snap).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
-    assert body.count('<details class="queue-group" open>') == 1
-    assert '<details class="queue-group" open>\n    <summary>Worth checking' in body
-    assert '<details class="queue-group" >\n    <summary>Waiting on the school' in body
-    assert '<details class="queue-group" >\n    <summary>Other open work' in body
+    assert body.count('<details class="sec queue-group" open>') == 1
+    assert '<details class="sec queue-group" open>\n    <summary><h3>Worth checking</h3>' in body
+    assert '<details class="sec queue-group quiet" >\n    <summary><h3>Waiting on the school</h3>' in body
+    assert '<details class="sec queue-group quiet" >\n    <summary><h3>Other open work</h3>' in body
 
 
 def test_steps_say_who_recorded_them_and_when(tmp_path):
@@ -667,7 +674,7 @@ def test_the_plan_tells_the_agreed_steps_from_later_additions_and_edits(tmp_path
     _post_step(later, "Alex", _form(title="Algebra help", next_step="Sit with Alex", owner="Grandma"))
     sid = next(s["id"] for s in _step_rows(tmp_path) if s["title"] == "Vocabulary")
     _post_step(later, "Alex", _form(title="Vocabulary", next_step="Twenty words", revision="1"), step_id=sid)
-    cards = later.get("/kids/Alex/plan").text.split("Previous agreements")[0].split('<article class="card plan-card">')[1:]
+    cards = later.get("/kids/Alex/plan").text.split("Previous agreements")[0].split('<div class="item step">')[1:]
     vocab = next(x for x in cards if "Vocabulary" in x)
     algebra = next(x for x in cards if "Algebra help" in x)
     assert "Edited since the Tue 9/15 check-in" in vocab
@@ -719,7 +726,7 @@ def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps
     page = c.get("/kids/Alex/check-in").text
     completed = page.split("Completed steps")[1]
     assert "Mr. Hoch emailed: he has it." in completed
-    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % lid,
+    row = re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % lid,
                     page, re.S).group(0)
     assert "1 completed step" in row and "Mr. Hoch emailed: he has it." in row
 
@@ -734,7 +741,7 @@ def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
     _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=eid)
     page = c.get("/kids/Alex/check-in").text
     card = _queues(page)["Waiting on the school"]
-    essay = card.split('<article class="card review-card"')
+    essay = card.split('<div class="item')
     essay = next(x for x in essay if "Essay draft" in x)
     assert "1 completed step" in essay and "Mr. Hoch emailed: he has it." in essay
 
@@ -836,14 +843,15 @@ def test_a_budget_agreed_on_an_earlier_day_does_not_warn_about_today(tmp_path):
         assert "Last agreed time budget: 10 min" in page and "Mon 9/14" in page
 
 
-def test_planning_evidence_rounds_scores_with_the_shared_helper(tmp_path):
+def test_the_record_rounds_scores_with_the_shared_helper(tmp_path):
     """#21: the evidence card had its own rounding macro; it now uses `stores.num`, the rule the
     work list and Changes use, through a `num` filter. The source lines moved into the shared
-    `_source_facts.html` (#129); neither template rounds on its own."""
+    `_source_facts.html` (#129); neither template rounds on its own. The evidence card itself is
+    now `_record.html` (spec 2026-09-28 §4.3)."""
     from pathlib import Path
     from fridgesheet.web import app as webapp
     templates = Path(webapp.__file__).parent / "templates"
-    assert "round(" not in (templates / "_planning_evidence.html").read_text(encoding="utf-8")
+    assert "round(" not in (templates / "_record.html").read_text(encoding="utf-8")
     src = (templates / "_source_facts.html").read_text(encoding="utf-8")
     assert "round(" not in src and "| num" in src
     seed(tmp_path).close()

@@ -20,7 +20,7 @@
   <p class="muted">Your words are still in the form below. Save again to keep yours, or <a href="{{ base }}/step?step_id={{ step_id }}{% if return_to is defined and return_to %}&amp;return_to={{ return_to | urlencode }}{% endif %}">open the latest version</a> to start from theirs.</p>
 </div>
 {% endif %}
-{% if view %}<div class="card"><p class="eyebrow">{{ view.course_short }}</p>{% include "_planning_evidence.html" %}</div>{% endif %}
+{% if view %}<div class="item"><div class="item-head"><span class="name">{{ view.name }}</span><span class="meta">{{ view.course_short }}{% if view.due %} · due {{ view.due | wd_md }}{% set at = view | due_at(tier | default('')) %}{% if at %} {{ at }}{% endif %}{% endif %}</span></div>{% with item=view %}{% include "_record.html" %}{% endwith %}{% if view.flag %}<p class="ours">Your answer: {{ view.flag | flag_label('state', tier | default('')) }}{% if view.flag_text %} · {{ view.flag_text }}{% endif %}</p>{% endif %}</div>{% endif %}
 <form class="plan-form card" method="post" action="{{ base }}/step{% if step_id %}?step_id={{ step_id }}{% elif item_id %}?item_id={{ item_id }}{% endif %}">
   <input type="hidden" name="request_key" value="{{ values.request_key }}">{% if return_to is defined and return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}<input type="hidden" name="revision" value="{{ values.revision }}">
   {# Three things first: what, the next step, and when. Everything else -- who helps, the
