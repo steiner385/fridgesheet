@@ -204,6 +204,19 @@ def test_kid_mode_draws_the_state_line_without_the_tabs(tmp_path):
     assert re.search(r'<p class="tab-hint">Done so far', body)
 
 
+def test_the_questions_page_is_one_section_per_kid_with_lines_for_the_waiting(tmp_path):
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import flags
+    lab = _id(tmp_path, "Lab notebook")
+    conn = db.open_db(tmp_path)
+    flags.set_flag(conn, lab, "ask_teacher", now="2026-09-15T08:00:00-04:00")
+    conn.close()
+    body = app_for(tmp_path).get("/questions").text
+    assert re.search(r'<section class="sec kid-questions"[^>]*>\s*<div class="sec-head"><h3>Alex</h3><span class="count">1</span>', body)
+    assert re.search(r'<h4>Waiting on the teacher</h4>\s*<div class="lines">\s*<div class="line grey" id="q-%d">' % lab, body)
+    assert body.count("<h2") == 1
+
+
 def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
     pid = _id(tmp_path, "Participation")
     r = app_for(tmp_path).post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": f"q-{pid}"})

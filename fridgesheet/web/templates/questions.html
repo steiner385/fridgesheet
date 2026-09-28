@@ -6,8 +6,8 @@
 {% include "_page_head.html" %}
 {% for g in groups %}
 {% set student = g.student %}{% set tier = student.key | tier_of %}
-<section class="kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>
-  <div class="section-head"><h3>{{ student.key | nickname }} · {{ g.questions | length }}</h3><a href="/kids/{{ student.key | urlencode }}">Open {{ student.key | nickname }}'s work →</a></div>
+<section class="sec kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>
+  <div class="sec-head"><h3>{{ student.key | nickname }}</h3><span class="count">{{ g.questions | length }}</span><span class="controls"><a href="/kids/{{ student.key | urlencode }}">Open {{ student.key | nickname }}'s work →</a></span></div>
   {# Past-credit work is a status, not a question, so it is not in the list below: the bar names
      every item it will mark, and its confirm names them again (#124). #}
   {% if g.past_credit | length >= 2 %}{% set names = g.past_credit | map(attribute='name') | join(', ') %}
@@ -24,12 +24,12 @@
   {% endif %}
   {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
   {% if g.asked %}
-  <h4 class="quiet-head">Waiting on the teacher</h4>
-  <div class="lines">{% for item in g.asked %}<div class="line"><span><b>{{ item.name }}</b> <span class="muted">{{ item | standing(tier) }}</span></span>{% if item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</div>{% endfor %}</div>
+  <h4>Waiting on the teacher</h4>
+  <div class="lines">{% for item in g.asked %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = item | standing(tier) %}{% set line_action %}{% if item.teacher_email %}<a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}{% endset %}{% include "_item.html" %}{% endfor %}</div>
   {% endif %}
   {% if g.twins %}
-  <details class="quiet"><summary>Can't pair these ({{ g.twins | length }})</summary>
-    <p class="muted">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>
+  <details class="sec quiet"><summary><h3>Can't pair these</h3> <span class="count">{{ g.twins | length }}</span></summary>
+    <p class="lead">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>
     <ul>{% for c, h in g.twins %}<li>Canvas "{{ c.name }}" ({{ c.due | wd_md }}) and HAC "{{ h.name }}" ({{ h.due | wd_md }})</li>{% endfor %}</ul>
   </details>
   {% endif %}
