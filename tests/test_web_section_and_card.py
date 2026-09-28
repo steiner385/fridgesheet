@@ -114,3 +114,56 @@ def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_gloss
     assert re.search(r'<span class="src">HAC</span><span>[^<]+</span><span class="stamp">checked [^<]+</span>', inset)
     assert "Home Access Center" not in inset
     assert "Open in Canvas (opens a new tab)" in inset
+
+
+# --- §4 the five slots, at card and detail density ------------------------------------------------
+
+def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_path):
+    pid = _id(tmp_path, "Participation")
+    body = app_for(tmp_path).get("/kids/Alex").text
+    card = body[body.index('<div class="item ask" id="q-%d"' % pid):body.index('id="items"')]
+    order = [card.index(s) for s in ('class="item-head"', 'class="facts"', 'class="ask-line"', 'class="answers"', 'class="item-foot"')]
+    assert order == sorted(order)
+    assert 'class="ours"' not in card                                          # no step, no note, no answer yet
+    head = _element(card, '<div class="item-head">')
+    assert re.search(r'<span class="name"><b tabindex="-1" data-focus-target>Participation</b></span>', head)
+    assert '<span class="meta">Honors English 9' in head
+    assert re.search(r'<span class="when">due \w{3} 9/8[^<]*</span>', head)      # a question: the date, not the standing
+    facts = re.search(r'<p class="facts">(.*?)</p>', card).group(1)
+    assert "due" not in facts and "9/8" not in facts                              # said once, in the head
+    foot = _element(card, '<div class="item-foot">')
+    assert foot.index("<summary>Record</summary>") < foot.index("Notes (0)") < foot.index("Plan a step")
+    assert "<summary>More</summary>" not in foot                                 # detail density only
+
+
+def test_the_detail_is_the_same_card_with_close_and_the_record_open_and_nothing_twice(tmp_path):
+    pid = _id(tmp_path, "Participation")
+    body = app_for(tmp_path).get(f"/items/{pid}").text
+    assert body.count("Participation</b>") == 1 and body.count("<h2") == 0
+    head = _element(body, '<div class="item-head">')
+    assert head.index("data-focus-target") < head.index("data-close-detail")
+    assert body.index('class="answers"') < body.index('<div class="inset">') < body.index('class="item-foot"')
+    assert body.count("<summary>Record</summary>") == 0                          # open in place, not folded
+    foot = _element(body, '<div class="item-foot">')
+    assert foot.index("Notes (0)") < foot.index("Plan a step") < foot.index("<summary>More</summary>")
+    assert 'id="qd-%d"' % pid in body                                            # the detail's answers keep their own slot
+
+
+def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_path):
+    from uuid import uuid4
+    from fridgesheet.web import db
+    from fridgesheet.web.stores import notes
+    pid = _id(tmp_path, "Participation")
+    conn = db.open_db(tmp_path)
+    notes.add(conn, "item", pid, "Doug says he played it Friday", now="2026-09-14T19:00:00-04:00")
+    conn.close()
+    c = app_for(tmp_path)
+    r = c.post(f"/items/{pid}/answer", data={"answer": "plan:today", "prev": "", "slot": f"q-{pid}", "request_key": str(uuid4())})
+    assert r.status_code == 200
+    body = c.get("/questions").text                       # the item is planned, so it left the question list;
+    detail = c.get(f"/items/{pid}").text                  # the detail shows the family's layer
+    ours = re.findall(r'<p class="ours">(.*?)</p>', detail)
+    assert any(o.startswith("Our step: Work on it · Alex") for o in ours)
+    assert any(o.startswith("Note, ") and "played it Friday" in o for o in ours)
+    assert "Notes (1)" in detail and "Plan another step" in detail
+    assert "played it Friday" not in body or 'class="ours"' in body

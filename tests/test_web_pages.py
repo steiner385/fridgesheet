@@ -278,6 +278,6 @@ def test_item_detail_is_the_verdict_the_record_notes_and_a_more_menu(tmp_path):
     conn.close()
     body = app_for(tmp_path).get(f"/items/{pid}").text
     assert "Was it handed in?" in body                     # the question card
-    assert 'class="record"' in body                        # the evidence
+    assert 'class="inset"' in body                         # the evidence
     assert "<summary>More</summary>" in body and 'value="excused"' in body   # the raw flags, behind More
     assert "<th>Says</th>" not in body                     # the old Source/Says table is gone

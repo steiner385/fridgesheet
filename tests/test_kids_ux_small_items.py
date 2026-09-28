@@ -47,9 +47,9 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     pid = _id(tmp_path, "Participation")
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
-    card = re.search(r'<div class="q card" id="q-%d".*?</div>\s*</div>' % pid, kid, re.S).group(0)
+    card = kid[kid.index('id="q-%d"' % pid):kid.index('id="items"')]
     assert "allows 7 days" in card
-    assert card.index('<details class="more">') < card.index("allows 7 days")
+    assert card.index("<summary>Record</summary>") < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text
     row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
                     checkin, re.S).group(0)

@@ -92,13 +92,13 @@ def test_the_answer_route_accepts_the_check_in_slot(tmp_path):
 
 # --- #70: Canvas and HAC, explained where they are used ----------------------------------------
 
-def test_canvas_and_hac_are_explained(tmp_path):
+def test_canvas_and_hac_are_explained_once_per_page_and_not_in_the_record(tmp_path):
     qid = _id(tmp_path, "Quiz 1")
     c = app_for(tmp_path)
     line = "HAC (Home Access Center) is the official gradebook"
-    assert line in c.get("/kids/Alex").text and line in c.get("/kids/Alex/check-in").text
+    assert c.get("/kids/Alex").text.count(line) == 1 and c.get("/kids/Alex/check-in").text.count(line) == 1
     record = c.get(f"/items/{qid}").text
-    assert line in record and "Open in Canvas (opens a new tab)" in record
+    assert line not in record and "Open in Canvas (opens a new tab)" in record
 
 
 # --- the pace sentence (spec 4.6) --------------------------------------------------------------

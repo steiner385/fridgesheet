@@ -125,12 +125,13 @@ this order and omits a slot that is empty. Each slot belongs to one layer.
 
 1. **Head** (`.item-head`). The name (`.name`, 650; a link when the card is not on the item's
    own page; the focus target), then `.meta` (small, muted): the class, the kind when it is
-   paper or in class, the points when known. At the right, `.when`: **the one word about
-   time**, which is the item's `standing` phrase, the same words the table's "Where it stands"
-   column shows, so a card and its row agree by construction. Muted when it is a date ("due Sun
-   9/20 11:59pm", "planned for today"); `.word` in `--warn` at body weight 700 when it is the
-   sheet's word for school-recorded not-done (DUE TONIGHT, DUE TOMORROW, MISSING, ZERO); muted
-   otherwise ("Waiting for a grade", "Following up since 9/23"). A detail adds `Close` after it.
+   paper or in class, the points when known. At the right, `.when`: **the one word about time**. The includer's word when it has one
+   (Must finish passes the sheet's word, `.word` in `--warn` at weight 700: DUE TONIGHT, DUE
+   TOMORROW, MISSING, ZERO); else the due date, muted ("due Sun 9/20 11:59pm"), while the item
+   is a question or still upcoming; else the item's `standing` phrase, the same words the
+   table's "Where it stands" column shows ("Waiting for a grade", "Following up since 9/23"),
+   with the due date moved into `.meta`. So the date is said once, and a card whose word is
+   its standing agrees with its row by construction. A detail adds `Close` after it.
 2. **Says** (`.facts`). One sentence, the verdict's `facts.*` phrase, with kind and due date
    removed from the phrases that carried them (`facts.still_ungraded`, `facts.awaiting_grade`).
    On a Must-finish row with no question: the school's fact ("Nothing handed in yet.", "Canvas

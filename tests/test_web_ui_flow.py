@@ -45,7 +45,7 @@ def test_add_a_note_tells_the_detail_which_card_it_replaced(tmp_path):
 def test_a_detail_opened_from_a_card_keeps_its_id_and_closes_back_to_the_card(tmp_path):
     c, pid = _setup(tmp_path)
     detail = c.get(f"/items/{pid}?card=q-{pid}", headers=_htmx("/questions")).text
-    assert re.match(rf'\s*<div class="card" id="q-{pid}" data-focus>', detail)
+    assert re.match(rf'\s*<div class="item[^"]*" id="q-{pid}" data-focus>', detail)
     close = re.search(r"<button[^>]*data-close-detail[^>]*>Close</button>", detail).group(0)
     assert f'hx-get="/items/{pid}/question?slot=q-{pid}"' in close
     assert f'hx-target="#q-{pid}"' in close and 'hx-swap="outerHTML"' in close
@@ -55,7 +55,7 @@ def test_the_question_card_comes_back_as_it_now_stands(tmp_path):
     c, pid = _setup(tmp_path)
     r = c.get(f"/items/{pid}/question?slot=q-{pid}", headers=_htmx("/questions"))
     assert r.status_code == 200
-    assert f'<div class="q card" id="q-{pid}"' in r.text and "Was it handed in?" in r.text and "Add a note" in r.text
+    assert f'<div class="item ask" id="q-{pid}"' in r.text and "Was it handed in?" in r.text and "Notes (0)" in r.text
     assert c.get(f"/items/{pid}/question?slot=qc-{pid}").text.count(f'id="qc-{pid}"') == 1
     assert c.get("/items/99999/question").status_code == 404
 
@@ -65,7 +65,7 @@ def test_an_unknown_card_id_is_not_echoed_into_the_page(tmp_path):
     for bad in ('x" onmouseover="alert(1)', "q-1; foo", f"qd-{pid}", "q-999999"):
         detail = c.get(f"/items/{pid}", params={"card": bad}).text
         assert 'onmouseover="' not in detail and "/question?slot=" not in detail
-        assert re.match(r'\s*<div class="card" data-focus>', detail)
+        assert re.match(r'\s*<div class="item[^"]*" data-focus>', detail)
 
 
 def test_a_flag_change_on_such_a_detail_keeps_the_way_back(tmp_path):
