@@ -54,7 +54,7 @@ def test_main_has_one_ceiling_and_no_page_asks_for_another():
 
 
 def test_prose_and_forms_are_bounded_by_the_measure_not_by_pixels():
-    for sel in (r"\.page-head \.page-intro", r"\.checkin-intro", r"\.plan-form", r"\.finish-checkin", r"\.notice"):
+    for sel in (r"\.page-head \.page-intro", r"\.plan-form", r"\.finish-checkin", r"\.notice"):
         block = re.search(sel + r"\s*\{([^}]*)\}", CSS)
         assert block, sel
         assert "max-width: var(--measure)" in block.group(1), sel
@@ -219,7 +219,7 @@ def test_the_page_title_is_the_only_h2_on_the_page(tmp_path, path):
 def test_open_works_kids_are_sections_and_their_lists_parts_of_them(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
-    assert re.search(r'<h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3>', body)
+    assert re.search(r'<div class="sec-head"><h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3></div>', body)
     assert "<h4>Still fixable" in body and "<h4>Coming due" in body
 
 
@@ -274,22 +274,24 @@ def test_a_phone_held_sideways_puts_the_strip_and_the_bar_on_one_row():
     assert re.search(r"main\s*\{[^}]*grid-column: 1 / -1", block)
 # --- the follow-ups: #189 the two halves on a phone, #190 one instruction sentence --------------------
 
-def test_the_check_in_has_one_instruction_sentence_and_the_sources_hint_lives_in_the_record(tmp_path):
-    """#190: the tab hint is the sentence; a second intro and the Canvas/HAC line under the tabs
-    put three sentences and a glossary before the first card."""
+def test_the_line_under_the_tabs_is_state_and_the_glossary_is_said_once_under_the_table(tmp_path):
+    """#190 put one instruction sentence under the tabs; spec 2026-09-28 §3 replaces it with one
+    line of state (Done so far; the last check-in) and says what Canvas and HAC are once, as the
+    table's legend, never above the first section and never inside a record."""
     from fridgesheet.web import phrasing
-    assert "copy.checkin_intro" not in phrasing.PHRASES
+    for key in ("copy.checkin_intro", "copy.tab_checkin", "copy.tab_plan", "copy.tab_all"):
+        assert key not in phrasing.PHRASES, key
     seed(tmp_path).close()
     c = app_for(tmp_path)
     for path in ("/kids/Alex/check-in", "/kids/Alex/plan"):
         body = c.get(path).text
-        above = body.split('class="child-nav"')[1].split("<section", 1)[0]     # the tabs, the hint, the intro
+        above = body.split('class="child-nav"')[1].split("<section", 1)[0]
         assert "sources-hint" not in above, path
-        assert "What went well" not in body, path
-    assert "Talk it through together" in c.get("/kids/Alex/check-in").text
-    # Assignments keeps the line under its tabs: its "Where it stands" column uses both words.
+        assert re.search(r'<p class="tab-hint">', above), path
     assignments = c.get("/kids/Alex").text
-    assert assignments.index('class="child-nav"') < assignments.index('class="sources-hint') < assignments.index("<section")
+    assert assignments.count("official gradebook") == 1
+    assert assignments.index('id="items"') < assignments.index('class="legend sources-hint')
+    assert re.search(r'<p class="tab-hint">Done so far: 2 of 5 due · 1 on time\.</p>', assignments)
 
 
 def test_a_stacked_check_in_names_its_two_halves_at_the_bottom_of_the_screen(tmp_path):

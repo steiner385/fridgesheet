@@ -23,9 +23,9 @@
 {% set page_intro = "Past due and still inside the late-work window (up to " ~ overdue_days ~ " days back), then due in the next " ~ days_ahead ~ " days: the same rows the printed sheet shows." %}
 {% include "_page_head.html" %}
 {% for s, w in groups %}
-<section class="kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
+<section class="sec kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
   {# A kid is a section of the page (h3), its two lists parts of that (h4) -- #191. #}
-  <h3 class="kid-head"><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h3>
+  <div class="sec-head"><h3 class="kid-head"><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h3></div>
   {% set student, tier, q_base = s, s.key | tier_of, "/questions?kid=" ~ (s.key | urlencode) %}
   {% if not w.fixable and not w.upcoming %}
   <p>Nothing open. Nice work.</p>

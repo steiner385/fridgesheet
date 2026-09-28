@@ -9,8 +9,8 @@ from tests.web_fixtures import _h, app_for, seed, snapshot
 
 def _groups(body):
     out = {}
-    for g in re.split(r'<details class="queue-group"', body)[1:]:
-        label = re.search(r"<summary>(.*?) <span", g)
+    for g in re.split(r'<details class="sec queue-group', body)[1:]:
+        label = re.search(r"<summary><h3>(.*?)</h3>", g)
         if label:
             out[label.group(1)] = g
     return out
@@ -54,10 +54,10 @@ def test_the_rail_count_is_the_check_ins_questions(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     rail = re.search(r'href="/kids/Alex/check-in"[^>]*>Alex <span id="qcount-Alex" class="count">(\d+)</span>', body)
-    worth_asks = len(re.findall(r'<article class="card review-card', _groups(body)["Worth checking"]))
+    worth_asks = len(re.findall(r'<div class="item ask" id="qc-', _groups(body)["Worth checking"]))
     must_finish = re.search(r'<section id="must-finish".*?</section>', body, re.S).group(0)
     mf_rows = re.split(r'id="mf-\d+"', must_finish)[1:]           # one split per row's own id
-    mf_asks = sum(1 for row in mf_rows if '<p class="ask">' in row)
+    mf_asks = sum(1 for row in mf_rows if '<p class="ask-line">' in row)
     assert rail and int(rail.group(1)) == worth_asks + mf_asks
 
 
@@ -69,7 +69,7 @@ def test_a_check_in_question_card_can_be_answered_and_opens_the_item(tmp_path):
     2026-09-27 §4: Must-finish rows use `qc-<id>` too, so the answer route swaps either)."""
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
-    card = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?</div><!-- /paper -->' % pid, body, re.S).group(0)
+    card = re.search(r'<div class="item[^"]*" id="mf-%d".*?</div><!-- /paper -->' % pid, body, re.S).group(0)
     assert "Was it handed in?" in card
     assert f'hx-post="/items/{pid}/answer"' in card and 'name="slot" value="qc-%d"' % pid in card
     assert f'href="/kids/Alex?show=all#row-{pid}"' in card
@@ -92,13 +92,13 @@ def test_the_answer_route_accepts_the_check_in_slot(tmp_path):
 
 # --- #70: Canvas and HAC, explained where they are used ----------------------------------------
 
-def test_canvas_and_hac_are_explained(tmp_path):
+def test_canvas_and_hac_are_explained_once_per_page_and_not_in_the_record(tmp_path):
     qid = _id(tmp_path, "Quiz 1")
     c = app_for(tmp_path)
     line = "HAC (Home Access Center) is the official gradebook"
-    assert line in c.get("/kids/Alex").text and line in c.get("/kids/Alex/check-in").text
+    assert c.get("/kids/Alex").text.count(line) == 1 and c.get("/kids/Alex/check-in").text.count(line) == 1
     record = c.get(f"/items/{qid}").text
-    assert line in record and "Open in Canvas (opens a new tab)" in record
+    assert line not in record and "Open in Canvas (opens a new tab)" in record
 
 
 # --- the pace sentence (spec 4.6) --------------------------------------------------------------
@@ -126,10 +126,10 @@ def test_the_pace_sentence_shows_on_the_question_card_too(tmp_path):
 def _card(body, pid):
     """One item's card, wherever it lives now: a review-card in a queue, or a Must-finish row
     (spec 2026-09-27 §4 moved the upcoming/fixable rows there, out of the review groups)."""
-    m = re.search(r'<article class="card review-card" id="qc-%d".*?</article>' % pid, body, re.S)
+    m = re.search(r'<div class="item[^"]*" id="qc-%d".*?(?=<div class="item[ "]|</details>)' % pid, body, re.S)
     if m:
         return m.group(0)
-    return re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
+    return re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % pid,
                      body, re.S).group(0)
 
 
@@ -137,7 +137,7 @@ def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
     vid = _id(tmp_path, "Vocabulary")                      # due today, nothing handed in
     card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, vid)
     assert 'value="plan:today"' in card and 'value="plan:tomorrow"' in card and 'value="done"' in card
-    assert 'class="ask"' not in card                        # a status, not a question
+    assert 'class="ask-line"' not in card                        # a status, not a question
 
 
 def test_an_upcoming_card_also_offers_too_late_to_submit(tmp_path):

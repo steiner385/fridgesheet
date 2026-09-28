@@ -136,7 +136,7 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
 # --- kids' UX audit F3: one instruction sentence per section, and it follows the reader ------------
 
 def _intro(body):
-    return re.search(r'<div class="checkin-intro">(.*?)</div>', body, re.S).group(1)
+    return re.search(r'<p class="tab-hint">(.*?)</p>', body, re.S).group(1)
 
 
 def _client(tmp_path, **grades):
@@ -183,7 +183,7 @@ def test_the_same_due_hour_reads_the_same_on_every_surface(tmp_path):
     young = client_with_grades(home, Sam=5)
     # Safety quiz is a Must-finish row for Sam now (overdue, still fixable, spec 2026-09-27
     # §4), not a review card.
-    card = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % sid,
+    card = re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % sid,
                      young.get("/kids/Sam/check-in").text, re.S).group(0)
     assert "evening" in card and "11:59pm" not in card
     detail = young.get(f"/items/{sid}").text

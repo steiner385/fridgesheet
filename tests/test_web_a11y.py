@@ -128,7 +128,7 @@ def test_controls_and_small_text_are_readable():
     # root, no grade set, to the 13px that shipped (test_web_tier_css.py holds the tiers).
     root = re.search(r":root\s*\{([^}]*)\}", CSS).group(1)
     tokens = {f"var(--{k})": int(v) for k, v in re.findall(r"--(type-[a-z]+):\s*(\d+)px", root)}
-    for sel in (r"td \.rel", r"td \.at", r"\.badge", r"\.note \.meta"):
+    for sel in (r"td \.rel", r"td \.at", r"\.badge[^{]*", r"\.note \.meta"):
         size = re.search(sel + r"\s*\{[^}]*font-size:\s*([^;]+);", CSS)
         assert size, sel
         px = tokens.get(size.group(1).strip()) or int(re.match(r"(\d+)px", size.group(1)).group(1))
@@ -158,7 +158,7 @@ def test_row_links_and_disclosures_are_44px_under_a_finger():
     coarse = _coarse()
     for sel in ("table.items td.item > a", "table.items th a", "main details > summary"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-height: 44px", coarse), f"{sel} has no 44px rule for touch"
-    for sel in ("table.work td.item small a", ".record a", ".tally a"):
+    for sel in ("table.work td.item small a", ".inset a", ".tally a"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*padding-block: 8px", coarse), f"{sel} has no touch padding"
 
 

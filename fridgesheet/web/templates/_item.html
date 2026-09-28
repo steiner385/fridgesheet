@@ -1,0 +1,61 @@
+{# One assignment, one surface, five slots (spec 2026-09-28 §4). The includer sets `item` and any of:
+   density   'card' (default), 'detail', 'line', or 'answers' (just the `qid` wrapper: the ask
+             line and the answers, for `_question.html` to put back inside a detail or a
+             Must-finish row without drawing a second card around it)
+   slot      the id the answers swap ('q-<id>' by default; 'qd-<id>' in a detail; 'qc-<id>' on the check-in)
+   box_id    the element's own id ('' for none). Must finish gives the row 'mf-<id>' and keeps the
+             answers in a div with the slot id, so an answer swaps the answers, not the row.
+   tone      'ask' | 'red' | 'ok' | 'grey' | ''      word     the head's right-hand words (the sheet's word)
+   badges    a list for the head's meta               says     the facts sentence, when the includer knows better
+   late_line true: append the late-credit sentence    stamp    provenance for the foot's right
+   linked    the name links to the row on Assignments plan_state  appended to the Plan-a-step link
+   earlier   completed steps on this item             exclude, first   for _answers.html
+   detail: card, item_history, notes, message         question: reopened, undone #}
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
+{% set vd = item.verdict %}
+{% set density = density if density is defined and density else 'card' %}
+{% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
+{% set box = box_id if box_id is defined else qid %}
+{% set asked_again = reopened is defined and reopened %}
+{% set is_q = vd.state == 'question' or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}
+{% set tone = tone if tone is defined and tone else ('ask' if is_q else 'grey' if vd.state == 'waiting' else '') %}
+{% set has_word = word is defined and word %}
+{% set at = (item | due_at(tier)) if item.due else '' %}
+{% set due_text = ('due ' ~ (item.due | wd_md) ~ (' ' ~ at if at else '')) if item.due else '' %}
+{# The line density draws no head, so a line's own kind and due date -- which a card's head
+   says and `facts.*` no longer repeats (spec §8) -- go in a meta span of their own. #}
+{% set line_kind = item.kind if item.kind in ('paper', 'in class') else '' %}
+{% set line_meta = line_kind ~ (' · ' if line_kind and due_text else '') ~ due_text %}
+{# The one word about time: the includer's word; else the date while the item is a question or
+   still upcoming; else the standing phrase, with the date moved into the meta. #}
+{% set date_at_right = (not has_word) and due_text and (is_q or (item.upcoming and not item.overdue)) %}
+{% set when_text = word if has_word else (due_text if date_at_right else (item | standing(tier))) %}
+{% set is_detail = density == 'detail' %}
+{% if density == 'line' %}
+<div class="line{{ ' ' ~ tone if tone }}"{% if box %} id="{{ box }}"{% endif %}><span class="glyph" aria-hidden="true">{{ '✓' if tone == 'ok' else '◷' }}</span><span><b>{{ item.name }}</b>{% if line_meta %} <span class="meta">{{ line_meta }}</span>{% endif %} <span class="muted">{% if says is defined and says %}{{ says }}{% elif ('facts.' ~ vd.kind) | has_phrase %}{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if vd.asks_on %} Asks you on {{ vd.asks_on | wd_md }}.{% endif %}</span>{% if vd.kind == 'asked' and item.teacher_email %} <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>{{ line_action if line_action is defined else '' }}</div>
+{% elif density == 'answers' %}
+<div id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>
+{% else %}
+<div class="item{{ ' ' ~ tone if tone }}"{% if box %} id="{{ box }}"{% endif %} data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>
+  <div class="item-head"><span class="name">{% if linked is defined and linked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ item.id }}" data-focus-target>{{ item.name }}</a>{% else %}<b tabindex="-1" data-focus-target>{{ item.name }}</b>{% endif %}</span><span class="meta">{{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}{% if due_text and not date_at_right %} · {{ due_text }}{% elif not item.due %} · no due date listed{% endif %}{% if badges is defined %}{% for b in badges %} <span class="badge">{{ b }}</span>{% endfor %}{% endif %}</span><span class="when{{ ' word' if has_word }}">{{ when_text }}</span>{% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>
+  {% if message is defined and message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
+  {% set late = (late_line is defined and late_line and item.open_in and item.due and item.late_until) %}
+  {% if says is defined and says %}<p class="facts">{{ says }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
+  {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
+  {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
+  {% elif late %}<p class="facts">{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}</p>{% endif %}
+  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
+  {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
+  {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
+  {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}
+  {% if item.latest_note %}<p class="ours">{{ 'copy.note_on' | say(tier, {'when': item.latest_note.at | wd_md}) }}: {{ item.latest_note.body }}</p>{% endif %}
+  {% if is_detail %}{% include "_record.html" %}{% endif %}
+  <div class="item-foot">{% if not is_detail %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_record.html" %}</details>{% endif %}
+    {% if is_detail %}{% if item_history is defined and item_history %}<details class="history"><summary>{{ 'copy.history' | say(tier, {'n': item_history | length}) }}</summary><ul>{% for e in item_history %}<li><span class="muted">{{ e.at | wd_md_time }}</span> · {{ e.label }}{% if e.source %} <span class="muted">({{ 'HAC' if e.source == 'hac' else 'Canvas' }})</span>{% endif %}{% if e.detail %}: {{ e.detail }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
+    <details class="notes-fold"{{ ' open' if notes is defined and notes }}><summary>{{ 'copy.notes' | say(tier, {'n': (notes | length) if notes is defined else item.notes}) }}</summary>{% set target_type = "item" %}{% set target_id = item.id %}{% include "_notes.html" %}</details>
+    {% elif box == qid %}<a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML">{{ 'copy.notes' | say(tier, {'n': item.notes}) }}</a>{% endif %}
+    <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}{% if plan_state is defined and plan_state %}&amp;state={{ plan_state }}{% endif %}&amp;return_to={{ here | urlencode }}">{{ 'Plan another step' if item.step else 'Plan a step' }}</a>
+    {% if is_detail %}<details><summary>More</summary>{% include "_flag_menu.html" %}</details>{% endif %}
+    {% if stamp is defined and stamp %}<span class="stamp">{{ stamp }}</span>{% endif %}</div>
+</div>
+{% endif %}

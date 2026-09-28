@@ -132,6 +132,9 @@ seven; the first actionable button is 239 px down on the phone but the review qu
 starts 4.4 screens of scrolling from the finish button. NN/g: children skip instruction
 paragraphs entirely; teens leave.
 
+*2026-09-28: the tab hint is superseded by the section-and-card standard (§3): the line under
+the tabs is state, and the section heads carry the orientation.*
+
 Two sentences in particular are adult register on a 5th grader's page: *"These are
 possibilities, not tonight's obligations. Existing commitments are in your plan."* and the
 zero note *"A zero can mean not graded yet, not handed in, or handed in on paper — ask before

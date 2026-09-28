@@ -65,6 +65,7 @@ def test_the_reason_is_not_printed_twice_after_saving(tmp_path):
     body = c.post(f"/items/{qid}/flag", data={"flag": "ask_teacher", "text": "emailed Mr Hoch"}).text
     visible = re.sub(r'value="[^"]*"', "", body)
     visible = re.sub(r'<details class="history">.*?</details>', "", visible, flags=re.S)   # History lists the flag too, by design
+    visible = re.sub(r"<details><summary>More</summary>.*?</details>", "", visible, flags=re.S)   # the flag menu quotes the note as the input's context
     visible = re.sub(r"<template>.*?</template>", "", visible, flags=re.S)   # the row's out-of-band copy (#3), swapped elsewhere           # the input keeps it for editing; that is not a display
     assert visible.count("emailed Mr Hoch") == 1
 
@@ -74,8 +75,8 @@ def test_the_reason_is_not_printed_twice_after_saving(tmp_path):
 def test_the_detail_card_offers_its_heading_as_the_focus_target(tmp_path):
     c, qid = _setup(tmp_path)
     body = c.get(f"/items/{qid}").text
-    assert re.search(r'<h2[^>]*tabindex="-1"[^>]*data-focus-target', body) or \
-        re.search(r'<h2[^>]*data-focus-target[^>]*tabindex="-1"', body)
+    assert re.search(r'<b[^>]*tabindex="-1"[^>]*data-focus-target', body) or \
+        re.search(r'<b[^>]*data-focus-target[^>]*tabindex="-1"', body)
 
 
 def test_app_js_focuses_the_named_target_not_the_first_input():

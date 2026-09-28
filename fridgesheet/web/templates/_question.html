@@ -1,20 +1,9 @@
-{# One question (or decided/waiting) card. `slot` names the element the answer buttons swap:
-   "q-<id>" in a page's question list, "qd-<id>" inside the item detail, so the two can be on
-   one page without the buttons in one reaching for the other. #}
-{% set tier = (student.key | tier_of) if student is defined and student else "" %}
-{% set vd = item.verdict %}
-{% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
-{% set asked_again = reopened is defined and reopened %}
-<div class="q card" id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>
-  <div class="what"><span><b tabindex="-1" data-focus-target>{{ item.name }}</b> · {{ item.course_short }}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}</span>{% if item.due %}{% set at = item | due_at(tier) %}<span>due {{ item.due | wd_md }}{% if at %} {{ at }}{% endif %}</span>{% endif %}</div>
-  {% if ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}</p>
-  {% else %}<p class="facts">{{ item | standing(tier) }}</p>{% endif %}
-  {% set pk = vd | pace_key %}
-  {% if vd.state == 'question' or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
-  {% include "_answers.html" %}
-  {# Fridge Sheet's own count behind a grace period (spec 4.6) stays on the card, inside the
-     record: seventeen words of app reasoning on every card of a fresh install (kids' UX audit F12). #}
-  <details class="more"><summary>See the record</summary>{% if pk %}<p class="facts app-count">{{ pk | say(tier, vd.pace) }}</p>{% endif %}{% include "_record.html" %}</details>
-  {% if not (slot is defined and slot and slot.startswith('qd-')) %}<p class="more"><a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ qid }}" hx-target="#{{ qid }}" hx-swap="outerHTML">Add a note</a> · <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}&amp;return_to={{ here | urlencode }}">Plan a step</a></p>{% endif %}
-</div>
+{# One question (or decided/waiting) card: the item surface at card density (spec 2026-09-28 §4.2).
+   `slot` names the element the answer buttons swap: "q-<id>" in a page's question list, "qd-<id>"
+   inside the item detail, "qc-<id>" on the check-in. Routes render this after Not right?
+   (`reopened`) and Undo (`undone`). A "qd-<id>" slot draws only the `answers` density -- the ask
+   line and the answers in their wrapper -- so Undo and Not right? put back what the detail's own
+   card drew inside, not a second card nested in the detail. #}
+{% set density = 'answers' if slot is defined and slot.startswith('qd-') else 'card' %}
+{% include "_item.html" %}
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}

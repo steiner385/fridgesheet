@@ -25,7 +25,7 @@ def test_the_record_says_when_each_source_was_checked_and_when_it_changed(tmp_pa
     qid = _id(conn, "Quiz 1")
     conn.close()
     body = app_for(tmp_path).get(f"/items/{qid}").text
-    hac = re.search(r'<span class="src">HAC(.*?)</span>', body, re.S).group(1)
+    hac = re.search(r'<span class="src">HAC</span><span>.*?</span><span class="stamp">(.*?)</span>', body, re.S).group(1)
     assert "checked Tue 9/15" in hac and "changed Mon 9/14" in hac
 
 
@@ -76,11 +76,11 @@ def test_a_stale_answer_quotes_the_answer_in_family_words():
 # --- #78 ----------------------------------------------------------------------------------------
 
 def test_layout_and_names(tmp_path):
-    assert re.search(r"\.section-head\s*\{[^}]*flex-wrap:\s*wrap", CSS)
-    # `.qmark` is sized by the tier token, which resolves at the root to the 13px that shipped.
+    assert re.search(r"\.sec-head, details\.sec > summary\s*\{[^}]*flex-wrap:\s*wrap", CSS)
+    # `.rail .count` is sized by the tier token, which resolves at the root to the 13px that shipped.
     root = re.search(r":root\s*\{([^}]*)\}", CSS).group(1)
     tokens = {f"var(--{k})": int(v) for k, v in re.findall(r"--(type-[a-z]+):\s*(\d+)px", root)}
-    for sel in (r"\.qmark", r"\.rail \.count"):
+    for sel in (r"\.rail \.count",):
         size = re.search(sel + r"\s*\{[^}]*font-size:\s*([^;]+);", CSS)
         assert size, sel
         px = tokens.get(size.group(1).strip()) or int(re.match(r"(\d+)px", size.group(1)).group(1))
@@ -101,5 +101,5 @@ def test_layout_and_names(tmp_path):
 
 def test_check_in_answer_buttons_sit_in_a_row_like_on_assignments():
     """Found in Chrome after #79: the check-in's review cards reuse _answers.html but the row
-    styling was scoped to .q cards, so the buttons stacked one per line."""
-    assert re.search(r"\.review-card \.answers[^{]*\{[^}]*display:\s*flex", CSS)
+    styling is the item's, on every page."""
+    assert re.search(r"\.item \.answers[^{]*\{[^}]*display:\s*flex", CSS)

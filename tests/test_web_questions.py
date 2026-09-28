@@ -79,7 +79,7 @@ def test_the_question_card_offers_the_record_and_plan_links(tmp_path):
     c, pid = _setup(tmp_path)
     c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""})
     body = c.post(f"/items/{pid}/undo", data={"prev": ""}).text
-    assert "See the record" in body and "Add a note" in body
+    assert "<summary>Record</summary>" in body and "Notes (0)" in body
     assert f"check-in/step?item_id={pid}" in body          # the "Plan a step" link
 
 

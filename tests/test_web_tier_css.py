@@ -24,9 +24,9 @@ TOKENS = ("--ink", "--muted", "--rule", "--paper", "--wash", "--accent", "--warn
 #: The classes a child reads on the check-in, question card and work list that used to be
 #: pinned at 12 or 13px whatever the tier (kids' UX audit F2). Each must size itself from a
 #: token so the tier reaches it.
-SECONDARY = (".school-evidence", ".q .what", ".q .more", ".eyebrow", ".stamp", "p.legend", "td .rel", "td .at",
+SECONDARY = (".item-head .meta", ".item-foot", ".ours", ".inset", ".stamp", "p.legend", "td .rel", "td .at",
              "table.work td.item small", "table.work td.where small.thru", ".sources-hint", ".src", ".note .meta",
-             ".record", ".qmark", ".lines .line > form")
+             ".sources .src", ".lines .line > form")
 
 
 def _block(selector: str) -> str:
@@ -100,7 +100,13 @@ def test_secondary_type_clears_the_childrens_floor_in_the_young_tiers():
 def test_secondary_text_on_a_childs_page_is_sized_by_a_token(selector):
     """A pixel literal here is a size the tier cannot reach: the 20px early page rendered its
     "School record" lines at 13px."""
-    blocks = re.findall(re.escape(selector) + r"\s*\{([^}]*)\}", CSS)
+    # Every rule in this file sits on its own line; a selector may share a rule with siblings
+    # in a comma list (".lines .line > form" is never alone), so match it as a whole list item
+    # rather than a bare substring (which would also catch ".src" inside ".sources .src small").
+    blocks = []
+    for m in re.finditer(r"^([^{}\n]+)\{([^{}]*)\}", CSS, re.M):
+        if selector in [s.strip() for s in m.group(1).split(",")]:
+            blocks.append(m.group(2))
     assert blocks, f"no {selector} rule"
     sizes = [m for b in blocks for m in re.findall(r"font-size:\s*([^;]+);", b)]
     assert sizes, f"{selector} sets no font-size"

@@ -7,6 +7,9 @@ links:
   - kind: related
     project: fridgesheet
     feature: all-work-table-ux
+  - kind: related
+    project: fridgesheet
+    feature: section-and-card-standard
 ---
 
 Every page in the browser app opens, scrolls and folds to a phone the same way, so a layout fix made once (#184) does not have to be rediscovered page by page.
@@ -42,6 +45,7 @@ One page layout, applied everywhere rather than negotiated per page: a shared `_
 - The standard itself — `--page-max`, the shared `_page_head.html`, the one-line status bar, `.table-wrap` scrolling — was designed in `docs/superpowers/specs/2026-09-26-page-layout-standard-design.md` and landed in #184 (commit `25c4f99`); this capability is that standard's continued application across the rest of the app, tracked by its own follow-up issues.
 - #197 is a closed "decision to revisit" rather than an open gap: the audit measured that 1600px still leaves 29.8% blank at 2560px, weighed centering the column vs. raising the ceiling, and recorded both as two-line CSS changes to reach for only if a household actually uses that wide a screen. Treat it as evidence the standard was applied deliberately, not incompletely.
 - #188 is the audit's own bookkeeping issue (naming its follow-ups by number, `[skip release]`) rather than a layout change; it's included in the driving cluster because it's the thread that ties #187/#191/#192/#195/#196/#197 back to the audit that produced them.
+- The content column below the head has its own standard, [[section-and-card-standard]].
 
 ## Evidence
 

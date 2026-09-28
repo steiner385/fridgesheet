@@ -23,7 +23,7 @@ def test_every_filter_option_is_a_few_words(tmp_path):
     """"done, excused, let go, or too late to submit" was a sentence inside a <select>."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex").text
-    form = re.search(r'<form class="filters".*?</form>', body, re.S).group(0)
+    form = re.search(r'<form class="filters controls".*?</form>', body, re.S).group(0)
     options = [re.sub(r"\s+", " ", o).strip() for o in re.findall(r"<option[^>]*>(.*?)</option>", form, re.S)]
     assert options, "no filter options found"
     long = [o for o in options if len(o.split()) > 4 and not o.startswith("Honors") and not o.startswith("Algebra")]
@@ -47,13 +47,13 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     pid = _id(tmp_path, "Participation")
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
-    card = re.search(r'<div class="q card" id="q-%d".*?</div>\s*</div>' % pid, kid, re.S).group(0)
+    card = kid[kid.index('id="q-%d"' % pid):kid.index('id="items"')]
     assert "allows 7 days" in card
-    assert card.index('<details class="more">') < card.index("allows 7 days")
+    assert card.index("<summary>Record</summary>") < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text
-    row = re.search(r'<div class="mf-row[^"]*" id="mf-%d">.*?(?=<div class="mf-row|</div><!-- /\w+ -->)' % pid,
+    row = re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % pid,
                     checkin, re.S).group(0)
-    assert "allows 7 days" in row and re.search(r"<details[^>]*>\s*<summary>[^<]*</summary>\s*<p[^>]*app-count", row)
+    assert "allows 7 days" in row and row.index("<summary>Record</summary>") < row.index("allows 7 days")
 
 
 def test_the_print_page_keeps_its_printer_note_off_the_page(tmp_path):

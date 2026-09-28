@@ -18,16 +18,16 @@ def _table(body):
 
 # --- #54: the tabs say what they are ---------------------------------------------------------
 
-def test_the_third_tab_is_assignments_and_every_tab_says_what_it_is_for(tmp_path):
+def test_the_third_tab_is_assignments_and_the_line_under_the_tabs_is_state(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    pages = {"/kids/Alex/check-in": "Talk it through", "/kids/Alex/plan": "What you agreed to do",
-             "/kids/Alex": "Everything the school lists"}
-    for path, hint in pages.items():
+    pages = {"/kids/Alex/check-in": "Start with what", "/kids/Alex/plan": "Start with what",
+             "/kids/Alex": "Done so far"}
+    for path, state in pages.items():
         body = c.get(path).text
         nav = re.search(r'<nav class="child-nav".*?</nav>', body, re.S).group(0)
         assert ">Assignments<" in nav and ">All work<" not in nav, path
-        assert hint in body, path
+        assert re.search(r'<p class="tab-hint">[^<]*' + re.escape(state), body), path
 
 
 # --- #52: filters in family words, including the ones that were missing ----------------------
@@ -71,4 +71,4 @@ def test_a_no_in_handed_in_is_not_red():
 # --- sentences start with a capital ----------------------------------------------------------
 
 def test_a_verdict_sentence_that_starts_with_a_value_is_capitalised():
-    assert verdicts.say("facts.awaiting_grade", "", {"kind": "paper", "due": "Thu 9/10"}).startswith("Paper work")
+    assert verdicts.say("facts.awaiting_grade", "", {"kind": "paper", "due": "Thu 9/10"}).startswith("No grade yet")

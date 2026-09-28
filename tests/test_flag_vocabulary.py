@@ -103,7 +103,8 @@ def test_the_printed_sheets_marker_is_the_same_button_in_capitals():
 # --- the record: one partial, whichever card shows it (#46) -------------------------------------
 
 def _sources(body: str) -> list[str]:
-    return re.findall(r'<div class="source">.*?</div>', body, re.S)
+    """One source line of the record: its label, its facts and its stamp (`_source_facts.html`)."""
+    return re.findall(r'<span class="src">.*?<span class="stamp">.*?</span>', body, re.S)
 
 
 @pytest.mark.parametrize("name, kid", [("Quiz 1", "Alex"), ("Essay draft", "Alex"), ("Lab notebook", "Alex"),

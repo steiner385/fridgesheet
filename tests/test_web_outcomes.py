@@ -109,7 +109,7 @@ def test_the_kid_card_shows_the_record_and_the_kid_page_filters_by_outcome(tmp_p
     seed(tmp_path).close()
     c = app_for(tmp_path)
     dash = c.get("/", headers={"host": "127.0.0.1"}).text
-    assert 'class="record"' in dash and "not done</a>" in dash and "due so far" in dash
+    assert 'class="outcome-line"' in dash and "not done</a>" in dash and "due so far" in dash
     page = c.get("/kids/Alex?outcome=not_done", headers={"host": "127.0.0.1"}).text
     assert 'name="outcome"' in page and '<option value="not_done" selected>not done</option>' in page
     assert "Homework 4" in page                              # missing in Canvas, no HAC grade: not done

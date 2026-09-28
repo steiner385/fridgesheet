@@ -1,0 +1,104 @@
+<!doctype html>
+<!-- MOCKUP, not product code. The five-slot card anatomy, drawn once for every container that
+     shows an assignment: question, detail, Must-finish row, plan step, a step the school has,
+     a waiting card, and the two line densities. Same stylesheet as the page mockups. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card anatomy · Fridge Sheet (mockup)</title>
+<link rel="stylesheet" href="../../../../fridgesheet/web/static/app.css">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body data-tier="older">
+<div class="shell">
+  <aside class="rail">
+    <h1><a href="#" class="brand"><img src="../../../../fridgesheet/web/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    <nav><a href="#">Today</a><a href="#" class="current">Doug <span class="count">2</span></a><a href="#">Kayla</a><a href="#">Melanie <span class="count">2</span></a></nav>
+  </aside>
+  <header class="status"><span>Refreshed Mon 9/28 7:43 AM</span><span class="ok">Canvas OK</span><span class="ok">HAC OK</span></header>
+  <main>
+    <div class="page-head"><h2>One card, five slots</h2><p class="page-intro">Every container that draws an assignment fills the same slots in the same order and skips the empty ones.</p></div>
+
+    <section class="sec">
+      <div class="sec-head"><h3>A question</h3><p class="lead">Card density, as on the Assignments tab, the Questions page and Worth checking. The foot is folded.</p></div>
+      <div class="item ask anno">
+        <div class="item-head" data-slot="1 head"><span class="name">MakeMusic Cloud Assignment #4</span><span class="meta">Concert Band · in class · 25 pts</span><span class="when">due Sun 9/20 11:59pm</span></div>
+        <p class="facts" data-slot="2 says">Still no grade anywhere, longer than grading usually takes.</p>
+        <p class="ask-line" data-slot="3 ask">Was it handed in?</p>
+        <div class="answers"><form><button class="primary">Yes, handed in</button></form><form><button>Today</button></form><form><button>Tomorrow</button></form><form><button>Ask the teacher</button></form></div>
+        <p class="ours" data-slot="4 ours">Note, Tue 9/22: Doug says he played it in class on Friday.</p>
+        <div class="item-foot" data-slot="5 foot"><details><summary>Record</summary></details><details><summary>Notes (1)</summary></details><a href="#">Plan a step</a><details><summary>More</summary></details></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3>The same item, opened</h3><p class="lead">Detail density: what a table row expands to, and what the card above becomes when opened. The head gains Close and the Record is open. Nothing is drawn twice.</p></div>
+      <div class="item ask">
+        <div class="item-head"><span class="name">MakeMusic Cloud Assignment #4</span><span class="meta">Concert Band · in class · 25 pts</span><span class="when">due Sun 9/20 11:59pm</span><button type="button" class="link close">Close</button></div>
+        <p class="facts">Still no grade anywhere, longer than grading usually takes.</p>
+        <p class="ask-line">Was it handed in?</p>
+        <div class="answers"><form><button class="primary">Yes, handed in</button></form><form><button>Today</button></form><form><button>Tomorrow</button></form><form><button>Ask the teacher</button></form></div>
+        <p class="ours">Note, Tue 9/22: Doug says he played it in class on Friday.</p>
+        <div class="inset"><div class="sources">
+          <span class="src">Canvas</span><span>nothing to submit online · no grade posted</span><span class="stamp">checked Mon 9/28 7:43 AM · changed Thu 9/24 4:14 PM</span>
+          <span class="src">HAC</span><span>no grade posted</span><span class="stamp">checked Mon 9/28 7:43 AM · changed Thu 9/17 5:50 PM</span>
+        </div><p>Fridge Sheet allows 7 days for this class before asking; it has no earlier grades to go on.</p><p>Andrew Desmond · <a href="#">Email with these facts</a> · <a href="#">Open in Canvas</a></p></div>
+        <div class="item-foot"><details><summary>History (3)</summary></details><details><summary>Notes (1)</summary></details><a href="#">Plan a step</a><details><summary>More</summary></details></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3>Must finish</h3><p class="lead">The head's right-hand word is the sheet's word, red because the school says not in. No question, so slot 3 is the answers alone.</p></div>
+      <div class="item red">
+        <div class="item-head"><span class="name"><a href="#">Explore and Explain: Function of the Plasma Membrane</a></span><span class="meta">Honors Biology · 10 pts</span><span class="when word">DUE TONIGHT</span></div>
+        <p class="facts">Nothing handed in yet.</p>
+        <div class="answers"><form><button class="primary">It's handed in</button></form><form><button>Today</button></form><form><button>Tomorrow</button></form></div>
+        <div class="item-foot"><details><summary>Record</summary></details><a href="#">Plan a step</a><span class="stamp">New since Sunday's check-in</span></div>
+      </div>
+      <div class="item red">
+        <div class="item-head"><span class="name"><a href="#">WS #2-2</a></span><span class="meta">Honors Algebra II · paper</span><span class="when word">MISSING</span></div>
+        <p class="facts">Canvas marked it missing on Thu 9/24. Late work is usually accepted until Thu 10/1.</p>
+        <div class="answers"><form><button class="primary">It's handed in</button></form><form><button>Today</button></form><form><button>Tomorrow</button></form></div>
+        <div class="item-foot"><details><summary>Record</summary></details><a href="#">Plan a step</a><span class="stamp">On Sunday's list</span></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3>A family step</h3><p class="lead">The same card. Slot 2 is the step itself, slot 4 is who and how long, and the provenance is the tiny stamp in the foot.</p></div>
+      <div class="item">
+        <div class="item-head"><span class="name">Smartbook: Cell Membrane</span><span class="meta">Honors Biology · <span class="badge">Must finish · MISSING</span></span><span class="when">planned for today</span></div>
+        <p class="facts">Finish the Smartbook before dinner, then submit from the Chromebook.</p>
+        <p class="ours">Doug · 25 min</p>
+        <div class="item-foot"><details><summary>Record</summary></details><a href="#">Edit or complete step</a><span class="stamp">Agreed at the Sun 9/27 check-in · recorded by Mom</span></div>
+      </div>
+      <div class="item grey ok">
+        <div class="item-head"><span class="name">Week 6</span><span class="meta">Concert Band</span><span class="when">planned for Fri 9/25</span></div>
+        <p class="facts">Canvas: handed in Fri 9/25 3:41 PM.</p>
+        <div class="answers"><form><button>Mark step complete</button></form></div>
+        <p class="ours">Doug · 15 min · not counted tonight</p>
+        <div class="item-foot"><details><summary>Record</summary></details><a href="#">Edit</a><span class="stamp">Agreed at the Sun 9/27 check-in</span></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-head"><h3>Waiting</h3><p class="lead">A card with nothing to decide: no ask line, no filled button, and the head's word says why.</p></div>
+      <div class="item grey">
+        <div class="item-head"><span class="name">Unit 2 Part 2 Vocab</span><span class="meta">AP Human Geography · paper</span><span class="when">Waiting for a grade</span></div>
+        <p class="facts">No grade yet; grading paper takes time. Fridge Sheet asks you on Wed 9/30.</p>
+        <div class="answers"><form><button>Ask now</button></form></div>
+        <div class="item-foot"><details><summary>Record</summary></details><a href="#">Plan a step</a></div>
+      </div>
+    </section>
+
+    <section class="sec quiet">
+      <div class="sec-head"><h3>Lines</h3><p class="lead">Line density: the head alone, with one action at the right. Settled, then waiting.</p></div>
+      <div class="lines">
+        <div class="line ok"><span class="glyph">✓</span><span><b>Chapter 2.3 Reading Guide Assignment</b> <span class="muted">You were following up since 9/20. Canvas has graded it: 10.5 of 11.</span></span><button class="link">Not right?</button></div>
+        <div class="line"><span class="glyph">◷</span><span><b>Week 5 Canvas Check-in</b> <span class="muted">Following up since 9/23.</span></span><a href="#">Email</a></div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

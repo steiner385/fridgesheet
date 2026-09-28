@@ -1,0 +1,109 @@
+/* MOCKUP, not product code. What app.css would gain (and what it would lose) under the
+   proposed section-and-item standard. Loaded after the real app.css, so the overrides at the
+   bottom show which existing rules the change retires. */
+
+/* 1. Tokens: one radius, one gap scale by name. */
+:root { --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
+
+/* 2. A section: the one block the content column is made of. h3 + count + one lead sentence
+      + the section's own controls at the right; then its body. A folded section is the same
+      head drawn as a <summary>. A quiet section (settled, waiting) is the same head in muted
+      ink, not a smaller one. Sections are 32px apart and nothing inside them adds to that. */
+.sec { margin: 0 0 var(--s6); }
+.sec-head, details.sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); }
+.sec-head h3, details.sec > summary h3 { margin: 0; font-size: 18px; font-weight: 650; display: inline; }
+.sec-head .count, details.sec > summary .count { font-size: var(--type-small); color: var(--muted); font-weight: 400; }
+/* Full-width so it always wraps under the head; the measure is kept as right padding, since a
+   max-width would let the line fit beside the controls instead. */
+.sec-head .lead { flex-basis: 100%; margin: 0; color: var(--muted); padding-right: max(0px, calc(100% - var(--measure))); }
+.sec-head .lead.inline { flex-basis: auto; }
+.sec-head .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
+.sec.quiet h3 { color: var(--muted); font-weight: 600; }
+details.sec > summary { cursor: pointer; list-style: none; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::before { content: "▸ "; color: var(--muted); }
+details.sec[open] > summary::before { content: "▾ "; }
+.sec h4 { font-size: 15px; margin: var(--s4) 0 var(--s2); }
+.sec h4:first-child { margin-top: 0; }
+
+/* 3. The item surface: one box for one assignment, wherever it is drawn. Emphasis is a left
+      rule and a word, never a different shape: `.ask` (needs an answer), `.red` (the school
+      says not in), `.ok` (done), `.grey` (nothing to do). */
+.item { background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: var(--radius); padding: var(--s3) var(--s4); overflow-wrap: anywhere; }
+.item + .item { margin-top: var(--s2); }
+.item.ask { border-left-color: var(--accent); }
+.item.red { border-left-color: var(--warn); }
+.item.ok { border-left-color: var(--ok); }
+.item.grey { color: var(--muted); }
+.item-head { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
+.item-head .name { font-weight: 650; }
+.item-head .name a { color: inherit; text-decoration: none; }
+.item-head .meta { font-size: var(--type-small); color: var(--muted); }
+.item-head .when { margin-left: auto; font-size: var(--type-small); color: var(--muted); white-space: nowrap; }
+.item-head .when.word { color: var(--warn); font-weight: 700; font-size: inherit; }
+.item-head .close { margin-left: auto; }
+.item .facts { margin: var(--s2) 0 0; }
+.item .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
+.item .answers { margin-top: var(--s2); display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.item .answers form { display: inline; margin: 0; }
+/* The foot: everything that is not the answer, as quiet links and folds on one line. */
+.item-foot { margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); font-size: var(--type-small); align-items: baseline; }
+.item-foot details { display: inline; }
+.item-foot details[open] { display: block; flex-basis: 100%; }
+.item-foot summary { display: inline; cursor: pointer; color: var(--accent); }
+.item-foot summary::-webkit-details-marker { display: none; }
+.item-foot summary::before { content: "▸ "; color: var(--muted); }
+.item-foot details[open] > summary::before { content: "▾ "; }
+
+/* 4. One inset for anything quoted inside an item: the record, the family's account, a
+      witness line, the class's pace. A left rule says whose words they are. */
+.inset { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--wash); border-radius: var(--radius); font-size: var(--type-small); }
+.inset.family { border-left: 3px solid var(--accent); }
+.inset.warn { border-left: 3px solid var(--warn); color: var(--warn); }
+.inset p { margin: var(--s1) 0; }
+/* The record: one source per block. Label, then the facts; the stamp on its own line under
+   the facts, so a long stamp never wraps the label column into four lines. */
+.sources { display: grid; grid-template-columns: max-content 1fr; gap: var(--s1) var(--s3); }
+.sources .src { color: var(--muted); font-weight: 600; }
+.sources .stamp { grid-column: 2; color: var(--muted); font-size: var(--type-tiny); margin: 0 0 var(--s1); }
+
+/* 5. Lines: the compact density of the item surface, for what needs no answer. Same box. */
+.lines { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 0 var(--s4); margin: 0; }
+.lines .line { display: flex; gap: var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.lines .line:last-child { border-bottom: none; }
+.lines .line > a, .lines .line > form, .lines .line > button { margin-left: auto; font-size: var(--type-small); white-space: nowrap; }
+.lines .glyph { color: var(--muted); flex: none; }
+.lines .line.ok .glyph { color: var(--ok); }
+
+/* 6. Badges are one thing: a neutral outline with a word in it. The word carries the meaning. */
+.badge, .badge.flag, .badge.plan, .qmark { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: var(--type-small); background: var(--wash); border: 1px solid var(--rule); color: var(--ink); text-decoration: none; margin: 0; }
+a.badge:hover { border-color: var(--accent); }
+
+/* 7. The table row that opens: the same item surface, in the row, no box inside a box. */
+tr.detail td { background: var(--wash); padding: var(--s2) var(--s2) var(--s3); }
+tr.detail .item { border-left-width: 4px; }
+
+/* 8. What this retires. The check-in's own green palette (#286454, #214f43, #edf5f1, #45655e,
+      #eef3ef, #aa7c32) goes: the tabs and the primary link use the accent like every page. */
+.child-nav a[aria-current] { border-bottom-color: var(--accent); color: var(--accent); }
+.button-link { background: var(--paper); border-color: var(--control); color: var(--ink); }
+.notice { background: var(--wash); border-left-color: var(--accent); }
+.tab-hint { margin: -12px 0 var(--s5); font-weight: 550; color: var(--ink); font-size: inherit; }
+.q, .record, .mf-row, .plan-panel, .plan-card, .review-card, .done-line, .family-account, .mf-paper, .witness, .review-note { all: revert; }
+.filters { margin: 0; }
+
+@media (max-width: 1023px) {
+  .item-head .when { margin-left: 0; flex-basis: 100%; white-space: normal; }
+  .sec-head .controls { margin-left: 0; flex-basis: 100%; }
+}
+
+/* 9. The card anatomy (five slots). Slot 4, the family's layer, is one line with the family's
+      rule; provenance in the foot is tiny and pushed right. */
+.item .ours { margin: var(--s2) 0 0; padding-left: 10px; border-left: 3px solid var(--accent); font-size: var(--type-small); }
+.item-foot .stamp { margin-left: auto; color: var(--muted); font-size: var(--type-tiny); }
+/* Mockup-only: slot labels in the left margin of an annotated card. */
+.anno { margin-left: 112px; position: relative; }
+.anno [data-slot] { position: relative; }
+.anno [data-slot]::before { content: attr(data-slot); position: absolute; left: -124px; top: 0; width: 104px; text-align: right; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.demo-note { color: var(--muted); max-width: var(--measure); margin: 0 0 var(--s3); }
+@media (max-width: 1023px) { .anno { margin-left: 0; } .anno [data-slot]::before { display: none; } }
