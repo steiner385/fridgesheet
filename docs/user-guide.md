@@ -494,7 +494,7 @@ The printed sheet, on a screen. Per child:
 "Where the school's records disagree, or say too little to act on. Answer one and it leaves
 this page." Fridge Sheet only asks when *you* can do something. Each card shows the
 assignment, the facts in one sentence, the question in bold, and two to four answers.
-**See the record** unfolds the raw facts from each gradebook, how long this class usually
+**Record** unfolds the raw facts from each gradebook, how long this class usually
 takes to grade, and **Email with these facts** — a pre-written email to the teacher.
 
 | Question | When you see it | Answers |
