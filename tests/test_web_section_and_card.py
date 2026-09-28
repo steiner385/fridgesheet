@@ -215,6 +215,8 @@ def test_the_questions_page_is_one_section_per_kid_with_lines_for_the_waiting(tm
     assert re.search(r'<section class="sec kid-questions"[^>]*>\s*<div class="sec-head"><h3>Alex</h3><span class="count">1</span>', body)
     assert re.search(r'<h4>Waiting on the teacher</h4>\s*<div class="lines">\s*<div class="line grey" id="q-%d">' % lab, body)
     assert body.count("<h2") == 1
+    line = _element(body, '<div class="line grey" id="q-%d">' % lab)
+    assert line.count("mailto:") == 1                                  # the partial's Email link, once
 
 
 def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):

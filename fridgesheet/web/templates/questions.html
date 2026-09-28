@@ -25,7 +25,7 @@
   {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
   {% if g.asked %}
   <h4>Waiting on the teacher</h4>
-  <div class="lines">{% for item in g.asked %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = item | standing(tier) %}{% set line_action %}{% if item.teacher_email %}<a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}{% endset %}{% include "_item.html" %}{% endfor %}</div>
+  <div class="lines">{% for item in g.asked %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = item | standing(tier) %}{% include "_item.html" %}{% endfor %}</div>
   {% endif %}
   {% if g.twins %}
   <details class="sec quiet"><summary><h3>Can't pair these</h3> <span class="count">{{ g.twins | length }}</span></summary>
