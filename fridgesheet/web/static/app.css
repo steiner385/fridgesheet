@@ -608,6 +608,6 @@ tr.detail td { padding: var(--s2) var(--s2) var(--s3); }
   .sec-head .controls { margin-left: 0; flex-basis: 100%; }
 }
 @media (pointer: coarse) {
-  .item-foot summary, .item-foot a, details.sec > summary, .lines .line > a, .lines .line > button, .lines .line > form button, .done-line form button { min-height: 44px; display: inline-flex; align-items: center; }
-  .item-head .name a, .inset a { display: inline-block; padding-block: 8px; }
+  .item-foot summary, .item-foot a, details.sec > summary, .lines .line > a, .lines .line > button, .lines .line > form button, .done-line form button, .item-head .name a { min-height: 44px; display: inline-flex; align-items: center; }
+  .inset a { display: inline-block; padding-block: 8px; }
 }

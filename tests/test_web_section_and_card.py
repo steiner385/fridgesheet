@@ -81,5 +81,5 @@ def test_a_badge_is_one_neutral_style():
 
 def test_the_new_targets_are_44px_under_a_finger():
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
-    for sel in (".item-foot summary", ".item-foot a", "details.sec > summary", ".lines .line > a"):
+    for sel in (".item-foot summary", ".item-foot a", "details.sec > summary", ".lines .line > a", ".item-head .name a"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-height: 44px", coarse), sel
