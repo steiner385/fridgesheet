@@ -33,7 +33,7 @@
     {% if view.verdict.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}{% set badges = badges + [('badge.zero_to_check' | say(tier))] %}{% elif view.verdict.kind == 'stale_answer' %}{% set badges = badges + [('badge.changed_since_answer' | say(tier))] %}{% endif %}
     {% set stamp = (('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day})) if seen_day else '' %}
     {% set earlier = completed_for.get(view.id) %}
-    {% if grey %}{% set exclude = ['too_late', 'ignore', 'done', 'plan:today', 'plan:tomorrow', 'ask_teacher', 'follow_up', 'excused'] %}{% endif %}
+    {% if grey %}{% set exclude = view.verdict.answers | map(attribute='action') | list %}{% endif %}
     {% include "_item.html" %}
     {% if grey %}{% set exclude = ['too_late', 'ignore'] %}{% endif %}
     {% endfor %}

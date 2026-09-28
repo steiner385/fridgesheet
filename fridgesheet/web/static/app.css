@@ -464,8 +464,10 @@ th .arrow { font-size: var(--type-small); }
 .sec-head .lead.inline { flex-basis: auto; padding-right: 0; }
 .sec-head .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
 .sec.quiet h3 { color: var(--muted); font-weight: 600; }
-details.sec > summary { cursor: pointer; list-style-position: inside; }
-details.sec > summary::marker { color: var(--muted); }
+details.sec > summary { cursor: pointer; list-style: none; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::before { content: "▸ "; color: var(--muted); }
+details.sec[open] > summary::before { content: "▾ "; }
 .sec h4 { font-size: 15px; margin: var(--s4) 0 var(--s2); }
 /* The line under the child tabs is state, not instruction (§3): body type, ink. */
 .tab-hint { margin: -12px 0 var(--s5); font-size: inherit; font-weight: 550; color: var(--ink); }
@@ -522,6 +524,7 @@ details.sec > summary::marker { color: var(--muted); }
 .lines .line > a, .lines .line > form, .lines .line > button { margin-left: auto; font-size: var(--type-small); white-space: nowrap; }
 .lines .glyph, .done-line .glyph { color: var(--muted); flex: none; }
 .lines .line.ok .glyph, .done-line .glyph { color: var(--ok); }
+.lines .line .meta { font-size: var(--type-small); color: var(--muted); }
 /* The done-line after an answer: line density on its own. In a list it takes the card's place
    and wears the box; inside a Must-finish row it is a line in the row, no box. */
 .done-line { display: flex; gap: var(--s3); align-items: baseline; background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: var(--radius); padding: var(--s2) var(--s4); margin-bottom: var(--s2); }

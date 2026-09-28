@@ -19,8 +19,10 @@
 .sec-head .lead.inline { flex-basis: auto; }
 .sec-head .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
 .sec.quiet h3 { color: var(--muted); font-weight: 600; }
-details.sec > summary { cursor: pointer; list-style-position: inside; }
-details.sec > summary::marker { color: var(--muted); }
+details.sec > summary { cursor: pointer; list-style: none; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary::before { content: "▸ "; color: var(--muted); }
+details.sec[open] > summary::before { content: "▾ "; }
 .sec h4 { font-size: 15px; margin: var(--s4) 0 var(--s2); }
 .sec h4:first-child { margin-top: 0; }
 

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.web_fixtures import app_for, seed
+from tests.web_fixtures import app_for, client_with_grades, seed
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 CSS = (WEB / "static" / "app.css").read_text(encoding="utf-8")
@@ -47,6 +47,11 @@ def test_a_section_head_is_one_wrapping_row_and_a_folded_section_draws_the_same_
     assert re.search(r"\.sec\.quiet h3\s*\{[^}]*color: var\(--muted\)", CSS)
     assert re.search(r"\.sec-head \.lead\s*\{[^}]*flex-basis: 100%", CSS)
     assert re.search(r"\.sec-head \.controls\s*\{[^}]*margin-left: auto", CSS)
+    # A folded section keeps a disclosure marker: `summary { display: flex }` drops the
+    # native `::marker` in Chromium and Firefox, so the mark is drawn with `::before` instead,
+    # the same pattern the item-foot's own folds already use (final review finding 3).
+    assert re.search(r'details\.sec > summary::before\s*\{[^}]*content: "▸ "', CSS)
+    assert re.search(r'details\.sec\[open\] > summary::before\s*\{[^}]*content: "▾ "', CSS)
 
 
 # --- §4: the item surface -----------------------------------------------------------------------
@@ -149,6 +154,23 @@ def test_the_detail_is_the_same_card_with_close_and_the_record_open_and_nothing_
     assert 'id="qd-%d"' % pid in body                                            # the detail's answers keep their own slot
 
 
+def test_undo_inside_a_detail_puts_back_the_wrapper_not_a_second_card(tmp_path):
+    """Answering from the detail's own slot (qd-<id>) and undoing it must restore just the
+    `qid` wrapper -- the ask line and the answers -- not a whole second `.item` card nested
+    inside the detail (final review finding 1)."""
+    pid = _id(tmp_path, "Participation")
+    c = app_for(tmp_path)
+    detail = c.get(f"/items/{pid}").text
+    assert f'id="qd-{pid}"' in detail
+    answered = c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": f"qd-{pid}"})
+    assert f'<div class="line ok done-line" id="qd-{pid}"' in answered.text
+    undone = c.post(f"/items/{pid}/undo", data={"prev": "", "slot": f"qd-{pid}"}).text
+    assert undone.lstrip().startswith(f'<div id="qd-{pid}"')
+    assert "Was it handed in?" in undone
+    assert undone.count('class="answers"') == 1
+    assert "item-head" not in undone and "data-focus-target" not in undone and "Notes (" not in undone
+
+
 def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_path):
     from uuid import uuid4
     from fridgesheet.web import db
@@ -217,6 +239,37 @@ def test_the_questions_page_is_one_section_per_kid_with_lines_for_the_waiting(tm
     assert body.count("<h2") == 1
     line = _element(body, '<div class="line grey" id="q-%d">' % lab)
     assert line.count("mailto:") == 1                                  # the partial's Email link, once
+
+
+def test_a_waiting_line_still_says_its_kind_and_due_date(tmp_path):
+    """The line density draws no head, so `facts.*` no longer saying "{kind} work, due {due}"
+    (spec §8, said once in the card's head) must not lose those facts on a line: they move
+    into a meta span of their own (final review finding 2), on every tier."""
+    lid = _id(tmp_path, "Lab notebook")
+    body = app_for(tmp_path).get("/kids/Alex").text
+    fold = body[body.index("Waiting, nothing to do yet"):]
+    line = _element(fold, '<div class="line grey" id="q-%d">' % lid)
+    assert 'class="meta"' in line and "paper" in line and "due " in line
+
+    for i, grade in enumerate((None, 5, 7, 10)):
+        home = tmp_path / f"tier-{i}"
+        home.mkdir()
+        lid = _id(home, "Lab notebook")
+        c = client_with_grades(home, **({"Alex": grade} if grade is not None else {}))
+        body = c.get("/kids/Alex").text
+        fold = body[body.index("Waiting, nothing to do yet"):]
+        line = _element(fold, '<div class="line grey" id="q-%d">' % lid)
+        assert "paper" in line and "due Thu 9/10" in line, (grade, line)
+
+
+def test_a_kid_with_no_questions_still_gets_a_section_saying_so(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/questions").text
+    tail = '<section class="sec kid-questions"' + body.rsplit('<section class="sec kid-questions"', 1)[1]
+    sam = tail[:tail.index("</section>") + len("</section>")]
+    assert "<h3>Sam</h3>" in sam
+    assert '<span class="count">0</span>' in sam
+    assert "Nothing to ask about Sam's work" in sam
 
 
 def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):

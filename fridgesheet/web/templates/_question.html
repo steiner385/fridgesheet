@@ -1,7 +1,9 @@
 {# One question (or decided/waiting) card: the item surface at card density (spec 2026-09-28 §4.2).
    `slot` names the element the answer buttons swap: "q-<id>" in a page's question list, "qd-<id>"
    inside the item detail, "qc-<id>" on the check-in. Routes render this after Not right?
-   (`reopened`) and Undo (`undone`). #}
-{% set density = 'card' %}
+   (`reopened`) and Undo (`undone`). A "qd-<id>" slot draws only the `answers` density -- the ask
+   line and the answers in their wrapper -- so Undo and Not right? put back what the detail's own
+   card drew inside, not a second card nested in the detail. #}
+{% set density = 'answers' if slot is defined and slot.startswith('qd-') else 'card' %}
 {% include "_item.html" %}
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}
