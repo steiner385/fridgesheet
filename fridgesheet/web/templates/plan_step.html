@@ -16,7 +16,7 @@
 <div class="card conflict">
   <h3>Saved meanwhile</h3>
   <p>{{ latest.next_step }} · <strong>{{ latest.owner }}</strong> · {{ states[latest.state] }} · {{ latest.planned_for | wd_md }}{% if latest.recorded_by %} · recorded by {{ latest.recorded_by }}{% endif %}</p>
-  {% if latest.family_account %}<p class="family-account">{{ latest.family_account }}</p>{% endif %}
+  {% if latest.family_account %}<p class="ours">{{ latest.family_account }}</p>{% endif %}
   <p class="muted">Your words are still in the form below. Save again to keep yours, or <a href="{{ base }}/step?step_id={{ step_id }}{% if return_to is defined and return_to %}&amp;return_to={{ return_to | urlencode }}{% endif %}">open the latest version</a> to start from theirs.</p>
 </div>
 {% endif %}

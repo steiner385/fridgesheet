@@ -286,3 +286,39 @@ def test_today_open_work_and_a_class_page_head_their_sections_the_one_way(tmp_pa
     page = c.get(f"/kids/Alex/courses/{cid}").text
     heads = re.findall(r'<section class="sec[^"]*"[^>]*>\s*<div class="sec-head"><h3>([^<]*)</h3>', page)
     assert heads == ["Grade history", "Notes", "Items"]
+
+
+# --- §9 what this retired ---------------------------------------------------------------------------
+
+RETIRED = (".q ", ".q.", ".q{", ".record", ".mf-row", ".plan-panel", ".plan-card", ".review-card", ".review-grid",
+           ".section-head", ".quiet-head", ".workspace-heading", ".school-evidence", ".review-note", ".family-account",
+           ".mf-paper", ".witness", ".eyebrow", ".qmark", ".checkin-intro", ".plan-total", ".next-step")
+GREENS = ("#286454", "#214f43", "#edf5f1", "#45655e", "#eef3ef", "#aa7c32", "#b7cdc5", "#c9d8cd", "#a2bdb3", "#4f5754", "#6e8f85", "#725017", "#f4f6f4", "#edf6ee", "#eaf1fa")
+
+
+@pytest.mark.parametrize("selector", RETIRED)
+def test_the_stylesheet_has_no_rule_for_a_retired_class(selector):
+    assert selector not in CSS, selector
+
+
+@pytest.mark.parametrize("colour", GREENS)
+def test_the_check_ins_own_palette_is_gone(colour):
+    assert colour.lower() not in CSS.lower(), colour
+
+
+@pytest.mark.parametrize("name", sorted(p.name for p in TEMPLATES.glob("*.html")))
+def test_no_template_uses_a_retired_class(name):
+    src = (TEMPLATES / name).read_text(encoding="utf-8")
+    for cls in ("q card", "record\"", "mf-row", "plan-panel", "plan-card", "review-card", "review-grid", "section-head",
+                "quiet-head", "workspace-heading", "school-evidence", "review-note", "family-account", "mf-paper",
+                "witness", "eyebrow", "qmark", "checkin-intro", "plan-total", "next-step"):
+        assert f'class="{cls}' not in src and f' {cls}"' not in src, f"{name} uses {cls}"
+
+
+def test_every_radius_and_gap_is_a_token():
+    """The documented exceptions: the rail's links and buttons (6px), the chips (10px pill), the
+    chooser's 12px buttons, the mark's 6px, the stale banner's 4px, the note's 2px swatch."""
+    body = CSS.split(":root", 1)[1]
+    for m in re.finditer(r"border-radius:\s*([^;]+);", body):
+        v = m.group(1).strip()
+        assert v in ("var(--radius)", "6px", "10px", "12px", "4px", "2px", "50%"), v

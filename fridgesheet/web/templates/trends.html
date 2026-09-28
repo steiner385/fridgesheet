@@ -22,7 +22,7 @@
        numbers as the Dashboard cards, so this page and that one cannot disagree. #}
     {% if record.on_time_rate is not none %}<p class="big">{{ (record.on_time_rate * 100) | round | int }}%</p>
     <p class="muted">of work due so far this year that was handed in on time, late, or not at all</p>
-    <p class="record">{{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
+    <p class="outcome-line">{{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
     {% else %}<p class="muted">Nothing has come due yet.</p>{% endif %}
   </div>
   <div class="card"><h3>Open the longest</h3>

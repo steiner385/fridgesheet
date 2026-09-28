@@ -70,7 +70,6 @@ main { grid-row: 3; grid-column: 2; padding: 16px var(--pad) 48px; max-width: va
    too (#191), so a screen reader hears the page, then its parts. */
 main h3 { font-size: 18px; font-weight: 650; margin: 24px 0 8px; }
 main h4 { font-size: 16px; margin: 16px 0 8px; }
-.kid-head { font-size: 22px; margin: 24px 0 8px; }
 header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding: 16px var(--pad) 8px; margin: 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
 header.status .short { display: none; }
@@ -85,9 +84,9 @@ header.status .short { display: none; }
 .page-head .page-actions { grid-column: 2; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .page-head .page-intro { grid-column: 1 / -1; margin: 0; max-width: var(--measure); color: var(--muted); }
 /* What the last POST did, said once between the head and the content. */
-.notice { background: #edf5f1; border-left: 4px solid #286454; padding: 12px 16px; margin: 0 0 16px; max-width: var(--measure); }
+.notice { background: var(--wash); border-left: 4px solid var(--accent); padding: 12px 16px; margin: 0 0 16px; max-width: var(--measure); }
 .notice.warn { background: #fdecea; border-color: var(--warn); color: var(--warn); }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); }
+.badge { display: inline-block; }
 /* A filter chip that is the one in force (Changes, Trends): filled, the way the primary button
    is. It had no rule at all, so nothing on the page said which window or kid was chosen (#192). */
 .badge.current { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
@@ -95,19 +94,13 @@ header.status .short { display: none; }
 /* `auto-fit`, not `auto-fill`: three cards on a 1600px page fill the row rather than sitting in
    three of five tracks with two empty ones beside them. */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-.card { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; }
+.card { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 16px; }
 .card h2, .card h3 { margin: 0 0 8px; font-size: 16px; }
 /* The report's own title inside its card: on the print view that is what prints as the heading. */
 .card h3.report-title { font-size: 20px; }
 .big { font-size: 28px; font-weight: 600; }
 .tally { margin: 4px 0; }
 .tally .big { margin-right: 4px; }
-/* The kid card's record line: five outcomes for the work that was due, each a link to the
-   rows behind the number. The two a parent must not skim past are warn-coloured only when
-   they are non-zero (the template decides). */
-.record { font-size: var(--type-small); line-height: 1.7; }
-.record a { text-decoration: none; }
-.record a.warn { font-weight: 600; }
 /* The Today card's outcome line: the same shape, its own class name (spec 2026-09-28 §3). */
 .outcome-line { font-size: var(--type-small); line-height: 1.7; }
 .outcome-line a { text-decoration: none; }
@@ -123,8 +116,6 @@ td .rel { color: var(--muted); font-size: var(--type-small); }
 /* "canvas + hac" is three short words and wrapped anyway, so a row with two sources stood
    taller than its neighbours all the way down the page (#11 item 9). */
 td.sources { white-space: nowrap; }
-/* The parent's own verdict on a row, where the Flag column used to be a column. */
-.badge.flag { background: var(--wash); border: 1px solid var(--rule); color: var(--ink); }
 th .arrow { color: var(--muted); font-size: var(--type-small); }
 /* The column doing the sorting is the bold one (kids' UX audit F12): the arrow alone was a
    small glyph a 5th grader's phone made invisible. */
@@ -153,7 +144,7 @@ tr.detail td { background: var(--wash); }
 /* Rows of a graphical config editor (Settings: late-rules, no-print-days): one row per quarter,
    rule or skip-date, added/removed/reordered client-side before the whole form's one Save. */
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; align-items: center; }
-fieldset { border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px; }
+fieldset { border: 1px solid var(--rule); border-radius: var(--radius); margin: 0 0 12px; padding: 8px 12px; }
 legend { padding: 0 4px; font-weight: 600; }
 .flagmenu button, .actions button { margin: 2px 8px 2px 0; }
 /* A table row's actions (Reports): what is done every week as buttons, the rest folded under
@@ -266,7 +257,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 /* Chart.js sizes its canvas to this holder (`responsive`, no aspect ratio), so the holder's
    inline height from `_chart_canvas.html` is the chart's height; `position: relative` is
    what Chart.js's own resize detection asks of a chart's parent. */
-.chart-holder { position: relative; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; margin: 8px 0; }
+.chart-holder { position: relative; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 8px; margin: 8px 0; }
 /* The chart's key, built by app.js under the holder: one button per series, wrapping as text
    does, so a six-class chart on a phone spends none of the plot's height on names. Text wears
    the page's ink; the swatch alone carries the series' colour (a line for a line chart, a box
@@ -284,17 +275,10 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .rail h1 .brand, .who h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
 .rail h1 .brand img, .who h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
-/* Check-in: school evidence, family context, and commitments stay visually distinct. */
-/* A section head with its own action beside it (the plan panel's "Add a task"). */
-.workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-/* The class name above a card. It used to double as a tagline above two page titles; a page's
-   title now stands alone (page layout standard, section 1). */
-.eyebrow { font-size: var(--type-tiny); text-transform: uppercase; letter-spacing: .06em; color: #45655e; margin: 0 0 6px; }
 .child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 0 0 20px; }
 .child-nav a { padding: 10px 14px; text-decoration: none; }
-.child-nav a[aria-current] { border-bottom: 3px solid #286454; color: #214f43; font-weight: 650; }
-.button-link { display: inline-block; padding: 8px 12px; border: 1px solid #b7cdc5; border-radius: 6px; background: #edf5f1; color: #214f43; text-decoration: none; }
-.checkin-intro { max-width: var(--measure); margin-bottom: 24px; }
+.child-nav a[aria-current] { border-bottom: 3px solid var(--accent); color: var(--accent); font-weight: 650; }
+.button-link { display: inline-block; padding: 8px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); text-decoration: none; }
 .checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 960px; gap: 24px; align-items: start; }
 .checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: var(--measure); }
 .checkin-layout h3 { margin-top: 0; }
@@ -307,16 +291,6 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .halves { display: none; }
 .queue-group { margin: 16px 0; }
 .queue-group > summary { padding: 12px 0; border-bottom: 1px solid var(--rule); font-weight: 650; cursor: pointer; }
-.review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; align-items: start; }
-.review-card, .plan-card { margin-top: 12px; overflow-wrap: anywhere; }
-.review-card h4, .plan-card h4 { font-size: 17px; margin: 0 0 8px; }
-.school-evidence { font-size: var(--type-small); color: #4f5754; }
-.school-evidence p { margin: 6px 0; }
-.review-note { border-left: 3px solid #aa7c32; padding-left: 10px; color: #725017; }
-.plan-panel { background: #eef3ef; padding: 18px; border-radius: 12px; }
-.plan-total { border-bottom: 1px solid #c9d8cd; padding-bottom: 14px; }
-.next-step { font-size: 16px; }
-.family-account { border-left: 3px solid #a2bdb3; padding-left: 10px; white-space: pre-wrap; }
 .plan-form { display: grid; gap: 16px; max-width: var(--measure); margin-top: 18px; }
 .plan-form label { display: grid; gap: 6px; font-weight: 550; min-width: 0; }
 .plan-form input, .plan-form select, .plan-form textarea { width: 100%; min-width: 0; }
@@ -342,7 +316,6 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
      `sticky; bottom: 0` the Settings save bar uses). Two 44px links, one line. */
   .halves { position: sticky; bottom: 0; z-index: 1; display: flex; gap: 8px; margin: 16px calc(-1 * var(--pad)) 0; padding: 8px var(--pad); background: var(--paper); border-top: 1px solid var(--rule); }
   .halves a { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--rule); border-radius: 6px; text-decoration: none; color: var(--ink); background: var(--wash); }
-  .plan-panel { padding: 12px; }
 }
 /* The printable plan is its own page (no shell): a readable column on screen, the bare
    agreement on paper. Its head is the standard page head; on paper only the title stays. */
@@ -355,9 +328,9 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .remove-step { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; max-width: var(--measure); }
 @media (pointer: coarse) {
   /* The links a finger meets on the check-in pages, at the same 44px as every button. */
-  .button-link, .child-nav a, .plan-card a, .review-card a, .queue-group > summary, .plan-card details > summary,
+  .button-link, .child-nav a, .queue-group > summary,
   .page-head .crumb a, .page-head .page-actions a, .plan-step-back a, .plan-form .actions a { min-height: 44px; display: inline-flex; align-items: center; }
-  .plan-card details > summary, .queue-group > summary { display: flex; }
+  .queue-group > summary { display: flex; }
 }
 @media print {
   .print-page { background: white; }
@@ -370,24 +343,6 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
          padding: 8px 12px; margin: 12px var(--pad) 0; border-radius: 4px; }
 .stale a { color: var(--warn); }
 
-/* Questions (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md) */
-.q { background: var(--paper); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px 12px; margin-bottom: 10px; }
-.q .what { display: flex; justify-content: space-between; gap: 12px; font-size: var(--type-small); color: var(--muted); }
-.q .what b { color: var(--ink); font-size: 15px; }
-.q .facts { margin: 6px 0 2px; }
-.q .ask, .review-card .ask { font-weight: 600; margin: 8px 0 10px; }
-.q .answers, .review-card .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.q .answers form, .review-card .answers form { display: inline; margin: 0; }
-.q .more { margin-top: 10px; font-size: var(--type-small); }
-.record { margin-top: 8px; padding: 10px 12px; background: var(--wash); border-radius: 8px; font-size: var(--type-small); }
-/* One source line of the record (`_source_facts.html`), wherever the record is shown. */
-.source { display: grid; grid-template-columns: minmax(110px, 170px) 1fr; gap: 8px; }
-.school-evidence .source { margin: 6px 0; }
-.sources .src { color: var(--muted); }
-.sources .src small { color: var(--muted); }
-.done-line { display: flex; align-items: center; gap: 10px; background: #edf6ee; border-radius: 10px; padding: 10px 16px; margin-bottom: 10px; }
-.done-line .tick { color: var(--ok); font-weight: 700; }
-.done-line form { margin-left: auto; }
 button.link { border: none; background: none; color: var(--muted); text-decoration: underline; cursor: pointer; }
 
 table.work td.item small { display: block; color: var(--muted); font-size: var(--type-small); }
@@ -405,13 +360,6 @@ table.work.open-list { table-layout: fixed; }
 table.work.open-list th:nth-child(1) { width: min(22%, 8rem); }
 table.work.open-list th:nth-child(2) { width: 43%; }
 table.work td.where small.thru { display: block; color: var(--muted); font-size: var(--type-small); font-weight: normal; }
-.qmark { font-size: var(--type-small); color: var(--accent); background: #eaf1fa; border-radius: 10px; padding: 0 8px; margin-left: 6px; text-decoration: none; }
-.section-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
-.quiet-head { font-size: 14px; color: var(--muted); }
-/* "Done so far: 2 of 5 due · 1 on time." above a child's questions (kids' UX audit F8): body
-   type, ink colour, no badge and no green -- a fact stated once, not a reward. */
-.done-so-far { margin: 0 0 12px; font-weight: 550; }
-.lines .line > a, .lines .line > form { margin-left: auto; font-size: var(--type-small); }
 /* The Open / Everything choice on Assignments, drawn as the same chips Changes and Trends use
    (#192): one look for "narrow this list" everywhere. The radio stays in the label for the
    form and the keyboard; it is only not drawn. */
@@ -422,7 +370,6 @@ table.work td.where small.thru { display: block; color: var(--muted); font-size:
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
 .more-filters { display: inline-block; }
 .rail .count { color: var(--accent); font-weight: 600; font-size: 13px; }
-.badge.plan { border-color: var(--ok); color: var(--ok); }
 
 /* Accessibility (#43, #53) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -437,7 +384,6 @@ tr.detail .close-detail { display: inline-block; float: right; }
 .note-edit[open] { display: block; }
 .flagmenu fieldset { border: 0; padding: 0; margin: 0; }
 .flagmenu legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
-.tab-hint { margin: -12px 0 16px; font-size: 14px; }
 .note .body { white-space: pre-wrap; }
 .add-note > summary { cursor: pointer; color: var(--accent); }
 td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
@@ -462,13 +408,12 @@ details.field-help summary { cursor: pointer; }
 details.skip-days > summary, details.fold > summary { cursor: pointer; font-weight: 550; margin-bottom: 8px; }
 #update-status { margin: 4px 0 8px; }
 .update-action h3 { font-size: 15px; }
-.sources-hint { font-size: var(--type-small); margin: -8px 0 16px; }
-.record .sources-hint { margin: 0 0 6px; }
+.sources-hint { font-size: var(--type-small); margin: var(--s2) 0 0; }
 .count:empty { display: none; }
 .sources .src small { font-size: inherit; }
 th .arrow { font-size: var(--type-small); }
 @media (pointer: coarse) {
-  .lines .line > button, .lines .line > form button, .qmark, .q details.more > summary, .q .more a, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }
+  .lines .line > button, .lines .line > form button, .add-note > summary { min-height: 44px; display: inline-flex; align-items: center; }
   /* The links inside a row and a card (kids' UX audit F4). Measured at 390px: the assignment
      link was 22px stacked on an 18px course link with no gap, sortable headers 22px, the
      Today card's record links 18px -- all under WCAG 2.5.8's 24px, on the pages a child taps
@@ -476,7 +421,7 @@ th .arrow { font-size: var(--type-small); }
      secondary links beneath or beside them take padding, so a row grows by one line, not two.
      Disclosures keep their marker (no flex), so they grow by padding as well. */
   table.items td.item > a, table.items th a { min-height: 44px; display: inline-flex; align-items: center; }
-  table.work td.item small a, .record a, .outcome-line a, .inset a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
+  table.work td.item small a, .outcome-line a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
   main details > summary { min-height: 44px; padding-block: 10px; }
   .tick { min-height: 44px; }
 }
@@ -485,25 +430,7 @@ th .arrow { font-size: var(--type-small); }
    rows the school records as not in; paper with no grade is not red; a hand-in waiting for a
    grade is grey. */
 .must-finish { margin: 0 0 24px; }
-.must-finish h4 { margin: 18px 0 6px; font-size: 15px; }
-.mf-row { border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: 8px; padding: 10px 14px; margin: 8px 0; background: var(--paper); overflow-wrap: anywhere; }
-.mf-row.red { border-left-color: var(--warn); }
-.mf-row.grey { color: var(--muted); }
-.mf-row .line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; margin: 0 0 6px; }
-.mf-row .line .eyebrow { margin: 0; }
-.mf-row .line .word { font-weight: 700; }
-.mf-row.red .line .word { color: var(--warn); }
-.mf-row .answers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
-.mf-row .answers form { display: inline; margin: 0; }
-.mf-row .ask { font-weight: 600; margin: 4px 0 6px; }
-.mf-row .row-links { margin: 6px 0 0; font-size: var(--type-small); }
-.mf-paper { border-left: 3px solid #a2bdb3; padding-left: 10px; margin: 6px 0 10px; color: #4f5754; font-size: var(--type-small); }
-details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 .asked-line { margin: 16px 0 0; }
-
-.plan-card.school-has-it { opacity: .75; background: #f4f6f4; }
-.plan-card.school-has-it > h4 { text-decoration: line-through; text-decoration-thickness: 1px; }
-.witness { border-left: 3px solid #6e8f85; padding-left: 10px; margin: 6px 0; }
 
 /* The chooser (spec 2026-09-27 §13.1): a kid's name is a big target; the grown-up's is quieter. */
 .who { max-width: 520px; margin: 48px auto; text-align: center; }
@@ -519,10 +446,9 @@ details.mf-fold > summary { padding: 8px 0; cursor: pointer; font-weight: 600; }
 
 /* One section, one card (docs/superpowers/specs/2026-09-28-section-and-card-standard-design.md).
    The content column below the page head is a stack of sections 32px apart; an assignment is one
-   box with five slots; anything quoted inside it is one inset. The rules above that these
-   replace (.q, .record, .mf-row, .plan-panel, .plan-card, .review-card, .done-line's old form,
-   .section-head, .quiet-head, .workspace-heading, the check-in greens) are retired once every
-   page is converted; tests/test_web_section_and_card.py holds the retirement. */
+   box with five slots; anything quoted inside it is one inset. The old containers this replaced
+   (seven box styles, the check-in greens) are gone; tests/test_web_section_and_card.py holds the
+   retirement. */
 
 /* §3 The section: h3 + count + one lead sentence + the section's own controls at the right. A
    folded section draws the same head as its <summary>; a quiet one is the same head in muted ink. */
