@@ -25,7 +25,7 @@ def test_the_record_says_when_each_source_was_checked_and_when_it_changed(tmp_pa
     qid = _id(conn, "Quiz 1")
     conn.close()
     body = app_for(tmp_path).get(f"/items/{qid}").text
-    hac = re.search(r'<span class="src">HAC(.*?)</span>', body, re.S).group(1)
+    hac = re.search(r'<span class="src">HAC</span><span>.*?</span><span class="stamp">(.*?)</span>', body, re.S).group(1)
     assert "checked Tue 9/15" in hac and "changed Mon 9/14" in hac
 
 
