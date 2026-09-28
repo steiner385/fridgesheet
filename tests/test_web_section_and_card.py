@@ -183,6 +183,18 @@ def test_the_assignments_tab_is_four_sections_with_the_filters_in_the_tables_hea
     assert re.search(r'<div class="lines">\s*<div class="line ok" id="q-\d+"><span class="glyph"', content)   # Settled, line density
 
 
+def test_a_filter_change_carries_the_tables_count_out_of_band(tmp_path):
+    """The count sits in the section head, outside the #items swap; the partial refreshes it."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    full = c.get("/kids/Alex").text
+    assert re.search(r'<span id="all-count" class="count">\d+ open</span>', full)
+    assert full.count('id="all-count"') == 2                        # the head, and the inert template copy
+    partial = c.get("/kids/Alex?course=999", headers={"HX-Request": "true", "HX-Current-URL": "http://127.0.0.1/kids/Alex"}).text
+    assert '<span id="all-count" class="count" hx-swap-oob="true">0 open</span>' in partial
+    assert 'class="sec-head"' not in partial
+
+
 def test_kid_mode_draws_the_state_line_without_the_tabs(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)

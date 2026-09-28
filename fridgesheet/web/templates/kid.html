@@ -5,7 +5,7 @@
 {% include "_child_nav.html" %}
 {% include "_verdict_sections.html" %}
 <section class="sec all-work" aria-labelledby="all-head">
-  <div class="sec-head"><h3 id="all-head">All assignments</h3><span class="count">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span>
+  <div class="sec-head"><h3 id="all-head">All assignments</h3><span id="all-count" class="count">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span>
     {# The table's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole
        table; the hidden sort inputs keep the sort a parent chose when they narrow to one course. #}
     <form class="filters controls" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
@@ -35,6 +35,10 @@
   <div id="items">
   {% block partial %}
   {% include "_item_rows.html" %}
+  {# The count lives in the section head, outside this swap; the partial carries it out of band
+     so a filter or sort change doesn't leave it stale. The <template> keeps it inert on a full
+     page load (the head above already has the live one). #}
+  <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span></template>
   {% endblock %}
   </div>
   {# What the two words in "Where it stands" mean, once, under the table (spec 2026-09-28 §2). #}
