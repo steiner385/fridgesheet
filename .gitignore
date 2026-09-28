@@ -10,3 +10,34 @@ browser-profile/
 cache/
 snapshot*.json
 *.log
+
+# Impeccable (design skill for Claude Code; see .claude/skills/impeccable/SKILL.md).
+# The launcher downloads the platform engine binary pinned by scripts/VERSION into
+# ~/.impeccable/bin/ on first run (sha256-verified), so the 16 MB per-OS binary the
+# installer drops next to it is never committed. settings.local.json is Claude Code's
+# machine-local settings file; `/impeccable hooks on` writes the design hook there.
+.claude/skills/impeccable/scripts/bin/
+.claude/settings.local.json
+# impeccable-ignore-start
+# Ephemeral output, runtime state, and per-dev overrides.
+# The **/ prefix covers .impeccable at the repo root or in a nested workspace.
+# Shared artifacts stay tracked: config.json, live/config.json,
+# design.json, surfaces/*.md, critique/*.md.
+**/.impeccable/config.local.json
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+**/.impeccable/*.png
+**/.impeccable/review/
+**/.impeccable/questions/
+**/.impeccable/live/server.json
+**/.impeccable/live/sessions/
+**/.impeccable/live/previews/
+**/.impeccable/live/annotations/
+**/.impeccable/live/cache/
+**/.impeccable/live/manual-edit-apply-transaction.json
+**/.impeccable/live/manual-edit-events.jsonl
+**/.impeccable/live/manual-edit-evidence/
+**/.impeccable/live/pending-manual-edits.json
+**/.impeccable/live/deferred-svelte-component-accepts.json
+**/.impeccable/live/*.png
+# impeccable-ignore-end
