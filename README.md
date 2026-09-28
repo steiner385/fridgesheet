@@ -274,6 +274,10 @@ pytest
 
 CI runs the suite on Ubuntu and Windows.
 
+### Design tooling for Claude Code
+
+[Impeccable](https://impeccable.style) is installed at project scope under `.claude/` (the `impeccable` skill, four `impeccable-*` subagents, and a static engine binary) so a Claude Code session in this checkout gets design guidance and a mechanical UI detector for the templates and `app.css`. It is agent tooling only: nothing in the app imports it, and no Node runtime is needed. The 16 MB per-OS binary is gitignored; on first use the launcher fetches the version pinned in `.claude/skills/impeccable/scripts/VERSION` from the project's GitHub releases into `~/.impeccable/bin/` and verifies its sha256 before running it. To refresh the payload run `npx impeccable update`; to scan by hand run `.claude/skills/impeccable/scripts/impeccable detect fridgesheet/web`. `/impeccable init` writes `PRODUCT.md` after a short interview, and `/impeccable hooks on` opts this machine into the post-edit hook (it writes `.claude/settings.local.json`, which is gitignored; hooks run on every UI edit without a per-call prompt, so read `.claude/skills/impeccable/reference/hooks.md` first).
+
 ## Notes and known quirks (Lakota, Sept 2026)
 
 - Canvas API token generation is disabled for parent accounts, which is why this uses the browser session's cookies against the REST API instead.
