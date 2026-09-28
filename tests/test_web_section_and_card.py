@@ -95,10 +95,21 @@ def _id(tmp_path, name):
         conn.close()
 
 
+def _element(body: str, start_tag: str) -> str:
+    """The HTML of one <div>, from `start_tag` to its matching close, by counting div tags."""
+    i = body.index(start_tag)
+    depth = 0
+    for m in re.finditer(r"<div\b|</div>", body[i:]):
+        depth += 1 if m.group(0).startswith("<div") else -1
+        if depth == 0:
+            return body[i:i + m.end()]
+    raise AssertionError(f"unbalanced div after {start_tag!r}")
+
+
 def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_glossary(tmp_path):
     qid = _id(tmp_path, "Quiz 1")
     body = app_for(tmp_path).get(f"/items/{qid}").text
-    inset = re.search(r'<div class="inset">(.*?)</div>\s*</div>', body, re.S).group(1)
+    inset = _element(body, '<div class="inset">')
     assert re.search(r'<span class="src">Canvas</span><span>[^<]+</span><span class="stamp">checked [^<]+</span>', inset)
     assert re.search(r'<span class="src">HAC</span><span>[^<]+</span><span class="stamp">checked [^<]+</span>', inset)
     assert "Home Access Center" not in inset

@@ -37,7 +37,7 @@
       {% if vd.state == 'question' %}<p class="ask">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}
       {% if view.open_in and view.due and view.late_until %}<p class="muted">{{ 'copy.late_until' | say(tier, {'when': view.late_until | wd_md}) }}</p>{% endif %}
       <div id="{{ qid }}">{% if vd.answers and not grey %}{% include "_answers.html" %}{% endif %}</div>
-      <p class="row-links"><a href="{{ base }}/step?item_id={{ view.id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a> · <details class="inline"><summary>{{ 'copy.details' | say(tier) }}</summary>{% include "_planning_evidence.html" %}</details></p>
+      <p class="row-links"><a href="{{ base }}/step?item_id={{ view.id }}&amp;return_to={{ here | urlencode }}">{{ 'a.add_details' | say(tier) }}</a> · <details class="inline"><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_planning_evidence.html" %}</details></p>
     </div>
     {% endfor %}
   </div><!-- /{{ key }} -->
