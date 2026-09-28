@@ -1,8 +1,10 @@
-{# The school record behind a verdict: what each source says, and as of when. The source lines
-   are `_source_facts.html`, the same partial the check-in's school evidence shows (#46, #129). #}
-<div class="record">
-  {% include "_sources_hint.html" %}
-  {% if item.teacher_email or item.teacher %}<p>Teacher: {{ item.teacher or 'the teacher' }}{% if item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email with these facts</a>{% endif %}</p>{% endif %}
-  {% if item.canvas_path %}<p><a href="{{ settings.canvas_base }}{{ item.canvas_path }}" target="_blank" rel="noopener">Open in Canvas (opens a new tab)</a></p>{% endif %}
+{# The Record: what each gradebook holds (`_source_facts.html`), the app's pace sentence when it
+   has one, the zero note, and the teacher. The glossary sentence is not here: it is said once
+   per page, under the Assignments table and at the foot of the check-in's queue (spec
+   2026-09-28 §2). Wants `item`; reads `tier` when the page set one. #}
+<div class="inset">
   {% include "_source_facts.html" %}
+  {% set pk = item.verdict | pace_key %}{% if pk %}<p class="app-count">{{ pk | say(tier | default(''), item.verdict.pace) }}</p>{% endif %}
+  {% if item.grade_zero %}<p>{{ 'copy.zero_note' | say(tier | default('')) }}</p>{% endif %}
+  {% if item.teacher or item.teacher_email or item.canvas_path %}<p>{% if item.teacher or item.teacher_email %}Teacher: {{ item.teacher or 'the teacher' }}{% endif %}{% if item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email with these facts</a>{% endif %}{% if item.canvas_path %}{% if item.teacher or item.teacher_email %} · {% endif %}<a href="{{ settings.canvas_base }}{{ item.canvas_path }}" target="_blank" rel="noopener">Open in Canvas (opens a new tab)</a>{% endif %}</p>{% endif %}
 </div>

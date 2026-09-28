@@ -71,4 +71,4 @@ def test_a_no_in_handed_in_is_not_red():
 # --- sentences start with a capital ----------------------------------------------------------
 
 def test_a_verdict_sentence_that_starts_with_a_value_is_capitalised():
-    assert verdicts.say("facts.awaiting_grade", "", {"kind": "paper", "due": "Thu 9/10"}).startswith("Paper work")
+    assert verdicts.say("facts.awaiting_grade", "", {"kind": "paper", "due": "Thu 9/10"}).startswith("No grade yet")

@@ -83,3 +83,23 @@ def test_the_new_targets_are_44px_under_a_finger():
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
     for sel in (".item-foot summary", ".item-foot a", "details.sec > summary", ".lines .line > a", ".item-head .name a"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-height: 44px", coarse), sel
+
+
+# --- §4.1 the Record ----------------------------------------------------------------------------
+
+def _id(tmp_path, name):
+    conn = seed(tmp_path)
+    try:
+        return conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]
+    finally:
+        conn.close()
+
+
+def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_glossary(tmp_path):
+    qid = _id(tmp_path, "Quiz 1")
+    body = app_for(tmp_path).get(f"/items/{qid}").text
+    inset = re.search(r'<div class="inset">(.*?)</div>\s*</div>', body, re.S).group(1)
+    assert re.search(r'<span class="src">Canvas</span><span>[^<]+</span><span class="stamp">checked [^<]+</span>', inset)
+    assert re.search(r'<span class="src">HAC</span><span>[^<]+</span><span class="stamp">checked [^<]+</span>', inset)
+    assert "Home Access Center" not in inset
+    assert "Open in Canvas (opens a new tab)" in inset
