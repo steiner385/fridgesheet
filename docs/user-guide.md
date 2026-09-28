@@ -460,6 +460,8 @@ Everything the school lists for this child, with what needs your answer at the t
    detail: the record, **Plan a step**, **History** (every change, marked Canvas or HAC),
    notes, and under **More**, the answer menu ([§8](#8-answering-flags-answers-and-notes)).
 
+Every assignment is drawn the same way wherever you meet it: its name, class and due date on the first line, one sentence saying what the record means, the question and its answer buttons when there is one, the family's own step or note under a blue rule, and at the bottom the folds: **Record** (what Canvas and HAC hold, and as of when), **History**, **Notes**, **Plan a step** and **More**. A red rule at the left means the school says it is not in; a blue one means it needs your answer; green means done.
+
 ### 6.4 A class page
 
 Reached from the class name under any assignment.
