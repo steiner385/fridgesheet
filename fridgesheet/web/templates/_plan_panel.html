@@ -12,7 +12,7 @@
   <h4>{{ states[label] }}</h4>
   {% for step in steps if step.state == label and not step.witness %}
   <div class="item step">
-    <div class="item-head"><span class="name">{{ step.title }}</span><span class="meta">{% if step.view %}{{ step.view.course_short }}{% if step.must_word %} <span class="badge">{{ 'badge.must_finish' | say(tier, {'word': step.must_word}) }}</span>{% endif %}{% elif step.item_id %}<span class="muted">no longer on the school list</span>{% else %}Family-added task{% endif %}</span><span class="when">{{ 'check again' if label in ('waiting', 'blocked') else 'planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}</span></div>
+    <div class="item-head"><span class="name">{{ step.title }}</span><span class="meta">{% if step.view %}{{ step.view.course_short }}{% if step.must_word %} <span class="badge">{{ 'badge.must_finish' | say(tier, {'word': step.must_word}) }}</span>{% endif %}{% elif step.item_id %}<span class="muted">no longer on the school list · your step is still saved</span>{% else %}Family-added task{% endif %}</span><span class="when">{{ 'check again' if label in ('waiting', 'blocked') else 'planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}</span></div>
     <p class="facts">{{ step.next_step }}</p>
     <p class="ours">{{ step.owner }}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
     {% if step.family_account %}<p class="ours">{{ step.family_account }}</p>{% endif %}
@@ -27,10 +27,10 @@
   <h4>{{ 'copy.school_has_it' | say(tier) }}</h4>
   {% for step in steps if step.witness %}
   <div class="item step ok grey school-has-it">
-    <div class="item-head"><span class="name">{{ step.title }}</span><span class="meta">{% if step.view %}{{ step.view.course_short }}{% endif %}</span><span class="when">{{ 'check again' if step.state in ('waiting', 'blocked') else 'planned for' }} {{ step.planned_for | wd_md }}</span></div>
+    <div class="item-head"><span class="name">{{ step.title }}</span><span class="meta">{% if step.view %}{{ step.view.course_short }}{% endif %}</span><span class="when">{{ 'check again' if step.state in ('waiting', 'blocked') else 'planned for' }} {{ step.planned_for | wd_md }}{% if step.planned_for < today %} · <span class="warn">revisit this date</span>{% elif step.planned_for == today %} · today{% endif %}</span></div>
     <p class="facts">{{ step.next_step }}</p>
+    <p class="inset">{{ step.witness[0] | say(tier, step.witness[1]) }}</p>
     <form method="post" action="{{ base }}/step/{{ step.id }}/complete" class="answers"><input type="hidden" name="revision" value="{{ step.revision }}"><input type="hidden" name="return_to" value="{{ here }}"><button>{{ 'a.mark_step_complete' | say(tier) }}</button></form>
-    <p class="ours">{{ step.witness[0] | say(tier, step.witness[1]) }}</p>
     <p class="ours">{{ step.owner }}{% if step.minutes %} · {{ step.minutes }} min{% endif %} · {{ 'copy.not_counted_tonight' | words(tier) }}</p>
     {% if step.family_account %}<p class="ours">{{ step.family_account }}</p>{% endif %}
     {% if step.changed %}<p class="inset warn">School evidence changed since this step was saved. Review it together; your agreement is still here.</p>{% endif %}

@@ -180,16 +180,16 @@ def test_work_that_still_earns_credit_comes_before_closed_late_windows(tmp_path)
 
 
 def test_undated_work_is_reviewable_with_its_missing_date_named(tmp_path):
-    """Task 6 (spec 2026-09-28 §4.3): the queue card is the item surface now, and its Record
-    (`_record.html`) states only the sources, the pace and the teacher -- the old "no due date
-    listed" line was `_planning_evidence.html`'s own summary sentence, gone with it. Undated work
-    still sorts into "Other open work" and is still reviewable there; nothing states its date
-    because it has none."""
     snap = snapshot()
     snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Reading project", "", None))
-    seed(tmp_path, snap).close()
-    q = _queues(app_for(tmp_path).get("/kids/Alex/check-in").text)
+    conn = seed(tmp_path, snap)
+    rid = _item_id(conn, "Reading project")
+    conn.close()
+    c = app_for(tmp_path)
+    q = _queues(c.get("/kids/Alex/check-in").text)
     assert "Reading project" in q["Other open work"]
+    assert "no due date listed" in q["Other open work"]
+    assert "no due date listed" in c.get(f"/kids/Alex/check-in/step?item_id={rid}").text
 
 
 def test_a_child_with_no_work_still_gets_a_working_check_in(tmp_path):
