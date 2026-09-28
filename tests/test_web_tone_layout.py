@@ -76,7 +76,7 @@ def test_a_stale_answer_quotes_the_answer_in_family_words():
 # --- #78 ----------------------------------------------------------------------------------------
 
 def test_layout_and_names(tmp_path):
-    assert re.search(r"\.section-head\s*\{[^}]*flex-wrap:\s*wrap", CSS)
+    assert re.search(r"\.sec-head, details\.sec > summary\s*\{[^}]*flex-wrap:\s*wrap", CSS)
     # `.qmark` is sized by the tier token, which resolves at the root to the 13px that shipped.
     root = re.search(r":root\s*\{([^}]*)\}", CSS).group(1)
     tokens = {f"var(--{k})": int(v) for k, v in re.findall(r"--(type-[a-z]+):\s*(\d+)px", root)}

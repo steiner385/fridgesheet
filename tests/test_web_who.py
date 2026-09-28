@@ -141,7 +141,7 @@ def test_kid_mode_trims_the_status_bar_and_the_child_nav(tmp_path):
     assert "Refreshed" in header and "Canvas OK" in header
     assert "Last run" not in header and "/settings" not in header
     assert 'class="child-nav"' not in body
-    assert "What you agreed to do, day by day." in body                   # the tab hint stays
+    assert re.search(r'<p class="tab-hint">[^<]*Start with what', body)   # the state line stays without the tabs
 
 
 def test_an_answer_swap_on_a_kid_mode_page_does_not_error(tmp_path):

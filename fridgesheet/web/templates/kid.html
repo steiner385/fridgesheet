@@ -3,38 +3,41 @@
 {% block content %}
 {% set page_title = student.key | nickname %}{% include "_page_head.html" %}
 {% include "_child_nav.html" %}
-{# The one sentence about what went right (kids' UX audit F8), only once something has: a line
-   that exists to say what was done does not appear to say nothing was. #}
-{% if done_so_far.done %}<p class="done-so-far">{{ 'copy.done_so_far' | say(student.key | tier_of, done_so_far) }}</p>{% endif %}
 {% include "_verdict_sections.html" %}
-<form class="filters" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
-  <span class="seg" role="group" aria-label="Show">
-    {# Open work's "Not shown" links open exactly the set they count (#125); the choice stays
-       checked here so narrowing by class keeps it. #}
-    {% set narrowed = {'past_window': 'Past the late-work window', 'handled': 'Handled'}.get(f.show) %}
-    <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label>
-    <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
-    {% if narrowed %}<label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
-  </span>
-  <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
-  <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict }}><summary>More filters</summary>
-    <label>Which gradebook <select name="source"><option value="">either</option><option value="canvas" {{ 'selected' if f.source == 'canvas' }}>in Canvas</option><option value="hac" {{ 'selected' if f.source == 'hac' }}>in HAC</option><option value="both" {{ 'selected' if f.source == 'both' }}>in both</option></select></label>
-    <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "in class") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
-    <label>Your answer <select name="flagged"><option value="">any</option><option value="any" {{ 'selected' if f.flagged == 'any' }}>answered or asked</option><option value="handled" {{ 'selected' if f.flagged == 'handled' }}>handled</option><option value="marked" {{ 'selected' if f.flagged == 'marked' }}>asked or following up</option><option value="none" {{ 'selected' if f.flagged == 'none' }}>not answered</option>
-      {# Each answer, as it stands: the one label table's state column, in the menu's order (#129). #}
-      {% for v, _ in FLAG_CHOICES %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ v | flag_label('state', student.key | tier_of) }}</option>{% endfor %}</select></label>
-    <label>What the app says <select name="verdict"><option value="">anything</option>{% for v, label in (("question", "needs your answer"), ("decided", "decided for you"), ("waiting", "waiting")) %}<option value="{{ v }}" {{ 'selected' if f.verdict == v }}>{{ label }}</option>{% endfor %}</select></label>
-    <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
-  </details>
-  {# The filter form re-asks for the whole table; without these the sort and its direction
-     would reset to "due, ascending" every time a parent narrowed to one course. #}
-  <input type="hidden" name="sort" value="{{ f.sort }}">
-  <input type="hidden" name="dir" value="{{ f.direction }}">
-</form>
-{% if widened %}<p class="muted" role="note">Showing everything that matches, not only open work.</p>{% endif %}
-<div id="items">
-{% block partial %}
-{% include "_item_rows.html" %}
-{% endblock %}
-</div>
+<section class="sec all-work" aria-labelledby="all-head">
+  <div class="sec-head"><h3 id="all-head">All assignments</h3><span class="count">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span>
+    {# The table's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole
+       table; the hidden sort inputs keep the sort a parent chose when they narrow to one course. #}
+    <form class="filters controls" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
+      <span class="seg" role="group" aria-label="Show">
+        {# Open work's "Not shown" links open exactly the set they count (#125); the choice stays
+           checked here so narrowing by class keeps it. #}
+        {% set narrowed = {'past_window': 'Past the late-work window', 'handled': 'Handled'}.get(f.show) %}
+        <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label>
+        <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
+        {% if narrowed %}<label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
+      </span>
+      <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
+      <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict }}><summary>More filters</summary>
+        <label>Which gradebook <select name="source"><option value="">either</option><option value="canvas" {{ 'selected' if f.source == 'canvas' }}>in Canvas</option><option value="hac" {{ 'selected' if f.source == 'hac' }}>in HAC</option><option value="both" {{ 'selected' if f.source == 'both' }}>in both</option></select></label>
+        <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "in class") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
+        <label>Your answer <select name="flagged"><option value="">any</option><option value="any" {{ 'selected' if f.flagged == 'any' }}>answered or asked</option><option value="handled" {{ 'selected' if f.flagged == 'handled' }}>handled</option><option value="marked" {{ 'selected' if f.flagged == 'marked' }}>asked or following up</option><option value="none" {{ 'selected' if f.flagged == 'none' }}>not answered</option>
+          {# Each answer, as it stands: the one label table's state column, in the menu's order (#129). #}
+          {% for v, _ in FLAG_CHOICES %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ v | flag_label('state', student.key | tier_of) }}</option>{% endfor %}</select></label>
+        <label>What the app says <select name="verdict"><option value="">anything</option>{% for v, label in (("question", "needs your answer"), ("decided", "decided for you"), ("waiting", "waiting")) %}<option value="{{ v }}" {{ 'selected' if f.verdict == v }}>{{ label }}</option>{% endfor %}</select></label>
+        <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+      </details>
+      <input type="hidden" name="sort" value="{{ f.sort }}">
+      <input type="hidden" name="dir" value="{{ f.direction }}">
+    </form>
+    {% if widened %}<p class="lead" role="note">Showing everything that matches, not only open work.</p>{% endif %}
+  </div>
+  <div id="items">
+  {% block partial %}
+  {% include "_item_rows.html" %}
+  {% endblock %}
+  </div>
+  {# What the two words in "Where it stands" mean, once, under the table (spec 2026-09-28 §2). #}
+  {% include "_sources_hint.html" %}
+</section>
 {% endblock %}

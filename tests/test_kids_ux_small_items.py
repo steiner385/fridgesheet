@@ -23,7 +23,7 @@ def test_every_filter_option_is_a_few_words(tmp_path):
     """"done, excused, let go, or too late to submit" was a sentence inside a <select>."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex").text
-    form = re.search(r'<form class="filters".*?</form>', body, re.S).group(0)
+    form = re.search(r'<form class="filters controls".*?</form>', body, re.S).group(0)
     options = [re.sub(r"\s+", " ", o).strip() for o in re.findall(r"<option[^>]*>(.*?)</option>", form, re.S)]
     assert options, "no filter options found"
     long = [o for o in options if len(o.split()) > 4 and not o.startswith("Honors") and not o.startswith("Algebra")]

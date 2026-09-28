@@ -167,3 +167,33 @@ def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_pat
     assert any(o.startswith("Note, ") and "played it Friday" in o for o in ours)
     assert "Notes (1)" in detail and "Plan another step" in detail
     assert "played it Friday" not in body or 'class="ours"' in body
+
+
+# --- §3 the Assignments tab as sections -------------------------------------------------------------
+
+def test_the_assignments_tab_is_four_sections_with_the_filters_in_the_tables_head(tmp_path):
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex").text
+    content = body.split('class="child-nav"', 1)[1]
+    heads = re.findall(r'<(?:section|details) class="sec[^"]*"[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', content)
+    assert heads == ["1 question about your work", "Settled by the records", "Waiting, nothing to do yet", "All assignments"]
+    assert re.search(r'<details class="sec quiet">\s*<summary><h3>Waiting, nothing to do yet</h3> <span class="count">2</span></summary>', content)
+    table_head = re.search(r'<h3 id="all-head">All assignments</h3>(.*?)<div id="items">', content, re.S).group(1)
+    assert 'class="filters controls"' in table_head and 'name="course"' in table_head and "More filters" in table_head
+    assert re.search(r'<div class="lines">\s*<div class="line ok" id="q-\d+"><span class="glyph"', content)   # Settled, line density
+
+
+def test_kid_mode_draws_the_state_line_without_the_tabs(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    c.cookies.set("fridgesheet_who", "Alex")
+    body = c.get("/kids/Alex").text
+    assert 'class="child-nav"' not in body
+    assert re.search(r'<p class="tab-hint">Done so far', body)
+
+
+def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
+    pid = _id(tmp_path, "Participation")
+    r = app_for(tmp_path).post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": f"q-{pid}"})
+    assert re.match(rf'\s*<div class="line ok done-line" id="q-{pid}" data-focus', r.text)
+    assert "Undo" in r.text

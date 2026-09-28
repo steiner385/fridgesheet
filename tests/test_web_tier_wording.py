@@ -136,7 +136,7 @@ def test_open_work_shows_the_plain_words_too(tmp_path):
 # --- kids' UX audit F3: one instruction sentence per section, and it follows the reader ------------
 
 def _intro(body):
-    return re.search(r'<div class="checkin-intro">(.*?)</div>', body, re.S).group(1)
+    return re.search(r'<p class="tab-hint">(.*?)</p>', body, re.S).group(1)
 
 
 def _client(tmp_path, **grades):
