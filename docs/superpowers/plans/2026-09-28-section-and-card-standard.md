@@ -725,7 +725,7 @@ def test_the_assignments_tab_is_four_sections_with_the_filters_in_the_tables_hea
     heads = re.findall(r'<(?:section|details) class="sec[^"]*"[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', content)
     assert heads == ["1 question about Alex's work", "Settled by the records", "Waiting, nothing to do yet", "All assignments"]
     assert re.search(r'<details class="sec quiet">\s*<summary><h3>Waiting, nothing to do yet</h3> <span class="count">2</span></summary>', content)
-    table_head = re.search(r'<h3>All assignments</h3>(.*?)</div>\s*<div class="table-wrap">', content, re.S).group(1)
+    table_head = re.search(r'<h3 id="all-head">All assignments</h3>(.*?)<div id="items">', content, re.S).group(1)
     assert 'class="filters controls"' in table_head and 'name="course"' in table_head and "More filters" in table_head
     assert re.search(r'<div class="lines">\s*<div class="line ok" id="q-\d+"><span class="glyph"', content)   # Settled, line density
 
@@ -1151,7 +1151,7 @@ The grey group ("Handed in, waiting for a grade") drew no answers before (`{% if
   </div>
   {% endfor %}
   {% endif %}
-  <details class="sec quiet queue-group"><summary><h3>Completed steps</h3> <span class="count">{{ completed | length }}</span></summary>
+  <details class="sec queue-group quiet"><summary><h3>Completed steps</h3> <span class="count">{{ completed | length }}</span></summary>
     <p class="lead">Finishing a step is our own record. The school decides what counts as submitted.</p>
     {% for step in completed %}<div class="item step grey"><div class="item-head"><span class="name">{{ step.title }}</span><span class="when">completed {{ step.updated_at | wd_md_time }}{% if step.recorded_by %} by {{ step.recorded_by }}{% endif %}</span></div><p class="facts">{{ step.next_step }} · {{ step.owner }}</p>{% if step.family_account %}<p class="ours">{{ step.family_account }}</p>{% endif %}<div class="item-foot"><a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit or reopen</a>{% if step.item_id %}<a href="{{ base }}/step?item_id={{ step.item_id }}&amp;return_to={{ here | urlencode }}">Add another step</a>{% endif %}</div></div>{% endfor %}
   </details>
@@ -1204,7 +1204,7 @@ Replace from the comment "The one sentence of instruction is the tab's hint" thr
 </section>
 ```
 
-Keep everything after (the closing `</div></div>`, the `.halves` strip, Previous agreements) as it is, except the Previous agreements fold: change `<details class="queue-group"><summary>Previous agreements <span class="badge">{{ history | length }}</span></summary>` to `<details class="sec quiet queue-group"><summary><h3>Previous agreements</h3> <span class="count">{{ history | length }}</span></summary>` and each `<article class="card plan-card">` inside it to `<div class="item step grey">` with its matching `</article>` to `</div>`.
+Keep everything after (the closing `</div></div>`, the `.halves` strip, Previous agreements) as it is, except the Previous agreements fold: change `<details class="queue-group"><summary>Previous agreements <span class="badge">{{ history | length }}</span></summary>` to `<details class="sec queue-group quiet"><summary><h3>Previous agreements</h3> <span class="count">{{ history | length }}</span></summary>` and each `<article class="card plan-card">` inside it to `<div class="item step grey">` with its matching `</article>` to `</div>`.
 
 The review card's "Plan a step" was a `.button-link`; it is now the foot's link, the same words, one form and button fewer? No: it was an `<a>`, not a button, so the counts hold. The `.review-card`'s answers came after the evidence; they now come after the ask, before `.ours`.
 
@@ -1346,7 +1346,7 @@ def test_no_template_uses_a_retired_class(name):
     src = (TEMPLATES / name).read_text(encoding="utf-8")
     for cls in ("q card", "record\"", "mf-row", "plan-panel", "plan-card", "review-card", "review-grid", "section-head",
                 "quiet-head", "workspace-heading", "school-evidence", "review-note", "family-account", "mf-paper",
-                "witness", "eyebrow", "qmark", "checkin-intro", "plan-total", "next-step", "done-line\" "):
+                "witness", "eyebrow", "qmark", "checkin-intro", "plan-total", "next-step"):
         assert f'class="{cls}' not in src and f' {cls}"' not in src, f"{name} uses {cls}"
 
 
