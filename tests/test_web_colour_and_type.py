@@ -70,7 +70,8 @@ def test_a_must_finish_row_wears_the_sheets_colour_not_red_for_being_due(tmp_pat
 def test_the_school_evidence_changed_note_is_the_apps_inference_and_not_red():
     panel = (WEB / "templates" / "_plan_panel.html").read_text(encoding="utf-8")
     assert 'class="inset warn"' not in panel and 'class="inset changed"' in panel
-    assert re.search(r"\.inset\.changed\s*\{[^}]*border-left: 3px solid var\(--accent\)", CSS)
+    assert re.search(r"\.inset\.changed\s*\{[^}]*border-left: 0", CSS)                    # no left rule (finish review 2026-09-29)
+    assert re.search(r"\.inset\.changed strong\s*\{[^}]*color: var\(--accent\)", CSS)      # a ballpoint lead word instead
     assert not re.search(r"\.inset\.warn\s*\{", CSS)
 
 
@@ -107,7 +108,7 @@ def test_filter_labels_and_class_links_follow_the_body():
 
 def test_the_default_answer_is_a_heavier_stroke_not_a_fill():
     default = _rule("button.default")
-    assert "border: 2px solid var(--ink)" in default and "font-weight: 600" in default
+    assert "border: 2px solid var(--accent)" in default and "font-weight: 600" in default    # a ballpoint stroke, ink label
     assert "background: var(--accent)" not in default
     answers = (WEB / "templates" / "_answers.html").read_text(encoding="utf-8")
     assert "class=\"{{ 'default' if default }}\"" in answers and "'primary'" not in answers

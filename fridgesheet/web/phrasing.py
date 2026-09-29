@@ -139,6 +139,9 @@ PHRASES: dict[str, dict[str, str]] = {
                                 "middle": "It changes daily; the plan page is current.",
                                 "older": "It changes daily; the plan page is current."},
     "copy.due_tonight":      {"early": "Due tonight", "middle": "Due tonight", "older": "Due tonight"},
+    # The planner's day boxes are printed even when empty (the Student Planner, 2026-09-29).
+    "copy.nothing_due_tonight":  {"early": "Nothing due tonight", "middle": "Nothing due tonight", "older": "Nothing due tonight"},
+    "copy.nothing_due_tomorrow": {"early": "Nothing due tomorrow", "middle": "Nothing due tomorrow", "older": "Nothing due tomorrow"},
     "copy.due_tomorrow":     {"early": "Due tomorrow", "middle": "Due tomorrow", "older": "Due tomorrow"},
     "copy.overdue_fixable":  {"early": "Late, but you can still fix it", "middle": "Overdue, still fixable", "older": "Overdue, still fixable"},
     "copy.on_paper_no_grade": {"early": "On paper, no grade yet", "middle": "On paper, no grade yet", "older": "On paper, no grade yet"},

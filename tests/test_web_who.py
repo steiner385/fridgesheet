@@ -121,7 +121,9 @@ def test_a_kids_rail_names_only_their_pages(tmp_path):
     seed(tmp_path).close()
     rail = _rail(_kid(tmp_path).get("/kids/Alex/plan").text)
     links = re.findall(r'<a href="([^"]+)"', rail)
-    assert links == ["/", "/kids/Alex/plan", "/kids/Alex/plan", "/kids/Alex/check-in", "/kids/Alex", "/trends?kid=Alex", "/changes?kid=Alex", "/who"]
+    # No name link: the name is the page's own heading, so three tabs fit a 390px strip in full
+    # (finish review 2026-09-29); the question count rides on Plan.
+    assert links == ["/", "/kids/Alex/plan", "/kids/Alex/check-in", "/kids/Alex", "/trends?kid=Alex", "/changes?kid=Alex", "/who"]
     assert "Sam" not in rail and "Settings" not in rail and "Today" not in rail and "Questions" not in rail
     assert "Not Alex?" in rail and 'id="qcount-Alex"' in rail and 'id="qcount-all"' not in rail
 
@@ -170,7 +172,7 @@ def test_the_kids_own_plan_page_highlights_only_the_plan_link(tmp_path):
     seed(tmp_path).close()
     rail = _rail(_kid(tmp_path, "Alex").get("/kids/Alex/plan").text)
     assert rail.count('class="current"') == 1
-    assert re.search(r'<a href="/kids/Alex/plan" class="current">Plan<', rail)
+    assert re.search(r'<a href="/kids/Alex/plan" class="current">Plan <span id="qcount-Alex"', rail)
 
 
 def test_kid_rail_links_are_url_encoded(tmp_path):

@@ -19,7 +19,7 @@ CSS = (Path(__file__).resolve().parents[1] / "fridgesheet" / "web" / "static" / 
 #: `--type-tiny` are the two secondary sizes (13px and 12px at the root) that the school
 #: evidence, dates, eyebrows and stamps on a child's page are set in.
 TOKENS = ("--ink", "--muted", "--rule", "--paper", "--wash", "--accent", "--warn", "--ok",
-          "--late", "--check", "--warn-wash",
+          "--late", "--check", "--warn-wash", "--box", "--hl-due", "--hl-red", "--hl-check", "--hl-late",
           "--type-root", "--type-small", "--type-tiny")
 
 #: The classes a child reads on the check-in, question card and work list that used to be

@@ -34,7 +34,10 @@
 <section class="review-queue" aria-labelledby="review-heading">
   <h3 id="review-heading" class="sr-only">Review</h3>
   {% for label, rows in queues.items() %}
-  <details class="sec queue-group{{ ' quiet' if label != worth_group }}" {{ 'open' if (label == worth_group and worth_open) }}>
+  {# A group with nothing in it keeps its fold (the hint copy and the review helpers live
+     there) but wears `empty`: one quiet line, not a heading over nothing (re-critique
+     2026-09-29: four zero-count folds ended a nine-year-old's page). #}
+  <details class="sec queue-group{{ ' quiet' if label != worth_group }}{{ ' empty' if not rows }}" {{ 'open' if (label == worth_group and worth_open) or not rows }}>
     <summary><h3>{{ queue_keys[label] | say(tier) }}</h3> <span class="count">{{ rows | length }}</span></summary>
     {% if label == worth_group %}<p class="lead">{{ 'copy.queue_hint' | say(tier) }}</p>{% endif %}
     {% for view in rows %}
