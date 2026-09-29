@@ -74,8 +74,12 @@ PHRASES: dict[str, dict[str, str]] = {
     "a.its_fine":            {"early": "It's fine", "middle": "It's fine", "older": "It's fine"},
     "a.handed_in":           {"early": "Yes, I handed it in", "middle": "Yes, handed in", "older": "Yes, handed in"},
     # --- one-tap answers: plan it, and what the done-line then says (spec 6) --------------
-    "a.today":               {"early": "Today", "middle": "Today", "older": "Today"},
-    "a.tomorrow":            {"early": "Tomorrow", "middle": "Tomorrow", "older": "Tomorrow"},
+    # The two plan answers carry their verb: a bare "Today" beside "Nothing handed in yet." told a
+    # child nothing about what the tap would do (critique 2026-09-29). `ask.plan` is the line
+    # above them on a row that is not a question.
+    "a.today":               {"early": "I'll do it today", "middle": "Do it today", "older": "Do it today"},
+    "a.tomorrow":            {"early": "I'll do it tomorrow", "middle": "Do it tomorrow", "older": "Do it tomorrow"},
+    "ask.plan":              {"early": "When will you do it?", "middle": "When will you work on it?", "older": "When will you work on it?"},
     "a.add_details":         {"early": "Add details", "middle": "Add details", "older": "Add details"},
     "step.work_on_it":       {"early": "Work on it", "middle": "Work on it", "older": "Work on it"},
     "where.planned_today":   {"early": "You'll work on it today", "middle": "Planned for today", "older": "Planned for today"},
@@ -147,8 +151,14 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.tonight_school_has": {"early": "{n} the school has, not counted", "middle": "{n} the school has, not counted", "older": "{n} the school has, not counted"},
     "copy.check_again":      {"early": "Check Canvas again", "middle": "Check Canvas again", "older": "Check Canvas again"},
     "copy.asked_the_school": {"early": "Asked the school", "middle": "Asked the school", "older": "Asked the school"},
-    "copy.nothing_due":      {"early": "Nothing due by tomorrow", "middle": "Nothing due by tomorrow", "older": "Nothing due by tomorrow"},
-    "copy.not_done_due_by_tomorrow": {"early": "not done, due by tomorrow", "middle": "not done, due by tomorrow", "older": "not done, due by tomorrow"},
+    # The Today card's tally counts Must finish's red rows (tonight, tomorrow, overdue), so it
+    # says "to finish by tomorrow" rather than "not done, due by tomorrow", which misnamed an
+    # overdue row, and names the rest of the list so the number a parent carries to the Plan
+    # page is the one they find there (critique 2026-09-29: "3" became "Must finish 4").
+    "copy.nothing_due":      {"early": "Nothing to finish by tomorrow", "middle": "Nothing to finish by tomorrow", "older": "Nothing to finish by tomorrow"},
+    "copy.to_finish_by_tomorrow": {"early": "to finish by tomorrow", "middle": "to finish by tomorrow", "older": "to finish by tomorrow"},
+    "copy.more_on_list":     {"early": "{n} more on the list", "middle": "{n} more on the list", "older": "{n} more on the list"},
+    "copy.of_them_planned":  {"early": "{n} planned", "middle": "{n} planned", "older": "{n} planned"},
     "copy.record":          {"early": "Record", "middle": "Record", "older": "Record"},
     "copy.history":         {"early": "History ({n})", "middle": "History ({n})", "older": "History ({n})"},
     "copy.notes":           {"early": "Notes ({n})", "middle": "Notes ({n})", "older": "Notes ({n})"},

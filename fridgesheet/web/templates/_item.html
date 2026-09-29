@@ -45,7 +45,12 @@
   {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
   {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
   {% elif late %}<p class="facts">{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}</p>{% endif %}
-  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
+  {# A row that is not a question but offers the plan answers gets the plan's own prompt above
+     them, so "Do it today" follows a sentence that asked (critique 2026-09-29). Its class is
+     not the verdict's `ask-line` alone: the rail counts those as questions. A grey row
+     (waiting) offers no plan answers and gets no prompt. #}
+  {% set plan_ask = (not is_q) and has_word and tone != 'grey' and vd.answers %}
+  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
   {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
   {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
   {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}

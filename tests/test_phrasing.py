@@ -154,7 +154,7 @@ MUST_FINISH_KEYS = (
     "copy.overdue_fixable", "copy.on_paper_no_grade", "copy.handed_in_waiting", "copy.coming_due_later",
     "copy.worth_checking", "copy.waiting_on_school", "copy.other_open", "copy.school_has_it", "copy.tonight_steps",
     "copy.tonight_unpicked", "copy.tonight_school_has", "copy.check_again", "copy.asked_the_school", "copy.nothing_due",
-    "copy.not_done_due_by_tomorrow", "copy.due_on", "copy.late_until", "copy.browse_all_link",
+    "copy.to_finish_by_tomorrow", "copy.more_on_list", "copy.of_them_planned", "copy.due_on", "copy.late_until", "copy.browse_all_link",
     "copy.browse_all_rest", "badge.must_finish", "badge.zero_to_check", "badge.changed_since_answer",
     "badge.seen_at_checkin", "badge.new_since_checkin", "record.canvas_handed_in", "record.graded_in",
     "record.you_said_handed_in", "record.you_said_excused", "record.canvas_excused", "a.mark_step_complete",

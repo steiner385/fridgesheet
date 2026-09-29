@@ -40,8 +40,12 @@ def test_dashboard_cards_per_kid(tmp_path):
         """One kid's card, by its heading; the rail names every kid before the cards do."""
         start = body.index(f'<h3><a href="/kids/{key}/check-in">')
         return body[start:body.index("</div>", start)]
-    assert '<span class="big">2</span> not done, due by tomorrow' in card("Alex")   # Vocabulary tonight, Worksheet 3 tomorrow
-    assert '<span class="big">2</span> not done, due by tomorrow' in card("Sam")    # Cell diagram, Safety quiz
+    # Vocabulary tonight, Worksheet 3 tomorrow; the rest of the Plan's Must finish list
+    # (Participation and Lab notebook on paper, Reading log later) is named so "2" is the
+    # "Must finish 5" a parent then opens.
+    assert '<span class="big">2</span> to finish by tomorrow · 3 more on the list' in card("Alex")
+    assert '<span class="big">2</span> to finish by tomorrow' in card("Sam")    # Cell diagram, Safety quiz
+    assert "not done, due by tomorrow" not in body
     assert 'href="/kids/Alex/plan"><span class="big">' in card("Alex")
     assert "still fixable" not in body and "due today" not in body
     assert "8 new since yesterday" in body
@@ -68,7 +72,7 @@ def test_a_kid_with_nothing_due_reads_nothing_due(tmp_path):
     snap["students"]["Kim"] = {"name": "Kim Example", "canvas_id": 3, "hac_name": "Kim Example",
                                "canvas": {"courses": []}, "hac": {"week_view": [], "classes": []}}
     seed(tmp_path, snap).close()
-    assert "Nothing due by tomorrow" in _card(app_for(tmp_path).get("/").text, "Kim")
+    assert "Nothing to finish by tomorrow" in _card(app_for(tmp_path).get("/").text, "Kim")
 
 
 def test_the_family_line_leaves_out_a_step_the_school_has(tmp_path):
@@ -96,7 +100,7 @@ def test_the_headline_still_counts_red_rows_a_family_step_covers(tmp_path):
     plans.save(conn, 1, {**base, "title": "Vocabulary", "position": 10}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=vocab)
     plans.save(conn, 1, {**base, "title": "Worksheet 3", "position": 20}, now=NOW.isoformat(), request_key=str(uuid4()), item_id=worksheet)
     conn.close()
-    assert '<span class="big">2</span> not done, due by tomorrow' in _card(app_for(tmp_path).get("/").text, "Alex")
+    assert '<span class="big">2</span> to finish by tomorrow' in _card(app_for(tmp_path).get("/").text, "Alex")
 
 
 def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_path):

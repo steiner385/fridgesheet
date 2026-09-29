@@ -15,7 +15,7 @@
     {# The headline: what Must finish still holds after covered steps drop out, one line,
        linking to the plan (spec 2026-09-27 §8.3). Questions next, the same count as the rail. #}
     {% set tier = s.key | tier_of %}
-    <p class="tally">{% if plan.must_finish %}<a href="/kids/{{ s.key | urlencode }}/plan"><span class="big">{{ plan.must_finish }}</span> {{ 'copy.not_done_due_by_tomorrow' | words(tier) }}</a>{% else %}{{ 'copy.nothing_due' | words(tier) }}{% endif %}</p>
+    <p class="tally">{% if plan.must_finish %}<a href="/kids/{{ s.key | urlencode }}/plan"><span class="big">{{ plan.must_finish }}</span> {{ 'copy.to_finish_by_tomorrow' | words(tier) }}{% if plan.must_planned %}, {{ 'copy.of_them_planned' | words(tier, {'n': plan.must_planned}) }}{% endif %}{% if plan.must_more %} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}{% endif %}</a>{% elif plan.must_more %}<a href="/kids/{{ s.key | urlencode }}/plan">{{ 'copy.nothing_due' | words(tier) }} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}</a>{% else %}{{ 'copy.nothing_due' | words(tier) }}{% endif %}</p>
     <p class="tally">{% if c.questions %}<a href="/questions?kid={{ s.key | urlencode }}"><span class="big">{{ c.questions }}</span> question{{ 's' if c.questions != 1 }} to answer</a>{% else %}Nothing to answer{% endif %}</p>
     <p class="muted">{{ c.new_since_yesterday }} new since yesterday</p>
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}

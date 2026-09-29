@@ -111,7 +111,7 @@ def test_a_sub_page_has_a_crumb_and_a_record_page_a_subtitle(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     step = c.get("/kids/Alex/check-in/step").text
-    assert re.search(r'<p class="crumb"><a href="/kids/Alex/check-in#plan">← Alex’s check-in</a></p>\s*<h2>Add a task</h2>', step)
+    assert re.search(r'<p class="crumb"><a href="/kids/Alex/check-in#plan">← Alex’s check-in</a></p>\s*<h2>Add a step</h2>', step)
     course = c.get("/kids/Alex").text
     cid = re.search(r'/kids/Alex/courses/(\d+)', course).group(1)
     page = c.get(f"/kids/Alex/courses/{cid}").text

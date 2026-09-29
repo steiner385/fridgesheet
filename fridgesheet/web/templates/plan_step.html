@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit a step' if step_id else 'Add a task' if not item_id else 'Plan a step' }} · {{ student.key | nickname }}{% endblock %}
+{% block title %}{{ 'Edit a step' if step_id else 'Add a step' if not item_id else 'Plan a step' }} · {{ student.key | nickname }}{% endblock %}
 {% block content %}
 {% set tier = student.key | tier_of %}
 {# Back to the tab the form was opened from, by name (#128); any other page is just "Back". #}
@@ -9,7 +9,7 @@
 {% set page_crumb_href = back %}
 {% if step_id %}{% set page_title = "Edit a step" %}{% set page_intro = "Change what was agreed, mark it complete, or put it back." %}
 {% elif item_id %}{% set page_title = "Plan a step" %}{% set page_intro = "What happened, and what would help move this forward?" %}
-{% else %}{% set page_title = "Add a task" %}{% set page_intro = "Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment." %}{% endif %}
+{% else %}{% set page_title = "Add a step" %}{% set page_intro = "Something not on the school list: a form to bring back, a book to fetch, a helper’s commitment." %}{% endif %}
 {% include "_page_head.html" %}
 {% if error %}<p role="alert" class="notice warn" tabindex="-1" autofocus>{{ error }}</p>{% endif %}
 {% if latest %}
@@ -26,7 +26,7 @@
   {# Three things first: what, the next step, and when. Everything else -- who helps, the
      state, minutes, order, who recorded it -- folds under one "More", identical at every
      tier: a fold of fields on one form, not a tier hiding a feature (kids' UX audit F6). #}
-  <label>Assignment or task<input name="title" required maxlength="500" value="{{ values.title }}"></label>
+  <label>Assignment or thing to do<input name="title" required maxlength="500" value="{{ values.title }}"></label>
   <label>Agreed next step<input name="next_step" required maxlength="500" value="{{ values.next_step }}" placeholder="Complete questions 1–4, then put the worksheet in my bag"></label>
   <div class="form-pair"><label>{{ 'When will you check again?' if values.state in ('waiting', 'blocked') else 'Planned date' }}<input type="date" name="planned_for" required value="{{ values.planned_for }}"></label>
   <label>Who will do this?<input name="owner" required maxlength="500" value="{{ values.owner }}"></label></div>

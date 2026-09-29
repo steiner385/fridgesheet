@@ -9,7 +9,10 @@ from __future__ import annotations
 import json
 import sqlite3
 
-STATES = {"planned": "Work to do", "waiting": "Waiting", "blocked": "Need help", "done": "Step complete"}
+#: A step's state, in the family's words. "Waiting" alone was the fourth "waiting" on a
+#: child's pages (the verdict state, the queue group, the handed-in section); a step in this
+#: state is one to look at again on its date, which is what its row already says.
+STATES = {"planned": "Work to do", "waiting": "Check again later", "blocked": "Need help", "done": "Step complete"}
 FIELDS = ("title", "family_account", "next_step", "owner", "planned_for", "minutes", "state", "position", "evidence", "recorded_by")
 
 

@@ -230,11 +230,11 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
 def test_a_manual_task_needs_no_school_assignment(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    assert "Assignment or task" in c.get("/kids/Alex/check-in/step").text
+    assert "Assignment or thing to do" in c.get("/kids/Alex/check-in/step").text
     r = _post_step(c, "Alex", _form(title="Bring PE uniform", next_step="Pack it Wednesday night", owner="Alex"))
     assert r.status_code == 303
     plan = c.get("/kids/Alex/plan").text
-    assert "Bring PE uniform" in plan and "Family-added task" in plan
+    assert "Bring PE uniform" in plan and "Family-added step" in plan
     assert _step_rows(tmp_path)[0]["item_id"] is None
 
 
@@ -749,7 +749,7 @@ def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
 def test_the_manual_task_form_says_what_it_is_for(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/check-in/step").text
-    assert "<h2>Add a task</h2>" in body and "not on the school list" in body
+    assert "<h2>Add a step</h2>" in body and "not on the school list" in body
 
 
 def test_the_print_view_carries_the_markers_a_reader_needs(tmp_path):
@@ -1086,14 +1086,14 @@ def test_the_printed_plan_leads_with_must_finish_as_boxes_and_names_people(tmp_p
 
 def test_a_covered_red_step_still_shows_as_due_on_the_printed_plan(tmp_path):
     """Review finding 1: a step on Vocabulary covers it in Must finish's own list, but it is
-    still not done -- the printed plan must not say "Nothing due by tomorrow", and the step
-    itself must still carry the Must finish badge."""
+    still not done -- the printed plan must not say "Nothing to finish by tomorrow", and the
+    step itself must still carry the Must finish badge."""
     conn = seed(tmp_path)
     c = app_for(tmp_path)
     _plan_step_for(c, conn, "Alex", "Vocabulary", minutes="15")
     conn.close()
     body = c.get("/kids/Alex/plan/print").text
-    assert "Nothing due by tomorrow" not in body
+    assert "Nothing to finish by tomorrow" not in body and "Nothing due by tomorrow" not in body
     assert "Must finish · DUE TODAY" in body
 
 
