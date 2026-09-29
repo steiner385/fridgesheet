@@ -53,7 +53,13 @@
       <button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button>
       <label class="tick"><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label>
       <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
-      <button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML" hx-confirm="Print today's sheet on {{ 'open-work' | printer_name }}?">Print now</button>
+      {# The one action the product exists for asks in the card, not in a browser dialog: the
+         question names the printer, and the answer is the page's one filled button (critique
+         2026-09-29). Cancel closes the fold (app.js, data-close-details). #}
+      <details class="print-confirm"><summary>Print now</summary>
+        <p class="ask-line">Print today's sheet on {{ 'open-work' | printer_name }}?</p>
+        <p class="answers"><button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Print</button> <button type="button" class="link" data-close-details>Cancel</button></p>
+      </details>
     </p>
     {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
     {% endif %}
