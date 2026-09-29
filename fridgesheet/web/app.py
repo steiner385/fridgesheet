@@ -170,6 +170,12 @@ def _filters(state: AppState) -> dict:
         from .stores import items as items_store
         return status_words.status_word(items_store.sheet_status(view), tier)
 
+    def sheet_tone(view) -> str:
+        """The colour the sheet prints that row's word in, as the page's tone name
+        (status_words.status_tone): "due", "red", "late", "check" or ""."""
+        from .stores import items as items_store
+        return status_words.status_tone(items_store.sheet_status(view))
+
     def phrase(word, tier: str = "") -> str:
         # Stays a plain `str` -- autoescaped like everything else. `phrasing.phrase` echoes
         # an untranslated `word` straight back, and `v.grade` can be Canvas's own grade
@@ -237,7 +243,7 @@ def _filters(state: AppState) -> dict:
             "flag_label": lambda flag, form="state", tier="": phrasing.flag_label(flag or "", form, tier),
             "standing": lambda item, tier: verdicts.standing(item, tier),
             "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
-            "pace_key": verdicts.pace_key, "sheet_word": sheet_word}
+            "pace_key": verdicts.pace_key, "sheet_word": sheet_word, "sheet_tone": sheet_tone}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so

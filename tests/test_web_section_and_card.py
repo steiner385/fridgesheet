@@ -43,7 +43,9 @@ def test_a_section_head_is_one_wrapping_row_and_a_folded_section_draws_the_same_
     assert re.search(r"\.sec\s*\{[^}]*margin: 0 0 var\(--s6\)", CSS)
     head = _rule(".sec-head, details.sec > summary")
     assert "display: flex" in head and "flex-wrap: wrap" in head
-    assert re.search(r"\.sec-head h3, details\.sec > summary h3\s*\{[^}]*font-size: 18px", CSS)
+    # 18px at the root, and a tier's own step above its body (critique 2026-09-29: the fixed
+    # 18px head was the smallest text above the fold on the early tier's 20px page).
+    assert re.search(r"\.sec-head h3, details\.sec > summary h3\s*\{[^}]*font-size: calc\(var\(--type-root\) \* 1\.125\)", CSS)
     assert re.search(r"\.sec\.quiet h3\s*\{[^}]*color: var\(--muted\)", CSS)
     assert re.search(r"\.sec-head \.lead\s*\{[^}]*flex-basis: 100%", CSS)
     assert re.search(r"\.sec-head \.controls\s*\{[^}]*margin-left: auto", CSS)
@@ -64,7 +66,12 @@ def test_the_item_is_one_box_with_a_left_rule_that_names_its_tone():
         assert re.search(rf"\.item\.{tone}\s*\{{[^}}]*border-left-color: var\({colour}\)", CSS), tone
     assert re.search(r"\.item\.grey\s*\{[^}]*color: var\(--muted\)", CSS)
     assert re.search(r"\.item-head \.when\s*\{[^}]*margin-left: auto", CSS)
-    assert re.search(r"\.item-head \.when\.word\s*\{[^}]*color: var\(--warn\)", CSS)
+    # The sheet's word wears the sheet's colour, and only a school-recorded not-in is red
+    # (critique 2026-09-29: DUE TODAY and HAC — NO GRADE were red because every word was).
+    assert re.search(r"\.item-head \.when\.word\s*\{[^}]*color: var\(--ink\)", CSS)
+    for tone, colour in (("red", "--warn"), ("late", "--late"), ("check", "--check"), ("due", "--accent")):
+        assert re.search(rf"\.item-head \.when\.word\.{tone}\s*\{{[^}}]*color: var\({colour}\)", CSS), tone
+        assert re.search(rf"\.item\.{tone}\s*\{{[^}}]*border-left-color: var\({colour}\)", CSS), tone
     assert re.search(r"\.item-foot\s*\{[^}]*font-size: var\(--type-small\)", CSS)
     assert re.search(r"\.item-foot \.stamp\s*\{[^}]*font-size: var\(--type-tiny\)", CSS)
     assert re.search(r"\.ours\s*\{[^}]*border-left: 3px solid var\(--accent\)", CSS)
@@ -284,10 +291,11 @@ def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
 def test_a_must_finish_row_is_the_item_with_the_sheets_word_at_the_right_and_no_ask(tmp_path):
     vid = _id(tmp_path, "Vocabulary")                                          # due today, nothing handed in
     body = app_for(tmp_path).get("/kids/Alex/plan").text
-    row = re.search(r'<div class="item red" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % vid, body, re.S).group(0)
+    # A due-today row is due, not not-in: its rule and its word are the sheet's blue, never red.
+    row = re.search(r'<div class="item due" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % vid, body, re.S).group(0)
     head = re.search(r'<div class="item-head">(.*?)</div>', row, re.S).group(1)
     assert re.search(r'<span class="name"><a href="/kids/Alex\?show=all#row-%d" data-focus-target>Vocabulary</a></span>' % vid, head)
-    assert re.search(r'<span class="when word">DUE TODAY</span>', head)          # sheet_word's own word for a due-today row
+    assert re.search(r'<span class="when word due">DUE TODAY</span>', head)      # sheet_word's own word for a due-today row
     assert 'class="ask-line"' not in row and 'id="qc-%d"' % vid in row       # answers keep their own slot
     foot = _element(row, '<div class="item-foot">')                              # the Record fold nests a </div> of its own
     assert "<summary>Record</summary>" in foot and "Plan a step" in foot and "Add details" not in foot and "Notes (" not in foot

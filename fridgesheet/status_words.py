@@ -18,6 +18,23 @@ STATUS_WORD = {"Missing": "MISSING", "Zero": "ZERO", "Late, ungraded": "LATE", "
 #: Older and no-tier sections keep the capitals the parent knows from the legend.
 _STATUS_KEY = {word: phrase for phrase, word in STATUS_WORD.items()}
 
+#: The sheet's word -> the colour it is printed in, named for what the colour means: `red` is
+#: the school saying not in (the sheet's RED), `late` handed in after the deadline (AMBER),
+#: `check` work the school cannot see yet (PURPLE), `due` a deadline ahead (BLUE). The page
+#: reads this table for a row's rule and word (`_item.html`) and `sheet.STATUS_COLOR` is the
+#: same table in reportlab colours, so a row cannot be red on screen and blue on the fridge
+#: (critique 2026-09-29: DUE TODAY was red on the Plan because every word was).
+STATUS_TONE = {"MISSING": "red", "ZERO": "red", "LATE": "late",
+               "PAPER — CHECK": "check", "IN CLASS — CHECK": "check", "HAC — NO GRADE": "check"}
+
+
+def status_tone(status: str) -> str:
+    """"red", "late", "check" or "due" for a sheet word; "" for anything the sheet has no
+    colour for (a phrase the page says on its own, such as "Submitted, ungraded")."""
+    if status in STATUS_TONE:
+        return STATUS_TONE[status]
+    return "due" if status.startswith("DUE ") else ""
+
 
 def status_word(status: str, tier: str) -> str:
     """"MISSING" for a parent; "Teacher hasn't got it" for a 5th grader; "Due today" rather than

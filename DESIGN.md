@@ -6,6 +6,7 @@ colors:
   red-pen: "#b3261e"
   checkmark-green: "#2e7d32"
   amber-pencil: "#b8860b"
+  amber-pencil-ink: "#9a5b00"
   purple-stamp: "#6b3fa0"
   ink: "#1c1c1c"
   pencil-grey: "#595959"
@@ -21,6 +22,8 @@ colors:
   ballpoint-blue-early: "#0b5cab"
   red-pen-early: "#a3170f"
   checkmark-green-early: "#1d6b27"
+  amber-pencil-ink-early: "#8a5200"
+  purple-stamp-early: "#5f3594"
   ink-middle: "#161b22"
   pencil-grey-middle: "#5a6474"
   ruled-grey-middle: "#ccd5de"
@@ -28,6 +31,8 @@ colors:
   ballpoint-blue-middle: "#14539b"
   red-pen-middle: "#a81d14"
   checkmark-green-middle: "#24702c"
+  amber-pencil-ink-middle: "#915600"
+  purple-stamp-middle: "#653a9a"
 typography:
   display:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif"
@@ -237,11 +242,14 @@ accompanied by its word.
   answered "OK", an on-time series on Trends. Early #1d6b27, middle #24702c.
 
 ### Tertiary
-- **Amber Pencil** (#b8860b): late. The late series on Trends. The printed sheet's LATE word is
-  the target for this token too (see the Don'ts).
-- **Purple Stamp** (#6b3fa0): "check on paper". The printed sheet's PAPER — CHECK, IN CLASS —
-  CHECK and HAC — NO GRADE words and the follow-up marker under them; the fourth chart series.
-  Work the school cannot see, so neither red nor green applies.
+- **Amber Pencil** (#b8860b): late, as a stroke: the late series on Trends. As a bold word beside
+  a date it is too light (3.3:1), so on screen the word and the rule use **Amber Pencil Ink**
+  (#9a5b00, 5.4:1; `--late`, early #8a5200, middle #915600). The printed sheet's LATE word is the
+  target for the same token (see the Don'ts).
+- **Purple Stamp** (#6b3fa0; `--check`, early #5f3594, middle #653a9a): "check on paper". The
+  PAPER — CHECK, IN CLASS — CHECK and HAC — NO GRADE words on the sheet and, since 2026-09-29, on
+  a Must-finish row's word and left rule; the follow-up marker under them; the fourth chart
+  series. Work the school cannot see, so neither red nor green applies.
 
 ### Neutral
 - **Ink** (#1c1c1c): all body text and headings. Early #10151b, middle #161b22.
@@ -257,8 +265,8 @@ accompanied by its word.
 - **Ledger Paper** (#f4f4f2): the page wash behind the cards, the hover on a nav link or button,
   an inset quoting the record, a badge's fill. Early #eef4fb, middle #f1f5f9: a faint blue cast
   for the younger tiers.
-- **Red Pen Wash** (#fdecea): the fill behind a warn notice or the stale banner, always paired
-  with Red Pen text.
+- **Red Pen Wash** (#fdecea; `--warn-wash`): the fill behind a warn notice or the stale banner,
+  always paired with Red Pen text.
 
 ### Named Rules
 **The Word Beside the Colour Rule.** Nothing is conveyed by colour alone. What is red is red *and*
@@ -270,8 +278,14 @@ and marks at most one current choice per control group. Everything else it touch
 an underline, a rule or a link.
 
 **The Red Pen Rule.** Red is reserved for what the school recorded as not in. A past due date is
-not red on its own; the app's own inference ("No" under Handed in) is bold, not red; a budget
-overrun on a child's page is not red.
+not red on its own; the app's own inference ("No" under Handed in, "School evidence changed") is
+bold or blue-ruled, not red; a budget overrun on a child's page is not red.
+
+**The Sheet's Colour Rule.** The sheet's word on a row wears the colour the sheet prints it in,
+from one table (`status_words.STATUS_TONE`, the same table as `sheet.STATUS_COLOR`): DUE words
+Ballpoint Blue, LATE Amber Pencil Ink, PAPER — CHECK and HAC — NO GRADE Purple Stamp, MISSING
+and ZERO Red Pen. The row's left rule takes the same colour. A row cannot be red on screen and
+blue on the fridge.
 
 **The Whole-Tier Rule.** A reading tier redefines every colour token at once, never some of them,
 so no page inherits a colour nobody designed for that tier.
@@ -288,14 +302,19 @@ well-set document, not like an app. The printed sheet uses Helvetica at sizes ch
 reading standing at a fridge.
 
 ### Hierarchy
+The frontmatter sizes are the root's. Headline, Title and Subtitle are set as multiples of the
+tier root (`--type-root`: 16px at the root, 16 / 18 / 20px on the older / middle / early tiers),
+so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.125× (the Open work
+per-child head 1.375×, a report title 1.25×), Subtitle 1×.
 - **Display** (600, 28px): the Today card's big tally number and the kid chooser's heading. Numbers
-  a household glances at from across the kitchen.
-- **Headline** (700, 24px, -0.3px tracking): the page title in the page head, in the exact words of
-  its rail link. One per page.
-- **Title** (650, 18px): a section's h3 in the section head, and a card's h3. The Open work page's
-  per-child heads step up to 22px.
-- **Subtitle** (600, 16px): h4 inside a section (15px inside a `.sec`), a card's h3 on Settings,
-  the item name (650) in an item head, the primary button's label.
+  a household glances at from across the kitchen. The chooser's own buttons are 22px, the one
+  size outside this ramp, on a page that has no tier.
+- **Headline** (700, 1.5× root = 24px, -0.3px tracking): the page title in the page head, in the
+  exact words of its rail link. One per page.
+- **Title** (650, 1.125× root = 18px): a section's h3 in the section head, and `main h3`. The
+  Open work page's per-child heads are 1.375× (22px).
+- **Subtitle** (650, 1× root = 16px): h4 inside a section, a card's h3, the item name in an item
+  head, the primary and default buttons' labels (600).
 - **Body** (400, 15px/1.45 at the root): the default. The reading tiers raise the root to 16px
   (older), 18px (middle) and 20px (early), and every rem-free size below follows.
 - **Label** (400, 13px, `--type-small`): meta lines, dates, the status bar, badges, chips, table
@@ -311,9 +330,9 @@ reading standing at a fridge.
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
 characters at body size); tables, cards and charts fill the 1600px content column.
 
-**The Never-Smallest Rule.** On a tiered page the secondary sizes move with the body size. A fact
-a child must judge ("Canvas: no submission recorded · 0/10") is never rendered at the page's
-smallest size.
+**The Never-Smallest Rule.** On a tiered page the secondary sizes and the headings move with the
+body size. A fact a child must judge ("Canvas: no submission recorded · 0/10") is never rendered
+at the page's smallest size, and the head of a section is never smaller than the sentence under it.
 
 ## Layout
 
@@ -380,6 +399,9 @@ targets, nothing filled until it matters.
 - **Primary:** Ballpoint Blue fill and border, white text, 600 weight; hover brightens 10%. One per
   page: the action that spends paper or saves the form.
 - **Danger:** Paper White fill, Red Pen text and border. The one that deletes.
+- **Default answer:** the first answer on a row, the one to tap if the sentence above it is
+  right: a 2px Ink stroke, 600 weight, 5px 11px padding so it stays level with its neighbours.
+  Never the fill; a page keeps one filled primary.
 - **Disabled:** 50% opacity, default cursor.
 - **Link button:** no border or fill, Pencil Grey underlined text, for "Close" and "undo".
 - **Button link (an `<a>` drawn as a button):** the secondary look with 8px 12px padding.
@@ -400,8 +422,10 @@ targets, nothing filled until it matters.
 - **Border:** 1px Ruled Grey. An item adds a 4px left rule in its tone colour.
 - **Internal Padding:** 12px 16px for cards and items; 8px 12px for an inset; 0 16px for a lines
   list whose rows carry 8px vertical padding and a hairline between them.
-- **Item tones:** `ask` Ballpoint Blue rule, `red` Red Pen rule, `ok` Checkmark Green rule, `grey`
-  Pencil Grey text with the neutral rule. A done-line is a line with a 4px green rule.
+- **Item tones:** `ask` and `due` Ballpoint Blue rule, `red` Red Pen rule, `late` Amber Pencil Ink
+  rule, `check` Purple Stamp rule, `ok` Checkmark Green rule, `grey` Pencil Grey text with the
+  neutral rule. The sheet's word at the head's right wears the same colour as the rule. A
+  done-line is a line with a 4px green rule.
 
 ### Inputs / Fields
 - **Style:** Paper White, 1px Stroke Grey, 6px corners, inherits body type, 4px 6px padding
@@ -474,5 +498,8 @@ coming due, then two trailer counts. The reader is a child standing at a fridge.
 - **Don't** hide a row or an action from a child by tier; fold navigation and secondary fields if
   you must, identically at every tier.
 - **Don't** hard-code a colour in a template or in `sheet.py`, `charts.py` or `app.js`; every
-  colour in this file is the token to reach for, and the two files that still carry literals are
-  the drift to remove.
+  colour in this file is the token to reach for. `app.css` carries none outside its token blocks
+  (held by `tests/test_web_colour_and_type.py`); `sheet.py` and `charts.py` are the drift to
+  remove.
+- **Don't** fill more than one button per page, and don't fill an answer: the first answer on a
+  row is the default stroke.
