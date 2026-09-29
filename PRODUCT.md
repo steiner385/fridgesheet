@@ -134,9 +134,9 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
 
 *(maintainer, 2026-09-29: "name, mark, and the reading-tier system")*
 
-- **The name "Fridge Sheet."** The product was rebranded from the district-specific "Lakota
-  Sheet" / `lakota-grades` so any parent could install it; the old command name is a shim for one
-  release. Do not reintroduce the district into the product's identity.
+- **The name "Fridge Sheet."** The product was rebranded from a district-specific name so any
+  parent could install it (`docs/product/features/product-rebrand-migration.md`); the old command
+  name is a shim for one release. Do not reintroduce the district into the product's identity.
 - **The mark.** `fridgesheet/web/static/mark.svg`, with `mark-32.png`, `mark-180.png` and
   `favicon.svg`. It is the icon in the rail, the tab and on a phone's home screen.
 - **The reading-tier system as a mechanism.** One page, three densities and vocabularies, each
