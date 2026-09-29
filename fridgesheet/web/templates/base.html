@@ -25,9 +25,10 @@
        Settings, no household Today. Everything is still reachable by address; the chooser
        removes distraction, not access. #}
     {% set me = who_student.key %}{% set kt = me | tier_of %}
-    <nav>
-      <a href="/kids/{{ me | urlencode }}/plan">{{ me | nickname }} <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
-      <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'plan' }}">Plan</a>
+    <nav class="kid">
+      {# The name is the page's own heading, so the strip spends no width on it: three tabs fit a
+         390px screen in full (finish review 2026-09-29). The question count rides on Plan. #}
+      <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'plan' }}">Plan <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
       <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'checkin' }}">Check-in</a>
       <a href="/kids/{{ me | urlencode }}" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'all' }}">Assignments</a>
       <a href="/trends?kid={{ me | urlencode }}" class="{{ 'current' if current == 'trends' }}">Trends</a>

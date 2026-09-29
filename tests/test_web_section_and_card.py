@@ -59,23 +59,29 @@ def test_a_section_head_is_one_wrapping_row_and_a_folded_section_draws_the_same_
 
 # --- §4: the item surface -----------------------------------------------------------------------
 
-def test_the_item_is_one_box_with_a_left_rule_that_names_its_tone():
+def test_the_item_is_one_planner_line_with_a_checkbox_that_names_its_tone():
+    """The Student Planner (2026-09-29): a line under a hairline, a square checkbox at its head,
+    the tone on the checkbox's rule. The day box around the lines is the only box."""
     item = _rule(".item")
-    assert "border-radius: var(--radius)" in item and "border-left: 4px solid var(--rule)" in item
+    assert "border-bottom: 1px solid var(--rule)" in item and "border-radius" not in item and "background: none" in item
     assert "overflow-wrap: anywhere" in item                                   # a long name wraps
-    for tone, colour in (("ask", "--accent"), ("red", "--warn"), ("ok", "--ok")):
-        assert re.search(rf"\.item\.{tone}\s*\{{[^}}]*border-left-color: var\({colour}\)", CSS), tone
+    box = _rule("div.item::before")
+    assert "width: 18px" in box and "border: 2px solid var(--box)" in box
+    for tone, colour in (("ask", "--accent"), ("red", "--warn")):
+        assert re.search(rf"\.item\.{tone}::before[^{{]*\{{[^}}]*border-color: var\({colour}\)", CSS), tone
+    assert re.search(r"\.item\.ok::before[^{]*\{[^}]*background: var\(--ok\)", CSS)
     assert re.search(r"\.item\.grey\s*\{[^}]*color: var\(--muted\)", CSS)
     assert re.search(r"\.item-head \.when\s*\{[^}]*margin-left: auto", CSS)
     # The sheet's word wears the sheet's colour, and only a school-recorded not-in is red
     # (critique 2026-09-29: DUE TODAY and HAC — NO GRADE were red because every word was).
     assert re.search(r"\.item-head \.when\.word\s*\{[^}]*color: var\(--ink\)", CSS)
-    for tone, colour in (("red", "--warn"), ("late", "--late"), ("check", "--check"), ("due", "--accent")):
-        assert re.search(rf"\.item-head \.when\.word\.{tone}\s*\{{[^}}]*color: var\({colour}\)", CSS), tone
-        assert re.search(rf"\.item\.{tone}\s*\{{[^}}]*border-left-color: var\({colour}\)", CSS), tone
+    for tone, colour, fill in (("red", "--warn", "--hl-red"), ("late", "--late", "--hl-late"), ("check", "--check", "--hl-check"), ("due", "--accent", "--hl-due")):
+        word = re.search(rf"\.item-head \.when\.word\.{tone}\s*\{{([^}}]*)\}}", CSS).group(1)
+        assert f"color: var({colour})" in word and f"background: var({fill})" in word, tone   # a highlighter stroke
+        assert re.search(rf"\.item\.{tone}::before[^{{]*\{{[^}}]*border-color: var\({colour}\)", CSS), tone
     assert re.search(r"\.item-foot\s*\{[^}]*font-size: var\(--type-small\)", CSS)
     assert re.search(r"\.item-foot \.stamp\s*\{[^}]*font-size: var\(--type-tiny\)", CSS)
-    assert re.search(r"\.ours\s*\{[^}]*border-left: 3px solid var\(--accent\)", CSS)
+    assert re.search(r"\.ours\s*\{[^}]*color: var\(--muted\)", CSS)                   # the family writes in pencil; only links are blue
 
 
 def test_the_inset_the_record_and_the_lines_share_the_radius():
@@ -83,7 +89,7 @@ def test_the_inset_the_record_and_the_lines_share_the_radius():
         assert "border-radius: var(--radius)" in _rule(sel), sel
     assert re.search(r"\.sources\s*\{[^}]*grid-template-columns: max-content 1fr", CSS)
     assert re.search(r"\.sources \.stamp\s*\{[^}]*grid-column: 2", CSS)
-    assert re.search(r"\.done-line\s*\{[^}]*border-left: 4px solid var\(--ok\)", CSS)
+    assert re.search(r"\.done-line\s*\{[^}]*border-bottom: 1px solid var\(--rule\)", CSS)   # a checked-off line
     assert re.search(r"\.item \.done-line\s*\{[^}]*border: 0", CSS)
 
 

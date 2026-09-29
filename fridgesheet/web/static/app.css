@@ -4,7 +4,10 @@
    content column. `--page-max` is that column's ceiling on every page; `--measure` bounds prose
    and forms inside it (about 75 characters at body size) while tables, cards and charts fill it;
    `--rail` is the sidebar; `--pad` the side gutters, narrower under the strip breakpoint. */
-:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
+/* The Student Planner (the visual world chosen 2026-09-29; .impeccable/surfaces/): planner
+   white for the page, printed day-box rules in planner blue-grey (`--box`), and four highlighter
+   fills (`--hl-*`) that carry the sheet's word on a line in its colour family. */
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #c9d3dd; --box: #8fa3b8; --paper: #fff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -18,9 +21,9 @@
    school evidence, dates, eyebrows and stamps are set in. A tier moves them with the body size,
    so the lines a child is asked to judge are never the smallest text on their page: the 20px
    early page used to render "Canvas: no submission recorded · 0/10" at 13px (kids' UX audit F2). */
-[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --late: #8a5200; --check: #5f3594; --warn-wash: #fdecea; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
-[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --late: #915600; --check: #653a9a; --warn-wash: #fdecea; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
-[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
+[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --box: #7f95ad; --paper: #fff; --wash: #fffaee; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --late: #8a5200; --check: #5f3594; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --box: #8aa0b5; --paper: #fff; --wash: #fffcf4; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --late: #915600; --check: #653a9a; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #c9d3dd; --box: #8fa3b8; --paper: #fff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
 
 /* A tier sets its type scale by applying the token to the element that carries the attribute.
    A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
@@ -184,7 +187,7 @@ button.danger { color: var(--warn); border-color: var(--warn); }
 /* The default answer on a row: the one to tap if the sentence above is right. A heavier stroke
    in ink, not a fill, so the page keeps one filled primary (critique 2026-09-29: Alex's Plan
    drew four). The extra border pixel comes out of the padding, so a row of answers stays level. */
-button.default { border: 2px solid var(--ink); padding: 5px 11px; font-weight: 600; }
+button.default { border: 2px solid var(--accent); padding: 5px 11px; font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
 /* Today's "Print now" is a two-step in its card: the summary wears the primary look (it is the
    page's main action) and, open, the question and its two answers sit under it. Once open the
@@ -326,7 +329,8 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .child-nav a[aria-current] { border-bottom: 3px solid var(--accent); color: var(--accent); font-weight: 650; }
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); text-decoration: none; }
 .checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 960px; gap: 24px; align-items: start; }
-.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: var(--measure); }
+/* The plan is a planner spread, two day boxes side by side, so it takes more than the measure. */
+.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: 1100px; }
 .checkin-layout h3 { margin-top: 0; }
 /* The plan and the wrap-up form stick beside the review queue while it scrolls, so "Choose a
    next step" on the last card and "Finish check-in" are both still in view. It scrolls on its
@@ -518,41 +522,64 @@ th .arrow { font-size: var(--type-small); }
 /* A quiet fold carries more space above its head than below it, so it reads as its own
    section rather than as bound to the block above (the detector's heading-rhythm finding). */
 .sec.quiet { margin: var(--s5) 0 var(--s3); }
+/* A fold with nothing in it is one quiet line at body size, not a heading over nothing
+   (re-critique 2026-09-29: four zero-count folds ended a nine-year-old's page). */
+.sec.empty { margin: var(--s2) 0; }
+/* Nothing to open: the fold is rendered open with its marker gone and its pointer off, so the
+   line is a line, not a control that opens onto nothing (finish review 2026-09-29). */
+.sec.empty > summary { pointer-events: none; cursor: default; }
+details.sec.empty > summary::before, details.sec.empty[open] > summary::before { content: ""; }
+.sec.empty > summary h3 { font-size: inherit; font-weight: 400; color: var(--muted); }
+.sec.empty > summary .count, .sec.empty > .lead, .sec.empty > p.muted { display: none; }
+.sec.empty > summary::after { content: "· nothing here yet"; color: var(--muted); font-weight: 400; }
 details.sec > summary { cursor: pointer; list-style: none; }
 details.sec > summary::-webkit-details-marker { display: none; }
 details.sec > summary::before { content: "▸ "; color: var(--muted); }
 details.sec[open] > summary::before { content: "▾ "; }
 .sec h4 { font-size: var(--type-root); font-weight: 650; margin: var(--s4) 0 var(--s2); }
 /* The line under the child tabs is state, not instruction (§3): body type, ink. */
-.tab-hint { margin: -12px 0 var(--s5); font-size: inherit; font-weight: 550; color: var(--ink); max-width: var(--measure); }
+/* The planner's header line: normal weight, the dates bold, a printed rule beneath (re-critique
+   2026-09-29: an 87px bold block stood between the title and the first row on a phone). */
+.tab-hint { margin: -12px 0 var(--s5); padding-bottom: var(--s2); border-bottom: 1.5px solid var(--box); font-size: inherit; font-weight: 400; color: var(--ink); max-width: none; }
+.tab-hint strong { font-weight: 650; }
 .tab-hint .muted { font-weight: 400; }
 
-/* §4 The item: one box for one assignment. Emphasis is the left rule and a word, never a
-   different shape: .ask needs an answer, .red the school says not in, .ok done, .grey nothing
-   to do. A Must-finish row takes the sheet's colour for its own word (status_words.STATUS_TONE):
-   .due a deadline ahead (the sheet's blue), .late handed in after it (amber), .check work the
-   school cannot see yet (purple). Red is only the school saying not in (critique 2026-09-29). */
-.item { background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: var(--radius); padding: var(--s3) var(--s4); overflow-wrap: anywhere; }
-.item + .item, .inset + .item { margin-top: var(--s2); }
-.item.ask { border-left-color: var(--accent); }
-.item.due { border-left-color: var(--accent); }
-.item.red { border-left-color: var(--warn); }
-.item.late { border-left-color: var(--late); }
-.item.check { border-left-color: var(--check); }
-.item.ok { border-left-color: var(--ok); }
+/* §4 The item: one planner line for one assignment (the Student Planner, 2026-09-29). A square
+   checkbox heads the line; its tone is the checkbox's rule colour, never a box of its own:
+   .ask and .due the ballpoint blue (a deadline ahead, the sheet's blue), .red the school says not
+   in, .late handed in after the deadline (amber), .check work the school cannot see yet (purple),
+   .ok done (filled, with a tick), .grey nothing to do. Lines sit under a hairline like the ruled
+   page they are on; the day box around them is the only box (status_words.STATUS_TONE). */
+.item { position: relative; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: var(--s2) 0 var(--s2) 30px; overflow-wrap: anywhere; }
+.item + .item, .inset + .item { margin-top: 0; }
+div.item::before { content: ""; position: absolute; left: 3px; top: calc(var(--s2) + .25em); width: 18px; height: 18px; border: 2px solid var(--box); border-radius: 2px; background: var(--paper); transition: background-color 180ms ease-out, border-color 180ms ease-out; }
+.item.ask::before, .item.due::before { border-color: var(--accent); }
+.item.red::before { border-color: var(--warn); }
+.item.late::before { border-color: var(--late); }
+.item.check::before { border-color: var(--check); }
+.item.ok::before, .item:has(> .done-line)::before, .item:has(> div > .done-line)::before { background: var(--ok); border-color: var(--ok); }
+/* The tick, drawn: two sides of a rotated square in paper white on the filled box. */
+.item.ok::after, .item:has(> .done-line)::after, .item:has(> div > .done-line)::after { content: ""; position: absolute; left: 9px; top: calc(var(--s2) + .25em + 2px); width: 5px; height: 10px; border: solid var(--paper); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .item.grey { color: var(--muted); }
+.item.grey::before { border-style: dashed; }
+/* An answered line is struck through, in place, like a planner line checked off. */
+.item:has(> .done-line) .item-head .name, .item:has(> div > .done-line) .item-head .name { text-decoration: line-through; color: var(--muted); transition: color 180ms ease-out; }
+/* A line inside a table's opened row or a card is the same line without the checkbox. */
+tr.detail .item, .card .item { padding-left: 0; border-bottom: 0; }
+tr.detail .item::before, .card .item::before, tr.detail .item::after, .card .item::after { display: none; }
 .item-head { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
 .item-head .name { font-weight: 650; }
 .item-head .name a { color: inherit; text-decoration: none; }
 .item-head .name a:hover { text-decoration: underline; }
 .item-head .meta { font-size: var(--type-small); color: var(--muted); }
 .item-head .when { margin-left: auto; font-size: var(--type-small); color: var(--muted); white-space: nowrap; }
-/* The sheet's word, in the sheet's colour: ink unless the word has one. */
-.item-head .when.word { color: var(--ink); font-weight: 700; font-size: inherit; }
-.item-head .when.word.red { color: var(--warn); }
-.item-head .when.word.late { color: var(--late); }
-.item-head .when.word.check { color: var(--check); }
-.item-head .when.word.due { color: var(--accent); }
+/* The sheet's word, in the sheet's colour, carried as a highlighter stroke in that colour's
+   family: ink on the bare page unless the word has a colour. */
+.item-head .when.word { color: var(--ink); font-weight: 700; font-size: inherit; padding: 0 .35em; border-radius: 2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.item-head .when.word.red { color: var(--warn); background: var(--hl-red); }
+.item-head .when.word.late { color: var(--late); background: var(--hl-late); }
+.item-head .when.word.check { color: var(--check); background: var(--hl-check); }
+.item-head .when.word.due { color: var(--accent); background: var(--hl-due); }
 .item-head .close-detail { margin-left: var(--s3); }
 .item .facts { margin: var(--s2) 0 0; }
 .item .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
@@ -562,8 +589,8 @@ details.sec[open] > summary::before { content: "▾ "; }
 .answers .more-answers { display: inline; }
 .answers .more-answers > summary { cursor: pointer; color: var(--accent); font-size: var(--type-small); }
 .answers .more-answers[open] { display: flex; flex-basis: 100%; flex-wrap: wrap; gap: var(--s2); align-items: center; }
-/* Slot 4, the family's layer: one line each, with the family's rule. */
-.ours { margin: var(--s2) 0 0; padding-left: 10px; border-left: 3px solid var(--accent); font-size: var(--type-small); }
+/* Slot 4, the family's layer: one line each, written in ballpoint under the school's line. */
+.ours { margin: var(--s2) 0 0; padding-left: 0; border-left: 0; font-size: var(--type-small); color: var(--muted); }
 /* Slot 5, the foot: the folds and links on one wrapping line, the stamp pushed right and tiny. */
 .item-foot { margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); font-size: var(--type-small); align-items: baseline; }
 .item-foot details { display: inline; }
@@ -579,7 +606,8 @@ details.sec[open] > summary::before { content: "▾ "; }
 .inset { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--wash); border-radius: var(--radius); font-size: var(--type-small); }
 /* "School evidence changed since this step was saved": the app's own inference, so the family's
    blue rule, not the school's red (the Red Pen Rule; critique 2026-09-29). */
-.inset.changed { border-left: 3px solid var(--accent); }
+.inset.changed { border-left: 0; }
+.inset.changed strong { color: var(--accent); font-weight: 600; }
 .inset p { margin: var(--s1) 0; }
 .inset a { color: var(--accent); }
 /* The record: one block per source: the label, the facts, then the stamp on its own line under
@@ -598,7 +626,7 @@ details.sec[open] > summary::before { content: "▾ "; }
 .lines .line .meta { font-size: var(--type-small); color: var(--muted); }
 /* The done-line after an answer: line density on its own. In a list it takes the card's place
    and wears the box; inside a Must-finish row it is a line in the row, no box. */
-.done-line { display: flex; gap: var(--s3); align-items: baseline; background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: var(--radius); padding: var(--s2) var(--s4); margin-bottom: var(--s2); }
+.done-line { display: flex; gap: var(--s3); align-items: baseline; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: var(--s2) 0; margin-bottom: 0; color: var(--muted); }
 .done-line form { margin-left: auto; }
 .item .done-line { border: 0; padding: var(--s2) 0; margin: 0; background: none; }
 
@@ -616,4 +644,50 @@ tr.detail td { padding: var(--s2) var(--s2) var(--s3); }
 @media (pointer: coarse) {
   .item-foot summary, .item-foot a, details.sec > summary, .lines .line > a, .lines .line > button, .lines .line > form button, .done-line form button, .item-head .name a { min-height: 44px; display: inline-flex; align-items: center; }
   .inset a { display: inline-block; padding-block: 8px; }
+}
+
+/* The Student Planner: the child's Plan as a spiral agenda spread (direction contract in
+   .impeccable/surfaces/fridgesheet-web-templates-checkin-html.md, seed 5d8bc5ca). The Must-finish
+   sections are printed day boxes, Tonight and Tomorrow side by side; each holds its checkbox
+   lines. The family's steps are pencil lines under a ruled head. A faint ruling runs behind
+   the page; the day boxes are paper white on top of it. */
+/* The planner's faint ruling, pitched to the line height and kept light enough to sit behind
+   text as texture; the day boxes are paper white on top of it. */
+.checkin-main { position: relative; --line: calc(var(--type-root) * 1.45); background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), color-mix(in srgb, var(--rule) 40%, transparent) calc(var(--line) - 1px) var(--line)); }
+.mf-spread { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); align-items: start; }
+.mf-spread > * { grid-column: 1 / -1; min-width: 0; }
+.mf-spread > .mf-section[data-section="tonight"], .mf-spread > .mf-section[data-section="tomorrow"] { grid-column: auto; }
+/* The printed day box: near-square corners, the planner's own rule, its label printed along
+   the top edge in small capitals at the tier's small size, never smaller than the line it heads. */
+.mf-section { background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s1); }
+.mf-section > h4 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mf-section > .inset { margin: var(--s2) 0 0; }
+.mf-section .item:last-child { border-bottom: 0; }
+details.mf-fold > .mf-section { margin-top: var(--s2); }
+/* Our next steps: the family's lines, the step itself in ballpoint. */
+.plan .item.step .facts { color: var(--muted); }
+.plan .item.step .item-head .name { font-weight: 600; }
+/* Our next steps: the family's head is ruled like the header line; the steps are written in
+   pencil grey under the school's ink, so only links are blue. */
+.plan > .sec-head { border-bottom: 1.5px solid var(--box); padding-bottom: var(--s2); }
+/* The sheet's word on a step line, the same highlighter as on a Must-finish line. */
+.item-head .meta .word { display: inline-block; padding: 0 .35em; border-radius: 2px; font-weight: 600; color: var(--ink); }
+.item-head .meta .word.red { color: var(--warn); background: var(--hl-red); }
+.item-head .meta .word.late { color: var(--late); background: var(--hl-late); }
+.item-head .meta .word.check { color: var(--check); background: var(--hl-check); }
+.item-head .meta .word.due { color: var(--accent); background: var(--hl-due); }
+@media (max-width: 1023px) {
+  .mf-spread { grid-template-columns: minmax(0, 1fr); }
+  .mf-spread > .mf-section[data-section="tonight"], .mf-spread > .mf-section[data-section="tomorrow"] { grid-column: 1 / -1; }
+  /* The highlighter hugs its word on its own line, never a bar across the page. */
+  .item-head .when.word { flex-basis: auto; width: max-content; max-width: 100%; }
+  /* A kid's strip is short (Plan, Check-in, Assignments, Trends, Changes, Not Sam?), so it wraps
+     onto a second row instead of scrolling: every tab is in view at the first viewport, none under
+     the fade (finish review 2026-09-29). The family strip keeps scrolling; fourteen links would
+     push the page three rows down. */
+  .rail:has(nav.kid) { flex-wrap: wrap; }
+  .rail nav.kid { flex-basis: 100%; flex-wrap: wrap; overflow-x: visible; padding-right: 0; }
+  .rail:has(nav.kid)::after { display: none; }
+  /* A section's own control is a link on the strip, so the first line sits higher on a phone. */
+  .sec-head .controls button { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; min-height: 0; }
 }

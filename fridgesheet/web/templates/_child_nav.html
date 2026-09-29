@@ -12,7 +12,7 @@
 {% if workspace == 'all' %}
 {% if done_so_far.done %}<p class="tab-hint">{{ 'copy.done_so_far' | say(tier, done_so_far) }}</p>{% endif %}
 {% elif last_check %}
-<p class="tab-hint">Last check-in {{ last_check.finished_at | wd_md_time }}{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in {{ last_check.next_check | wd_md }}{% if last_check.next_check <= today %} · <strong class="warn">time to check in</strong>{% endif %} · <span class="muted">What we agreed: {{ last_check.summary }}</span></p>
+<p class="tab-hint">Last check-in <strong>{{ last_check.finished_at | wd_md_time }}</strong>{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in <strong>{{ last_check.next_check | wd_md }}</strong>{% if last_check.next_check <= today %} · <strong class="warn">time to check in</strong>{% endif %} · <span class="muted">What we agreed: {{ last_check.summary }}</span></p>
 {% else %}
 <p class="tab-hint">{{ 'copy.checkin_first' | say(tier) }}</p>
 {% endif %}

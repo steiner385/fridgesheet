@@ -127,8 +127,10 @@ def test_the_strip_puts_a_sections_controls_after_its_lead():
 
 
 def test_long_lines_are_bounded_to_the_measure():
-    for sel in (".tab-hint", "p.legend"):
+    for sel in ("p.legend",):
         assert re.search(re.escape(sel) + r"\s*\{[^}]*max-width: var\(--measure\)", CSS), sel
+    # The tab hint became the planner's ruled header line, spanning the spread (2026-09-29).
+    assert re.search(r"\.tab-hint\s*\{[^}]*border-bottom: 1\.5px solid var\(--box\)", CSS)
 
 
 def test_a_quiet_fold_has_more_space_above_than_below():
