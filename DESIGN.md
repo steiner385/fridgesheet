@@ -487,7 +487,9 @@ coming due, then two trailer counts. The reader is a child standing at a fridge.
   glyph that says the same thing.
 - **Do** keep one filled Ballpoint Blue button per page and make it the action that spends paper or
   saves the form.
-- **Do** give every tappable thing 44px on a coarse pointer, and 24px to a checkbox or radio box.
+- **Do** give every button, control, tab and main link 44px on a coarse pointer; a secondary link
+  inside a row or card keeps a 24px floor with padding (the maintainer's rule, 2026-09-29), and a
+  checkbox or radio box is 24px.
 - **Do** redefine every token when adding to a tier, and set secondary sizes from `--type-small`
   and `--type-tiny` so they move with the tier.
 - **Do** bound prose and forms to `--measure` (760px) and let tables, cards and charts fill the

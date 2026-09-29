@@ -118,9 +118,12 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
   `--measure`) and the section-and-card standard (every content block a `.sec`, every assignment
   one five-slot `_item.html` card at line, card and detail densities). They can be replaced, but
   only together with their tests and the feature-map pages under `docs/product/features/`.
-- **Touch and colour.** Nothing to tap is under 44px, including links a finger meets on the
-  check-in pages; a phone gets one column under the strip breakpoint. Nothing is conveyed by
-  colour alone: what is red is red *and* a word.
+- **Touch and colour.** Every button, control, tab and the main link in a row or card is at
+  least 44px under a finger; a secondary link inside a row or card (the class under an
+  assignment, the counts on the record line) keeps WCAG 2.5.8's 24px floor with padding
+  *(maintainer, 2026-09-29, settling the 44-versus-24 question the re-critique raised)*. A
+  phone gets one column under the strip breakpoint. Nothing is conveyed by colour alone: what
+  is red is red *and* a word.
 - **Terminology** (use these words, not synonyms): *outcome* (excused, unpublished, not done,
   late, on time, done on paper, unknown, not due yet); *verdict* (decides, waits, asks);
   *still fixable* (not done or unknown, inside its late-work window, not flagged handled);
@@ -189,8 +192,8 @@ concrete, family-facing sentences; the school's record stated as facts; "why" ex
 - **Readers from about age eight to adult** on the same pages: the early tier raises the root size
   to 20px and the secondary sizes with it, so the lines a child is asked to judge are never the
   smallest text on their page; wording is age-tiered through the phrase table.
-- **Touch first on phones**: 44px minimum on every tappable thing; coarse-pointer padding floors
-  in tables.
+- **Touch first on phones**: 44px on every button, control, tab and main link; 24px with padding
+  on secondary links inside rows and cards; coarse-pointer padding floors in tables.
 - **Never colour alone**; live-region announcements (`#announce`, `aria-live="polite"`) for
   htmx swaps; `lang="en"`; screen-reader-only text where the visual carries the meaning.
 - **Reading at a distance**: the printed sheet is read standing at a fridge, so it favours large
