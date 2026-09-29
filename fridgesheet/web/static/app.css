@@ -246,6 +246,9 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   table.items thead tr { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
   table.items thead th { border: 0; padding: 4px 0; }
   table.items tbody tr { display: flex; flex-direction: column; gap: 2px; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+  /* `display: flex` on a row outranks the browser's `[hidden] { display: none }`, so the folded
+     detail row under every assignment drew as an empty box (re-critique 2026-09-29). */
+  table.items tbody tr[hidden] { display: none; }
   table.items tbody td { display: block; border: 0; padding: 0; }
   table.items td.item { order: 1; }
   table.items td.due { order: 2; font-size: var(--type-small); color: var(--muted); }
@@ -409,7 +412,7 @@ table.work td.where small.thru { display: block; color: var(--muted); font-size:
    (#192): one look for "narrow this list" everywhere. The radio stays in the label for the
    form and the keyboard; it is only not drawn. */
 .seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.seg label { position: relative; display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); cursor: pointer; }
+.seg label { position: relative; display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 10px; font-size: var(--type-small); background: var(--wash); border: 1px solid var(--rule); cursor: pointer; }
 .seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
 .seg label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }

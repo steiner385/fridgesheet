@@ -133,3 +133,14 @@ def test_long_lines_are_bounded_to_the_measure():
 
 def test_a_quiet_fold_has_more_space_above_than_below():
     assert re.search(r"\.sec\.quiet\s*\{[^}]*margin: var\(--s5\) 0 var\(--s3\)", CSS)
+
+
+def test_a_hidden_detail_row_stays_hidden_when_the_list_is_lines():
+    """Re-critique 2026-09-29: `display: flex` on a row outranked the browser's `[hidden]`, so
+    every folded detail row drew as an empty box under its assignment on a phone."""
+    strip = _strip()
+    assert re.search(r"table\.items tbody tr\[hidden\]\s*\{[^}]*display: none", strip)
+
+
+def test_the_open_everything_chips_follow_the_tier():
+    assert "font-size: var(--type-small)" in re.search(r"(?m)^\.seg label\s*\{([^}]*)\}", CSS).group(1)
