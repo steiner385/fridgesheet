@@ -1,0 +1,470 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-29T11:55:46+00:00",
+  "title": "Design System: Fridge Sheet",
+  "extensions": {
+    "colorMeta": {
+      "ballpoint-blue": {
+        "role": "primary",
+        "displayName": "Ballpoint Blue",
+        "canonical": "oklch(48.5% 0.133 254.6)",
+        "tonalRamp": [
+          "#000b1e",
+          "#01244d",
+          "#014181",
+          "#2261aa",
+          "#4584d0",
+          "#68a8f7",
+          "#a5ccfe",
+          "#e5f0fe"
+        ],
+        "variants": {
+          "early": "#0b5cab",
+          "middle": "#14539b"
+        }
+      },
+      "red-pen": {
+        "role": "secondary",
+        "displayName": "Red Pen",
+        "canonical": "oklch(50.1% 0.178 28.7)",
+        "tonalRamp": [
+          "#1e0000",
+          "#4d0101",
+          "#810103",
+          "#b0221b",
+          "#d84c3f",
+          "#ff7464",
+          "#feb3a8",
+          "#fee9e5"
+        ],
+        "variants": {
+          "early": "#a3170f",
+          "middle": "#a81d14"
+        }
+      },
+      "checkmark-green": {
+        "role": "secondary",
+        "displayName": "Checkmark Green",
+        "canonical": "oklch(52.3% 0.135 144.2)",
+        "tonalRamp": [
+          "#001001",
+          "#012f05",
+          "#01510d",
+          "#237429",
+          "#49974b",
+          "#6cbb6d",
+          "#91e090",
+          "#cbffca"
+        ],
+        "variants": {
+          "early": "#1d6b27",
+          "middle": "#24702c"
+        }
+      },
+      "amber-pencil": {
+        "role": "tertiary",
+        "displayName": "Amber Pencil",
+        "canonical": "oklch(65.2% 0.132 81.6)",
+        "tonalRamp": [
+          "#120a00",
+          "#322201",
+          "#563d02",
+          "#7e5a01",
+          "#a77908",
+          "#ce9c31",
+          "#f4c05b",
+          "#feeccc"
+        ]
+      },
+      "purple-stamp": {
+        "role": "tertiary",
+        "displayName": "Purple Stamp",
+        "canonical": "oklch(46.9% 0.152 301.7)",
+        "tonalRamp": [
+          "#120026",
+          "#33005b",
+          "#522383",
+          "#7246a8",
+          "#9469cd",
+          "#b78cf4",
+          "#d4bbfe",
+          "#f2ebff"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(22.6% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ],
+        "variants": {
+          "early": "#10151b",
+          "middle": "#161b22"
+        }
+      },
+      "pencil-grey": {
+        "role": "neutral",
+        "displayName": "Pencil Grey",
+        "canonical": "oklch(46.4% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ],
+        "variants": {
+          "early": "#4a5568",
+          "middle": "#5a6474"
+        }
+      },
+      "stroke-grey": {
+        "role": "neutral",
+        "displayName": "Stroke Grey",
+        "canonical": "oklch(63.3% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "ruled-grey": {
+        "role": "neutral",
+        "displayName": "Ruled Grey",
+        "canonical": "oklch(88.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ],
+        "variants": {
+          "early": "#b9c6d4",
+          "middle": "#ccd5de"
+        }
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "ledger-paper": {
+        "role": "neutral",
+        "displayName": "Ledger Paper",
+        "canonical": "oklch(96.7% 0.003 106.4)",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252524",
+          "#424240",
+          "#616160",
+          "#828281",
+          "#a5a5a3",
+          "#c9c9c7",
+          "#eeeeec"
+        ],
+        "variants": {
+          "early": "#eef4fb",
+          "middle": "#f1f5f9"
+        }
+      },
+      "red-pen-wash": {
+        "role": "neutral",
+        "displayName": "Red Pen Wash",
+        "canonical": "oklch(95.6% 0.019 25.6)",
+        "tonalRamp": [
+          "#120807",
+          "#2e2220",
+          "#4c3e3d",
+          "#6c5d5c",
+          "#8d7e7d",
+          "#b1a19f",
+          "#d5c5c3",
+          "#fbeae8"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The Today card's big tally and the kid chooser's heading; numbers glanced at from across the kitchen."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "The page title, in the exact words of its rail link. One per page."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "A section's h3 and a card's h3; 22px for Open work's per-child heads."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "h4 inside a section, an item's name, the primary button label."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The default. Root rises to 16/18/20px on the older/middle/early tiers."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Meta lines, dates, status bar, badges, chips, the record inset. 15px middle, 16px early."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Stamps, table legends, provenance. 13px middle, 14px early."
+      },
+      "print-heading": {
+        "displayName": "Print heading",
+        "purpose": "The printed sheet's per-child heading (reportlab, Helvetica-Bold)."
+      },
+      "print-cell": {
+        "displayName": "Print cell",
+        "purpose": "The sheet's table cells; bold for the status word in its colour."
+      },
+      "print-small": {
+        "displayName": "Print small",
+        "purpose": "The sheet's sub-lines: until-date, follow-up marker, notes."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-lift",
+        "value": "0 2px 8px rgba(28, 28, 28, 0.08)",
+        "purpose": "Provisional, not yet used in code: a bar or menu that floats over scrolling content. Never on a card at rest."
+      }
+    ],
+    "motion": [
+      {
+        "name": "htmx-busy",
+        "value": "opacity .6",
+        "purpose": "A form or table awaiting an htmx swap dims; there is no transition or easing vocabulary in the shipped system."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "strip",
+        "value": "1023px",
+        "purpose": "At and below: the rail becomes a horizontal strip; gutters 16px."
+      },
+      {
+        "name": "wide",
+        "value": "1279px",
+        "purpose": "At and below: two-column workspaces stack; the status bar drops its reassurances."
+      },
+      {
+        "name": "sideways-phone",
+        "value": "max-height 500px with strip",
+        "purpose": "The strip and the status bar share one row."
+      }
+    ],
+    "tiers": {
+      "early": {
+        "typeRoot": "20px",
+        "typeSmall": "16px",
+        "typeTiny": "14px",
+        "grades": "K-5"
+      },
+      "middle": {
+        "typeRoot": "18px",
+        "typeSmall": "15px",
+        "typeTiny": "13px",
+        "grades": "6-8"
+      },
+      "older": {
+        "typeRoot": "16px",
+        "typeSmall": "13px",
+        "typeTiny": "12px",
+        "grades": "9-12"
+      }
+    },
+    "paperDrift": {
+      "note": "fridgesheet/sheet.py still carries its own literals; these are the values to replace with the shared tokens.",
+      "sheet": {
+        "RED": "#B3261E",
+        "AMBER": "#B26A00",
+        "BLUE": "#1A5FB4",
+        "GREEN": "#1E7A3E",
+        "PURPLE": "#6C3FA0",
+        "GREY": "#555555"
+      },
+      "targets": {
+        "RED": "red-pen",
+        "AMBER": "amber-pencil",
+        "BLUE": "ballpoint-blue",
+        "GREEN": "checkmark-green",
+        "PURPLE": "purple-stamp",
+        "GREY": "pencil-grey"
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The page's one filled action: prints the sheet or saves the form.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Print now</button>",
+      "css": ".ds-btn { font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn-primary { background: var(--accent, #1f5fa8); border-color: var(--accent, #1f5fa8); color: #fff; font-weight: 600; } .ds-btn-primary:hover { filter: brightness(1.1); } .ds-btn:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other button: a 1px stroke on paper, wash on hover.",
+      "html": "<button class=\"ds-btn\">Preview today's sheet</button>",
+      "css": ".ds-btn { font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn:hover { background: var(--wash, #f4f4f2); } .ds-btn:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; } .ds-btn:disabled { opacity: .5; cursor: default; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "The one that deletes: red pen text and stroke, same size and shape as the rest.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Remove step</button>",
+      "css": ".ds-btn { font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn-danger { color: var(--warn, #b3261e); border-color: var(--warn, #b3261e); } .ds-btn-danger:hover { background: var(--wash, #f4f4f2); } .ds-btn:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Label over control, 550-weight label, help text beneath in pencil grey.",
+      "html": "<label class=\"ds-field\">Days ahead<input class=\"ds-input\" type=\"text\" value=\"14\"><span class=\"ds-help\">How far ahead the sheet looks for coming-due work.</span></label>",
+      "css": ".ds-field { display: grid; gap: 4px; font: 550 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 320px; } .ds-input { font: inherit; font-weight: 400; padding: 4px 6px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); } .ds-input:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; } .ds-help { color: var(--muted, #595959); font-size: 13px; font-weight: 400; }"
+    },
+    {
+      "name": "Badge / Chip",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "One neutral pill; the word carries the meaning. The one in force is filled ballpoint blue.",
+      "html": "<span class=\"ds-badge\">paper</span> <a class=\"ds-badge\" href=\"#\">7 days</a> <a class=\"ds-badge ds-badge-current\" href=\"#\">30 days</a>",
+      "css": ".ds-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font: 400 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--wash, #f4f4f2); border: 1px solid var(--rule, #d9d9d9); color: var(--ink, #1c1c1c); text-decoration: none; } a.ds-badge:hover { border-color: var(--accent, #1f5fa8); } .ds-badge-current { background: var(--accent, #1f5fa8); border-color: var(--accent, #1f5fa8); color: #fff; } a.ds-badge:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Paper on the ledger wash with a hairline border; no shadow.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-h\">Today's sheet</h3><p class=\"ds-card-p\">Built from the last refresh. <a href=\"#\">Refresh now</a></p></div>",
+      "css": ".ds-card { background: var(--paper, #ffffff); border: 1px solid var(--rule, #d9d9d9); border-radius: 8px; padding: 12px 16px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 360px; } .ds-card-h { margin: 0 0 8px; font-size: 16px; font-weight: 650; } .ds-card-p { margin: 0; } .ds-card a { color: var(--accent, #1f5fa8); }"
+    },
+    {
+      "name": "Item (assignment card)",
+      "kind": "custom",
+      "refersTo": "item",
+      "description": "One assignment, five slots. Emphasis is a 4px left rule in the tone colour and a word: ask, red, ok, grey.",
+      "html": "<div class=\"ds-item ds-item-red\"><div class=\"ds-item-head\"><span class=\"ds-name\">Chapter 4 quiz</span><span class=\"ds-meta\">Biology · 20 pts · due Tue 9/30</span><span class=\"ds-when ds-word\">MISSING</span></div><p class=\"ds-facts\">Canvas marked it missing. HAC has nothing yet.</p><p class=\"ds-ours\">Our step: ask Mr. Hoch on Monday · Leo · Mon 10/6</p><div class=\"ds-foot\"><a href=\"#\">▸ the record</a><a href=\"#\">Plan a step</a><span class=\"ds-stamp\">refreshed Sun 9/28</span></div></div>",
+      "css": ".ds-item { background: var(--paper, #ffffff); border: 1px solid var(--rule, #d9d9d9); border-left: 4px solid var(--rule, #d9d9d9); border-radius: 8px; padding: 12px 16px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 560px; } .ds-item-ask { border-left-color: var(--accent, #1f5fa8); } .ds-item-red { border-left-color: var(--warn, #b3261e); } .ds-item-ok { border-left-color: var(--ok, #2e7d32); } .ds-item-grey { color: var(--muted, #595959); } .ds-item-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; } .ds-name { font-weight: 650; } .ds-meta { font-size: 13px; color: var(--muted, #595959); } .ds-when { margin-left: auto; font-size: 13px; color: var(--muted, #595959); } .ds-when.ds-word { color: var(--warn, #b3261e); font-weight: 700; font-size: inherit; } .ds-facts { margin: 8px 0 0; } .ds-ours { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid var(--accent, #1f5fa8); font-size: 13px; } .ds-foot { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; align-items: baseline; } .ds-foot a { color: var(--accent, #1f5fa8); } .ds-stamp { margin-left: auto; color: var(--muted, #595959); font-size: 12px; }"
+    },
+    {
+      "name": "Inset (the record)",
+      "kind": "custom",
+      "refersTo": "inset",
+      "description": "Anything quoted inside an item or card: the school record, one block per source.",
+      "html": "<div class=\"ds-inset\"><div class=\"ds-sources\"><span class=\"ds-src\">Canvas</span><span>no submission · marked missing</span><span class=\"ds-stamp2\">as of Sun 9/28 1:50 PM</span><span class=\"ds-src\">HAC</span><span>not listed</span></div></div>",
+      "css": ".ds-inset { padding: 8px 12px; background: var(--wash, #f4f4f2); border-radius: 8px; font: 400 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 480px; } .ds-sources { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; } .ds-src { color: var(--muted, #595959); font-weight: 600; } .ds-stamp2 { grid-column: 2; color: var(--muted, #595959); font-size: 12px; margin: 0 0 4px; }"
+    },
+    {
+      "name": "Rail Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "The left rail: wordmark, then links; the current one and hover take the wash.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-brand\" href=\"#\"><span class=\"ds-mark\"></span>Fridge Sheet</a><a class=\"ds-rail-link ds-rail-current\" href=\"#\">Today</a><a class=\"ds-rail-link\" href=\"#\">Leo <span class=\"ds-count\">2</span></a><span class=\"ds-group\">Work</span><a class=\"ds-rail-link\" href=\"#\">Open work</a><a class=\"ds-rail-link\" href=\"#\">Questions</a></nav>",
+      "css": ".ds-rail { display: grid; gap: 2px; width: 220px; background: var(--paper, #ffffff); border-right: 1px solid var(--rule, #d9d9d9); padding: 16px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-rail-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 18px; font-weight: 700; color: var(--ink, #1c1c1c); text-decoration: none; margin: 0 0 12px; } .ds-mark { width: 28px; height: 28px; border-radius: 6px; background: var(--accent, #1f5fa8); display: inline-block; } .ds-rail-link { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink, #1c1c1c); } .ds-rail-link:hover, .ds-rail-current { background: var(--wash, #f4f4f2); } .ds-rail-link:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; } .ds-count { color: var(--accent, #1f5fa8); font-weight: 600; font-size: 13px; } .ds-group { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; color: var(--muted, #595959); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Teacher's Ledger",
+    "overview": "**Creative North Star: \"The Teacher's Ledger\"**\n\nFridge Sheet is a gradebook made humane. Two school systems each tell part of the story, and the product's whole job is to post one honest line per assignment and keep the short list of what can still be fixed in front of a family. The visual system follows that job: the record is the hero, the interface recedes into ruled paper, and warmth lives in the words rather than in decoration. Everything on screen should look as if it could be printed and stuck to the fridge without losing anything, because most of it is.\n\nThe feel is **calm, plain, trustworthy**. Nothing shouts. Red is rare and always means the school recorded something as not in. Type is the system font, set at a comfortable size that grows for a younger reader. Surfaces are paper on a lighter paper wash, separated by hairline rules. The same page serves a parent at a desk, a parent on a phone at night, and a child of eight beside them, so density and vocabulary flex through three reading tiers while the layout, the rows and the actions never do.\n\nConfirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows, colour used as the only carrier of meaning, and any treatment a fifth grader's phone would make invisible.",
+    "keyCharacteristics": [
+      "Ink on paper: near-black text on white cards over a warm-grey wash, hairline rules for structure.",
+      "One accent (ballpoint blue) for the page's single main action, the current choice, and focus.",
+      "Status is a word in a colour, never a colour alone: red pen for not-done, checkmark green for done, amber pencil for late, purple stamp for \"check on paper\".",
+      "Three reading tiers redefine every token together, so the youngest reader gets a larger, calmer, higher-contrast page with the same rows.",
+      "Flat at rest; depth from a rule and a wash, with subtle elevation permitted only for things that float over content.",
+      "Plain and sturdy controls: 1px strokes, one filled primary per page, 44px targets on touch."
+    ],
+    "rules": [
+      {
+        "name": "The Word Beside the Colour Rule",
+        "body": "Nothing is conveyed by colour alone. What is red is red *and* says \"not done\", \"0\" or \"Missing\"; what is green is green *and* has a checkmark or the word \"done\". This is the accessibility requirement and the age requirement at the same time.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Voice Rule",
+        "body": "Ballpoint Blue fills at most one button per page, the page's main action, and marks at most one current choice per control group. Everything else it touches is a stroke, an underline, a rule or a link.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Pen Rule",
+        "body": "Red is reserved for what the school recorded as not in. A past due date is not red on its own; the app's own inference (\"No\" under Handed in) is bold, not red; a budget overrun on a child's page is not red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Whole-Tier Rule",
+        "body": "A reading tier redefines every colour token at once, never some of them, so no page inherits a colour nobody designed for that tier.",
+        "section": "colors"
+      },
+      {
+        "name": "The Measure Rule",
+        "body": "Prose, intros and forms are bounded to 760px (`--measure`, about 75 characters at body size); tables, cards and charts fill the 1600px content column.",
+        "section": "typography"
+      },
+      {
+        "name": "The Never-Smallest Rule",
+        "body": "On a tiered page the secondary sizes move with the body size. A fact a child must judge (\"Canvas: no submission recorded · 0/10\") is never rendered at the page's smallest size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Rule",
+        "body": "Surfaces are flat at rest. A shadow is a response to floating over content, never a way to make a card look important.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** put the word beside the colour: every red, green, amber or purple value carries a word or glyph that says the same thing.",
+      "**Do** keep one filled Ballpoint Blue button per page and make it the action that spends paper or saves the form.",
+      "**Do** give every tappable thing 44px on a coarse pointer, and 24px to a checkbox or radio box.",
+      "**Do** redefine every token when adding to a tier, and set secondary sizes from `--type-small` and `--type-tiny` so they move with the tier.",
+      "**Do** bound prose and forms to `--measure` (760px) and let tables, cards and charts fill the column.",
+      "**Do** build a new page from the same blocks: status bar, page head, notices, sections of `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density.",
+      "**Do** use the 4px spacing scale (`--s1` to `--s6`) and the 6px / 8px / 10px radius set."
+    ],
+    "donts": [
+      "**Don't** convey state by colour alone, and don't make a past due date red on its own; red is for what the school recorded as not in.",
+      "**Don't** add shadows to cards, items or anything at rest; a shadow may lift only a sticky bar, an open menu or the chooser's buttons, and no heavier than the provisional ambient lift.",
+      "**Don't** introduce a second value for a status colour. The printed sheet still uses #1A5FB4 (blue), #1E7A3E (green), #B26A00 (amber) and #555555 (grey); the targets are Ballpoint Blue, Checkmark Green, Amber Pencil and Pencil Grey, and the unification belongs to the extract step.",
+      "**Don't** use gradients, glows, or decorative imagery; the only gradient is the strip's fade.",
+      "**Don't** add a fourth box style. Cards, items, insets and lines are the containers; the seven box styles they replaced were retired with tests.",
+      "**Don't** hide a row or an action from a child by tier; fold navigation and secondary fields if you must, identically at every tier.",
+      "**Don't** hard-code a colour in a template or in `sheet.py`, `charts.py` or `app.js`; every colour in this file is the token to reach for, and the two files that still carry literals are the drift to remove."
+    ]
+  }
+}
