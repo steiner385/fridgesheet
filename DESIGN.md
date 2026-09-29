@@ -407,6 +407,11 @@ targets, nothing filled until it matters.
   right: a 2px Ink stroke, 600 weight, 5px 11px padding so it stays level with its neighbours.
   Never the fill; a page keeps one filled primary.
 - **Disabled:** 50% opacity, default cursor.
+- **Two-step in the card:** an action that spends paper asks in place, never in a browser
+  dialog. "Print now" is a disclosure summary in the primary look; open, it steps back to the
+  plain look and the question ("Print today's sheet on Kitchen Inkjet?") sits under it with the
+  filled "Print" and a "Cancel" link button. A job's log then lives behind a "Details" fold under
+  one sentence of status, open while it runs and closed once it is done.
 - **Link button:** no border or fill, Pencil Grey underlined text, for "Close" and "undo".
 - **Button link (an `<a>` drawn as a button):** the secondary look with 8px 12px padding.
 - **Chooser button:** the kid chooser's 22px text, 18px padding, 12px corners, Ruled Grey stroke;

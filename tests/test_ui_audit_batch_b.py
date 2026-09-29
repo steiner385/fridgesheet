@@ -60,9 +60,13 @@ def test_buttons_have_one_look_and_the_paper_one_is_the_primary(tmp_path):
     assert re.search(r"button\.primary\s*\{[^}]*background: var\(--accent\)", CSS)
     assert re.search(r"button\.danger\s*\{[^}]*var\(--warn\)", CSS)
     dash = (WEB / "templates" / "dashboard.html").read_text(encoding="utf-8")
-    print_btn = re.search(r'<button[^>]*hx-post="/jobs/print"[^>]*>Print now</button>', dash).group(0)
-    assert 'class="primary"' in print_btn
-    assert "hx-confirm" in print_btn, "the paper still asks first"
+    # The paper still asks first, in the card rather than in a browser dialog (critique
+    # 2026-09-29): "Print now" opens the question, and "Print" is the one filled button.
+    confirm = re.search(r'<details class="print-confirm"><summary>Print now</summary>.*?</details>', dash, re.S).group(0)
+    assert "Print today's sheet on {{ 'open-work' | printer_name }}?" in confirm
+    print_btn = re.search(r'<button[^>]*hx-post="/jobs/print"[^>]*>Print</button>', confirm).group(0)
+    assert 'class="primary"' in print_btn and "hx-confirm" not in dash
+    assert 'data-close-details>Cancel</button>' in confirm
     for other in ("/jobs/refresh", "/jobs/preview"):
         btn = re.search(r'<button[^>]*hx-post="' + other + '"[^>]*>', dash).group(0)
         assert "primary" not in btn, "only one primary per page"
@@ -74,7 +78,7 @@ def test_the_print_confirmation_names_the_printer(tmp_path):
     c.app.state.fridgesheet.settings.printer = "Brother MFC-J4335DW Printer"
     page = c.get("/", headers={"host": "127.0.0.1"}).text
     # The apostrophe is template text, not a variable, so autoescape leaves it alone.
-    assert 'hx-confirm="Print today\'s sheet on Brother MFC-J4335DW Printer?"' in page
+    assert "<p class=\"ask-line\">Print today's sheet on Brother MFC-J4335DW Printer?</p>" in page
 
 
 def test_delete_is_the_danger_button_and_saves_are_primary():

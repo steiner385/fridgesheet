@@ -29,18 +29,23 @@ def _confirms(page: str, hx_post: str = "/jobs/print") -> list[str]:
     return [html.unescape(m) for m in re.findall(r'hx-post="' + re.escape(hx_post) + r'"[^>]*hx-confirm="([^"]*)"', page)]
 
 
+def _inline_confirm(page: str) -> str:
+    """Today's Print now asks in its card, not in a browser dialog (critique 2026-09-29)."""
+    return html.unescape(re.search(r'<details class="print-confirm">.*?</details>', page, re.S).group(0))
+
+
 def test_dashboard_print_confirm_names_the_reports_own_printer_over_settings(tmp_path):
     c = _client(tmp_path, shared="Shared Laser", open_work="Kitchen Inkjet")
     page = c.get("/").text
-    assert "Print today's sheet on Kitchen Inkjet?" in _confirms(page)
-    assert "Shared Laser" not in " ".join(_confirms(page))
+    assert "Print today's sheet on Kitchen Inkjet?" in _inline_confirm(page)
+    assert "Shared Laser" not in _inline_confirm(page)
 
 
 def test_dashboard_print_confirm_falls_back_to_settings_then_the_default(tmp_path):
     c = _client(tmp_path, shared="Shared Laser")
-    assert "Print today's sheet on Shared Laser?" in _confirms(c.get("/").text)
+    assert "Print today's sheet on Shared Laser?" in _inline_confirm(c.get("/").text)
     c.app.state.fridgesheet.settings.printer = ""
-    assert "Print today's sheet on the default printer?" in _confirms(c.get("/").text)
+    assert "Print today's sheet on the default printer?" in _inline_confirm(c.get("/").text)
 
 
 def test_reports_print_confirms_name_the_printer_each_report_uses(tmp_path):

@@ -186,6 +186,18 @@ button.danger { color: var(--warn); border-color: var(--warn); }
    drew four). The extra border pixel comes out of the padding, so a row of answers stays level. */
 button.default { border: 2px solid var(--ink); padding: 5px 11px; font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
+/* Today's "Print now" is a two-step in its card: the summary wears the primary look (it is the
+   page's main action) and, open, the question and its two answers sit under it. Once open the
+   summary steps back to the plain look so the filled "Print" is the one primary on the page. */
+.print-confirm { display: inline-block; }
+.print-confirm > summary { list-style: none; cursor: pointer; display: inline-block; font: inherit; padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--accent); color: var(--paper); font-weight: 600; }
+.print-confirm > summary::-webkit-details-marker { display: none; }
+.print-confirm[open] > summary { background: var(--paper); color: var(--ink); border-color: var(--control); font-weight: 400; }
+.print-confirm > .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
+.print-confirm > .answers { margin: var(--s2) 0 0; display: flex; gap: var(--s2); align-items: center; }
+/* A job's log behind "Details": open while it runs, closed once it is done. */
+.job-log > summary { cursor: pointer; color: var(--accent); font-size: var(--type-small); }
+.job-log > pre.log { margin-top: var(--s2); }
 select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); }
 /* On a phone the rail used to stack *above* the page: fourteen links, then a 1,450px scroll
    to reach the first kid card (#40 item 1) -- on the very device the Settings QR code exists

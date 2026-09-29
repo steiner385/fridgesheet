@@ -199,6 +199,12 @@ document.addEventListener("submit", function (event) {
   if (form && !window.confirm(form.getAttribute("data-confirm"))) event.preventDefault();
 });
 
+// An in-page two-step (Today's "Print now"): Cancel closes the <details> the button sits in.
+document.addEventListener("click", function (event) {
+  var cancel = event.target.closest("[data-close-details]");
+  if (cancel) { var box = cancel.closest("details"); if (box) box.removeAttribute("open"); }
+});
+
 // Graphical config editors (Settings: late-rules, no-print-days): rows are added, removed and
 // reordered entirely client-side -- the file is one form with one Save, so nothing here needs
 // a round trip until that button is pressed.

@@ -1,12 +1,15 @@
+{# One job's card: what it is, how it went in a sentence, and its log behind "Details". The log
+   used to be the card, a black console growing under "Print now" (critique 2026-09-29); while
+   the job runs the fold is open so progress is in view, and once it is done it is closed and the
+   sentence, the badge and the PDF link are the result. #}
 <div class="card job" id="job">
   {% if busy %}<p class="warn">Busy: {{ job.label }} (job {{ job.id }}) is still running.</p>{% endif %}
-  <h3>{{ job.label }} <span class="muted">job {{ job.id }} · started {{ job.started_at | time12 }}</span>
-    {% if job.done %}<span class="badge {{ job.outcome }}">{{ job.outcome }}</span>{% endif %}</h3>
+  <h3>{{ job.label }}{% if job.done %} <span class="badge {{ job.outcome }}">{{ job.outcome }}</span>{% endif %}</h3>
   {% if job.done %}
-    <p>{{ job.message }}</p>
-    {% if pdf %}<p><a href="/jobs/{{ job.id }}/pdf">open the PDF</a></p>{% endif %}
-    <pre class="log">{{ job.lines | join('\n') }}</pre>
+    <p>{{ job.message }}{% if pdf %} · <a href="/jobs/{{ job.id }}/pdf">open the PDF</a>{% endif %}</p>
+    <details class="job-log"><summary>Details</summary><pre class="log">{{ job.lines | join('\n') }}</pre></details>
   {% else %}
-    <pre class="log" data-sse="/jobs/{{ job.id }}/events" data-reload="/jobs/{{ job.id }}"{% if reload_page is defined and reload_page %} data-reload-page="1"{% endif %}>{{ job.lines | join('\n') }}</pre>
+    <p class="muted">Working on it, started {{ job.started_at | time12 }}. This card updates by itself.</p>
+    <details class="job-log" open><summary>Details</summary><pre class="log" data-sse="/jobs/{{ job.id }}/events" data-reload="/jobs/{{ job.id }}"{% if reload_page is defined and reload_page %} data-reload-page="1"{% endif %}>{{ job.lines | join('\n') }}</pre></details>
   {% endif %}
 </div>
