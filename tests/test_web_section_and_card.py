@@ -23,7 +23,8 @@ def _root() -> str:
 
 
 def _rule(selector: str) -> str:
-    m = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", CSS)
+    # Anchored to a line start: `td.item { order: 1 }` on the phone must not stand in for `.item`.
+    m = re.search(r"(?m)^" + re.escape(selector) + r"\s*\{([^}]*)\}", CSS)
     assert m, f"no {selector} rule"
     return m.group(1)
 

@@ -110,7 +110,7 @@ def test_the_default_answer_is_a_heavier_stroke_not_a_fill():
     assert "border: 2px solid var(--ink)" in default and "font-weight: 600" in default
     assert "background: var(--accent)" not in default
     answers = (WEB / "templates" / "_answers.html").read_text(encoding="utf-8")
-    assert "'default' if loop.first" in answers and "'primary'" not in answers
+    assert "class=\"{{ 'default' if default }}\"" in answers and "'primary'" not in answers
 
 
 @pytest.mark.parametrize("path", ["/", "/kids/Alex/plan", "/kids/Sam/plan", "/kids/Alex", "/kids/Alex/check-in", "/questions"])

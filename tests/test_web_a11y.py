@@ -72,7 +72,10 @@ def test_the_flag_menu_is_a_labelled_group_with_the_current_flag_pressed(tmp_pat
     assert "<fieldset" in menu and "<legend>Correct the school record</legend>" in menu
     assert re.search(r'<label[^>]*>\s*Why \(optional\)\s*<input name="text"', menu)
     assert re.search(r'<button[^>]*value="follow_up"[^>]*aria-pressed="true"', menu)
-    assert re.search(r'<button[^>]*value="done"[^>]*aria-pressed="false"', menu)
+    # "done" is one of Quiz 1's answers above the menu, so the menu no longer repeats it
+    # (critique 2026-09-29); "excused" is not, so it is here, unpressed.
+    assert re.search(r'<button[^>]*value="excused"[^>]*aria-pressed="false"', menu)
+    assert 'value="done"' not in menu
 
 
 def test_notes_have_a_label_and_edit_in_place_with_the_text_already_there(tmp_path):

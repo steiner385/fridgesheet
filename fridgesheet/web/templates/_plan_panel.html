@@ -8,7 +8,11 @@
     <p class="lead"><strong>{{ 'copy.tonight_steps' | say(tier, {'steps': today_steps_n, 's': '' if today_steps_n == 1 else 's', 'minutes': total_minutes}) }}</strong>{% if unpicked %} · {{ 'copy.tonight_unpicked' | say(tier, {'n': unpicked}) }}{% endif %}{% if school_has_n %} · {{ 'copy.tonight_school_has' | say(tier, {'n': school_has_n}) }}{% endif %}</p>
     {% if last_check %}<p class="lead">Last agreed time budget: {{ last_check.available_minutes }} min{% if not budget_today %} (agreed {{ last_check.finished_at | wd_md }}, for that day){% endif %}{% if over > 0 %} · <strong class="warn">{{ total_minutes }} min planned today, {{ last_check.available_minutes }} min available: {{ over }} min over. Move a step to another day.</strong>{% endif %}</p>{% endif %}
   </div>
-  {% for label in ('planned', 'blocked', 'waiting') %}
+  {# A state group draws only when a step is in it: three "No steps here yet." groups were most
+     of a child's page (critique 2026-09-29). One line says so when there is nothing. #}
+  {% set live = steps | rejectattr('witness') | rejectattr('state', 'equalto', 'done') | list %}
+  {% if not live %}<p class="muted">No steps here yet. Pick one above.</p>{% endif %}
+  {% for label in ('planned', 'blocked', 'waiting') if live | selectattr('state', 'equalto', label) | list %}
   <h4>{{ states[label] }}</h4>
   {% for step in steps if step.state == label and not step.witness %}
   <div class="item step">
@@ -21,7 +25,7 @@
       <a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit or complete step</a>
       <span class="stamp">{% if step.since == 'agreed' %}Agreed at the {{ last_check.finished_at | wd_md }} check-in · {% elif step.since == 'edited' %}Edited since the {{ last_check.finished_at | wd_md }} check-in · {% elif step.since == 'added' %}Added since the {{ last_check.finished_at | wd_md }} check-in · {% endif %}Recorded {{ step.created_at | wd_md_time }}{% if step.created_by %} by {{ step.created_by }}{% endif %}{% if step.updated_at != step.created_at %} · edited {{ step.updated_at | wd_md_time }}{% if step.recorded_by %} by {{ step.recorded_by }}{% endif %}{% endif %}</span></div>
   </div>
-  {% else %}<p class="muted">No steps here yet.</p>{% endfor %}
+  {% endfor %}
   {% endfor %}
   {% if school_has_n %}
   <h4>{{ 'copy.school_has_it' | say(tier) }}</h4>

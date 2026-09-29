@@ -136,7 +136,7 @@ td.where.red { color: var(--warn); font-weight: 600; }
 td.handed.quiet { color: var(--muted); }
 /* The line under a table that says what those two words mean. A tooltip would not survive
    the phone or the kiosk, which is where this app is actually read. */
-p.legend { font-size: var(--type-tiny); margin: 4px 0 16px; }
+p.legend { font-size: var(--type-tiny); margin: 4px 0 16px; max-width: var(--measure); }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
@@ -223,6 +223,28 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   main { padding: 12px var(--pad) 32px; }
   .page-head { grid-template-columns: minmax(0, 1fr); }
   .page-head .page-actions { grid-column: 1; justify-content: flex-start; }
+  /* Under the strip a page action is a link, not a 44px box between the title and the first
+     row; a section's controls follow its lead for the same reason (critique 2026-09-29: the
+     first Must-finish row sat a screen and a half down a phone). */
+  .page-head .page-actions .button-link { border: 0; padding: 0; background: none; text-decoration: underline; color: var(--accent); }
+  .sec-head .controls { order: 9; }
+  /* The work list as lines: a 390px table gave "Where it stands" 110px and four wrapped lines a
+     row. Each row is one box; the assignment first, then when, then where it stands. The
+     header row keeps its sort links as a row of chips. */
+  table.items thead tr { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); }
+  table.items thead th { border: 0; padding: 4px 0; }
+  table.items tbody tr { display: flex; flex-direction: column; gap: 2px; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+  table.items tbody td { display: block; border: 0; padding: 0; }
+  table.items td.item { order: 1; }
+  table.items td.due { order: 2; font-size: var(--type-small); color: var(--muted); }
+  table.items td.where { order: 3; }
+  /* `tbody` in the selector: these outrank the later `table.work td.item small { display: block }`
+     and `table.work td.due small.rel` rules that stack the same elements on a wide screen. */
+  table.items tbody td.due small.rel { display: inline; }
+  table.items tbody td.due small.rel::before { content: " · "; }
+  table.items tbody td.item > small { display: inline; }
+  table.items tbody td.item > small::before { content: " · "; color: var(--muted); }
+  table.work.open-list { table-layout: auto; }
 }
 /* A phone held sideways: 390px of height, of which the strip and the bar took 31% (#196).
    Here the two share the first row -- the strip at the left, the bar at the right -- and the
@@ -478,13 +500,16 @@ th .arrow { font-size: var(--type-small); }
 .sec-head .lead.inline { flex-basis: auto; padding-right: 0; }
 .sec-head .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
 .sec.quiet h3 { color: var(--muted); font-weight: 600; }
+/* A quiet fold carries more space above its head than below it, so it reads as its own
+   section rather than as bound to the block above (the detector's heading-rhythm finding). */
+.sec.quiet { margin: var(--s5) 0 var(--s3); }
 details.sec > summary { cursor: pointer; list-style: none; }
 details.sec > summary::-webkit-details-marker { display: none; }
 details.sec > summary::before { content: "▸ "; color: var(--muted); }
 details.sec[open] > summary::before { content: "▾ "; }
 .sec h4 { font-size: var(--type-root); font-weight: 650; margin: var(--s4) 0 var(--s2); }
 /* The line under the child tabs is state, not instruction (§3): body type, ink. */
-.tab-hint { margin: -12px 0 var(--s5); font-size: inherit; font-weight: 550; color: var(--ink); }
+.tab-hint { margin: -12px 0 var(--s5); font-size: inherit; font-weight: 550; color: var(--ink); max-width: var(--measure); }
 .tab-hint .muted { font-weight: 400; }
 
 /* §4 The item: one box for one assignment. Emphasis is the left rule and a word, never a
@@ -518,6 +543,10 @@ details.sec[open] > summary::before { content: "▾ "; }
 .item .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
 .item .answers { margin-top: var(--s2); display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .item .answers form { display: inline; margin: 0; }
+/* "More answers": the two answers that close a row for good, folded in the row itself. */
+.answers .more-answers { display: inline; }
+.answers .more-answers > summary { cursor: pointer; color: var(--accent); font-size: var(--type-small); }
+.answers .more-answers[open] { display: flex; flex-basis: 100%; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 /* Slot 4, the family's layer: one line each, with the family's rule. */
 .ours { margin: var(--s2) 0 0; padding-left: 10px; border-left: 3px solid var(--accent); font-size: var(--type-small); }
 /* Slot 5, the foot: the folds and links on one wrapping line, the stamp pushed right and tiny. */

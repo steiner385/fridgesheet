@@ -6,7 +6,10 @@
     {# The answer as it stands, in the same words as the row's badge and the record (#129). #}
     <p class="muted">Your answer: {{ item.flag | flag_label('state', tier | default('')) if item.flag else 'none' }}{% if item.flag and item.flag_set_at %} · set {{ item.flag_set_at | wd_md_time }}{% endif %}{% if item.flag and item.flag_text %} · “{{ item.flag_text }}”{% endif %}</p>
     <label>Why (optional) <input name="text" value="{{ item.flag_text }}"></label>
-    {% for f, label in FLAG_CHOICES %}<button name="flag" value="{{ f }}" aria-pressed="{{ 'true' if item.flag == f else 'false' }}">{{ label }}</button>{% endfor %}
+    {# Only the flags the card's answers do not already offer: "Ask the teacher" was a button
+       above and a button here on the same card (critique 2026-09-29). #}
+    {% set offered = (item.verdict.answers | map(attribute='action') | list) if item.verdict is defined and item.verdict else [] %}
+    {% for f, label in FLAG_CHOICES if f not in offered or f == item.flag %}<button name="flag" value="{{ f }}" aria-pressed="{{ 'true' if item.flag == f else 'false' }}">{{ label }}</button>{% endfor %}
     {% if item.flag %}<button name="flag" value="clear">clear</button>{% endif %}
   </fieldset>
 </form>
