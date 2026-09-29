@@ -354,7 +354,11 @@ card, detail and line. Anything quoted inside an item is one inset.
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps so three cards fill a row; form fields on
 a `minmax(220px, 1fr)` grid label-over-control. Tables are full width with 6px 8px cells, rising to
-10px 8px on a coarse pointer and 12px 10px on the early tier.
+10px 8px on a coarse pointer and 12px 10px on the early tier. Under the strip breakpoint a work
+list stops being a table: each row is one box (the assignment first, then when, then where it
+stands) under a hairline, and the header row becomes a row of sort links. A section's controls
+follow its lead there, and a page action is a text link rather than a box between the title and
+the first row. A quiet fold carries 24px above its head and 12px below.
 
 ## Elevation & Depth
 
@@ -457,10 +461,13 @@ print from, a Red Pen Wash banner with Red Pen text and a "Refresh now" link.
 
 ### The item (signature)
 The one box for one assignment at three densities. Head: the name (650), meta in Pencil Grey label
-type (class, kind, points, due), the time word pushed right (Red Pen 700 when it is the sheet's
-word). Facts: one sentence from the verdict. Ask line (600) and answer buttons. The family's layer:
-one line each with a 3px Ballpoint Blue rule. Foot: disclosures ("the record", notes), "Plan a
-step", and a Caption-sized stamp pushed right.
+type (class, kind, points, due), the sheet's word pushed right in the sheet's colour (700). Facts:
+one sentence from the verdict. Ask line (600) and answer buttons: the first answer in the default
+stroke, the two answers that close a row for good ("Too late to submit", "Let it go") behind a
+"More answers" fold inside the row unless one of them is the row's own first answer, identically at
+every tier. The family's layer: one line each with a 3px Ballpoint Blue rule. Foot: disclosures
+("the record", notes), "Plan a step", and a Caption-sized stamp pushed right; on the detail
+density a "More" fold holding only the flags the answers above do not already offer.
 
 ### The printed sheet (signature, paper)
 Landscape Letter, 0.5in margins, one section per child. Helvetica-Bold 16pt heading, 10pt cells

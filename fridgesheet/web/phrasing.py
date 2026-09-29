@@ -129,9 +129,11 @@ PHRASES: dict[str, dict[str, str]] = {
                             "older": "Canvas is where teachers post and collect work; HAC (Home Access Center) is the official gradebook."},
     # --- the plan page that fills itself (spec 2026-09-27 §4-§9, §11) ------------------------
     "copy.must_finish":      {"early": "Must finish", "middle": "Must finish", "older": "Must finish"},
-    "copy.must_finish_hint": {"early": "The school says these aren't in yet. They go away when it says they are, or when you say so.",
-                              "middle": "The school says these are not in yet. They leave when it says they are, or when you say so.",
-                              "older": "The school says these are not in yet. They leave when it says they are, or when you say so."},
+    # One sentence: with the second ("They leave when it says they are, or when you say so.")
+    # the lead was three lines on a phone above the first row (critique 2026-09-29).
+    "copy.must_finish_hint": {"early": "The school says these aren't in yet.",
+                              "middle": "The school says these are not in yet.",
+                              "older": "The school says these are not in yet."},
     "copy.list_as_of":       {"early": "The school's list as of {when}.", "middle": "The school's list as of {when}.", "older": "The school's list as of {when}."},
     "copy.list_changes_daily": {"early": "It changes every day. The plan page is always current.",
                                 "middle": "It changes daily; the plan page is current.",

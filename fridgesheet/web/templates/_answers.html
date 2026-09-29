@@ -12,6 +12,15 @@
   {% set drop = exclude if exclude is defined and exclude else [] %}
   {% set answers = vd.answers | rejectattr('action', 'in', drop) | list %}
   {% if first is defined and first %}{% set answers = (answers | selectattr('action', 'equalto', first) | list) + (answers | rejectattr('action', 'equalto', first) | list) %}{% endif %}
+  {# "Too late to submit" and "Let it go" close a row for good; unless one is the row's own
+     first answer (past the window), they sit behind "More answers", identically at every tier:
+     parity is rows and actions, and a fold hides nothing (critique 2026-09-29, kids' UX audit). #}
+  {% set answers = answers | rejectattr('action', 'in', ['plan:today', 'plan:tomorrow'] if item.step else []) | list %}
+  {% set adult = ['too_late', 'ignore'] %}
+  {% set folded = (answers[1:] | selectattr('action', 'in', adult) | list) if answers else [] %}
+  {% set shown = (answers[:1] + (answers[1:] | rejectattr('action', 'in', adult) | list)) if answers else [] %}
+  {% macro answer(a, default) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'default' if default }}">{{ a.key | say(tier) }}</button></form>{% endmacro %}
   <div class="answers">
-    {% for a in answers if not (a.action.startswith('plan:') and item.step) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'default' if loop.first and (vd.state != 'waiting' or (first is defined and first)) }}">{{ a.key | say(tier) }}</button></form>{% endfor %}
+    {% for a in shown %}{{ answer(a, loop.first and (vd.state != 'waiting' or (first is defined and first))) }}{% endfor %}
+    {% if folded %}<details class="more-answers"><summary>More answers</summary>{% for a in folded %}{{ answer(a, false) }}{% endfor %}</details>{% endif %}
   </div>

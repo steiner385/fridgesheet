@@ -8,16 +8,18 @@
 <div class="cards">
   {% for s, c, plan in cards %}
   <div class="card">
+    {# The nightly reader wants tonight's number first; the weekly button and the links come
+       after it (critique 2026-09-29). "0 new since yesterday" is not news, so it is not said. #}
     <h3><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h3>
-    <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a> · <a href="/kids/{{ s.key | urlencode }}">Assignments</a></p>
-    {# The family layer first: is a check-in due, and what did we plan for today? #}
-    <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %} · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
-    {# The headline: what Must finish still holds after covered steps drop out, one line,
-       linking to the plan (spec 2026-09-27 §8.3). Questions next, the same count as the rail. #}
+    {# The headline: every red row, with the Plan's own count in parts, one line linking to the
+       plan (spec 2026-09-27 §8.3). Questions next, the same count as the rail. #}
     {% set tier = s.key | tier_of %}
     <p class="tally">{% if plan.must_finish %}<a href="/kids/{{ s.key | urlencode }}/plan"><span class="big">{{ plan.must_finish }}</span> {{ 'copy.to_finish_by_tomorrow' | words(tier) }}{% if plan.must_planned %}, {{ 'copy.of_them_planned' | words(tier, {'n': plan.must_planned}) }}{% endif %}{% if plan.must_more %} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}{% endif %}</a>{% elif plan.must_more %}<a href="/kids/{{ s.key | urlencode }}/plan">{{ 'copy.nothing_due' | words(tier) }} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}</a>{% else %}{{ 'copy.nothing_due' | words(tier) }}{% endif %}</p>
     <p class="tally">{% if c.questions %}<a href="/questions?kid={{ s.key | urlencode }}"><span class="big">{{ c.questions }}</span> question{{ 's' if c.questions != 1 }} to answer</a>{% else %}Nothing to answer{% endif %}</p>
-    <p class="muted">{{ c.new_since_yesterday }} new since yesterday</p>
+    {# The family layer: is a check-in due, and what did we plan for today? #}
+    <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %} · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
+    <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a> · <a href="/kids/{{ s.key | urlencode }}">Assignments</a></p>
+    {% if c.new_since_yesterday %}<p class="muted">{{ c.new_since_yesterday }} new since yesterday</p>{% endif %}
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
     <details><summary>School record so far</summary>
     <p class="outcome-line">
