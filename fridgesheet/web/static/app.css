@@ -4,7 +4,7 @@
    content column. `--page-max` is that column's ceiling on every page; `--measure` bounds prose
    and forms inside it (about 75 characters at body size) while tables, cards and charts fill it;
    `--rail` is the sidebar; `--pad` the side gutters, narrower under the strip breakpoint. */
-:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -18,9 +18,9 @@
    school evidence, dates, eyebrows and stamps are set in. A tier moves them with the body size,
    so the lines a child is asked to judge are never the smallest text on their page: the 20px
    early page used to render "Canvas: no submission recorded · 0/10" at 13px (kids' UX audit F2). */
-[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
-[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
-[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
+[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --paper: #fff; --wash: #eef4fb; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --late: #8a5200; --check: #5f3594; --warn-wash: #fdecea; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --paper: #fff; --wash: #f1f5f9; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --late: #915600; --check: #653a9a; --warn-wash: #fdecea; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
+[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #d9d9d9; --paper: #fff; --wash: #f4f4f2; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
 
 /* A tier sets its type scale by applying the token to the element that carries the attribute.
    A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives
@@ -68,8 +68,11 @@ p.stale { grid-row: 2; grid-column: 2; }
 main { grid-row: 3; grid-column: 2; padding: 16px var(--pad) 48px; max-width: var(--page-max); }
 /* The outline under the page's <h2>: sections are <h3>, cards and Open work's kid sections
    too (#191), so a screen reader hears the page, then its parts. */
-main h3 { font-size: 18px; font-weight: 650; margin: 24px 0 8px; }
-main h4 { font-size: 16px; margin: 16px 0 8px; }
+/* Headings step up from the tier's root, never from a pixel: on the early tier's 20px page the
+   fixed 18px section head was the smallest text above the fold (critique 2026-09-29). At the
+   root these are the 18px and 16px that shipped. */
+main h3 { font-size: calc(var(--type-root) * 1.125); font-weight: 650; margin: 24px 0 8px; }
+main h4 { font-size: var(--type-root); margin: 16px 0 8px; }
 header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding: 16px var(--pad) 8px; margin: 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
 header.status .short { display: none; }
@@ -79,25 +82,25 @@ header.status .short { display: none; }
 .page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline; margin: 0 0 16px; }
 .page-head .crumb { grid-column: 1 / -1; margin: 0; font-size: var(--type-small); }
 .page-head .crumb a { text-decoration: none; }
-.page-head h2 { grid-column: 1; margin: 0; font-size: 24px; letter-spacing: -.3px; }
+.page-head h2 { grid-column: 1; margin: 0; font-size: calc(var(--type-root) * 1.5); letter-spacing: -.3px; }
 .page-head h2 .subtitle { color: var(--muted); font-weight: 400; }
 .page-head .page-actions { grid-column: 2; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .page-head .page-intro { grid-column: 1 / -1; margin: 0; max-width: var(--measure); color: var(--muted); }
 /* What the last POST did, said once between the head and the content. */
 .notice { background: var(--wash); border-left: 4px solid var(--accent); padding: 12px 16px; margin: 0 0 16px; max-width: var(--measure); }
-.notice.warn { background: #fdecea; border-color: var(--warn); color: var(--warn); }
+.notice.warn { background: var(--warn-wash); border-color: var(--warn); color: var(--warn); }
 .badge { display: inline-block; }
 /* A filter chip that is the one in force (Changes, Trends): filled, the way the primary button
    is. It had no rule at all, so nothing on the page said which window or kid was chosen (#192). */
-.badge.current { background: var(--accent); border-color: var(--accent); color: #fff; text-decoration: none; }
+.badge.current { background: var(--accent); border-color: var(--accent); color: var(--paper); text-decoration: none; }
 .badge.OK { border-color: var(--ok); color: var(--ok); } .badge.FAIL { border-color: var(--warn); color: var(--warn); }
 /* `auto-fit`, not `auto-fill`: three cards on a 1600px page fill the row rather than sitting in
    three of five tracks with two empty ones beside them. */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 16px; }
-.card h2, .card h3 { margin: 0 0 8px; font-size: 16px; }
+.card h2, .card h3 { margin: 0 0 8px; font-size: var(--type-root); }
 /* The report's own title inside its card: on the print view that is what prints as the heading. */
-.card h3.report-title { font-size: 20px; }
+.card h3.report-title { font-size: calc(var(--type-root) * 1.25); }
 .big { font-size: 28px; font-weight: 600; }
 .tally { margin: 4px 0; }
 .tally .big { margin-right: 4px; }
@@ -137,7 +140,7 @@ p.legend { font-size: var(--type-tiny); margin: 4px 0 16px; }
 tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
-.filters label { font-size: 14px; color: var(--ink); max-width: 100%; }
+.filters label { color: var(--ink); max-width: 100%; }
 /* A select is as wide as its longest option ("Honors English 9 S1-2027-Hoch"), which on a
    phone ran 30px past the page's edge. */
 .filters select { max-width: 100%; }
@@ -175,9 +178,13 @@ textarea { width: 100%; min-height: 60px; font: inherit; }
    same size and shape as the rest, so a row of buttons still reads as a row. */
 button { font: inherit; padding: 6px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); cursor: pointer; }
 button:hover { background: var(--wash); }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--paper); font-weight: 600; }
 button.primary:hover { filter: brightness(1.1); }
 button.danger { color: var(--warn); border-color: var(--warn); }
+/* The default answer on a row: the one to tap if the sentence above is right. A heavier stroke
+   in ink, not a fill, so the page keeps one filled primary (critique 2026-09-29: Alex's Plan
+   drew four). The extra border pixel comes out of the padding, so a row of answers stays level. */
+button.default { border: 2px solid var(--ink); padding: 5px 11px; font-weight: 600; }
 button:disabled { opacity: .5; cursor: default; }
 select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4px 6px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); }
 /* On a phone the rail used to stack *above* the page: fourteen links, then a 1,450px scroll
@@ -207,7 +214,9 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   /* The strip holds more links than fit; a fade at its right edge says so, where a hidden
      scrollbar said nothing. */
   .rail::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--paper)); pointer-events: none; }
-  .rail nav a { white-space: nowrap; padding: 8px 10px; }
+  /* `gap`: the strip's links are inline-flex under a finger, which drops the text node's space
+     between a child's name and their question count ("Alex1"). */
+  .rail nav a { white-space: nowrap; padding: 8px 10px; gap: .3em; }
   .rail nav .group { display: none; }
   .rail nav .rail-more, .rail nav .rail-rest { display: flex; gap: 2px; }
   .rail nav .rail-more > summary { white-space: nowrap; padding: 8px 10px; margin: 0; list-style: none; }
@@ -241,7 +250,7 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
 @media (pointer: coarse) {
   button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .rail nav .rail-more > summary, .badge[href], .filters label { min-height: 44px; }
   button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
-  .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; }
+  .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; gap: .3em; }
   .badge[href], .chart-key button { display: inline-flex; align-items: center; padding: 0 12px; }
   /* A box is a target of its own (WCAG 2.2, 2.5.8: 24px); 22px left every day-of-week box on
      Schedules under the line. */
@@ -339,7 +348,7 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 }
 /* The data is older than the runner will print from (web/staleness.py). Loud, because on a
    kiosk nobody reads the Runs page. */
-.stale { background: #fdecea; border: 1px solid var(--warn); color: var(--warn);
+.stale { background: var(--warn-wash); border: 1px solid var(--warn); color: var(--warn);
          padding: 8px 12px; margin: 12px var(--pad) 0; border-radius: 4px; }
 .stale a { color: var(--warn); }
 
@@ -350,8 +359,10 @@ table.work td.item small { display: block; color: var(--muted); font-size: var(-
    a column folded under the one it described, so the table fits a phone (#187). */
 table.items td > small { display: block; color: var(--muted); font-size: var(--type-small); }
 table.items td > small.row-actions { display: flex; margin-top: 4px; }
-table.items td > small a { color: inherit; }
-table.work td.item small a { color: inherit; }
+/* The class under every assignment is a link, but seven identical underlines down a table read
+   as noise; the underline returns under the pointer and the keyboard (critique 2026-09-29). */
+table.items td > small a, table.work td.item small a { color: inherit; text-decoration: none; }
+table.items td > small a:hover, table.items td > small a:focus-visible, table.work td.item small a:hover, table.work td.item small a:focus-visible { text-decoration: underline; }
 table.work td.due small.rel { display: block; }
 /* Open work stacks several short tables; fixed columns line them up under each other. The
    date column is pinned to 8rem at most: at the 1600px page width a 22% share was 350px of
@@ -365,7 +376,7 @@ table.work td.where small.thru { display: block; color: var(--muted); font-size:
    form and the keyboard; it is only not drawn. */
 .seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .seg label { position: relative; display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 10px; font-size: 13px; background: var(--wash); border: 1px solid var(--rule); cursor: pointer; }
-.seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.seg label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
 .seg label:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 3px; }
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
 .more-filters { display: inline-block; }
@@ -395,7 +406,7 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .settings-below { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--rule); }
 .settings-below > * + * { margin-top: 16px; }
 .settings-below .seam { margin: 0 0 12px; }
-.card h3 { margin: 0 0 12px; font-size: 16px; }
+.card h3 { margin: 0 0 12px; font-size: var(--type-root); }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; margin: 0 0 8px; }
 .settings-grid label { display: grid; gap: 4px; font-weight: 550; min-width: 0; }
 .settings-grid input:not([type=checkbox]), .settings-grid select { width: 100%; min-width: 0; }
@@ -407,7 +418,7 @@ details.field-help summary { cursor: pointer; }
 .settings-save-bar { position: sticky; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; background: var(--wash); border-top: 1px solid var(--rule); }
 details.skip-days > summary, details.fold > summary { cursor: pointer; font-weight: 550; margin-bottom: 8px; }
 #update-status { margin: 4px 0 8px; }
-.update-action h3 { font-size: 15px; }
+.update-action h3 { font-size: var(--type-root); }
 .sources-hint { font-size: var(--type-small); margin: var(--s2) 0 0; }
 .count:empty { display: none; }
 .sources .src small { font-size: inherit; }
@@ -421,7 +432,10 @@ th .arrow { font-size: var(--type-small); }
      secondary links beneath or beside them take padding, so a row grows by one line, not two.
      Disclosures keep their marker (no flex), so they grow by padding as well. */
   table.items td.item > a, table.items th a { min-height: 44px; display: inline-flex; align-items: center; }
-  table.work td.item small a, .outcome-line a, .tally a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
+  table.work td.item small a, .outcome-line a, .family-plan a, .card > p > a:not(.button-link) { display: inline-block; padding-block: 8px; }
+  /* The Today card's tally and the child's name: measured 38px and 22px at 390px (critique
+     2026-09-29). `baseline` keeps the big numeral on the sentence's line. */
+  .tally a, .card > h3 a { min-height: 44px; display: inline-flex; align-items: baseline; gap: .25em; padding-block: 8px; }
   main details > summary { min-height: 44px; padding-block: 10px; }
   .tick { min-height: 44px; }
 }
@@ -454,9 +468,9 @@ th .arrow { font-size: var(--type-small); }
    folded section draws the same head as its <summary>; a quiet one is the same head in muted ink. */
 .sec { margin: 0 0 var(--s6); }
 .sec-head, details.sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); }
-.sec-head h3, details.sec > summary h3 { margin: 0; font-size: 18px; font-weight: 650; display: inline; }
-/* Open work's kid sections keep the layout standard's 22px (its own type table). */
-.sec-head h3.kid-head { font-size: 22px; }
+.sec-head h3, details.sec > summary h3 { margin: 0; font-size: calc(var(--type-root) * 1.125); font-weight: 650; display: inline; }
+/* Open work's kid sections keep the layout standard's 22px at the root (its own type table). */
+.sec-head h3.kid-head { font-size: calc(var(--type-root) * 1.375); }
 .sec-head .count, details.sec > summary .count { font-size: var(--type-small); color: var(--muted); font-weight: 400; }
 /* Full-width so the lead always wraps under the head; the measure is kept as right padding,
    because a max-width would let a short lead fit beside the controls instead. */
@@ -468,17 +482,23 @@ details.sec > summary { cursor: pointer; list-style: none; }
 details.sec > summary::-webkit-details-marker { display: none; }
 details.sec > summary::before { content: "▸ "; color: var(--muted); }
 details.sec[open] > summary::before { content: "▾ "; }
-.sec h4 { font-size: 15px; margin: var(--s4) 0 var(--s2); }
+.sec h4 { font-size: var(--type-root); font-weight: 650; margin: var(--s4) 0 var(--s2); }
 /* The line under the child tabs is state, not instruction (§3): body type, ink. */
 .tab-hint { margin: -12px 0 var(--s5); font-size: inherit; font-weight: 550; color: var(--ink); }
 .tab-hint .muted { font-weight: 400; }
 
 /* §4 The item: one box for one assignment. Emphasis is the left rule and a word, never a
-   different shape: .ask needs an answer, .red the school says not in, .ok done, .grey nothing to do. */
+   different shape: .ask needs an answer, .red the school says not in, .ok done, .grey nothing
+   to do. A Must-finish row takes the sheet's colour for its own word (status_words.STATUS_TONE):
+   .due a deadline ahead (the sheet's blue), .late handed in after it (amber), .check work the
+   school cannot see yet (purple). Red is only the school saying not in (critique 2026-09-29). */
 .item { background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--rule); border-radius: var(--radius); padding: var(--s3) var(--s4); overflow-wrap: anywhere; }
 .item + .item, .inset + .item { margin-top: var(--s2); }
 .item.ask { border-left-color: var(--accent); }
+.item.due { border-left-color: var(--accent); }
 .item.red { border-left-color: var(--warn); }
+.item.late { border-left-color: var(--late); }
+.item.check { border-left-color: var(--check); }
 .item.ok { border-left-color: var(--ok); }
 .item.grey { color: var(--muted); }
 .item-head { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; }
@@ -487,7 +507,12 @@ details.sec[open] > summary::before { content: "▾ "; }
 .item-head .name a:hover { text-decoration: underline; }
 .item-head .meta { font-size: var(--type-small); color: var(--muted); }
 .item-head .when { margin-left: auto; font-size: var(--type-small); color: var(--muted); white-space: nowrap; }
-.item-head .when.word { color: var(--warn); font-weight: 700; font-size: inherit; }
+/* The sheet's word, in the sheet's colour: ink unless the word has one. */
+.item-head .when.word { color: var(--ink); font-weight: 700; font-size: inherit; }
+.item-head .when.word.red { color: var(--warn); }
+.item-head .when.word.late { color: var(--late); }
+.item-head .when.word.check { color: var(--check); }
+.item-head .when.word.due { color: var(--accent); }
 .item-head .close-detail { margin-left: var(--s3); }
 .item .facts { margin: var(--s2) 0 0; }
 .item .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
@@ -508,7 +533,9 @@ details.sec[open] > summary::before { content: "▾ "; }
 /* §5 One inset for anything quoted inside an item or a card: the record, a witness line, the
    class's pace, the "school evidence changed" notice. */
 .inset { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--wash); border-radius: var(--radius); font-size: var(--type-small); }
-.inset.warn { border-left: 3px solid var(--warn); color: var(--warn); }
+/* "School evidence changed since this step was saved": the app's own inference, so the family's
+   blue rule, not the school's red (the Red Pen Rule; critique 2026-09-29). */
+.inset.changed { border-left: 3px solid var(--accent); }
 .inset p { margin: var(--s1) 0; }
 .inset a { color: var(--accent); }
 /* The record: one block per source: the label, the facts, then the stamp on its own line under

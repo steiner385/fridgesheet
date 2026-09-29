@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-29T11:55:46+00:00",
+  "generatedAt": "2026-09-29T17:30:54+00:00",
   "title": "Design System: Fridge Sheet",
   "extensions": {
     "colorMeta": {
@@ -76,6 +76,25 @@
           "#feeccc"
         ]
       },
+      "amber-pencil-ink": {
+        "role": "tertiary",
+        "displayName": "Amber Pencil Ink",
+        "canonical": "oklch(53.1% 0.119 65.1)",
+        "tonalRamp": [
+          "#140800",
+          "#381e01",
+          "#603702",
+          "#8b5203",
+          "#b27227",
+          "#d8954e",
+          "#ffb972",
+          "#feebd9"
+        ],
+        "variants": {
+          "early": "#8a5200",
+          "middle": "#915600"
+        }
+      },
       "purple-stamp": {
         "role": "tertiary",
         "displayName": "Purple Stamp",
@@ -89,7 +108,11 @@
           "#b78cf4",
           "#d4bbfe",
           "#f2ebff"
-        ]
+        ],
+        "variants": {
+          "early": "#5f3594",
+          "middle": "#653a9a"
+        }
       },
       "ink": {
         "role": "neutral",
@@ -344,6 +367,14 @@
       "css": ".ds-btn { font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn:hover { background: var(--wash, #f4f4f2); } .ds-btn:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; } .ds-btn:disabled { opacity: .5; cursor: default; }"
     },
     {
+      "name": "Default Answer",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The first answer on a row: a 2px ink stroke, never a fill, so the page keeps one primary.",
+      "html": "<button class=\"ds-btn ds-btn-default\">It's handed in</button> <button class=\"ds-btn\">Today</button>",
+      "css": ".ds-btn { font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn-default { border: 2px solid var(--ink, #1c1c1c); padding: 5px 11px; font-weight: 600; } .ds-btn:hover { background: var(--wash, #f4f4f2); } .ds-btn:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; }"
+    },
+    {
       "name": "Danger Button",
       "kind": "button",
       "refersTo": "button-danger",
@@ -379,9 +410,9 @@
       "name": "Item (assignment card)",
       "kind": "custom",
       "refersTo": "item",
-      "description": "One assignment, five slots. Emphasis is a 4px left rule in the tone colour and a word: ask, red, ok, grey.",
-      "html": "<div class=\"ds-item ds-item-red\"><div class=\"ds-item-head\"><span class=\"ds-name\">Chapter 4 quiz</span><span class=\"ds-meta\">Biology · 20 pts · due Tue 9/30</span><span class=\"ds-when ds-word\">MISSING</span></div><p class=\"ds-facts\">Canvas marked it missing. HAC has nothing yet.</p><p class=\"ds-ours\">Our step: ask Mr. Hoch on Monday · Leo · Mon 10/6</p><div class=\"ds-foot\"><a href=\"#\">▸ the record</a><a href=\"#\">Plan a step</a><span class=\"ds-stamp\">refreshed Sun 9/28</span></div></div>",
-      "css": ".ds-item { background: var(--paper, #ffffff); border: 1px solid var(--rule, #d9d9d9); border-left: 4px solid var(--rule, #d9d9d9); border-radius: 8px; padding: 12px 16px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 560px; } .ds-item-ask { border-left-color: var(--accent, #1f5fa8); } .ds-item-red { border-left-color: var(--warn, #b3261e); } .ds-item-ok { border-left-color: var(--ok, #2e7d32); } .ds-item-grey { color: var(--muted, #595959); } .ds-item-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; } .ds-name { font-weight: 650; } .ds-meta { font-size: 13px; color: var(--muted, #595959); } .ds-when { margin-left: auto; font-size: 13px; color: var(--muted, #595959); } .ds-when.ds-word { color: var(--warn, #b3261e); font-weight: 700; font-size: inherit; } .ds-facts { margin: 8px 0 0; } .ds-ours { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid var(--accent, #1f5fa8); font-size: 13px; } .ds-foot { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; align-items: baseline; } .ds-foot a { color: var(--accent, #1f5fa8); } .ds-stamp { margin-left: auto; color: var(--muted, #595959); font-size: 12px; }"
+      "description": "One assignment, five slots. Emphasis is a 4px left rule in the tone colour and the sheet's word in the same colour: ask/due blue, red, late amber, check purple, ok green, grey.",
+      "html": "<div class=\"ds-item ds-item-red\"><div class=\"ds-item-head\"><span class=\"ds-name\">Chapter 4 quiz</span><span class=\"ds-meta\">Biology · 20 pts · due Tue 9/30</span><span class=\"ds-when ds-word ds-red\">MISSING</span></div><p class=\"ds-facts\">Canvas marked it missing. HAC has nothing yet.</p><p class=\"ds-ours\">Our step: ask Mr. Hoch on Monday · Leo · Mon 10/6</p><div class=\"ds-foot\"><a href=\"#\">▸ the record</a><a href=\"#\">Plan a step</a><span class=\"ds-stamp\">refreshed Sun 9/28</span></div></div>",
+      "css": ".ds-item { background: var(--paper, #ffffff); border: 1px solid var(--rule, #d9d9d9); border-left: 4px solid var(--rule, #d9d9d9); border-radius: 8px; padding: 12px 16px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); max-width: 560px; } .ds-item-ask { border-left-color: var(--accent, #1f5fa8); } .ds-item-red { border-left-color: var(--warn, #b3261e); } .ds-item-ok { border-left-color: var(--ok, #2e7d32); } .ds-item-due { border-left-color: var(--accent, #1f5fa8); } .ds-item-late { border-left-color: var(--late, #9a5b00); } .ds-item-check { border-left-color: var(--check, #6b3fa0); } .ds-item-grey { color: var(--muted, #595959); } .ds-item-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; } .ds-name { font-weight: 650; } .ds-meta { font-size: 13px; color: var(--muted, #595959); } .ds-when { margin-left: auto; font-size: 13px; color: var(--muted, #595959); } .ds-when.ds-word { color: var(--ink, #1c1c1c); font-weight: 700; font-size: inherit; } .ds-word.ds-red { color: var(--warn, #b3261e); } .ds-word.ds-due { color: var(--accent, #1f5fa8); } .ds-word.ds-late { color: var(--late, #9a5b00); } .ds-word.ds-check { color: var(--check, #6b3fa0); } .ds-facts { margin: 8px 0 0; } .ds-ours { margin: 8px 0 0; padding-left: 10px; border-left: 3px solid var(--accent, #1f5fa8); font-size: 13px; } .ds-foot { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; align-items: baseline; } .ds-foot a { color: var(--accent, #1f5fa8); } .ds-stamp { margin-left: auto; color: var(--muted, #595959); font-size: 12px; }"
     },
     {
       "name": "Inset (the record)",
@@ -424,7 +455,12 @@
       },
       {
         "name": "The Red Pen Rule",
-        "body": "Red is reserved for what the school recorded as not in. A past due date is not red on its own; the app's own inference (\"No\" under Handed in) is bold, not red; a budget overrun on a child's page is not red.",
+        "body": "Red is reserved for what the school recorded as not in. A past due date is not red on its own; the app's own inference (\"No\" under Handed in, \"School evidence changed\") is bold or blue-ruled, not red; a budget overrun on a child's page is not red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sheet's Colour Rule",
+        "body": "The sheet's word on a row wears the colour the sheet prints it in, from one table (`status_words.STATUS_TONE`, the same table as `sheet.STATUS_COLOR`): DUE words Ballpoint Blue, LATE Amber Pencil Ink, PAPER — CHECK and HAC — NO GRADE Purple Stamp, MISSING and ZERO Red Pen. The row's left rule takes the same colour. A row cannot be red on screen and blue on the fridge.",
         "section": "colors"
       },
       {
@@ -439,7 +475,7 @@
       },
       {
         "name": "The Never-Smallest Rule",
-        "body": "On a tiered page the secondary sizes move with the body size. A fact a child must judge (\"Canvas: no submission recorded · 0/10\") is never rendered at the page's smallest size.",
+        "body": "On a tiered page the secondary sizes and the headings move with the body size. A fact a child must judge (\"Canvas: no submission recorded · 0/10\") is never rendered at the page's smallest size, and the head of a section is never smaller than the sentence under it.",
         "section": "typography"
       },
       {
@@ -464,7 +500,8 @@
       "**Don't** use gradients, glows, or decorative imagery; the only gradient is the strip's fade.",
       "**Don't** add a fourth box style. Cards, items, insets and lines are the containers; the seven box styles they replaced were retired with tests.",
       "**Don't** hide a row or an action from a child by tier; fold navigation and secondary fields if you must, identically at every tier.",
-      "**Don't** hard-code a colour in a template or in `sheet.py`, `charts.py` or `app.js`; every colour in this file is the token to reach for, and the two files that still carry literals are the drift to remove."
+      "**Don't** hard-code a colour in a template or in `sheet.py`, `charts.py` or `app.js`; every colour in this file is the token to reach for. `app.css` carries none outside its token blocks (held by `tests/test_web_colour_and_type.py`); `sheet.py` and `charts.py` are the drift to remove.",
+      "**Don't** fill more than one button per page, and don't fill an answer: the first answer on a row is the default stroke."
     ]
   }
 }

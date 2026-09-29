@@ -110,7 +110,7 @@ def test_a_paper_row_puts_handed_in_first(tmp_path):
     paper = _section(app_for(tmp_path).get("/kids/Alex/plan").text, "paper")
     lab = paper[paper.index("Lab notebook"):]
     assert lab.index('value="done"') < lab.index('value="ask_teacher"')
-    assert re.search(r'<button name="answer" value="done" class="primary"', lab)
+    assert re.search(r'<button name="answer" value="done" class="default"', lab)
 
 
 def test_a_zero_on_handed_in_work_keeps_ask_the_teacher_first(tmp_path):
@@ -131,8 +131,8 @@ def test_a_zero_on_handed_in_work_keeps_ask_the_teacher_first(tmp_path):
     quiz = re.search(rf'<div class="item[^"]*" id="mf-{qid}".*?(?=<div class="item[ "]|</div><!-- /overdue -->)',
                      overdue, re.S).group(0)
     assert "Zero to check" in quiz
-    assert re.search(r'<button name="answer" value="ask_teacher" class="primary"', quiz)
-    assert 'value="ignore"' not in quiz and 'value="done" class="primary"' not in quiz
+    assert re.search(r'<button name="answer" value="ask_teacher" class="default"', quiz)
+    assert 'value="ignore"' not in quiz and 'value="done" class="default"' not in quiz
 
 
 def test_a_must_finish_item_is_in_no_review_group(tmp_path):
