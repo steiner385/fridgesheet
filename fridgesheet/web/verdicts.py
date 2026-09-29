@@ -331,9 +331,17 @@ def standing(item, tier: str) -> str:
     key = "where." + kind
     if key in phrasing.PHRASES and ("{when}" not in phrasing.phrase(key, tier) or item.verdict.facts.get("when")):
         return say(key, tier, item.verdict.facts)
+    # A younger reader's row says what their Plan says for it: the status word in their tier
+    # ("Marked zero - ask about it"), never "0/10 · Canvas" on one page and the phrase on the
+    # other (critique 2026-09-29). Provenance stays in the Record. The older and untiered
+    # rows keep the grade and its source, which is what a parent scans the column for.
+    from .. import status_words        # here, not at the top: status_words imports this package's phrasing
+    young = tier in ("early", "middle")
+    if young and item.status in status_words.STATUS_WORD:
+        return phrasing.phrase(item.status, tier)
     if item.grade:
         where = {"canvas": "Canvas", "hac": "HAC"}.get(getattr(item, "grade_source", ""), "")
-        return phrasing.phrase(item.grade, tier) + (f" · {where}" if where else "")
+        return phrasing.phrase(item.grade, tier) + (f" · {where}" if where and not young else "")
     return phrasing.phrase(item.status, tier)
 
 
