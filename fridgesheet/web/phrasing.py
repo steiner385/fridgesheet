@@ -161,6 +161,7 @@ PHRASES: dict[str, dict[str, str]] = {
     # overdue row, and names the rest of the list so the number a parent carries to the Plan
     # page is the one they find there (critique 2026-09-29: "3" became "Must finish 4").
     "copy.nothing_due":      {"early": "Nothing to finish by tomorrow", "middle": "Nothing to finish by tomorrow", "older": "Nothing to finish by tomorrow"},
+    "copy.by_tomorrow":      {"early": "by tomorrow", "middle": "by tomorrow", "older": "by tomorrow"},
     "copy.to_finish_by_tomorrow": {"early": "to finish by tomorrow", "middle": "to finish by tomorrow", "older": "to finish by tomorrow"},
     "copy.more_on_list":     {"early": "{n} more on the list", "middle": "{n} more on the list", "older": "{n} more on the list"},
     "copy.of_them_planned":  {"early": "{n} planned", "middle": "{n} planned", "older": "{n} planned"},

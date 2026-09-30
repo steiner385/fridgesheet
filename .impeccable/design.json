@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-29T23:40:00+00:00",
+  "generatedAt": "2026-09-30T02:20:00+00:00",
   "title": "Design System: Fridge Sheet",
   "extensions": {
     "colorMeta": {
@@ -124,13 +124,13 @@
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "The Today card's big tally and the kid chooser's heading; numbers glanced at from across the kitchen." },
+      "display": { "displayName": "Display", "purpose": "The tally numeral in a kid's day box on Today and the kid chooser's heading; numbers glanced at from across the kitchen." },
       "headline": { "displayName": "Headline", "purpose": "The child's name or the page title, in the exact words of its rail link. One per page." },
       "title": { "displayName": "Title", "purpose": "A section's h3 (Must finish, Our next steps); 22px for Open work's per-child heads." },
       "subtitle": { "displayName": "Subtitle", "purpose": "h4 inside a section, the assignment name at the head of a line, the primary and default buttons' labels." },
       "body": { "displayName": "Body", "purpose": "The default; the ruled header line, a line's facts, ask line and answers. Root rises to 16/18/20px on the older/middle/early tiers." },
       "label": { "displayName": "Label", "purpose": "Meta lines, the step under a line, foot links, status bar, badges, chips, the record inset. 15px middle, 16px early." },
-      "day-label": { "displayName": "Day label", "purpose": "DUE TONIGHT / DUE TOMORROW along a day box's top edge: small size, 650, .08em tracking, uppercase, Pencil Grey. Moves with the tier." },
+      "day-label": { "displayName": "Day label", "purpose": "DUE TONIGHT / DUE TOMORROW along a day box's top edge, a kid's name on Today, the week strip's day and date: small size, 650, .08em tracking, uppercase, Pencil Grey. Moves with the tier; the week strip alone drops to the tiny size at .04em on a phone." },
       "caption": { "displayName": "Caption", "purpose": "Stamps, table legends, provenance. 13px middle, 14px early." },
       "print-heading": { "displayName": "Print heading", "purpose": "The printed sheet's per-child heading (reportlab, Helvetica-Bold)." },
       "print-cell": { "displayName": "Print cell", "purpose": "The sheet's table cells; bold for the status word in its colour." },
@@ -156,7 +156,7 @@
       }
     ],
     "breakpoints": [
-      { "name": "strip", "value": "1023px", "purpose": "At and below: the rail becomes a horizontal strip (the kid strip wraps); gutters 16px; the planner spread is one column, Tonight first; page and section actions become links; the highlighted word drops to its own line." },
+      { "name": "strip", "value": "1023px", "purpose": "At and below: the rail becomes a horizontal strip (the kid strip wraps); gutters 16px; the planner spread is one column, Tonight first; Today's kids stack and its week strip keeps five cells in one row on 1.3fr 1.3fr 1fr 1fr 1fr tracks at the tiny size; page and section actions become links; the highlighted word drops to its own line." },
       { "name": "wide", "value": "1279px", "purpose": "At and below: two-column workspaces stack; the status bar drops its reassurances." },
       { "name": "sideways-phone", "value": "max-height 500px with strip", "purpose": "The strip and the status bar share one row." }
     ],
@@ -166,13 +166,14 @@
       "older": { "typeRoot": "16px", "typeSmall": "13px", "typeTiny": "12px", "grades": "9-12" }
     },
     "surfaces": {
-      "plannerWorld": ["/kids/{key}/plan", "/kids/{key}/check-in", "the item line on every page (checkbox, hairline, highlighted word)"],
-      "incumbentShell": ["Today (cards, lines list, print two-step)", "Assignments table", "Settings", "Reports", "Runs", "Trends", "Changes", "the rail and status bar"],
+      "plannerWorld": ["/kids/{key}/plan", "/kids/{key}/check-in", "/ (Today: sheet strip, week strip, one day box per kid; seed 484d9aac)", "the item line on every page (checkbox, hairline, highlighted word)"],
+      "incumbentShell": ["Assignments table", "Settings", "Reports", "Runs", "Trends", "Changes", "the rail and status bar"],
       "note": "The :root tokens changed for every page: the wash is Planner White and the rule is planner blue-grey app-wide, so the incumbent compositions now sit on the planner's paper."
     },
     "contractDepartures": [
       "The family's steps are in Pencil Grey (--muted), not ballpoint; only links and the default answer's 2px stroke are Ballpoint Blue (the built truth; the contract said ballpoint lines).",
-      "The spiral binding was not built; the spread is two day boxes on a ruled page with no binding between them."
+      "The spiral binding was not built; the spread is two day boxes on a ruled page with no binding between them.",
+      "Today: a kid's day box is labelled \"ALEX · BY TOMORROW\" (copy.by_tomorrow), not the contract's \"ALEX · TONIGHT\", because the box holds tonight's, tomorrow's and the still-fixable lines together; the empty tally reads copy.nothing_due (\"Nothing to finish by tomorrow\"), not the Plan's copy.nothing_due_tonight."
     ],
     "paperDrift": {
       "note": "fridgesheet/sheet.py still carries its own literals; these are the values to replace with the shared tokens.",
@@ -257,31 +258,48 @@
       "name": "Print two-step",
       "kind": "custom",
       "refersTo": "button-primary",
-      "description": "Today's 'Print now' asks in its card: the summary wears the primary look; open, it steps back to plain and the question sits under it with the filled Print and a Cancel link.",
+      "description": "Today's 'Print now' asks in the sheet strip: the summary wears the primary look; open, it steps back to plain and the question sits under it with the filled Print and a Cancel link.",
       "html": "<details class=\"ds-print\" open><summary>Print now</summary><p class=\"ds-print-ask\">Print today's sheet on Kitchen Inkjet?</p><div class=\"ds-print-answers\"><button class=\"ds-btn ds-btn-primary\">Print</button><button class=\"ds-btn-link\">Cancel</button></div></details>",
       "css": ".ds-print { display: inline-block; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); } .ds-print > summary { list-style: none; cursor: pointer; display: inline-block; padding: 6px 12px; border: 1px solid var(--accent, #1f5fa8); border-radius: 6px; background: var(--accent, #1f5fa8); color: #fff; font-weight: 600; } .ds-print > summary::-webkit-details-marker { display: none; } .ds-print[open] > summary { background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); border-color: var(--control, #8a8a8a); font-weight: 400; } .ds-print > summary:focus-visible, .ds-btn:focus-visible, .ds-btn-link:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; } .ds-print-ask { margin: 8px 0 0; font-weight: 600; } .ds-print-answers { margin: 8px 0 0; display: flex; gap: 8px; align-items: center; } .ds-btn { font: inherit; padding: 6px 12px; border: 1px solid var(--control, #8a8a8a); border-radius: 6px; background: var(--paper, #ffffff); color: var(--ink, #1c1c1c); cursor: pointer; } .ds-btn-primary { background: var(--accent, #1f5fa8); border-color: var(--accent, #1f5fa8); color: #fff; font-weight: 600; } .ds-btn-primary:hover { filter: brightness(1.1); } .ds-btn-link { border: none; background: none; color: var(--muted, #595959); text-decoration: underline; cursor: pointer; font: inherit; }"
+    },
+    {
+      "name": "Week strip",
+      "kind": "custom",
+      "refersTo": "day-cell",
+      "description": "Today's five-day row: each day a small day box (the same rule and label) over one pencil-grey line of the children's counts; tonight's day word on the yellow highlighter in ink. Five cells stay in one row on a phone.",
+      "html": "<ol class=\"ds-week\" aria-label=\"This week\"><li class=\"ds-cell ds-today\"><h4><span class=\"ds-day-word\">Tonight</span> <span class=\"ds-sep\">· </span><span class=\"ds-date\">Tue 9/29</span></h4><p>Alex 2 · Sam 2</p></li><li class=\"ds-cell\"><h4><span class=\"ds-day-word\">Tomorrow</span> <span class=\"ds-sep\">· </span><span class=\"ds-date\">Wed 9/30</span></h4><p>Alex 1</p></li><li class=\"ds-cell\"><h4><span class=\"ds-date\">Thu 10/1</span></h4><p>nothing due</p></li><li class=\"ds-cell\"><h4><span class=\"ds-date\">Fri 10/2</span></h4><p>nothing due</p></li><li class=\"ds-cell\"><h4><span class=\"ds-date\">Sat 10/3</span></h4><p>nothing due</p></li></ol>",
+      "css": ".ds-week { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; max-width: 1100px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); } .ds-cell { background: var(--paper, #ffffff); border: 1.5px solid var(--box, #8fa3b8); border-radius: 2px; padding: 0 12px 8px; } .ds-cell > h4 { margin: 0 -12px 4px; padding: 4px 12px; border-bottom: 1.5px solid var(--box, #8fa3b8); font-size: 13px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #595959); } .ds-cell > p { margin: 4px 0 0; font-size: 13px; color: var(--muted, #595959); } .ds-today > h4 > .ds-day-word { background: var(--hl-due, #fff1a8); color: var(--ink, #1c1c1c); padding: 0 .35em; border-radius: 2px; } @media (max-width: 1023px) { .ds-week { gap: 4px; grid-template-columns: 1.3fr 1.3fr 1fr 1fr 1fr; } .ds-cell { padding: 0 4px 4px; } .ds-cell > h4 { margin: 0 -4px 4px; padding: 4px; font-size: 12px; letter-spacing: .04em; } .ds-cell > h4 > span { display: block; } .ds-cell > h4 > .ds-sep { display: none; } .ds-cell > h4 > .ds-day-word { display: inline-block; letter-spacing: 0; padding: 0 .25em; } .ds-cell > p { font-size: 12px; } }"
+    },
+    {
+      "name": "Kid's day box (Today)",
+      "kind": "card",
+      "refersTo": "day-box",
+      "description": "One child's day box on Today: the name as the box's label (a link in the label's grey), the tally as its first lines, a hairline, then tonight's planner lines, the family line in pencil, three plain links and the School record fold.",
+      "html": "<div class=\"ds-kidbox\"><h3><a href=\"#\">Alex</a> <span>· by tomorrow</span></h3><p class=\"ds-tally\"><a href=\"#\"><span class=\"ds-big\">3</span> to finish by tomorrow, 1 planned · 2 more on the list</a></p><p class=\"ds-tally\"><a href=\"#\"><span class=\"ds-big\">1</span> question to answer</a></p><div class=\"ds-line ds-line-due\"><div class=\"ds-head\"><span class=\"ds-name\">Vocabulary</span><span class=\"ds-meta\">Honors English 9 · 10 pts · due Tue 9/29 11:59pm</span><span class=\"ds-word\">DUE TODAY</span></div></div><p class=\"ds-family\">Next check-in Tue 10/6 · 2 steps planned today · 10 min</p><p class=\"ds-links\"><a href=\"#\">Start check-in</a> · <a href=\"#\">Open plan</a> · <a href=\"#\">Assignments</a></p><details><summary>School record so far</summary></details></div>",
+      "css": ".ds-kidbox { background: var(--paper, #ffffff); border: 1.5px solid var(--box, #8fa3b8); border-radius: 2px; padding: 0 12px 4px; max-width: 540px; font: 400 15px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink, #1c1c1c); } .ds-kidbox > h3 { margin: 0 -12px 4px; padding: 4px 12px; border-bottom: 1.5px solid var(--box, #8fa3b8); font-size: 13px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted, #595959); } .ds-kidbox > h3 a { color: inherit; text-decoration: none; } .ds-kidbox > h3 a:hover, .ds-kidbox > h3 a:focus-visible { text-decoration: underline; } .ds-tally { margin: 8px 0; } .ds-tally a { color: var(--accent, #1f5fa8); } .ds-big { font-size: 28px; font-weight: 600; margin-right: 4px; } .ds-line { position: relative; padding: 8px 0 8px 30px; border-top: 1px solid var(--rule, #c9d3dd); overflow-wrap: anywhere; } .ds-line::before { content: ''; position: absolute; left: 3px; top: calc(8px + .25em); width: 18px; height: 18px; border: 2px solid var(--accent, #1f5fa8); border-radius: 2px; background: var(--paper, #ffffff); } .ds-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; } .ds-name { font-weight: 650; } .ds-meta { font-size: 13px; color: var(--muted, #595959); } .ds-word { margin-left: auto; font-weight: 700; padding: 0 .35em; border-radius: 2px; color: var(--accent, #1f5fa8); background: var(--hl-due, #fff1a8); } .ds-family { margin: 8px 0; color: var(--muted, #595959); } .ds-links { margin: 8px 0; } .ds-links a { color: var(--accent, #1f5fa8); } .ds-kidbox > details { margin: 8px 0 4px; } .ds-kidbox > details > summary { cursor: pointer; } .ds-kidbox a:focus-visible, .ds-kidbox summary:focus-visible { outline: 3px solid var(--accent, #1f5fa8); outline-offset: 3px; }"
     }
   ],
   "narrative": {
     "northStar": "The Student Planner",
-    "overview": "**Creative North Star: \"The Student Planner\"**\n\nFridge Sheet is the family's copy of the school's list, kept the way a child keeps a planner: tonight and tomorrow are printed day boxes, every assignment is a line with a square checkbox at its head, the sheet's word is a highlighter stroke at the line's right, and one tap checks the line off in place. The record is still the hero and the interface still recedes into paper, but the paper is now a planner's warm white with a faint ruling behind it, its rules and checkboxes are a printed blue-grey, and the family's own steps are written in pencil beneath the school's ink. It refuses the card-stack admin page and, just as firmly, the mascot-and-progress-ring kids' app.\n\nThe feel is **calm, plain, trustworthy**. Nothing shouts. Red is rare and always means the school recorded something as not in. Type is the system font, set at a comfortable size that grows for a younger reader. The same spread serves a child of eight beside a parent and the parent alone on a phone at night, so density and vocabulary flex through three reading tiers while the layout, the rows and the actions never do. The world arrived on the child's Plan page first (2026-09-29, Impeccable's pick over The Teacher's Gradebook, seed 5d8bc5ca) and the item line carried it to every page; the shell around the other pages (Today, the Assignments table, Settings, Reports, the rail) still stands in its incumbent ledger composition on the planner's paper.\n\nConfirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows, and colour used as the only carrier of meaning.",
+    "overview": "**Creative North Star: \"The Student Planner\"**\n\nFridge Sheet is the family's copy of the school's list, kept the way a child keeps a planner: tonight and tomorrow are printed day boxes, every assignment is a line with a square checkbox at its head, the sheet's word is a highlighter stroke at the line's right, and one tap checks the line off in place. The record is still the hero and the interface still recedes into paper, but the paper is now a planner's warm white with a faint ruling behind it, its rules and checkboxes are a printed blue-grey, and the family's own steps are written in pencil beneath the school's ink. It refuses the card-stack admin page and, just as firmly, the mascot-and-progress-ring kids' app.\n\nThe feel is **calm, plain, trustworthy**. Nothing shouts. Red is rare and always means the school recorded something as not in. Type is the system font, set at a comfortable size that grows for a younger reader. The same spread serves a child of eight beside a parent and the parent alone on a phone at night, so density and vocabulary flex through three reading tiers while the layout, the rows and the actions never do. The world arrived on the child's Plan page first (2026-09-29, Impeccable's pick over The Teacher's Gradebook, seed 5d8bc5ca), Today followed the same day as the family's planner week (seed 484d9aac), and the item line carried it to every page; the shell around the remaining pages (the Assignments table, Settings, Reports, the rail) still stands in its incumbent ledger composition on the planner's paper.\n\nConfirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows, and colour used as the only carrier of meaning.",
     "keyCharacteristics": [
       "A planner spread: two printed day boxes side by side (stacked on a phone, Tonight first), each a stack of checkbox lines under hairlines, on warm planner white with a faint ruling behind.",
       "The day box is the only box on the planner; a line has no border, no left rule and no fill.",
       "Status is a word in a colour, carried as a highlighter stroke in that colour's family, never a colour alone and never a filled button.",
       "One accent (ballpoint blue) for links, the default answer's stroke, the current tab, the focus ring and, elsewhere in the app, the page's single filled action.",
       "Three reading tiers redefine every token together, so the youngest reader gets a larger, warmer, higher-contrast page with the same rows.",
-      "Flat at rest, with one motion: 180ms ease-out on the checkbox fill and the strike."
+      "Flat at rest, with one motion: 180ms ease-out on the checkbox fill and the strike.",
+      "On Today the week is a strip of five small day cells with tonight's day word on the yellow highlighter, and each child gets a day box of tonight's lines labelled with their name."
     ],
     "rules": [
       { "name": "The Word Beside the Colour Rule", "body": "Nothing is conveyed by colour alone. What is red is red *and* says \"not done\", \"0\" or \"Missing\"; what is green is green *and* has a checkmark or the word \"done\". This is the accessibility requirement and the age requirement at the same time.", "section": "colors" },
       { "name": "The One Voice Rule", "body": "Ballpoint Blue fills at most one button per page, the page's main action, and marks at most one current choice per control group. Everything else it touches is a stroke, an underline, a rule or a link.", "section": "colors" },
       { "name": "The Red Pen Rule", "body": "Red is reserved for what the school recorded as not in. A past due date is not red on its own; the app's own inference (\"No\" under Handed in, \"School evidence changed\") is bold or blue, not red; a budget overrun on a child's page is not red.", "section": "colors" },
       { "name": "The Sheet's Colour Rule", "body": "The sheet's word on a line wears the colour the sheet prints it in, from one table (`status_words.STATUS_TONE`, the same table as `sheet.STATUS_COLOR`): DUE words Ballpoint Blue, LATE Amber Pencil Ink, PAPER — CHECK and HAC — NO GRADE Purple Stamp, MISSING and ZERO Red Pen. The line's checkbox takes the same colour. A line cannot be red on screen and blue on the fridge.", "section": "colors" },
-      { "name": "The Highlighter Rule", "body": "The sheet's word is a highlighter stroke: the word in its ink on the fill of its own family (`--hl-*`), 2px corners, hugging the word (0 .35em) and never a bar across the page or a filled button. A word with no colour is ink on the bare page.", "section": "colors" },
+      { "name": "The Highlighter Rule", "body": "The sheet's word is a highlighter stroke: the word in its ink on the fill of its own family (`--hl-*`), 2px corners, hugging the word (0 .35em) and never a bar across the page or a filled button. A word with no colour is ink on the bare page. The week strip's day word borrows the yellow stroke for tonight only, in Ink.", "section": "colors" },
       { "name": "The Only-Blue Rule", "body": "On the planner only links and the default answer's stroke are Ballpoint Blue. The family's steps are written in Pencil Grey; the checkbox of a due line is blue because the sheet's word is, not because the family wrote it.", "section": "colors" },
       { "name": "The Whole-Tier Rule", "body": "A reading tier redefines every colour token at once, never some of them, so no page inherits a colour nobody designed for that tier.", "section": "colors" },
-      { "name": "The Measure Rule", "body": "Prose, intros and forms are bounded to 760px (`--measure`, about 75 characters at body size); tables, cards and charts fill the 1600px content column, and the planner spread takes 1100px because two day boxes need more than a measure.", "section": "typography" },
+      { "name": "The Measure Rule", "body": "Prose, intros and forms are bounded to 760px (`--measure`, about 75 characters at body size); tables, cards and charts fill the 1600px content column, and the planner spread takes 1100px because two day boxes need more than a measure; Today's week strip and kids' spread take the same 1100px.", "section": "typography" },
       { "name": "The Never-Smallest Rule", "body": "On a tiered page the secondary sizes and the headings move with the body size. A fact a child must judge (\"Canvas shows 0 of 10\") is never rendered at the page's smallest size, and the head of a section or a day box is never smaller than the sentence under it.", "section": "typography" },
       { "name": "The Strike Rule", "body": "An answered line is struck through in place, its name in Pencil Grey, the checkbox filled green with a drawn tick; the line keeps its place, its meta and its Undo. Nothing is removed from the child's spread by an answer; the school's record removes it on the next refresh.", "section": "typography" },
       { "name": "The Paper Rule", "body": "Surfaces are flat at rest. A shadow is a response to floating over content, never a way to make a card look important.", "section": "elevation" },
@@ -296,7 +314,7 @@
       "**Do** redefine every token when adding to a tier, and set secondary sizes and the day label from `--type-small` and `--type-tiny` so they move with the tier.",
       "**Do** render a fold with nothing in it as one quiet Pencil Grey line at body size, marker gone, not a heading over nothing.",
       "**Do** bound prose and forms to `--measure` (760px), the planner spread to 1100px, and let tables, cards and charts fill the column.",
-      "**Do** build a new page from the same blocks: status bar, page head, notices, sections of `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density.",
+      "**Do** build a new page from the same blocks: status bar, page head, notices, sections of `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density; a page that is a planner wraps its spread in `.planner-main` for the ruling and deals its boxes as `.mf-section` inside `.mf-spread`.",
       "**Do** use the 4px spacing scale (`--s1` to `--s6`) and the 2px / 6px / 8px / 10px radius set."
     ],
     "donts": [

@@ -347,7 +347,8 @@ def test_today_open_work_and_a_class_page_head_their_sections_the_one_way(tmp_pa
     seed(tmp_path).close()
     c = app_for(tmp_path)
     today = c.get("/").text
-    assert re.search(r'<section class="sec kids"[^>]*>\s*<div class="cards">', today)
+    # Today's kids are day boxes on a planner spread, not cards (the Student Planner, Today).
+    assert re.search(r'<section class="sec kids"[^>]*>\s*<div class="mf-spread today-spread">', today)
     assert 'class="outcome-line"' in today and 'class="record"' not in today
     open_work = c.get("/open").text
     assert open_work.count('<section class="sec kid"') == 2

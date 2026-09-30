@@ -1,7 +1,8 @@
-"""The Dashboard: one card per kid with today's numbers, and what printed today."""
+"""The Dashboard: the family's planner week, and one day box per kid with tonight's lines."""
 from __future__ import annotations
 
 import sqlite3
+from datetime import timedelta
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request
@@ -10,8 +11,12 @@ from fastapi.responses import RedirectResponse
 from . import checkin
 from ..app import Db, State, WHO_COOKIE, forget_who, render, safe_pdf, who_of
 from ..stores import items, plans, runs, students
+from ...dates import deadline_date, wd_md
 
 router = APIRouter()
+
+#: How many days the week strip shows, today first.
+WEEK_DAYS = 5
 
 
 @router.get("/")
@@ -24,6 +29,8 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
         return RedirectResponse(f"/kids/{quote(student['key'], safe='')}/plan", status_code=303)
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
+    days = [now.date() + timedelta(days=i) for i in range(WEEK_DAYS)]
+    per_day: list[list[tuple[str, int]]] = [[] for _ in days]
     cards = []
     for s in students.visible(conn):
         school_has = checkin.school_has_ids(conn, s, state)
@@ -38,10 +45,26 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
         must = items.must_finish(work, now.date())
         covered = {st["item_id"] for st in plans.for_student(conn, s["id"]) if st["state"] != "done"}
         shown = items.must_finish(work, now.date(), covered)
+        # The week strip: this kid's work by the day it has to be finished, the overdue rows that
+        # can still be fixed counted under tonight (the Student Planner, Today; surface brief).
+        counts = [0] * WEEK_DAYS
+        counts[0] += len(must.overdue)
+        for v in work.upcoming:
+            if v.due is None:
+                continue
+            offset = (deadline_date(v.due) - now.date()).days
+            if 0 <= offset < WEEK_DAYS:
+                counts[offset] += 1
+        for i, n in enumerate(counts):
+            if n:
+                per_day[i].append((s["key"], n))
         cards.append((s, items.dashboard_counts(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window()),
                       dict(last_check=plans.last_checkin(conn, s["id"]), steps_today=steps, minutes_today=minutes,
                            must_finish=len(must.red), must_planned=len(must.red) - len(shown.red),
-                           must_more=len(shown) - len(shown.red))))
-    return render(request, conn, "dashboard.html", current="dashboard", cards=cards, today=today,
+                           must_more=len(shown) - len(shown.red)),
+                      shown.red))
+    week = [dict(label=("Tonight" if i == 0 else "Tomorrow" if i == 1 else ""), date=wd_md(d), counts=per_day[i])
+            for i, d in enumerate(days)]
+    return render(request, conn, "dashboard.html", current="dashboard", cards=cards, today=today, week=week, here="/",
                   printed=[(row, runs.describe(row), safe_pdf(state, row["pdf_path"]) is not None)
                            for row in runs.printed_on(conn, now.date())])
