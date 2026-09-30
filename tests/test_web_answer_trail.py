@@ -31,9 +31,9 @@ def test_the_answered_line_names_the_answer(tmp_path):
 def test_answering_updates_the_row_the_heading_and_the_counts(tmp_path):
     c, pid = _setup(tmp_path, "Participation")
     body = c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""}).text
-    # The swap names a table row, so the same id on Assignments (a week's line) keeps its state.
-    row = re.search(r'<template>\s*<tr id="row-%d"[^>]*hx-swap-oob="outerHTML:tr#row-%d">(.*?)</tr>\s*</template>' % (pid, pid), body, re.S)
-    assert row and "Marked done on" in row.group(1) and "question" not in row.group(1)
+    # No table row rides along any more: the last work table went with the class's record
+    # (2026-09-30), and a line keeps its own state (the done-line and its Undo) after an answer.
+    assert "<template>" not in body and "hx-swap-oob=\"outerHTML:tr#row-" not in body
     assert re.search(r'<span id="qcount-Alex" class="count" hx-swap-oob="true"></span>', body)
     assert re.search(r'<h3 id="q-head" hx-swap-oob="true">No more questions about', body)
 

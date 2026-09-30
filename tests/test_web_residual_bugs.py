@@ -21,7 +21,7 @@ def test_a_flag_set_from_the_detail_card_refreshes_the_row_and_the_counts(tmp_pa
     iid = _id(conn, "Participation")
     conn.close()
     body = app_for(tmp_path).post(f"/items/{iid}/flag", data={"flag": "done"}).text
-    assert f'<tr id="row-{iid}" hx-swap-oob="outerHTML:tr#row-{iid}">' in body     # a table row only, never Assignments' line
+    assert "hx-swap-oob=\"outerHTML:tr#row-" not in body                 # no table row rides along since the last work table went (2026-09-30)
     assert 'id="qcount-Alex" class="count" hx-swap-oob="true"' in body
     assert "Marked done" in body                                  # the card itself still renders
 

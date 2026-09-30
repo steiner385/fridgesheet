@@ -26,7 +26,7 @@ TOKENS = ("--ink", "--muted", "--rule", "--paper", "--wash", "--accent", "--warn
 #: pinned at 12 or 13px whatever the tier (kids' UX audit F2). Each must size itself from a
 #: token so the tier reaches it.
 SECONDARY = (".item-head .meta", ".item-foot", ".ours", ".inset", ".stamp", "p.legend", "td .rel", "td .at",
-             "table.work td.item small", ".sources-hint", ".src", ".note .meta",
+             ".sources-hint", ".src", ".note .meta",
              ".sources .src", ".lines .line > form")
 
 
