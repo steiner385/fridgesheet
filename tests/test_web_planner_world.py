@@ -20,6 +20,58 @@ def _rule(selector: str) -> str:
     return m.group(1)
 
 
+def test_two_empty_day_boxes_print_as_one_on_a_phone(tmp_path):
+    """Re-critique 2026-09-30: Sam's two empty boxes cost her first screen. Both boxes stay in
+    the markup (the wide screen prints both, as the contract says); the pair is drawn only under
+    the strip breakpoint, where the two are hidden."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    sam = c.get("/kids/Sam/plan").text
+    assert '<div class="mf-spread both-empty">' in sam
+    assert re.search(r'<div class="mf-section day-pair" data-section="tonight-tomorrow"><h4>Due tonight · Due tomorrow</h4><p class="muted empty-day">Nothing due tonight or tomorrow</p></div>', sam)
+    assert 'data-section="tonight"' in sam and 'data-section="tomorrow"' in sam
+    assert 'class="mf-spread both-empty"' not in c.get("/kids/Alex/plan").text and "day-pair" not in c.get("/kids/Alex/plan").text
+    assert "display: none" in _rule(".mf-spread > .day-pair")
+    strip = re.search(r"@media \(max-width: 1023px\)\s*\{\s*\.mf-spread(.*?)\n\}", CSS, re.S).group(1)
+    assert re.search(r'\.mf-spread\.both-empty > \.mf-section\[data-section="tonight"\], \.mf-spread\.both-empty > \.mf-section\[data-section="tomorrow"\]\s*\{[^}]*display: none', strip)
+    assert re.search(r"\.mf-spread\.both-empty > \.day-pair\s*\{[^}]*display: block", strip)
+
+
+def test_the_plan_says_the_rest_of_the_list_in_one_line_and_the_checkin_keeps_its_queue(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    plan = c.get("/kids/Alex/plan").text
+    assert re.search(r'<p class="review-line">\d+ more on the school&#39;s list · <a href="/kids/Alex\?show=all">Browse all work</a>', plan)
+    assert "queue-group" not in plan.split('class="review-queue"')[1].split("Previous agreements")[0]
+    assert "Worth checking" not in plan and "Other open work" not in plan
+    checkin = c.get("/kids/Alex/check-in").text
+    assert "Worth checking" in checkin and 'class="sec queue-group' in checkin
+    assert checkin.count("official gradebook") == 1 and plan.count("official gradebook") == 1     # the legend, once, on both
+
+
+def test_a_live_step_can_be_ticked_in_one_tap(tmp_path):
+    """The planner's promise: a line with a checkbox can be ticked. The Done form posts to the
+    step's complete route; a completed step moves under Completed steps, where Edit or reopen
+    is its undo."""
+    from uuid import uuid4
+    from fridgesheet.web.stores import plans as plan_store
+    from tests.web_fixtures import NOW
+    conn = seed(tmp_path)
+    vocab = conn.execute("SELECT id FROM items WHERE name = 'Vocabulary'").fetchone()["id"]
+    sid = plan_store.save(conn, 1, dict(title="Vocabulary", family_account="", next_step="Ten words", owner="Alex", planned_for="2026-09-15",
+                                        minutes=10, state="planned", position=10, evidence="{}", recorded_by=""),
+                          now=NOW.isoformat(), request_key=str(uuid4()), item_id=vocab)
+    conn.close()
+    c = app_for(tmp_path)
+    plan = c.get("/kids/Alex/plan").text
+    form = re.search(r'<form method="post" action="/kids/Alex/check-in/step/%d/complete" class="answers">(.*?)</form>' % sid, plan, re.S)
+    assert form and 'name="revision"' in form.group(1) and ">Done</button>" in form.group(1)
+    r = c.post(f"/kids/Alex/check-in/step/{sid}/complete", data={"revision": "1", "return_to": "/kids/Alex/plan"}, follow_redirects=False)
+    assert r.status_code == 303
+    after = c.get("/kids/Alex/plan").text
+    assert "Ten words" in after.split("Completed steps")[1] and "Edit or reopen" in after
+
+
 def test_the_spread_holds_tonight_and_tomorrow_side_by_side_and_the_rest_beneath(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex/plan").text
@@ -115,8 +167,13 @@ def test_no_side_tab_is_left_on_the_item_or_the_family_line():
 
 
 def test_a_fold_with_nothing_in_it_is_one_quiet_line(tmp_path):
+    """The check-in keeps its review groups (one quiet line each when empty); the Plan says the
+    rest of the list in one line instead (re-critique 2026-09-30)."""
     seed(tmp_path).close()
-    body = app_for(tmp_path).get("/kids/Sam/plan").text
-    assert body.count('class="sec queue-group quiet empty"') >= 3            # the three review groups on an empty page
-    assert 'class="sec queue-group quiet empty" open><summary><h3>Completed steps</h3>' in body
+    c = app_for(tmp_path)
+    checkin = c.get("/kids/Sam/check-in").text
+    assert checkin.count('class="sec queue-group quiet empty"') >= 3        # the three review groups on an empty page
+    plan = c.get("/kids/Sam/plan").text
+    assert 'class="sec queue-group quiet empty" open><summary><h3>Completed steps</h3>' in plan
+    assert plan.count('class="sec queue-group quiet empty"') == 1           # Completed steps alone; no review folds on the Plan
     assert "font-weight: 400" in _rule(".sec.empty > summary h3")

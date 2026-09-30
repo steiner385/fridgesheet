@@ -27,9 +27,13 @@
   {% set exclude = ['too_late', 'ignore'] %}
   {# The spread (the Student Planner, 2026-09-29): Tonight and Tomorrow are day boxes side by
      side on a wide screen; the other sections take the full width beneath them. #}
-  <div class="mf-spread">
+  {% set both_empty = not must_finish.tonight and not must_finish.tomorrow %}
+  <div class="mf-spread{{ ' both-empty' if both_empty }}">
   {# Tonight and Tomorrow are printed whether or not anything is written in them, as a
-     planner's day boxes are; the other sections draw only with rows. #}
+     planner's day boxes are; the other sections draw only with rows. On a phone two empty
+     boxes cost a child her first screen (re-critique 2026-09-30), so there they print as one
+     shared box; the pair is drawn only under the strip breakpoint (app.css). #}
+  {% if both_empty %}<div class="mf-section day-pair" data-section="tonight-tomorrow"><h4>{{ 'copy.due_tonight' | say(tier) }} · {{ 'copy.due_tomorrow' | say(tier) }}</h4><p class="muted empty-day">{{ 'copy.nothing_due_tonight_or_tomorrow' | say(tier) }}</p></div>{% endif %}
   {% for key, label, rows, grey, first, fold in sections if rows or key in ('tonight', 'tomorrow') %}
   {% if fold %}<details class="sec quiet mf-fold"><summary><h3>{{ label | say(tier) }}</h3> <span class="count">{{ rows | length }}</span></summary>{% endif %}
   <div class="mf-section" data-section="{{ key }}">{% if not fold %}<h4>{{ label | say(tier) }}</h4>{% endif %}

@@ -31,6 +31,17 @@
 </section>
 {% endif %}
 {% if asked %}<p class="asked-line"><strong>{{ 'copy.asked_the_school' | say(tier) }}:</strong> {% for v, key, when in asked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ v.id }}">{{ v.name }}</a>: {{ key | say(tier, {'when': when}) }}{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+{% if plan_only %}
+{# The Plan is the child's planner, not the check-in's review: what the queue would list is one
+   line and the way to it (re-critique 2026-09-30: four "nothing here yet" folds ended a
+   nine-year-old's page). The check-in keeps the queue. #}
+{% set queued = queues.values() | map('length') | sum %}
+<section class="review-queue" aria-labelledby="review-heading">
+  <h3 id="review-heading" class="sr-only">Review</h3>
+  <p class="review-line">{% if queued %}{{ 'copy.more_on_school_list' | say(tier, {'n': queued}) }} · {% endif %}<a href="/kids/{{ student.key | urlencode }}?show=all">{{ 'copy.browse_all_link' | say(tier) }}</a> {{ 'copy.browse_all_rest' | words(tier) }}</p>
+  {% include "_sources_hint.html" %}
+</section>
+{% else %}
 <section class="review-queue" aria-labelledby="review-heading">
   <h3 id="review-heading" class="sr-only">Review</h3>
   {% for label, rows in queues.items() %}
@@ -51,6 +62,7 @@
   {# What the two systems the cards quote are: once, at the foot of the queue (#190). #}
   {% include "_sources_hint.html" %}
 </section>
+{% endif %}
 </div>
 </div>
 {# Under 1280px the queue and the plan stack, and the plan was five phone screens down (#189):

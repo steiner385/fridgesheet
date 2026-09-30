@@ -330,10 +330,13 @@ def test_the_plan_is_sections_and_a_step_is_the_item_with_its_provenance_in_the_
     # and `_plan_panel.html` carry `id` first, for their own anchors) -- the lookahead finds it
     # wherever it sits in the tag.
     heads = re.findall(r'<(?:section|details)(?=[^>]*\sclass="sec)[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', body)
-    assert "Must finish" in heads and "Our next steps" in heads and "Worth checking" in heads and "Waiting on the school" in heads
-    assert body.index(">Must finish<") < body.index(">Our next steps<") < body.index(">Worth checking<")
+    assert "Must finish" in heads and "Our next steps" in heads
+    assert "Worth checking" not in heads and "Waiting on the school" not in heads       # the Plan says the rest in one line (re-critique 2026-09-30)
+    assert body.index(">Must finish<") < body.index(">Our next steps<") < body.index('class="review-line"')
+    checkin_heads = re.findall(r'<(?:section|details)(?=[^>]*\sclass="sec)[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', c.get("/kids/Alex/check-in").text)
+    assert "Worth checking" in checkin_heads and "Waiting on the school" in checkin_heads
     step = re.search(r'<div class="item step">.*?<div class="item-foot">(.*?)</div>\s*</div>', body, re.S)
-    assert step and "Edit or complete step" in step.group(1) and re.search(r'<span class="stamp">Recorded \w{3} 9/15', step.group(1))
+    assert step and "Edit step" in step.group(1) and re.search(r'<span class="stamp">Recorded \w{3} 9/15', step.group(1))
     assert re.search(r'<p class="ours">Alex · 20 min</p>', body)
     assert "checkin-intro" not in body and 'class="eyebrow"' not in body
 

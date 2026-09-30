@@ -58,6 +58,27 @@ def test_the_roles_wear_the_palette():
             assert value in tokens.COLORS.values(), f"--{role} is a colour outside the palette"
 
 
+def _contrast(fg: str, bg: str) -> float:
+    def lum(h):
+        def lin(c):
+            c /= 255
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+        r, g, b = (int(h[i:i + 2], 16) for i in (1, 3, 5))
+        return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    a, b = sorted((lum(fg), lum(bg)), reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
+@pytest.mark.parametrize("tier", ["older", "early", "middle"])
+@pytest.mark.parametrize("word, fill", [("accent", "hl-due"), ("warn", "hl-red"), ("check", "hl-check"), ("late", "hl-late")])
+def test_every_highlighter_pair_reads_at_aa(tier, word, fill):
+    """The sheet's word is read on its own highlighter, so that is the pair to hold to 4.5:1
+    (the re-critique of 2026-09-30 found LATE at 4.40:1 on Highlighter Amber at the root)."""
+    t = tokens.tier_tokens(tier)
+    assert _contrast(t[word], t[fill]) >= 4.5, (tier, word, fill, round(_contrast(t[word], t[fill]), 2))
+    assert _contrast(t[word], t["paper"]) >= 4.5 and _contrast(t[word], t["wash"]) >= 4.5
+
+
 # --- the paper and the charts read the same source ------------------------------------------
 
 def test_the_printed_sheets_colours_are_the_pages():

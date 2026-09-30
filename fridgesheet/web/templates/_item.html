@@ -12,7 +12,9 @@
    linked    the name links to the row on Assignments plan_state  appended to the Plan-a-step link
    earlier   completed steps on this item             exclude, first   for _answers.html
    detail: card, item_history, notes, message         question: reopened, undone #}
-{% set tier = (student.key | tier_of) if student is defined and student else "" %}
+{# `voice`: the includer's tier for everything this surface says (Today speaks as the parent,
+   whatever the child's tier); otherwise the child's own. The sheet's word arrives already said. #}
+{% set tier = voice if voice is defined else ((student.key | tier_of) if student is defined and student else "") %}
 {% set vd = item.verdict %}
 {% set density = density if density is defined and density else 'card' %}
 {% set qid = slot if slot is defined and slot else 'q-' ~ item.id %}
@@ -55,8 +57,11 @@
      them, so "Do it today" follows a sentence that asked (critique 2026-09-29). Its class is
      not the verdict's `ask-line` alone: the rail counts those as questions. A grey row
      (waiting) offers no plan answers and gets no prompt. #}
-  {% set plan_ask = (not is_q) and has_word and tone != 'grey' and vd.answers and not item.step %}
-  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
+  {# `only_asked` (a week's line on Assignments): a line that is not a question offers nothing
+     here; its foot's "Plan a step" is the way to plan it, so the school's list is not a form. #}
+  {% set offers = vd.answers and not (only_asked is defined and only_asked and not is_q) %}
+  {% set plan_ask = (not is_q) and has_word and tone != 'grey' and offers and not item.step %}
+  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
   {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
   {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
   {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}
@@ -68,6 +73,8 @@
     {% elif box == qid %}<a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML">{{ 'copy.notes' | say(tier, {'n': item.notes}) }}</a>{% endif %}
     <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}{% if plan_state is defined and plan_state %}&amp;state={{ plan_state }}{% endif %}&amp;return_to={{ here | urlencode }}">{{ 'Plan another step' if item.step else 'Plan a step' }}</a>
     {% if is_detail %}<details><summary>More</summary>{% include "_flag_menu.html" %}</details>{% endif %}
-    {% if stamp is defined and stamp %}<span class="stamp">{{ stamp }}</span>{% endif %}</div>
+    {% if stamp is defined and stamp %}<span class="stamp">{{ stamp }}</span>{% endif %}
+    {# A record is tall on a phone; Close is at its foot as well as its head (re-critique 2026-09-30). #}
+    {% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>
 </div>
 {% endif %}

@@ -1,9 +1,17 @@
 {# The item opened: the surface at detail density (spec 2026-09-28 §4.2). Opened from a question
    card (`card`, #126), the detail takes that card's id and Close fetches the card back into it; in a
    table row it has no id and app.js closes it by hiding the row. The detail's answers swap
-   `qd-<id>`, their own slot, so a list's card with the same item is never reached for. #}
+   `qd-<id>`, their own slot, so a list's card with the same item is never reached for.
+   Opened from a week's line on Assignments (`card` = "row-<id>"), the record keeps the line's
+   colour and the sheet's word at its head, so the row the child tapped does not change colour
+   at the moment she wants the facts (re-critique 2026-09-30). #}
 {% set card = card if card is defined and card else '' %}
 {% set density = 'detail' %}{% set slot = 'qd-' ~ item.id %}{% set box_id = card %}
+{% if card.startswith('row-') %}
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
+{% set lt = item | line_tone(tier) %}
+{% set word = lt.word %}{% set word_tone = lt.word_tone %}{% set tone = lt.tone %}{% set late_line = lt.open %}{% set class_link = true %}
+{% endif %}
 {% include "_item.html" %}
 {# After a flag change, the row above the card and the question counts follow it (#3, as #72
    did for answers); htmx lifts these out-of-band pieces off before swapping the card in. #}

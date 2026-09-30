@@ -45,19 +45,21 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
         must = items.must_finish(work, now.date())
         covered = {st["item_id"] for st in plans.for_student(conn, s["id"]) if st["state"] != "done"}
         shown = items.must_finish(work, now.date(), covered)
-        # The week strip: this kid's work by the day it has to be finished, the overdue rows that
-        # can still be fixed counted under tonight (the Student Planner, Today; surface brief).
+        # The week strip: this kid's work by the day it has to be finished (the Student Planner,
+        # Today; surface brief). The overdue rows that can still be fixed sit under tonight too,
+        # named as late beside the count: "Sam 2 late" is not "Sam has 2 due tonight", and the
+        # Plan's DUE TONIGHT box must not contradict the strip (re-critique 2026-09-30).
         counts = [0] * WEEK_DAYS
-        counts[0] += len(must.overdue)
         for v in work.upcoming:
             if v.due is None:
                 continue
             offset = (deadline_date(v.due) - now.date()).days
             if 0 <= offset < WEEK_DAYS:
                 counts[offset] += 1
+        late = len(must.overdue)
         for i, n in enumerate(counts):
-            if n:
-                per_day[i].append((s["key"], n))
+            if n or (i == 0 and late):
+                per_day[i].append((s["key"], n, late if i == 0 else 0))
         cards.append((s, items.dashboard_counts(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window()),
                       dict(last_check=plans.last_checkin(conn, s["id"]), steps_today=steps, minutes_today=minutes,
                            must_finish=len(must.red), must_planned=len(must.red) - len(shown.red),

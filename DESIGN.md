@@ -6,7 +6,7 @@ colors:
   red-pen: "#b3261e"
   checkmark-green: "#2e7d32"
   amber-pencil: "#b8860b"
-  amber-pencil-ink: "#9a5b00"
+  amber-pencil-ink: "#8a5200"
   purple-stamp: "#6b3fa0"
   ink: "#1c1c1c"
   pencil-grey: "#595959"
@@ -287,7 +287,8 @@ components:
 # Design System: Fridge Sheet
 
 <!-- Captured by /impeccable document on 2026-09-29 (Assignments added 2026-09-30; the extract
-     step recorded 2026-09-30) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     step recorded 2026-09-30; the polish after the re-critique of 2026-09-30 recorded the same
+     day from the build, snapshots in .impeccable/critique/2026-09-30T03-23-44Z__*) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -338,7 +339,9 @@ and colour used as the only carrier of meaning.
   warmer, higher-contrast page with the same rows.
 - Flat at rest, with one motion: 180ms ease-out on the checkbox fill and the strike.
 - On Today the week is a strip of five small day cells with tonight's day word on the yellow
-  highlighter, and each child gets a day box of tonight's lines labelled with their name.
+  highlighter (its overdue rows named, "Sam 2 late"), and each child gets a day box of tonight's
+  lines labelled with their name, spoken in the parent's voice; on a phone the week comes first
+  and the sheet's controls fold to one line.
 - On Assignments every week the work was due is a printed week box, newest first, this week's
   word on the yellow highlighter; a week with nothing shown folds to its label and tally, and
   the day rows inside a week are small labels in the same pencil.
@@ -380,8 +383,10 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 ### Tertiary
 - **Amber Pencil** (#b8860b): late, as a stroke: the late series and the "late" outcome on
   Trends. As a word it is too light (3.3:1), so the LATE word and its checkbox rule on screen,
-  and the LATE word on the printed sheet, use **Amber Pencil Ink** (#9a5b00, 5.4:1; `--late`,
-  early #8a5200, middle #915600), on Highlighter Amber on screen.
+  and the LATE word on the printed sheet, use **Amber Pencil Ink** (#8a5200: 5.2:1 on
+  Highlighter Amber, the pair the word is read in, and 6.4:1 on white; `--late`, the same at
+  the early tier, middle #915600). The re-critique of 2026-09-30 found the earlier #9a5b00 at
+  4.40:1 on the highlighter, under AA for a 16px bold word.
 - **Purple Stamp** (#6b3fa0; `--check`, early #5f3594, middle #653a9a): "check on paper". The
   PAPER — CHECK, IN CLASS — CHECK and HAC — NO GRADE words on Highlighter Purple, the checkbox
   rule under them, the fourth chart series. Work the school cannot see, so neither red nor green.
@@ -394,7 +399,8 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 - **Ink** (#1c1c1c): all body text and headings. Early #10151b, middle #161b22.
 - **Pencil Grey** (#595959): the family's own writing and everything secondary: the steps under
   "Our next steps", meta lines, the day-box label, the status bar, stamps, quiet section heads, a
-  struck-through name, the "nothing due tonight" line, the week strip's per-child counts and the
+  struck-through name, the "nothing due tonight" line (and the day pair's "Nothing due tonight
+  or tomorrow" on a phone), the week strip's per-child counts and the
   family line in a kid's day box on Today; on Assignments the sort line and its drawn chevron,
   a week's label and its tally, the day rows and "Nothing due this week". Early #4a5568, middle
   #5a6474.
@@ -508,8 +514,11 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
 characters at body size); tables, cards and charts fill the 1600px content column, and the planner
 spread takes 1100px because two day boxes need more than a measure; Today's week strip and kids'
-spread and Assignments' weekly pages take the same 1100px, and inside a wide week box a line's
-facts and ask line keep to the measure while the sheet's word stays at the right.
+spread and Assignments' weekly pages take the same 1100px. Inside any wide box on a planner page
+(`.planner-main`) the prose keeps to the measure while the sheet's word stays at the right: a
+line's facts and ask line, an inset, a section's lead, the "asked the school" line, the review
+line and an empty day's line (the re-critique of 2026-09-30 measured the Plan's facts at 1,070px
+on a 1440px screen). The ruled header line is the one full-width sentence.
 
 **The Never-Smallest Rule.** On a tiered page the secondary sizes and the headings move with the
 body size. A fact a child must judge ("Canvas shows 0 of 10") is never rendered at the page's
@@ -544,38 +553,58 @@ off. Under the strip a page action ("Print plan") and a section's control ("Chec
 beneath. Then "Must finish" and its spread: a two-column grid with 16px gaps in which Tonight and
 Tomorrow are day boxes side by side, printed whether or not anything is in them, and every other
 section (Later, Overdue but still fixable, On paper, Waiting) takes the full width beneath as a
-box of its own; under 1024px the grid is one column, Tonight first. A day box is 0 12px 4px inside
-with its label bleeding to the edges; the lines in it are 8px 0 8px 30px, the 30px being the
+box of its own; under 1024px the grid is one column, Tonight first, and when Tonight and Tomorrow are both
+empty the two boxes give way to one day pair (`.mf-spread.both-empty > .day-pair`, drawn only
+under the strip) labelled "DUE TONIGHT · DUE TOMORROW" over "Nothing due tonight or tomorrow",
+so an empty evening costs a child one box, not two; a wide screen keeps the pair of boxes. A day
+box is 0 12px 4px inside with its label bleeding to the edges; the lines in it are 8px 0 8px 30px, the 30px being the
 checkbox's column, under 1px hairlines, the last line without one. "Our next steps" follows as
 lines under a ruled head, grouped by h4 (Work to do, Blocked, Waiting), a step's name at 600 and
 its text in Pencil Grey. Behind all of it `.planner-main` draws a faint ruling pitched to the line
 height (`--line` = 1.45 × root, Ruled Grey at 40%), and the day boxes are Paper White on top of it.
+Under the steps the Plan closes on one review line (`p.review-line`, 16px above and 8px below:
+"2 more on the school's list · Browse all work to plan something outside this list.") and the
+sources legend; the check-in page keeps the full review queue beneath the same heading.
 
-**The family's week** (Today): under the page head the sheet strip, a `section` ruled top and
-bottom with the 1.5px Day-box rule, 8px inside, 24px below: the last sheet's line (or "No sheet
-built today yet." in Pencil Grey) and one wrapping row of the sheet's controls (Refresh now, the
-Refresh-first tick, Preview, the Print two-step). Then, on the ruled page, the week strip: an
+**The family's week** (Today): the page is three blocks in one wrapper (`.today-pages`, which
+is `display: contents` on a wide screen): the sheet strip, the week block and the kids' block.
+Under the page head the sheet strip, a `section` ruled top and bottom with the 1.5px Day-box
+rule, 8px inside, 24px below: the last sheet's line (or "No sheet built today yet." in Pencil
+Grey) and, inside `details.print-controls[data-phone-fold]` shipped open with its summary not
+drawn, one wrapping row of the sheet's controls (Refresh now, the Refresh-first tick, Preview,
+the Print two-step). Then, on the ruled page, the week strip: an
 ordered list of five day cells in a five-column grid with 8px gaps, each a small day box whose
 label is the day word, a separator and the date (TONIGHT · TUE 9/29, TOMORROW · WED 9/30, then
 the bare date) over one Label-size line of per-child counts ("Alex 2 · Sam 2") or "nothing due"
-in Pencil Grey. Then the kids' spread: the planner spread's grid re-filled as
+in Pencil Grey; tonight's cell names the overdue-but-fixable rows beside the count ("Sam 2 late",
+"Alex 1, 2 late") rather than folding them into it, so the strip and the Plan's DUE TONIGHT box
+never disagree. Then the kids' spread: the planner spread's grid re-filled as
 `repeat(auto-fit, minmax(320px, 1fr))`, one day box per child side by side, each box's label
 the child's name; inside, two tally lines, a hairline, tonight's lines, the family line, three
 links, the School record fold. Under 1024px the five cells stay in one row with 4px gaps on
 `1.3fr 1.3fr 1fr 1fr 1fr` tracks (the two named days get the room their words need), the
 separator vanishes and the day word stacks over the date, no sideways scroll; the kids' boxes
-stack one to a row.
+stack one to a row. On a phone `.today-pages` becomes a flex column with the week block first,
+then the sheet strip folded to one 44px link-styled line ("▸ Print or preview", `app.js` closes
+the `data-phone-fold` on load under 1024px; the markup ships it open so the page works without
+script), then the kids, so the planner is the first thing under the title. Cancel on the Print
+two-step returns focus to its summary. Today speaks in the parent's voice: a kid's box passes
+`voice=''` to `_item.html`, so its ask line and answers are the household phrasing whatever the
+child's tier, while the sheet's word keeps the child's words because it is the word on their sheet.
 
 **The weekly pages** (a child's Assignments): under the child tabs and the ruled header line
 ("Done so far: 1 of 5 due · 1 on time."), one section, "All assignments" with its count, its
-controls in the head (the view as words, the Class select, the More filters fold) and one lead
+controls in the head (the view as words, the Class select when the child has more than one
+class, otherwise folded behind More filters, and the More filters fold) and one lead
 line with the question count ("1 question about your work" / "Nothing to answer."). Then, on the
 ruled page, a run-in sort line ("Sort by Due · Assignment · Where it stands", 8px above and 12px
 below) and the weeks: a one-column grid with 24px gaps so the ruling shows between the pages,
 one week box per week the shown work was due, newest first, this week printed even when empty
 ("Nothing due this week"). Sorted by due date a week is day rows 12px above their lines, each
 line saying only its hour ("by 11:59pm"); sorted any other way the lines keep their dates. A
-week with nothing shown is a fold whose summary is the label line with a tally ("· 1 not done ·
+line on a week carries its ask line and answers only when the app is asking (`only_asked`); the
+school's list is not a second Plan, and "Plan a step" in the foot is the way to plan the rest.
+A week with nothing shown is a fold whose summary is the label line with a tally ("· 1 not done ·
 2 unknown"), the box closing on its label's rule. The sources legend, then the quiet verdict
 sections (Settled by the records, Waiting) follow under the pages. On a phone the head's
 controls wrap and the sheet's word drops to its own line as on the Plan.
@@ -644,10 +673,17 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
 - **Two-step in the sheet strip (Today):** an action that spends paper asks in place, never in a
   browser dialog. "Print now" is a disclosure summary in the primary look; open, it steps back to the
   plain look and the question ("Print today's sheet on Kitchen Inkjet?") sits under it with the
-  filled "Print" and a "Cancel" link button. A job's log then lives behind a "Details" fold.
+  filled "Print" and a "Cancel" link button; Cancel closes the fold and puts focus back on its
+  summary. A job's log then lives behind a "Details" fold.
+- **Step done (the Plan):** a live step on "Our next steps" carries one secondary button in an
+  `.answers` form ("Done"; "I did it" on the early tier, `a.step_done`) posting to the step's
+  complete route, the planner's tick on the family's own line; its foot link is "Edit step", and
+  the step's undo is "Edit or reopen" under Completed steps.
 - **Link button:** no border or fill, Pencil Grey underlined text, for "Close" and "undo".
 - **Button link (an `<a>` drawn as a button):** the secondary look with 8px 12px padding ("Print
-  plan", "Add a step"); under the strip it is a Ballpoint Blue underlined link.
+  plan", "Add a step"); under the strip it is a Ballpoint Blue underlined link. A section's
+  control that is a `<button>` ("Check Canvas again") follows it under the strip, drawn as the
+  same underlined link but keeping its 44px height (`.sec-head .controls button`).
 - **Chooser button:** the kid chooser's 22px text, 18px padding, 12px corners, Ruled Grey stroke;
   the grown-up's is 16px on the wash in Pencil Grey.
 
@@ -671,6 +707,19 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   colour. Tonight and Tomorrow are always printed; an empty one holds one Pencil Grey line
   ("Nothing due tonight"). A folded section (Later, Waiting) opens onto a day box 8px below its
   summary.
+- **Day pair (planner, phone only):** when Tonight and Tomorrow are both empty, one day box
+  (`.mf-section.day-pair`) labelled "DUE TONIGHT · DUE TOMORROW" over the Pencil Grey
+  "Nothing due tonight or tomorrow" (`.empty-day`, kept to the measure) stands in for the two
+  under the strip breakpoint; the pair is in the markup only when both are empty and is never
+  drawn on a wide screen.
+- **Print-controls fold (Today):** `details.print-controls` around the sheet's controls, shipped
+  open. On a wide screen its summary is not drawn and the controls are the strip's row; on a
+  phone `app.js` folds it and the summary is one 44px Ballpoint Blue underlined line with the
+  text marker ("▸ Print or preview", "▾" open), the controls 8px beneath when opened.
+- **Review line (the Plan):** the check-in's review queue reduced to one body-size sentence
+  (`p.review-line`) under the steps: the count in the phrase table's words ("2 more on the
+  school's list", `copy.more_on_school_list`), a "Browse all work" link at 44px on a coarse
+  pointer, and the sources legend after it. The check-in keeps the queue itself.
 - **Card (incumbent shell: Today, Settings, Reports, the check-in's "Agree and wrap up"):** Paper
   White, 1px Ruled Grey, 8px corners, 12px 16px inside, no shadow.
 - **Inset:** anything quoted inside a box: the record, a witness line, the class's pace, the
@@ -746,14 +795,21 @@ One assignment, one line, app-wide. An 18px square checkbox at the left (2px Day
 White, 2px corners) whose rule takes the line's tone: Ballpoint Blue for a question or a due line,
 Red Pen for not in, Amber Pencil Ink for late, Purple Stamp for check-on-paper, dashed for a grey
 line, and filled Checkmark Green with a drawn tick once answered or done. Head: the name (650,
-linked to Assignments; on Assignments itself the name opens the record in place of the line and
-a "Close" link button at the head's right fetches the line back), meta in Pencil Grey label type
+linked to Assignments; on Assignments itself the name opens the record in place of the line, the
+record keeping the line's checkbox colour and the sheet's word at its head from the one
+`line_tone` filter the two share, and a "Close" link button at the head's right fetches the
+line back, repeated at the record's foot because a record is tall on a phone), meta in Pencil
+Grey label type
 (class · kind · points · due; on Assignments the class is a link, kept to 24px with padding on a
 coarse pointer, and the family's answer rides in it as a flag badge), and the
 sheet's word pushed right as a highlighter stroke (700, ink of its family on its fill); on a phone
 the word drops to its own line and hugs its width. Facts: one sentence from the verdict. Ask line
 (600) and answers: the first answer in the default stroke, the two answers that close a line for
-good behind a "More answers" fold inside the line, identically at every tier. The family's layer:
+good behind a "More answers" fold inside the line, identically at every tier; on a week's line
+on Assignments the ask line and answers appear only when the app is asking. Once answered, the
+done-line takes the answers' place: the green glyph, the sentence flexing to the room (`flex: 1
+1 auto; min-width: 0`), and the Undo form pushed right and never shrunk (`flex: none`, its button
+`white-space: nowrap; overflow-wrap: normal`), so "Undo" is one word on one line on a phone. The family's layer:
 one Pencil Grey label-size line each, no rule. Foot: "▸ Record" and "Plan a step" as blue links
 and a Caption-size stamp pushed right ("New since Tue 9/29"). Inside a table's opened row or a
 card the same line draws without the checkbox and without its hairline. A step on "Our next
@@ -781,9 +837,12 @@ this sheet's spread.
   along the top edge) and print Tonight and Tomorrow even when empty.
 - **Do** write the family's own lines in Pencil Grey and keep Ballpoint Blue for links and the
   default answer's 2px stroke; a page keeps at most one filled primary, and the Plan has none.
-- **Do** give every button, control, tab and main link 44px on a coarse pointer; a secondary link
-  inside a line or card keeps a 24px floor with padding (the maintainer's rule, 2026-09-29), and a
-  checkbox or radio input is 24px.
+- **Do** give every button, control, tab and main link 44px on a coarse pointer (a line's name,
+  its foot links, the done-line's Undo, the sort keys, the review line's link, a kid box's three
+  links, the print-controls summary, and a section's link-styled control under the strip); a
+  secondary link inside a line or card keeps a 24px floor with 3px padding-block (the class in
+  a line's meta, a step's Edit, a kid box's name; the maintainer's rule, 2026-09-29, measured at
+  18px on the names 2026-09-30), and a checkbox or radio input is 24px.
 - **Do** redefine every token when adding to a tier, and set secondary sizes and the day label
   from `--type-small` and `--type-tiny` so they move with the tier.
 - **Do** render a fold with nothing in it as one quiet Pencil Grey line at body size, marker gone,

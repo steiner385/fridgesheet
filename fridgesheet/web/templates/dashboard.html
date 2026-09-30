@@ -6,6 +6,10 @@
    the sheet's controls as the page's date header, a five-day strip with tonight highlighted, then
    one day box per kid holding tonight's lines, answerable here. #}
 {% set page_title = "Today" %}{% set page_intro = "What needs our attention?" %}{% include "_page_head.html" %}
+{# On a phone the planner comes first and the sheet's controls fold under it (re-critique
+   2026-09-30: four boxed controls stood between the title and the first line); on a wide
+   screen the strip is the page's date header, as the brief says. #}
+<div class="today-pages">
 <section class="sec sheet-strip" aria-labelledby="sheet-head">
   <h3 id="sheet-head" class="sr-only">Today's sheet</h3>
   {# `printed` is (run, runs.describe(run), pdf still on disk). The run's message is the
@@ -17,6 +21,9 @@
      {% if has_pdf %} · <a href="/runs/{{ r.id }}/pdf">open the PDF</a>{% endif %}</p>
   {% else %}<p class="muted">No sheet built today yet.</p>{% endfor %}
   {% if jobs %}
+  {# The controls sit open on a wide screen (the summary is not drawn) and folded on a phone
+     (app.js closes a `data-phone-fold` on load under the strip breakpoint). #}
+  <details class="print-controls" data-phone-fold open><summary>Print or preview</summary>
   {# A div, not a p: a <details> may not sit inside a <p>, and the browser closed the paragraph
      before "Print now", dropping it to its own row. #}
   <div class="actions">
@@ -31,19 +38,25 @@
       <p class="answers"><button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Print</button> <button type="button" class="link" data-close-details>Cancel</button></p>
     </details>
   </div>
+  </details>
   {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
   {% endif %}
 </section>
-<div class="planner-main">
+{# Two ruled blocks, the week and the kids, so a phone can put the folded sheet strip between
+   them: week, then the sheet's controls, then the kids (re-critique 2026-09-30). #}
+<div class="planner-main week-block">
 {% if cards %}
 {# The week: five small day boxes, tonight's label on the highlighter, each kid's count per day. #}
 <ol class="week-strip" aria-label="This week">
   {% for day in week %}
   <li class="mf-section day-cell{{ ' today' if loop.first }}"><h4>{% if day.label %}<span class="day-word">{{ day.label }}</span> <span class="sep">· </span>{% endif %}<span class="date">{{ day.date }}</span></h4>
-    <p>{% for key, n in day.counts %}{{ key | nickname }} {{ n }}{{ ' · ' if not loop.last }}{% else %}<span class="muted">nothing due</span>{% endfor %}</p></li>
+    {# "Alex 1", "Sam 2 late", "Alex 1, 2 late": the overdue rows are named, never folded into tonight's count. #}
+    <p>{% for key, n, late in day.counts %}{{ key | nickname }}{% if n %} {{ n }}{% endif %}{% if late %}{{ ',' if n }} {{ late }} late{% endif %}{{ ' · ' if not loop.last }}{% else %}<span class="muted">nothing due</span>{% endfor %}</p></li>
   {% endfor %}
 </ol>
 {% endif %}
+</div>
+<div class="planner-main kids-block">
 <section class="sec kids" aria-label="Kids">
 <div class="mf-spread today-spread">
   {% for s, c, plan, rows in cards %}
@@ -56,7 +69,10 @@
     <p class="tally">{% if c.questions %}<a href="/questions?kid={{ s.key | urlencode }}"><span class="big">{{ c.questions }}</span> question{{ 's' if c.questions != 1 }} to answer</a>{% else %}Nothing to answer{% endif %}</p>
     {# Tonight's lines, the Plan's own rows for tonight, tomorrow and overdue-still-fixable, with
        the same answers, so the nightly check ends here (re-critique 2026-09-29, Priya). #}
-    {% set exclude = ['too_late', 'ignore'] %}
+    {# The household page speaks in the parent's voice: the ask line and the answers are the
+       parent's phrasing whatever the child's tier (maintainer, 2026-09-30); only the sheet's
+       word keeps the child's words, because it is the word on their sheet. #}
+    {% set exclude = ['too_late', 'ignore'] %}{% set voice = '' %}
     {% for view in rows %}
     {% set item = view %}{% set density = 'card' %}{% set slot = 'qt-' ~ view.id %}{% set box_id = 'td-' ~ view.id %}
     {% set word_tone = view | sheet_tone %}{% set tone = word_tone %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}
@@ -87,5 +103,6 @@
 </div>
 </section>
 </div>
+</div><!-- /today-pages -->
 {% endblock %}
 {% endblock %}

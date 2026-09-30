@@ -1019,9 +1019,12 @@ def test_asked_the_school_lines_sit_above_worth_checking(tmp_path):
     lab = _item_id(conn, "Lab notebook")
     flags.set_flag(conn, lab, "ask_teacher", now="2026-09-13T09:00:00-04:00")
     conn.close()
-    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    c = app_for(tmp_path)
+    body = c.get("/kids/Alex/check-in").text
     assert "Asked the school" in body and "Lab notebook</a>: Asked the teacher on Sun 9/13" in body
     assert body.index("Asked the school") < body.index("Worth checking")
+    plan = c.get("/kids/Alex/plan").text                                    # the Plan keeps the line, not the queue
+    assert "Asked the school" in plan and "Worth checking" not in plan
 
 
 def test_finishing_a_check_in_snapshots_the_must_finish_ids_and_rows_badge_against_it(tmp_path):
