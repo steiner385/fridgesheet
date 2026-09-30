@@ -66,8 +66,9 @@ def test_every_surface_says_a_flag_with_the_same_words(tmp_path, flag):
     menu = re.search(r'<form class="flagmenu".*?</form>', detail, re.S).group(0)
     assert f">{button}<" in html.unescape(menu)
     assert f"Your answer: {state}" in _text(menu) and "Flag:" not in _text(menu)
+    from tests.web_fixtures import week_line
     kid = c.get("/kids/Alex?show=all").text
-    row = re.search(rf'<tr id="row-{lab}".*?</tr>', kid, re.S).group(0)
+    row = week_line(kid, lab)
     assert re.search(rf'class="badge flag"[^>]*>{re.escape(state)} \d+/\d+<', row), row
     option = re.search(rf'<option value="{flag}"[^>]*>(.*?)</option>', kid).group(1)
     assert option == state

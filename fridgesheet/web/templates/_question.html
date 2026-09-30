@@ -1,9 +1,16 @@
 {# One question (or decided/waiting) card: the item surface at card density (spec 2026-09-28 §4.2).
    `slot` names the element the answer buttons swap: "q-<id>" in a page's question list, "qd-<id>"
-   inside the item detail, "qc-<id>" on the check-in. Routes render this after Not right?
-   (`reopened`) and Undo (`undone`). A "qd-<id>" slot draws only the `answers` density -- the ask
-   line and the answers in their wrapper -- so Undo and Not right? put back what the detail's own
-   card drew inside, not a second card nested in the detail. #}
-{% set density = 'answers' if slot is defined and slot.startswith('qd-') else 'card' %}
+   inside the item detail, "qc-<id>" on the check-in, "qt-<id>" on a Today line, "qw-<id>" on a
+   week's line on Assignments. Routes render this after Not right? (`reopened`) and Undo
+   (`undone`). A slot inside a line or a detail ("qd-", "qt-", "qw-") draws only the `answers`
+   density -- the ask line and the answers in their wrapper -- so Undo and Not right? put back what
+   the line's own card drew inside, not a second card nested in it.
+   "row-<id>" is the week's line itself (the weekly pages): what an item detail's Close puts back
+   in place of the record it opened from (#126). #}
+{% if slot is defined and slot.startswith('row-') %}
+{% set view = item %}{% set day = '' %}{% include "_week_line.html" %}
+{% else %}
+{% set density = 'answers' if slot is defined and slot.startswith(('qd-', 'qt-', 'qw-')) else 'card' %}
 {% include "_item.html" %}
+{% endif %}
 {% if undone is defined and undone %}{% include "_after_answer.html" %}{% endif %}

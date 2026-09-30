@@ -34,6 +34,7 @@ def test_the_sorted_column_is_visible_without_the_arrow():
     """The arrow was an 11-13px glyph; on the 5th grader's phone the active column should read
     as the heavy one, and the arrow follows the tier's small size."""
     assert re.search(r'th\[aria-sort="ascending"\] a,\s*th\[aria-sort="descending"\] a\s*\{[^}]*font-weight', CSS)
+    assert re.search(r'\.sort a\[aria-current\]\s*\{[^}]*font-weight: 650', CSS)      # the sort line on the weekly pages
     for m in re.finditer(r"th \.arrow\s*\{([^}]*)\}", CSS):
         assert "var(--type-small)" in m.group(1), m.group(0)
 
@@ -46,8 +47,9 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     the once-per-class banner that leads the paper section."""
     pid = _id(tmp_path, "Participation")
     c = app_for(tmp_path)
+    from tests.web_fixtures import week_line
     kid = c.get("/kids/Alex").text
-    card = kid[kid.index('id="q-%d"' % pid):kid.index('id="items"')]
+    card = week_line(kid, pid)                     # asked on its own line on the week's page
     assert "allows 7 days" in card
     assert card.index("<summary>Record</summary>") < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text

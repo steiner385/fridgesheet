@@ -162,6 +162,21 @@ PHRASES: dict[str, dict[str, str]] = {
     # page is the one they find there (critique 2026-09-29: "3" became "Must finish 4").
     "copy.nothing_due":      {"early": "Nothing to finish by tomorrow", "middle": "Nothing to finish by tomorrow", "older": "Nothing to finish by tomorrow"},
     "copy.by_tomorrow":      {"early": "by tomorrow", "middle": "by tomorrow", "older": "by tomorrow"},
+    # The weekly pages on Assignments: a week box's label, and the sort line above them.
+    "copy.this_week":        {"early": "This week", "middle": "This week", "older": "This week"},
+    "copy.next_week":        {"early": "Next week", "middle": "Next week", "older": "Next week"},
+    "copy.last_week":        {"early": "Last week", "middle": "Last week", "older": "Last week"},
+    "copy.week_of":          {"early": "Week of", "middle": "Week of", "older": "Week of"},
+    "copy.no_due_date":      {"early": "No due date", "middle": "No due date", "older": "No due date"},
+    "copy.nothing_due_this_week": {"early": "Nothing due this week", "middle": "Nothing due this week", "older": "Nothing due this week"},
+    # A folded week's tally: how its work came out, in the five outcomes (docs/outcomes.md).
+    "copy.tally_on_time":    {"early": "{n} on time", "middle": "{n} on time", "older": "{n} on time"},
+    "copy.tally_late":       {"early": "{n} late", "middle": "{n} late", "older": "{n} late"},
+    "copy.tally_not_done":   {"early": "{n} not done", "middle": "{n} not done", "older": "{n} not done"},
+    "copy.tally_on_paper":   {"early": "{n} on paper", "middle": "{n} on paper", "older": "{n} on paper"},
+    "copy.tally_unknown":    {"early": "{n} we can't tell", "middle": "{n} not recorded", "older": "{n} unknown"},
+    "copy.tally_listed":     {"early": "{n} listed", "middle": "{n} listed", "older": "{n} listed"},
+    "copy.sort_by":          {"early": "Sort by", "middle": "Sort by", "older": "Sort by"},
     "copy.to_finish_by_tomorrow": {"early": "to finish by tomorrow", "middle": "to finish by tomorrow", "older": "to finish by tomorrow"},
     "copy.more_on_list":     {"early": "{n} more on the list", "middle": "{n} more on the list", "older": "{n} more on the list"},
     "copy.of_them_planned":  {"early": "{n} planned", "middle": "{n} planned", "older": "{n} planned"},

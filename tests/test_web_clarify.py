@@ -97,7 +97,7 @@ def test_a_young_readers_table_row_says_what_their_plan_says(tmp_path):
     c = client_with_grades(tmp_path, Sam=5, Alex=9)                 # early and older tiers
     sam = c.get("/kids/Sam?show=all").text
     quiz = sam[sam.index("Safety quiz"):]
-    where = re.search(r'<td class="where[^"]*">([^<]+)', quiz).group(1).strip()
+    where = re.search(r'<span class="when word[^"]*">([^<]+)', quiz).group(1).strip()     # the sheet's word on the line
     assert where == "Marked zero - ask about it", where
     assert "· Canvas" not in where
     # A parent's column keeps the grade and its source; the verdict's own phrase still wins.

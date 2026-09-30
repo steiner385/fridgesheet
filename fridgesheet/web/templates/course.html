@@ -45,8 +45,8 @@
 <section class="sec"><div class="sec-head"><h3>Items</h3></div>
 <div id="items">
 {% block partial %}
-{# This page has no question cards; the tag on a row with a question opens the kid page's. #}
-{% set q_base = "/kids/" ~ (student.key | urlencode) %}
+{# This page has no question cards; the tag on a row with a question opens the kid page's line. #}
+{% set q_base = "/kids/" ~ (student.key | urlencode) %}{% set q_anchor = "row" %}
 {% include "_item_rows.html" %}
 {% endblock %}
 </div>

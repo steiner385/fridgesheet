@@ -31,7 +31,8 @@ def test_the_answered_line_names_the_answer(tmp_path):
 def test_answering_updates_the_row_the_heading_and_the_counts(tmp_path):
     c, pid = _setup(tmp_path, "Participation")
     body = c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""}).text
-    row = re.search(r'<template>\s*<tr id="row-%d"[^>]*hx-swap-oob="true">(.*?)</tr>\s*</template>' % pid, body, re.S)
+    # The swap names a table row, so the same id on Assignments (a week's line) keeps its state.
+    row = re.search(r'<template>\s*<tr id="row-%d"[^>]*hx-swap-oob="outerHTML:tr#row-%d">(.*?)</tr>\s*</template>' % (pid, pid), body, re.S)
     assert row and "Marked done on" in row.group(1) and "question" not in row.group(1)
     assert re.search(r'<span id="qcount-Alex" class="count" hx-swap-oob="true"></span>', body)
     assert re.search(r'<h3 id="q-head" hx-swap-oob="true">No more questions about', body)
@@ -54,7 +55,7 @@ def test_an_asked_item_keeps_its_date_and_email_everywhere(tmp_path):
     conn.close()
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
-    waiting = kid[kid.index("Waiting"):kid.index('id="items"')]
+    waiting = kid[kid.index("Waiting, nothing to do yet"):]          # the fold under the weekly pages
     assert "Participation" in waiting and "Asked the teacher on 9/15" in waiting and "mailto:hoch@example.org" in waiting
     q = c.get("/questions").text
     assert "Waiting on the teacher" in q and "Participation" in q

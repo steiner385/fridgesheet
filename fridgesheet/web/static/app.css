@@ -432,6 +432,8 @@ textarea { border: 1px solid var(--control); }
    question card, where there is no row to fold away. */
 .close-detail { display: none; }
 tr.detail .close-detail { display: inline-block; float: right; }
+/* A detail that took a line's or a card's place closes by fetching it back (#126). */
+.close-detail[hx-get] { display: inline-block; }
 .note-edit { display: inline; }
 .note-edit[open] { display: block; }
 .flagmenu fieldset { border: 0; padding: 0; margin: 0; }
@@ -730,4 +732,41 @@ details.mf-fold > .mf-section { margin-top: var(--s2); }
 }
 @media (pointer: coarse) {
   .day-box > .links a { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* Assignments as the weekly pages (the surface brief for kid.html, seed d4a7b45f): one printed
+   week box per week the work was due, the newest first, this week's word on the highlighter;
+   a week with nothing open folds to its label line. The sort keys are a run-in line above. */
+.sort { margin: 0; padding: var(--s2) 0 var(--s3); font-size: var(--type-small); color: var(--muted); }
+.sort a[aria-current] { color: var(--ink); font-weight: 650; text-decoration: none; }
+.sort .arrow { width: .6em; height: .6em; vertical-align: middle; color: var(--muted); }   /* drawn in the pencil stroke */
+/* The view as words: the chosen one in ink, the other a ballpoint link, no pill and no fill. */
+.all-work .seg.words { gap: var(--s2); align-items: baseline; }
+.all-work .seg.words label { background: none; border: 0; padding: 0; font-size: inherit; color: var(--accent); text-decoration: underline; }
+.all-work .seg.words label:has(input:checked) { background: none; border: 0; color: var(--ink); font-weight: 650; text-decoration: none; }
+.all-work .seg.words label:has(input:focus-visible) { outline-offset: 2px; }
+/* The pages sit on the ruling with room between them for it to show (finish review 2026-09-30). */
+.pages { padding-bottom: var(--s4); }
+.weeks { display: grid; gap: var(--s5); max-width: 1100px; }              /* the planner's measure */
+.week > .empty-week { margin: var(--s2) 0; }
+/* A line's prose keeps to the reading measure inside the wide box; the word stays at the right. */
+.week .item > p, .week .item > div > .ask-line, .week .item > .facts { max-width: var(--measure); }
+.week.current > h4 > .week-word { background: var(--hl-due); color: var(--ink); padding: 0 .35em; border-radius: 2px; }
+.week > h4 .tally, .week > summary > h4 .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* A folded week is its label alone: the box closes on the rule under the label. */
+details.week > summary > h4 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+details.week > summary { list-style: none; cursor: pointer; }
+details.week > summary::-webkit-details-marker { display: none; }
+details.week > summary > h4::before { content: "▸ "; }
+details.week[open] > summary > h4::before { content: "▾ "; }
+details.week:not([open]) { padding-bottom: 0; }
+details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
+/* The day rows inside a week: a smaller day label in the same pencil, the lines under it. */
+.week > .day { margin: var(--s3) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.week > .day + .item { border-top: 1px solid var(--rule); }
+.week > .item:last-child { border-bottom: 0; }
+@media (pointer: coarse) {
+  .sort a { min-height: 44px; display: inline-flex; align-items: center; }
+  /* The class under a line is a secondary link: WCAG 2.5.8's 24px floor, with padding (PRODUCT.md). */
+  .item-head .meta a { display: inline-block; padding-block: 3px; min-height: 24px; }
 }

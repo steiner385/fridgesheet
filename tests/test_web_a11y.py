@@ -92,17 +92,35 @@ def test_notes_have_a_label_and_edit_in_place_with_the_text_already_there(tmp_pa
 
 # --- #53: the table at zoom, the sort headers, the detail rows ----------------------------------
 
+def _course(tmp_path) -> int:
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
+    conn.close()
+    return cid
+
+
 def test_sort_links_keep_an_id_and_inactive_headers_say_so(tmp_path):
-    seed(tmp_path).close()
-    head = re.search(r"<thead>(.*?)</thead>", app_for(tmp_path).get("/kids/Alex?sort=due").text, re.S).group(1)
-    assert 'id="sort-due"' in head and 'id="sort-name"' in head
-    assert head.count('aria-sort="none"') == 2
-    assert re.search(r'<span class="arrow" aria-hidden="true">', head)
+    """The kid page sorts from a run-in line (the weekly pages); the class page keeps its
+    column headers. Both name the active key for a screen reader."""
+    cid = _course(tmp_path)
+    c = app_for(tmp_path)
+    line = re.search(r'<p class="sort"[^>]*>(.*?)</p>', c.get("/kids/Alex?sort=due").text, re.S).group(1)
+    assert 'id="sort-due"' in line and 'id="sort-name"' in line
+    assert line.count('aria-current="true"') == 1
+    assert re.search(r'<svg class="arrow (?:up|down)" aria-hidden="true"', line)
+    head = re.search(r"<thead>(.*?)</thead>", c.get(f"/kids/Alex/courses/{cid}?sort=due").text, re.S).group(1)
+    assert 'id="sort-due"' in head and head.count('aria-sort="none"') == 2
 
 
 def test_detail_rows_are_hidden_until_opened_and_links_say_so(tmp_path):
-    seed(tmp_path).close()
-    body = app_for(tmp_path).get("/kids/Alex?show=all").text
+    """On the kid page a line's name opens the record in place of the line (the weekly
+    pages); on the class page the record still opens in a hidden row under it."""
+    cid = _course(tmp_path)
+    c = app_for(tmp_path)
+    kid = c.get("/kids/Alex?show=all").text
+    assert re.search(r'<a href="#row-(\d+)" hx-get="/items/\1\?card=row-\1" hx-target="#row-\1" hx-swap="outerHTML"', kid)
+    assert "tr.detail" not in kid
+    body = c.get(f"/kids/Alex/courses/{cid}").text
     assert re.search(r'<tr class="detail" hidden>', body)
     assert not re.search(r'<tr class="detail">', body)
     assert re.search(r'hx-target="#detail-\d+"[^>]*aria-expanded="false"', body) or \
@@ -119,8 +137,8 @@ def test_the_detail_card_can_be_closed(tmp_path):
 
 
 def test_the_table_scrolls_inside_its_own_box_at_any_width(tmp_path):
-    seed(tmp_path).close()
-    assert '<div class="table-wrap">' in app_for(tmp_path).get("/kids/Alex").text
+    cid = _course(tmp_path)
+    assert '<div class="table-wrap">' in app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
     assert re.search(r"\.table-wrap\s*\{[^}]*overflow-x:\s*auto", CSS)
 
 
