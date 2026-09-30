@@ -11,7 +11,9 @@
    late_line true: append the late-credit sentence    stamp    provenance for the foot's right
    linked    the name links to the row on Assignments plan_state  appended to the Plan-a-step link
    earlier   completed steps on this item             exclude, first   for _answers.html
-   detail: card, item_history, notes, message         question: reopened, undone #}
+   detail: card, item_history, notes, message         question: reopened, undone
+   read_only true (Open work, the sheet on a screen): no ask line and no answers; a question is
+             a "question" link in the meta to the page that asks (`q_base`, #85). #}
 {# `voice`: the includer's tier for everything this surface says (Today speaks as the parent,
    whatever the child's tier); otherwise the child's own. The sheet's word arrives already said. #}
 {% set tier = voice if voice is defined else ((student.key | tier_of) if student is defined and student else "") %}
@@ -23,6 +25,7 @@
 {# An agreed step means the question is being handled: it is not asked again (`ItemView.asks`);
    the step is written beneath the line instead. #}
 {% set is_q = (vd.state == 'question' and not item.step) or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}
+{% set ro = read_only is defined and read_only %}{% set show_ask = is_q and not ro %}
 {% set tone = tone if tone is defined and tone else ('ask' if is_q else 'grey' if vd.state == 'waiting' else '') %}
 {% set has_word = word is defined and word %}
 {% set at = (item | due_at(tier)) if item.due else '' %}
@@ -46,28 +49,32 @@
      Assignments); `linked`: the name goes to that line. `class_link`: the class is a link to its
      page. `due_meta`: the includer's own words for when it is due, in place of the date ("" for none). #}
   {% set due_shown = due_meta if (due_meta is defined and due_meta is not none) else due_text %}
-  <div class="item-head"><span class="name">{% if opens_detail is defined and opens_detail %}<a href="#{{ box }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML" data-focus-target>{{ item.name }}</a>{% elif linked is defined and linked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ item.id }}" data-focus-target>{{ item.name }}</a>{% else %}<b tabindex="-1" data-focus-target>{{ item.name }}</b>{% endif %}</span><span class="meta">{% if class_link is defined and class_link %}<a href="/kids/{{ student.key | urlencode }}/courses/{{ item.course_id }}">{{ item.course_short }}</a>{% else %}{{ item.course_short }}{% endif %}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}{% if due_shown and not date_at_right %} · {{ due_shown }}{% elif not item.due %} · no due date listed{% endif %}{% if flag_badge is defined and flag_badge %} <span class="badge flag" title="{{ item.flag_text }}">{{ flag_badge }}</span>{% endif %}{% if badges is defined %}{% for b in badges %} <span class="badge">{{ b }}</span>{% endfor %}{% endif %}</span><span class="when{{ ' word' if has_word }}{{ ' ' ~ word_tone if has_word and word_tone is defined and word_tone }}">{{ when_text }}</span>{% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>
+  <div class="item-head"><span class="name">{% if opens_detail is defined and opens_detail %}<a href="#{{ box }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML" data-focus-target>{{ item.name }}</a>{% elif linked is defined and linked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ item.id }}" data-focus-target>{{ item.name }}</a>{% else %}<b tabindex="-1" data-focus-target>{{ item.name }}</b>{% endif %}</span><span class="meta">{% if class_link is defined and class_link %}<a href="/kids/{{ student.key | urlencode }}/courses/{{ item.course_id }}">{{ item.course_short }}</a>{% else %}{{ item.course_short }}{% endif %}{% if item.kind in ('paper', 'in class') %} · {{ item.kind }}{% endif %}{% if item.points %} · {{ item.points | round(1) | string | replace('.0', '') }} pts{% endif %}{% if due_shown and not date_at_right %} · {{ due_shown }}{% elif not item.due %} · no due date listed{% endif %}{% if flag_badge is defined and flag_badge %} <span class="badge flag" title="{{ item.flag_text }}">{{ flag_badge }}</span>{% endif %}{% if ro and is_q %} <a class="badge" href="{{ q_base | default('') }}#q-{{ item.id }}" aria-label="Question about {{ item.name }}">question</a>{% endif %}{% if badges is defined %}{% for b in badges %} <span class="badge">{{ b }}</span>{% endfor %}{% endif %}</span><span class="when{{ ' word' if has_word }}{{ ' ' ~ word_tone if has_word and word_tone is defined and word_tone }}">{{ when_text }}</span>{% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>
   {% if message is defined and message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
   {% set late = (late_line is defined and late_line and item.open_in and item.due and item.late_until) %}
-  {% if says is defined and says %}<p class="facts">{{ says }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
-  {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
-  {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}</p>
-  {% elif late %}<p class="facts">{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}</p>{% endif %}
+  {# When credit ends: the app's sentence on a working page; on a read-only page the sheet's own
+     sub-line form, "until Wed 10/7", in pencil after the facts (finish review 2026-09-30). #}
+  {% set until %}{% if late %}{% if ro %}<span class="until muted">{{ 'copy.until' | say(tier, {'when': item.late_until | wd_md}) }}</span>{% else %}{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}{% endif %}{% endset %}
+  {% if says is defined and says %}<p class="facts">{{ says }}{% if late %} {{ until }}{% endif %}</p>
+  {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ until }}{% endif %}</p>
+  {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ until }}{% endif %}</p>
+  {% elif late %}<p class="facts">{{ until }}</p>{% endif %}
   {# A row that is not a question but offers the plan answers gets the plan's own prompt above
      them, so "Do it today" follows a sentence that asked (critique 2026-09-29). Its class is
      not the verdict's `ask-line` alone: the rail counts those as questions. A grey row
      (waiting) offers no plan answers and gets no prompt. #}
   {# `only_asked` (a week's line on Assignments): a line that is not a question offers nothing
      here; its foot's "Plan a step" is the way to plan it, so the school's list is not a form. #}
-  {% set offers = vd.answers and not (only_asked is defined and only_asked and not is_q) %}
+  {% set offers = vd.answers and not ro and not (only_asked is defined and only_asked and not is_q) %}
   {% set plan_ask = (not is_q) and has_word and tone != 'grey' and offers and not item.step %}
-  {% if box == qid %}{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
-  {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a></p>{% endif %}
+  {% if box == qid %}{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
+  {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }}{% if not ro %} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a>{% endif %}</p>{% endif %}
   {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
   {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}
   {% if item.latest_note %}<p class="ours">{{ 'copy.note_on' | say(tier, {'when': item.latest_note.at | wd_md}) }}: {{ item.latest_note.body }}</p>{% endif %}
   {% if is_detail %}{% include "_record.html" %}{% endif %}
-  <div class="item-foot">{% if not is_detail %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_record.html" %}</details>{% endif %}
+  {# A read-only line (Open work) has no foot: the name is the one way into the record. #}
+  {% if not ro %}<div class="item-foot">{% if not is_detail %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_record.html" %}</details>{% endif %}
     {% if is_detail %}{% if item_history is defined and item_history %}<details class="history"><summary>{{ 'copy.history' | say(tier, {'n': item_history | length}) }}</summary><ul>{% for e in item_history %}<li><span class="muted">{{ e.at | wd_md_time }}</span> · {{ e.label }}{% if e.source %} <span class="muted">({{ 'HAC' if e.source == 'hac' else 'Canvas' }})</span>{% endif %}{% if e.detail %}: {{ e.detail }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
     <details class="notes-fold"{{ ' open' if notes is defined and notes }}><summary>{{ 'copy.notes' | say(tier, {'n': (notes | length) if notes is defined else item.notes}) }}</summary>{% set target_type = "item" %}{% set target_id = item.id %}{% include "_notes.html" %}</details>
     {% elif box == qid %}<a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML">{{ 'copy.notes' | say(tier, {'n': item.notes}) }}</a>{% endif %}
@@ -75,6 +82,6 @@
     {% if is_detail %}<details><summary>More</summary>{% include "_flag_menu.html" %}</details>{% endif %}
     {% if stamp is defined and stamp %}<span class="stamp">{{ stamp }}</span>{% endif %}
     {# A record is tall on a phone; Close is at its foot as well as its head (re-critique 2026-09-30). #}
-    {% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>
+    {% if is_detail %}<button type="button" class="link close-detail" data-close-detail{% if card is defined and card %} hx-get="/items/{{ item.id }}/question?slot={{ card }}" hx-target="#{{ card }}" hx-swap="outerHTML"{% endif %} aria-label="Close {{ item.name }}">Close</button>{% endif %}</div>{% endif %}
 </div>
 {% endif %}

@@ -64,14 +64,14 @@ def test_open_page_shows_each_kid_in_two_sections(tmp_path):
     # Alex's still-fixable rows, soonest-closing window first, each saying when it closes.
     assert alex < body.index("Participation") < body.index("Lab notebook") < sam
     assert "Quiz 1" not in body[alex:sam]                              # settled by HAC's grade
-    assert "thru Tue 9/22" in body and "thru Thu 9/24" in body
+    assert "Until Tue 9/22" in body and "Until Thu 9/24" in body      # the sheet's until sub-line on each fixable line
     # Coming due, by due date, inside Alex's section.
     assert alex < body.index("Vocabulary") < body.index("Worksheet 3") < body.index("Reading log") < sam
     assert "Essay draft" not in body                                  # submitted: nothing to do
     # The trailer counts what the tables leave out, the way the sheet does, and links to it.
     assert "Not shown:" in body
     assert 'href="/kids/Alex?show=past_window">1 past the late-work window or more than 14 days overdue (10 pts)</a>' in body
-    # Sam has nothing coming due, and says so rather than showing an empty table.
+    # Sam has nothing coming due, and says so rather than showing an empty half.
     assert body.index("Cell diagram") > sam and body.index("Safety quiz") > sam
     assert "Nothing coming due" in body
 
@@ -101,7 +101,7 @@ def test_days_ahead_setting_governs_the_web_window(tmp_path):
 
 def test_the_credit_text_reaches_the_page_and_the_column(tmp_path):
     """`credit` is the parent's own words next to a late-work rule -- "50% after Friday" --
-    and the Credit thru column exists to show them.
+    and the printed sheet's until sub-line carries them (the page's line says the date alone).
 
     The default `Rule()` carries no credit text, so every other test here asserts `credit ==
     ""` and would pass just as well if `credit` were never threaded into `ItemView` at all.

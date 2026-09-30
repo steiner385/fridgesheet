@@ -79,7 +79,7 @@ def test_the_school_evidence_changed_note_is_the_apps_inference_and_not_red():
 
 @pytest.mark.parametrize("selector, factor", [
     ("main h3", "1.125"), (".sec-head h3, details.sec > summary h3", "1.125"),
-    (".page-head h2", "1.5"), (".sec-head h3.kid-head", "1.375"), (".card h3.report-title", "1.25"),
+    (".page-head h2", "1.5"), (".card h3.report-title", "1.25"),
 ])
 def test_a_heading_steps_up_from_the_tiers_root(selector, factor):
     assert re.search(r"font-size: calc\(var\(--type-root\) \* " + re.escape(factor) + r"\)", _rule(selector)), selector

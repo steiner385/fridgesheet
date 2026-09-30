@@ -79,4 +79,4 @@ def test_a_grade_on_the_open_page_names_its_gradebook(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
     sam = body[body.index('id="Sam"'):]
-    assert "0/10 · Canvas" in sam            # the row's verdict names the gradebook it read (#85)
+    assert "Canvas shows 0 of 10." in sam    # the line's facts name the gradebook the zero came from (#85)

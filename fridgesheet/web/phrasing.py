@@ -193,6 +193,7 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.late_until":       {"early": "The school usually still takes late work until {when}. Ask the teacher if you need more time.",
                               "middle": "The school usually accepts late work until {when} (from your late-work rules). Ask the teacher if you need longer.",
                               "older": "Late work is usually accepted until {when} (from your late-work rules). Ask the teacher if you need longer."},
+    "copy.until":            {"early": "until {when}", "middle": "until {when}", "older": "until {when}"},   # the sheet's sub-line: the last day the teacher still takes it (Open work)
     "copy.browse_all_link":  {"early": "Browse all work", "middle": "Browse all work", "older": "Browse all work"},
     "copy.browse_all_rest":  {"early": "to plan something outside this list.", "middle": "to plan something outside this list.",
                               "older": "to plan something outside this list."},
