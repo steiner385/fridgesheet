@@ -219,16 +219,46 @@ components:
     backgroundColor: "{colors.planner-white}"
     textColor: "{colors.ink}"
     padding: "12px 16px"
-  nav-link:
-    backgroundColor: "{colors.paper-white}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    padding: "6px 8px"
-  nav-link-current:
+  rail-tab:
     backgroundColor: "{colors.planner-white}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    padding: "6px 8px"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "6px 12px"
+  rail-tab-current:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "6px 12px"
+  rail-fold:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "6px 12px"
+  rail-group:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.day-label}"
+    padding: "16px 0 4px"
+  child-tab:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "10px 14px"
+  child-tab-current:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.subtitle}"
+    rounded: "{rounded.planner}"
+    padding: "10px 14px"
+  status-line:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.label}"
+    padding: "12px 24px 8px"
   chooser-button:
     backgroundColor: "{colors.paper-white}"
     textColor: "{colors.ink}"
@@ -288,7 +318,9 @@ components:
 
 <!-- Captured by /impeccable document on 2026-09-29 (Assignments added 2026-09-30; the extract
      step recorded 2026-09-30; the polish after the re-critique of 2026-09-30 recorded the same
-     day from the build, snapshots in .impeccable/critique/2026-09-30T03-23-44Z__*) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     day from the build, snapshots in .impeccable/critique/2026-09-30T03-23-44Z__*; the shell
+     recorded 2026-09-30 from base.html, _header.html, _child_nav.html, app.css and app.js after
+     the finish review's three fixes, renders in .impeccable/review/shell-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -296,8 +328,8 @@ components:
      assignments-desktop / -mobile / -kid-early-mobile / -folded-desktop), fridgesheet/sheet.py
      and fridgesheet/web/charts.py. Scan mode: this records The Student Planner as it shipped on a
      child's Plan page (seed 5d8bc5ca), on Today (seed 484d9aac, "the week strip") and on a
-     child's Assignments page (seed d4a7b45f, "the weekly pages"), and the incumbent shell as it
-     still stands on the other pages. Where the build departs from the direction contract, the
+     child's Assignments page (seed d4a7b45f, "the weekly pages"), and the shell as the planner's
+     index tabs (surface brief .impeccable/surfaces/fridgesheet-web-templates-base-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -320,9 +352,13 @@ phone at night, so density and vocabulary flex through three reading tiers while
 rows and the actions never do. The world arrived on the child's Plan page first (2026-09-29,
 Impeccable's pick over The Teacher's Gradebook, seed 5d8bc5ca), Today followed the same day as
 the family's planner week (seed 484d9aac), a child's Assignments page followed as the planner
-turned back a week at a time (2026-09-30, seed d4a7b45f), and the item line carried it to every
-page; the shell around the remaining pages (a class's page, Open work, Settings, Reports, the
-rail) still stands in its incumbent ledger composition on the planner's paper.
+turned back a week at a time (2026-09-30, seed d4a7b45f), the item line carried it to every
+page, and the shell followed the same day as the planner's edge (the maintainer's pick of three
+shell forms, "the planner's index tabs"): the pages are index tabs down the rail, the current one
+pulled forward onto the page, the status is the page's ruled "as of" line in pencil, and a child's
+three pages are the same tabs turned sideways. A class's page, Open work, Settings, Reports and
+the other parent tools now sit inside the planner's shell but keep their own incumbent content
+(cards, tables, chips) until each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -333,8 +369,12 @@ and colour used as the only carrier of meaning.
 - The day box is the only box on the planner; a line has no border, no left rule and no fill.
 - Status is a word in a colour, carried as a highlighter stroke in that colour's family, never a
   colour alone and never a filled button.
-- One accent (ballpoint blue) for links, the default answer's stroke, the current tab, the focus
-  ring and, elsewhere in the app, the page's single filled action.
+- One accent (ballpoint blue) for links, the default answer's stroke, the question count beside
+  a tab, the focus ring and, elsewhere in the app, the page's single filled action.
+- The shell is the planner's edge: the pages are index tabs down a planner-white rail with the
+  day-box rule as its edge, no fill and no pill at rest, the current one paper white with the box
+  rule on three sides and open toward the page; on a phone one ruled row with a Menu fold whose
+  tabs wrap beneath it.
 - Three reading tiers redefine every token together, so the youngest reader gets a larger,
   warmer, higher-contrast page with the same rows.
 - Flat at rest, with one motion: 180ms ease-out on the checkbox fill and the strike.
@@ -365,8 +405,9 @@ three `[data-tier]` lines of `app.css` are generated from it by `scripts/tokens_
 a word is the same red, amber, blue or purple on the fridge as on the screen.
 
 ### Primary
-- **Ballpoint Blue** (#1f5fa8): links, the default answer's 2px stroke, the current child tab's
-  underline, the focus ring, the current filter chip, and the one filled primary button on the
+- **Ballpoint Blue** (#1f5fa8): links (the status line's Update and running-job words among
+  them), the default answer's 2px stroke, the question count beside a tab, the focus ring, the
+  current filter chip, and the one filled primary button on the
   pages that have one ("Print now" on Today, "Finish check-in" on Check-in). On the Plan and on
   Assignments nothing is filled blue: the primary lives on the check-in page, and the Open /
   Everything choice on Assignments is words, the unchosen one a Ballpoint Blue link. As the sheet's DUE word it sits on
@@ -398,7 +439,8 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 ### Neutral
 - **Ink** (#1c1c1c): all body text and headings. Early #10151b, middle #161b22.
 - **Pencil Grey** (#595959): the family's own writing and everything secondary: the steps under
-  "Our next steps", meta lines, the day-box label, the status bar, stamps, quiet section heads, a
+  "Our next steps", meta lines, the day-box label, the status line, the rail's group names and
+  its App / More fold tabs and the Menu tab's marker, stamps, quiet section heads, a
   struck-through name, the "nothing due tonight" line (and the day pair's "Nothing due tonight
   or tomorrow" on a phone), the week strip's per-child counts and the
   family line in a kid's day box on Today; on Assignments the sort line and its drawn chevron,
@@ -407,15 +449,18 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 - **Stroke Grey** (#8a8a8a): the 1px stroke on buttons, selects and inputs, so a control reads as
   a control against the planner's lighter rules.
 - **Ruled Grey** (#c9d3dd; `--rule`): the planner's blue-grey hairline under every line, the card
-  and table borders, the rail's edge and, at 40% over transparent, the faint ruling behind the
-  planner page. Early #b9c6d4, middle #ccd5de.
+  and table borders, the status line's hairline, the hairline the state line under the child
+  tabs closes on and, at 40% over transparent, the faint ruling behind the planner page. Early #b9c6d4, middle #ccd5de.
 - **Day-box Blue-grey** (#8fa3b8; `--box`): the printed rule. The 1.5px border of a day box and
-  its label's underline, the 2px stroke of an untoned checkbox, the ruled header line under the
-  child tabs and under "Our next steps". Darker than Ruled Grey so a box reads as printed on the
+  its label's underline, the 2px stroke of an untoned checkbox, the rail's edge (its right edge
+  beside a page, its bottom edge on a phone), the three sides of the current index tab and of
+  the current child tab, the rule the child tabs stand on, the ruled header line in kid mode
+  (where there are no tabs) and under "Our next steps". Darker than Ruled Grey so a box reads as printed on the
   page rather than ruled into it. Early #7f95ad, middle #8aa0b5.
-- **Paper White** (#ffffff): a day box, a card, a table, an input, the rail, the empty checkbox.
-- **Planner White** (#fffdf6; `--wash`): the page itself, warm; the hover on a nav link or
-  button, an inset quoting the record, a badge's fill, the sticky save bar. Early #fffaee, middle
+- **Paper White** (#ffffff): a day box, a card, a table, an input, the current index tab pulled
+  forward from the rail and the current child tab, the empty checkbox.
+- **Planner White** (#fffdf6; `--wash`): the page itself and the rail, warm; the hover on a
+  button (a tab underlines instead), an inset quoting the record, a badge's fill, the sticky save bar. Early #fffaee, middle
   #fffcf4: a touch warmer for the younger tiers.
 - **Red Pen Wash** (#fdecea; `--warn-wash`): the fill behind a warn notice or the stale banner,
   always with Red Pen text.
@@ -488,9 +533,11 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
   (older), 18px (middle) and 20px (early), and every rem-free size below follows. The ruled header
   line and a line's facts, ask line and answers are body size.
 - **Label** (400, 13px, `--type-small`): meta lines (class · points · due), the step under a
-  line, the foot links, the status bar, badges, chips, the record inset. Tiers raise it to 15px
+  line, the foot links, the status line, badges, chips, the record inset. The rail's tabs are
+  body size, not label size: a page's name is not a meta line. Tiers raise it to 15px
   (middle) and 16px (early) so the lines a child is asked to judge are never the smallest text.
-- **Day label** (650, `--type-small`, .08em tracking, uppercase, Pencil Grey): "DUE TONIGHT",
+- **Day label** (650, `--type-small`, .08em tracking, uppercase, Pencil Grey): the rail's group
+  names (WORK, TIME, APP) and "DUE TONIGHT",
   "DUE TOMORROW", "ON PAPER, NO GRADE YET" along a day box's top edge; on Today a kid's name and
   "· BY TOMORROW" along their box's edge (the name a link in the label's own grey), and the week
   strip's day word and date, and on Assignments a week's label ("THIS WEEK · MON 9/28", "WEEK
@@ -531,15 +578,23 @@ refresh.
 
 ## Layout
 
-One shell, one content column. On a wide screen a 220px rail sits at the left with the wordmark and
-navigation; the status bar, an optional stale banner and the page stack in the second column. Under
-1024px the rail becomes one horizontal strip that scrolls sideways under a right-edge fade, group
-labels dropped; a kid-mode strip is short (Plan, Check-in, Assignments, Trends, Changes, Not
-{name}?) so it wraps onto a second row with no fade and every tab in the first viewport. A phone
-held sideways puts the strip and the status bar on one row. Under 1280px the status bar drops its
-two reassurance items and two-column workspaces such as the check-in stack.
+One shell, one content column. On a wide screen a 220px rail (`.rail`) sits at the left on
+Planner White with the 1.5px Day-box rule as its right edge, holding the wordmark and the pages as
+index tabs; the status line, an optional stale banner and the page stack in the second column.
+Under 1024px (the sidecar keeps the breakpoint's old name, `strip`) the rail is one ruled row
+with the 1.5px Day-box rule beneath it: the mark and the wordmark at the left, Menu at the right
+as a 44px tab; open, the tabs wrap beneath the row as a list (`.rail nav { display: flex;
+flex-wrap: wrap }`), group names dropped, and a fold in the row (the family's App, the kid's More)
+is `display: contents` with its summary one more tab in the row and its contents wrapping
+beneath. Nothing scrolls sideways and there is no fade. The Menu is `details.rail-menu[data-phone-fold]`
+shipped open, its summary hidden beside a sidebar; `app.js` closes every
+`details[data-phone-fold][open]` under 1024px on load, so the page works without script and a
+phone starts folded. Kid mode's row hides the wordmark (`.rail:has(nav.kid) .brand-name`) and
+shows Plan, Assignments and More beside the mark, "Not Sam?" appearing with the fold's contents.
+A phone held sideways puts the row and the status line on one row. Under 1280px the status line
+drops its two reassurance items and two-column workspaces such as the check-in stack.
 
-Every page is the same blocks in the same order: status bar, page head (crumb, title in the rail
+Every page is the same blocks in the same order: status line, page head (crumb, title in the rail
 link's words, actions at the right, one intro sentence bounded to the measure), notices, then the
 content column, a ceiling of 1600px with 24px gutters (16px under the strip). The content column is
 a stack of sections 32px apart. A section is an h3, a count, one lead sentence and its own controls
@@ -548,9 +603,11 @@ one quiet line at body size ("Completed steps · nothing here yet"), its marker 
 off. Under the strip a page action ("Print plan") and a section's control ("Check Canvas again",
 "Add a step") are text links, not boxes between the title and the first line.
 
-**The planner spread** (a child's Plan and Check-in): under the child tabs one ruled header line
-(the last check-in, its dates bold, what was agreed in Pencil Grey) with a 1.5px Day-box rule
-beneath. Then "Must finish" and its spread: a two-column grid with 16px gaps in which Tonight and
+**The planner spread** (a child's Plan and Check-in): the child tabs standing on a 1.5px Day-box
+rule, then one state line (the last check-in, its dates bold, what was agreed in Pencil Grey)
+closing on a 1px Ruled Grey hairline (`.child-nav + .tab-hint`); in kid mode, where the rail is
+the child's tabs and the page has none, the same line keeps the 1.5px rule as the ruled header
+line. Then "Must finish" and its spread: a two-column grid with 16px gaps in which Tonight and
 Tomorrow are day boxes side by side, printed whether or not anything is in them, and every other
 section (Later, Overdue but still fixable, On paper, Waiting) takes the full width beneath as a
 box of its own; under 1024px the grid is one column, Tonight first, and when Tonight and Tomorrow are both
@@ -620,7 +677,9 @@ is one box under a hairline and the header row becomes a row of sort links. A qu
 
 Flat at rest. Depth comes from paper on paper and from rules: a Paper White day box printed with a
 1.5px Day-box rule on the Planner White page, the faint ruling behind the page, a hairline under
-each line, an inset in the wash inside a box. No shadow exists anywhere in the shipped stylesheet.
+each line, an inset in the wash inside a box. The one `box-shadow` in the shipped stylesheet is
+not a lift: the current child tab's `0 1.5px 0 var(--paper)` is a paper eraser laid over the rule
+the tabs stand on, exactly the rule's own width and no blur, so the tab opens onto the page.
 
 The maintainer has opened the door to subtle elevation *(2026-09-29)*: a light ambient shadow may
 lift the few things that float over content, namely the sticky Save bar and check-in halves bar,
@@ -638,21 +697,23 @@ never a way to make a card look important.
 
 **The Only-Box Rule.** On the planner the day box is the only box. A line has no border, no left
 rule and no fill of its own; its tone is the colour of its checkbox's rule and of the highlighted
-word, nothing else. Cards remain the container on the pages that still carry the incumbent shell.
+word, nothing else. Cards remain the container on the pages whose content is still the incumbent
+composition (a class's page, Open work, Settings, Reports) inside the planner's shell.
 
 ## Shapes
 
 Printed stationery. The planner's corners are near-square (2px): the day box, the 18px checkbox
-with its 2px rule, the highlighter stroke, a chart swatch. Controls keep 6px (buttons, inputs,
-selects, nav links, the child tabs' underline has none), 8px on cards, insets and chart holders
+with its 2px rule, the highlighter stroke, a chart swatch, the rail's index tabs and the child
+tabs and the Menu / App / More fold tabs. Controls keep 6px (buttons, inputs, selects), 8px on cards, insets and chart holders
 (`--radius`), 10px pills on badges, chips and chart-key buttons, 12px on the kid chooser's large
 buttons, 4px on the stale banner. Strokes are 1px Stroke Grey on controls, 1px Ruled Grey on
-hairlines and cards, 1.5px Day-box Blue-grey on the day box, its label's underline and the two
-ruled header lines, 2px on the checkbox and the default answer. The checkbox's tick is drawn, not a
+hairlines and cards, 1.5px Day-box Blue-grey on the day box, its label's underline, the rail's
+edge, the three sides of a current tab, the rule the child tabs stand on and the ruled header
+lines, 2px on the checkbox and the default answer. The checkbox's tick is drawn, not a
 glyph: two sides of a rotated square in Paper White on the green fill. A grey line (nothing to do,
 the school has it) draws its checkbox dashed. The wordmark's mark is a 28px square with 6px
-corners. The two gradients in the system are functional, not decorative: the 32px fade at the
-right edge of the family strip, and the repeating ruling behind the planner page.
+corners. The one gradient in the system is functional, not decorative: the repeating ruling
+behind the planner page (the family strip's right-edge fade went with the strip, 2026-09-30).
 
 ## Components
 
@@ -693,7 +754,9 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   segmented Open/Everything choice and chart-key buttons share it.
 - **State:** the one in force is filled Ballpoint Blue with white text; a linked badge's border
   turns Ballpoint Blue on hover; a chart series toggled off is Pencil Grey, struck through, its
-  swatch at 30%. Outcome badges in the status bar take Checkmark Green or Red Pen text and border.
+  swatch at 30%. In the status line a badge is a word, not a chip (`header.status .badge {
+  border: 0; padding: 0; background: none }`): a run's outcome in Checkmark Green or Red Pen, the
+  update and a running job as plain Ballpoint Blue links.
 - **As words (Assignments):** the Open / Everything choice sheds the pill: "Show" in Pencil Grey,
   the chosen word in Ink at 650 with no underline, the others Ballpoint Blue underlined links,
   8px apart; the radio stays hidden behind each word and the focus ring sits 2px out. A page in
@@ -756,31 +819,63 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
 - **Error / Disabled:** no distinct field error style; errors are said in a warn notice.
 
 ### Navigation
-- **Rail (family):** Paper White, 1px Ruled Grey right border, 16px padding. The wordmark (mark
-  plus "Fridge Sheet", 18px) then links at 6px 8px with 6px corners; uppercase 12px Pencil Grey
-  group labels; the current link and hover take the Planner White fill; a question count beside
-  a child's name in Ballpoint Blue 600. On a child's page the rail folds everything but Today and
-  that child under an "App" disclosure.
-- **Kid rail:** that child's five tabs, the question count riding on Plan, and a quiet "Not
-  {name}?" foot link in Pencil Grey label type 24px below.
-- **Strip (under 1024px):** the same links in one row, 8px 10px padding; the family strip scrolls
-  under a right-edge fade, the kid strip wraps.
-- **Child tabs:** 10px 14px Ballpoint Blue links under a hairline; the current one carries a 3px
-  Ballpoint Blue underline and 650 weight.
-- **Ruled header line:** under the tabs, one body-size line in Ink with its dates at 650 and the
-  agreement in Pencil Grey, over a 1.5px Day-box rule; "Our next steps" draws the same rule under
-  its head.
+- **Rail (`.rail`):** Planner White, the 1.5px Day-box rule as its right edge, 16px above, below
+  and at the left, nothing at the right so a tab can reach the edge. The wordmark (the 28px mark
+  with 6px corners plus "Fridge Sheet", 18px) then the pages as tabs. In family mode the tabs sit
+  inside `details.rail-menu[data-phone-fold]`, shipped open, whose Menu summary is not drawn
+  beside a page. On a child's page the rail folds everything but Today and that child under an
+  App fold.
+- **Index tab (`.rail nav a`):** body type in Ink, 6px 12px, a 1.5px transparent border with no
+  right border, 2px corners, margin-right -1.5px so it sits over the rail's edge, no fill at rest;
+  under the pointer the word underlines. A question count rides beside a child's name (or on Plan
+  in kid mode) in Ballpoint Blue 600 at 13px.
+- **Current tab (`.rail nav a.current`):** Paper White with the Day-box rule on its three drawn
+  sides, open toward the page over the rail's edge, so it reads as the tab in front. The tab
+  moves with the page; nothing else in the rail changes.
+- **Group name (`.rail nav .group`):** Day label type (`--type-small`, 650, .08em, uppercase,
+  Pencil Grey), 16px above and 4px below: WORK, TIME, APP.
+- **Fold tab (`.rail nav .rail-more > summary`):** the family's App and the kid's More
+  (`copy.more`) are one more tab in Pencil Grey, 12px above, marker hidden, a text ▸ (▾ open)
+  spaced .3em before the word, underline on hover; open, the rest (`.rail-rest`) unfolds beneath.
+  In kid mode More holds Check-in, Trends and Changes, opened on the page it holds; Plan and
+  Assignments stand first, and "Not {name}?" is a Pencil Grey label-type foot 24px below.
+- **Phone row (under 1024px):** the rail is one ruled row, `display: flex; flex-wrap: wrap`,
+  8px 16px inside, the 1.5px Day-box rule beneath. The wordmark at the left; Menu at the right
+  (`.rail-menu > summary`: `display: contents` on the fold, the summary an inline-flex 44px tab
+  in Ink, 0 12px, the 2px corner, a Pencil Grey ▸/▾ marker .3em before it, underline on hover,
+  `margin-left: auto`). Open, the nav takes the full row (`flex-basis: 100%`) and the tabs wrap
+  beneath at 8px 10px, each with its 1.5px transparent border; the current tab's border turns
+  Day-box (on a phone the tab is boxed on all four sides: the phone rule resets the border
+  shorthand). Group names are hidden. A fold in the row is `display: contents`: App or More is
+  one more tab in the row and `.rail-rest` wraps beneath at 100%. Kid mode hides the wordmark,
+  lays Plan, Assignments and More in the row beside the mark, and shows "Not Sam?" only with the
+  fold's contents (`.rail nav.kid .rail-more:not([open]) ~ a.foot { display: none }`).
+- **Child tabs (`.child-nav`):** the index tabs turned sideways: three body-type Ink links at
+  10px 14px, 4px apart, each with a 1.5px transparent border and no bottom border, 2px corners,
+  margin-bottom -1.5px, standing on a 1.5px Day-box rule; underline on hover. The current one
+  (`a[aria-current]`) is Paper White at 650 with the Day-box rule on three sides and a paper
+  eraser over the rule beneath (`box-shadow: 0 1.5px 0 var(--paper)`) so it opens onto the page.
+  No blue underline remains.
+- **State line (`.tab-hint`):** under the tabs, one body-size line in Ink with its dates at 650
+  and the agreement in Pencil Grey, 8px above and below, 24px beneath; after the child tabs it
+  closes on a 1px Ruled Grey hairline (`.child-nav + .tab-hint`), and in kid mode, where there
+  are no tabs, it keeps the 1.5px Day-box rule as the ruled header line; "Our next steps" draws
+  the 1.5px rule under its head.
 - **Sort line (Assignments):** one run-in line in Pencil Grey label type, "Sort by" then the three
   keys as links parted by "·"; the active key is Ink at 650 with no underline, followed by a
   drawn chevron (a 10-unit SVG path in the pencil colour at .6em, up or down for the direction)
   that the key's `aria-current` already says in words. 44px tall on a coarse pointer.
 
-### Status bar (signature, incumbent shell)
-One line of Pencil Grey label type under the rail's top edge: when the data was refreshed, each
-source's state in Checkmark Green or Red Pen with the word "OK" or the error, the last run's
-outcome as a badge, a running job, an available update, and the clock. Drops its reassurances on
-narrow screens and never its warnings. Below it, when the data is older than the runner will
-print from, a Red Pen Wash banner with Red Pen text and a "Refresh now" link.
+### Status line (signature, the shell)
+The page's ruled "as of" line (`header.status`): one wrapping line of Pencil Grey `--type-small`
+type, 12px 24px 8px, closing on a 1px Ruled Grey hairline, the first thing written on the page:
+when the data was refreshed, each source's state in Checkmark Green or Red Pen with the word "OK"
+or the error, the last run's outcome as a word in its colour, a running job and an available
+update as plain Ballpoint Blue links (a badge in this line has no border, padding or fill), and
+the clock. Its links are 44px on a coarse pointer. Under 1024px it keeps the shorter texts
+(`.short`) so it is one line at 390px with an update pending; below 1280px it drops its
+reassurances and never its warnings. Below it, when the data is older than the runner will print
+from, a Red Pen Wash banner with Red Pen text and a "Refresh now" link.
 
 ### The sheet strip (signature, Today)
 The sheet's controls as the page's date header: one section ruled above and below with the
@@ -839,7 +934,8 @@ this sheet's spread.
   default answer's 2px stroke; a page keeps at most one filled primary, and the Plan has none.
 - **Do** give every button, control, tab and main link 44px on a coarse pointer (a line's name,
   its foot links, the done-line's Undo, the sort keys, the review line's link, a kid box's three
-  links, the print-controls summary, and a section's link-styled control under the strip); a
+  links, the print-controls summary, the rail's tabs and its App / More / Menu fold tabs, the
+  status line's links, and a section's link-styled control under the strip); a
   secondary link inside a line or card keeps a 24px floor with 3px padding-block (the class in
   a line's meta, a step's Edit, a kid box's name; the maintainer's rule, 2026-09-29, measured at
   18px on the names 2026-09-30), and a checkbox or radio input is 24px.
@@ -870,8 +966,11 @@ this sheet's spread.
 - **Don't** introduce a second value for a status colour. The printed sheet, the charts and the
   page read one source (`fridgesheet/tokens.py`); a colour that differs between the fridge and
   the screen is a bug, not a variant.
-- **Don't** use gradients, glows, or decorative imagery; the only gradients are the strip's fade
-  and the planner's ruling.
+- **Don't** use gradients, glows, or decorative imagery; the only gradient is the planner's
+  ruling.
+- **Don't** give a tab a fill, a pill or a rounded hover at rest, and don't scroll a row of tabs
+  sideways: a tab underlines under the pointer, the current one is pulled forward in Paper White
+  with the Day-box rule, and on a phone the tabs wrap beneath the ruled row behind Menu.
 - **Don't** put a card, a left rule or a box inside a day box; the inset is the one thing quoted
   inside a line.
 - **Don't** hide a row or an action from a child by tier; fold navigation and secondary fields if

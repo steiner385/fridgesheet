@@ -26,7 +26,7 @@ def test_under_the_strip_breakpoint_the_rail_is_a_horizontal_strip_not_a_stack()
     # too, and a tablet held upright; 800px gave the 844px phone a 220px sidebar.
     narrow = _block("max-width: 1023px")
     assert re.search(r"\.rail nav\s*\{[^}]*display: flex", narrow)
-    assert re.search(r"\.rail nav\s*\{[^}]*overflow-x: auto", narrow)
+    assert re.search(r"\.rail nav\s*\{[^}]*flex-wrap: wrap", narrow)          # the tabs wrap under the row behind Menu (the planner's edge, 2026-09-30)
     assert re.search(r"\.rail nav \.group\s*\{[^}]*display: none", narrow), "group labels take a row each"
     assert re.search(r"\.rail nav a\s*\{[^}]*white-space: nowrap", narrow), "a wrapped link breaks the strip"
 

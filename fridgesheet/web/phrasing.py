@@ -216,6 +216,7 @@ PHRASES: dict[str, dict[str, str]] = {
                            "older": "This browser will remember. You can change it any time."},
     "copy.a_grownup":     {"early": "A grown-up", "middle": "A grown-up", "older": "A grown-up"},
     "copy.not_name":      {"early": "Not {name}?", "middle": "Not {name}?", "older": "Not {name}?"},
+    "copy.more":          {"early": "More", "middle": "More", "older": "More"},          # the kid rail's fold (Check-in, Trends, Changes)
     "copy.switch_to_kid": {"early": "Switch to a kid's view", "middle": "Switch to a kid's view", "older": "Switch to a kid's view"},
     # --- the record: what each gradebook holds about one item, as the facts it holds
     # (`_source_facts.html`, and the email to the teacher). One line per source, each a
