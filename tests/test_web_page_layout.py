@@ -173,7 +173,8 @@ def test_the_strip_breakpoint_is_1023():
     narrow = _block("max-width: 1023px")
     assert re.search(r"\.rail nav\s*\{[^}]*display: flex", narrow)
     assert re.search(r"--pad:\s*16px", narrow)
-    assert re.search(r"\.rail::after\s*\{[^}]*linear-gradient", narrow), "the strip needs its fade"
+    assert re.search(r"\.rail-menu > summary\s*\{[^}]*min-height: 44px", narrow), "the phone row folds the tabs behind Menu (the planner's edge, 2026-09-30)"
+    assert ".rail::after" not in narrow                                         # no scrolling strip, no fade
     assert "max-width: 800px" not in CSS
 
 

@@ -121,9 +121,11 @@ def test_a_kids_rail_names_only_their_pages(tmp_path):
     seed(tmp_path).close()
     rail = _rail(_kid(tmp_path).get("/kids/Alex/plan").text)
     links = re.findall(r'<a href="([^"]+)"', rail)
-    # No name link: the name is the page's own heading, so three tabs fit a 390px strip in full
-    # (finish review 2026-09-29); the question count rides on Plan.
-    assert links == ["/", "/kids/Alex/plan", "/kids/Alex/check-in", "/kids/Alex", "/trends?kid=Alex", "/changes?kid=Alex", "/who"]
+    # No name link: the name is the page's own heading; the question count rides on Plan. Plan and
+    # Assignments first, the rest behind More (maintainer, 2026-09-30), nothing removed.
+    assert links == ["/", "/kids/Alex/plan", "/kids/Alex", "/kids/Alex/check-in", "/trends?kid=Alex", "/changes?kid=Alex", "/who"]
+    assert re.search(r'<details class="rail-more"[^>]*>\s*<summary>More</summary>', rail)
+    assert rail.index('<summary>More</summary>') < rail.index('/kids/Alex/check-in') < rail.index('/changes?kid=Alex') < rail.index('</details>')
     assert "Sam" not in rail and "Settings" not in rail and "Today" not in rail and "Questions" not in rail
     assert "Not Alex?" in rail and 'id="qcount-Alex"' in rail and 'id="qcount-all"' not in rail
 

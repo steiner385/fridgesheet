@@ -56,18 +56,28 @@ a { color: var(--accent); }
    stack in one; a phone held sideways puts the strip and the bar on one row (#196). Each is
    placed explicitly so an absent banner leaves an empty row and nothing moves. */
 .shell { display: grid; grid-template-columns: var(--rail) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); min-height: 100vh; }
-.rail { grid-row: 1 / 4; grid-column: 1; background: var(--paper); border-right: 1px solid var(--rule); padding: 16px; }
+/* The shell as the planner's edge (the surface brief for base.html, 2026-09-30): the rail sits on
+   the planner white with the day-box rule as its edge; every page is an index tab, the current
+   one pulled forward in paper white with the box rule on three sides and open toward the page.
+   No rounded hover pills: a tab under the pointer underlines its word. */
+.rail { grid-row: 1 / 4; grid-column: 1; background: var(--wash); border-right: 1.5px solid var(--box); padding: var(--s4) 0 var(--s4) var(--s4); }
 header.status { grid-row: 1; grid-column: 2; }
 p.stale { grid-row: 2; grid-column: 2; }
-.rail h1 { font-size: 18px; margin: 0 0 12px; }
-.rail nav a { display: block; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--ink); }
-.rail nav a.current, .rail nav a:hover { background: var(--wash); }
-.rail nav .group { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
-/* The "App" fold on a child's page (kids' UX audit F5): styled as one more rail link; open,
-   the rest of the rail unfolds beneath it. On the phone strip it and its contents lie flat
-   in the strip, so opening it lengthens the scroll rather than breaking the row. */
-.rail nav .rail-more > summary { padding: 6px 8px; border-radius: 6px; cursor: pointer; margin-top: 12px; color: var(--muted); }
-.rail nav .rail-more > summary:hover { background: var(--wash); }
+.rail h1 { font-size: 18px; margin: 0 var(--s4) var(--s3) 0; }
+.rail nav a { display: block; padding: 6px var(--s3); margin-right: -1.5px; border: 1.5px solid transparent; border-right: 0; border-radius: 2px; text-decoration: none; color: var(--ink); }
+.rail nav a:hover { text-decoration: underline; }
+.rail nav a.current { background: var(--paper); border-color: var(--box); }
+/* Group names in the day-label type: small caps, tracked, pencil. */
+.rail nav .group { margin: var(--s4) 0 var(--s1); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+/* The "App" fold on a child's page (kids' UX audit F5) and the kid rail's "More": one more tab,
+   in pencil; open, the rest unfolds beneath it. */
+.rail nav .rail-more > summary { padding: 6px var(--s3); cursor: pointer; margin-top: var(--s3); color: var(--muted); list-style: none; }
+.rail nav .rail-more > summary::-webkit-details-marker { display: none; }
+.rail nav .rail-more > summary::before { content: "▸"; margin-right: .3em; }
+.rail nav .rail-more[open] > summary::before { content: "▾"; }
+.rail nav .rail-more > summary:hover { text-decoration: underline; }
+/* The family's tabs stand open beside a sidebar; the Menu summary is drawn only on a phone. */
+.rail-menu > summary { display: none; }
 /* One ceiling for every page. 1100px left a third of a 1920px screen and half of a 2560px one
    blank; the check-in alone asked for 1600px, and that is now every page's width. What must
    stay narrow for reading (intros, forms) is bounded by `--measure` inside it. */
@@ -79,8 +89,14 @@ main { grid-row: 3; grid-column: 2; padding: 16px var(--pad) 48px; max-width: va
    root these are the 18px and 16px that shipped. */
 main h3 { font-size: calc(var(--type-root) * 1.125); font-weight: 650; margin: 24px 0 8px; }
 main h4 { font-size: var(--type-root); margin: 16px 0 8px; }
-header.status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; padding: 16px var(--pad) 8px; margin: 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 13px; }
+/* The status is the page's "as of" line: pencil-grey small type on a hairline, the first thing
+   written on the page (the planner's edge, 2026-09-30). */
+header.status { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); align-items: baseline; padding: var(--s3) var(--pad) var(--s2); margin: 0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: var(--type-small); }
 header.status .ok { color: var(--ok); } header.status .bad { color: var(--warn); }
+/* Words in the line, not chips: a run's outcome in its colour, the update as a plain link
+   (finish review 2026-09-30: the app bar's pills were still riding the pencil line). */
+header.status .badge { border: 0; padding: 0; background: none; font-size: inherit; }
+header.status .badge a { color: var(--accent); }
 header.status .short { display: none; }
 /* The page head, one partial on every page (_page_head.html): an optional crumb back to the
    parent page, the title in the words of the rail link, the page's own actions at the right,
@@ -218,7 +234,10 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
      and the strip floats in the middle of ~570px of white. The rail is as tall as its links;
      main takes the rest. */
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
-  .rail { grid-row: 1; grid-column: 1; position: relative; border-right: 0; border-bottom: 1px solid var(--rule); padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
+  /* One ruled row: the mark and the wordmark at the left, Menu at the right; open, the tabs wrap
+     beneath the row (the planner's edge, 2026-09-30). Kid mode shows Plan and Assignments in the
+     row itself, More folded, "Not Sam?" last. */
+  .rail { grid-row: 1; grid-column: 1; position: relative; border-right: 0; border-bottom: 1.5px solid var(--box); padding: var(--s2) var(--pad); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
   /* One line at 390px with an update pending: "Refreshed Sat 9/26 1:50 PM · Canvas OK · HAC OK ·
      Update" is about 340px at the tighter gap; the sentence, or the wider gap, wrapped it. */
   header.status { grid-row: 2; grid-column: 1; padding-top: 8px; gap: 6px 10px; }
@@ -226,18 +245,35 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   header.status .short { display: inline; }
   p.stale { grid-row: 3; grid-column: 1; }
   main { grid-row: 4; grid-column: 1; }
-  .rail h1 { margin: 0 8px 0 0; white-space: nowrap; }
-  .rail nav { display: flex; overflow-x: auto; gap: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-right: 24px; }
-  .rail nav::-webkit-scrollbar { display: none; }
-  /* The strip holds more links than fit; a fade at its right edge says so, where a hidden
-     scrollbar said nothing. */
-  .rail::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--paper)); pointer-events: none; }
-  /* `gap`: the strip's links are inline-flex under a finger, which drops the text node's space
-     between a child's name and their question count ("Alex1"). */
-  .rail nav a { white-space: nowrap; padding: 8px 10px; gap: .3em; }
+  .rail h1 { margin: 0; white-space: nowrap; align-self: flex-start; padding-top: 8px; }   /* the mark keeps the first row when a fold opens beneath */
+  /* `display: contents`: the summary and the nav are the row's own items, so Menu keeps the
+     right end of the first row and the open tabs wrap beneath it. */
+  .rail-menu { display: contents; }
+  /* Menu is one more tab in the row (ink, no underline at rest, the 2px planner corner), with
+     the same spaced pencil marker as the kid row's More (finish review 2026-09-30). */
+  .rail-menu > summary { display: inline-flex; align-items: center; gap: .3em; min-height: 44px; padding: 0 var(--s3); margin-left: auto; border: 1.5px solid transparent; border-radius: 2px; cursor: pointer; list-style: none; color: var(--ink); }
+  .rail-menu > summary:hover { text-decoration: underline; }
+  .rail-menu > summary::-webkit-details-marker { display: none; }
+  .rail-menu > summary::before { content: "▸"; color: var(--muted); }
+  .rail-menu[open] > summary::before { content: "▾"; }
+  .rail-menu > nav { flex-basis: 100%; }
+  .rail nav { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); padding: var(--s2) 0 0; }
+  /* `gap`: the tabs are inline-flex under a finger, which drops the text node's space between a
+     child's name and their question count ("Alex1"). */
+  .rail nav a { white-space: nowrap; padding: 8px 10px; margin: 0; gap: .3em; border: 1.5px solid transparent; border-radius: 2px; }
+  .rail nav a.current { border-color: var(--box); }
   .rail nav .group { display: none; }
-  .rail nav .rail-more, .rail nav .rail-rest { display: flex; gap: 2px; }
+  /* A fold in the row (the family's App, the kid's More): its summary is one more tab in the
+     row and its contents wrap to the row beneath when open. */
+  .rail nav .rail-more { display: contents; }
+  .rail nav .rail-rest { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); flex-basis: 100%; }
   .rail nav .rail-more > summary { white-space: nowrap; padding: 8px 10px; margin: 0; list-style: none; }
+  /* Kid mode: the mark alone, Plan and Assignments beside it, More last; "Not Sam?" shows with
+     the fold's contents so the first row is the child's two pages and nothing else. */
+  .rail:has(nav.kid) .brand-name { display: none; }
+  .rail nav.kid { flex: 1 1 0; min-width: 0; padding: 0; }     /* takes the row beside the mark; the open fold wraps inside it */
+  .rail nav.kid a.foot { margin-left: auto; order: 9; }
+  .rail nav.kid .rail-more:not([open]) ~ a.foot { display: none; }
   main { padding: 12px var(--pad) 32px; }
   .page-head { grid-template-columns: minmax(0, 1fr); }
   .page-head .page-actions { grid-column: 1; justify-content: flex-start; }
@@ -294,6 +330,8 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   button, select, input:not([type=checkbox]):not([type=radio]), .rail nav a, .rail nav .rail-more > summary, .badge[href], .filters label { min-height: 44px; }
   button, select, input:not([type=checkbox]):not([type=radio]) { padding: 10px 14px; }
   .rail nav a, .rail nav .rail-more > summary { display: inline-flex; align-items: center; gap: .3em; }
+  /* A link in the status line (Update, printed) is a main link: 44px under a finger, as a word. */
+  header.status a { display: inline-flex; align-items: center; min-height: 44px; }
   .badge[href], .chart-key button { display: inline-flex; align-items: center; padding: 0 12px; }
   /* A box is a target of its own (WCAG 2.2, 2.5.8: 24px); 22px left every day-of-week box on
      Schedules under the line. */
@@ -327,9 +365,12 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .rail h1 .brand, .who h1 .brand { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: inherit; }
 .rail h1 .brand img, .who h1 .brand img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
-.child-nav { display: flex; gap: 8px; border-bottom: 1px solid var(--rule); margin: 0 0 20px; }
-.child-nav a { padding: 10px 14px; text-decoration: none; }
-.child-nav a[aria-current] { border-bottom: 3px solid var(--accent); color: var(--accent); font-weight: 650; }
+/* The child's three pages as index tabs turned sideways: the current one stands on the ruled
+   header line in paper white with the box rule on three sides (the planner's edge, 2026-09-30). */
+.child-nav { display: flex; gap: var(--s1); border-bottom: 1.5px solid var(--box); margin: 0; }
+.child-nav a { padding: 10px 14px; margin-bottom: -1.5px; border: 1.5px solid transparent; border-bottom: 0; border-radius: 2px; text-decoration: none; color: var(--ink); }
+.child-nav a:hover { text-decoration: underline; }
+.child-nav a[aria-current] { background: var(--paper); border-color: var(--box); font-weight: 650; box-shadow: 0 1.5px 0 var(--paper); }
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); text-decoration: none; }
 .checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 960px; gap: 24px; align-items: start; }
 /* The plan is a planner spread, two day boxes side by side, so it takes more than the measure. */
@@ -545,7 +586,10 @@ details.sec[open] > summary::before { content: "▾ "; }
 /* The line under the child tabs is state, not instruction (§3): body type, ink. */
 /* The planner's header line: normal weight, the dates bold, a printed rule beneath (re-critique
    2026-09-29: an 87px bold block stood between the title and the first row on a phone). */
-.tab-hint { margin: -12px 0 var(--s5); padding-bottom: var(--s2); border-bottom: 1.5px solid var(--box); font-size: inherit; font-weight: 400; color: var(--ink); max-width: none; }
+.tab-hint { margin: 0 0 var(--s5); padding: var(--s2) 0; border-bottom: 1.5px solid var(--box); font-size: inherit; font-weight: 400; color: var(--ink); max-width: none; }
+/* Under the child tabs the tabs already stand on the box rule; the state line beneath them
+   closes on a hairline. Kid mode has no tabs, so the state line is the ruled header line itself. */
+.child-nav + .tab-hint { border-bottom-color: var(--rule); border-bottom-width: 1px; }
 .tab-hint strong { font-weight: 650; }
 .tab-hint .muted { font-weight: 400; }
 
@@ -699,13 +743,7 @@ details.mf-fold > .mf-section { margin-top: var(--s2); }
   .mf-spread.both-empty > .day-pair { display: block; }
   /* The highlighter hugs its word on its own line, never a bar across the page. */
   .item-head .when.word { flex-basis: auto; width: max-content; max-width: 100%; }
-  /* A kid's strip is short (Plan, Check-in, Assignments, Trends, Changes, Not Sam?), so it wraps
-     onto a second row instead of scrolling: every tab is in view at the first viewport, none under
-     the fade (finish review 2026-09-29). The family strip keeps scrolling; fourteen links would
-     push the page three rows down. */
-  .rail:has(nav.kid) { flex-wrap: wrap; }
-  .rail nav.kid { flex-basis: 100%; flex-wrap: wrap; overflow-x: visible; padding-right: 0; }
-  .rail:has(nav.kid)::after { display: none; }
+  /* (The kid rail's own row rules live with the shell's strip block above.) */
   /* A section's own control is a link on the strip, so the first line sits higher on a phone; it
      keeps the 44px a button owes a finger (re-critique 2026-09-30: it measured 23px and starts a
      minutes-long job). */

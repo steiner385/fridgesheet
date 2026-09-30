@@ -18,21 +18,26 @@
 <body{% set t = (student.key | tier_of) if student is defined and student else ((who_student.key | tier_of) if who_student else '') %}{% if t %} data-tier="{{ t }}"{% endif %}>
 <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
 <div class="shell">
+  {# The shell as the planner's edge (the surface brief for base.html, 2026-09-30): the pages are
+     index tabs down the rail, the current one pulled forward; on a phone one ruled row with a
+     Menu fold. #}
   <aside class="rail">
-    <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28">Fridge Sheet</a></h1>
+    <h1><a href="/" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28"><span class="brand-name">Fridge Sheet</span></a></h1>
     {% if who_student %}
     {# Kid mode (spec 2026-09-27 §13.2): this kid's pages and nothing else. No siblings, no
        Settings, no household Today. Everything is still reachable by address; the chooser
-       removes distraction, not access. #}
+       removes distraction, not access. Plan and Assignments are the two pages a child uses
+       alone (maintainer, 2026-09-30); Check-in, Trends and Changes fold behind More, never
+       removed. The question count rides on Plan. #}
     {% set me = who_student.key %}{% set kt = me | tier_of %}
     <nav class="kid">
-      {# The name is the page's own heading, so the strip spends no width on it: three tabs fit a
-         390px screen in full (finish review 2026-09-29). The question count rides on Plan. #}
       <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'plan' }}">Plan <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
-      <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'checkin' }}">Check-in</a>
       <a href="/kids/{{ me | urlencode }}" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'all' }}">Assignments</a>
+      <details class="rail-more"{{ ' open' if (current == 'kid:' ~ me and workspace is defined and workspace == 'checkin') or current in ('trends', 'changes') }}><summary>{{ 'copy.more' | say(kt) }}</summary><div class="rail-rest">
+      <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'checkin' }}">Check-in</a>
       <a href="/trends?kid={{ me | urlencode }}" class="{{ 'current' if current == 'trends' }}">Trends</a>
       <a href="/changes?kid={{ me | urlencode }}" class="{{ 'current' if current == 'changes' }}">Changes</a>
+      </div></details>
       <a href="/who" class="foot">{{ 'copy.not_name' | say(kt, {'name': me | nickname}) }}</a>
     </nav>
     {% else %}
@@ -44,6 +49,9 @@
        grade set, and every parent tool, keeps the full rail. #}
     {% set kid_page = (student.key | tier_of) if student is defined and student else '' %}
     {% macro kid_link(s) %}<a href="/kids/{{ s.key | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ s.key }}">{{ s.key | nickname }} <span id="qcount-{{ s.key }}" class="count">{{ question_counts.get(s.key) or '' }}</span></a>{% endmacro %}
+    {# The family's tabs stand open beside a sidebar (the summary is not drawn); on a phone they
+       fold behind Menu (app.js closes a `data-phone-fold` under the strip breakpoint). #}
+    <details class="rail-menu" data-phone-fold open><summary>Menu</summary>
     <nav>
       <a href="/" class="{{ 'current' if current == 'dashboard' }}">Today</a>
       {% if kid_page %}{% for s in students if s.key == student.key %}{{ kid_link(s) }}{% endfor %}
@@ -71,6 +79,7 @@
       {% block rail_extra %}{% endblock %}
       {% if kid_page %}</div></details>{% endif %}
     </nav>
+    </details>
     {% endif %}
   </aside>
   {# The status bar (and the stale banner) are the app's chrome, not the page's content: they
