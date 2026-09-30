@@ -20,13 +20,15 @@ a colour nobody designed for that tier.
 from __future__ import annotations
 
 #: The palette by name (DESIGN.md, Colors). The screen's LATE word and its checkbox use the
-#: darker Amber Pencil Ink (5.4:1 on white); the lighter Amber Pencil is a chart stroke only.
+#: darker Amber Pencil Ink (5.2:1 on Highlighter Amber, the pair the word is read in; the
+#: re-critique of 2026-09-30 found the earlier #9a5b00 at 4.40:1 there); the lighter Amber
+#: Pencil is a chart stroke only.
 COLORS: dict[str, str] = {
     "ballpoint-blue": "#1f5fa8",
     "red-pen": "#b3261e",
     "checkmark-green": "#2e7d32",
     "amber-pencil": "#b8860b",
-    "amber-pencil-ink": "#9a5b00",
+    "amber-pencil-ink": "#8a5200",
     "purple-stamp": "#6b3fa0",
     "teal-pencil": "#00707f",        # the sixth chart series
     "brown-pencil": "#8a6d3b",       # the "unknown" outcome on a chart

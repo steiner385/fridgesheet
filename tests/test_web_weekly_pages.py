@@ -55,13 +55,21 @@ def test_a_week_sorted_by_due_date_reads_as_day_rows(tmp_path):
     assert '<h5 class="day">' not in by_name and "due Tue 9/15 11:59pm" in by_name    # any other sort: the date on the line
 
 
-def test_a_line_keeps_the_rows_id_and_answers_in_its_own_slot(tmp_path):
-    vid = _id(tmp_path, "Vocabulary")
-    line = week_line(app_for(tmp_path).get("/kids/Alex").text, vid)
+def test_a_line_keeps_the_rows_id_and_only_an_asked_line_offers_answers(tmp_path):
+    """Re-critique 2026-09-30: every open line carried the plan prompt and three answers, so the
+    lead's "1 question" stood over 24 buttons. Now only a line the app asks about offers its
+    answers, in its own slot; the rest plan from "Plan a step" in the foot."""
+    vid, pid = _id(tmp_path, "Vocabulary"), _id(tmp_path, "Participation")
+    body = app_for(tmp_path).get("/kids/Alex").text
+    line = week_line(body, vid)
     assert line.startswith('<div class="item due" id="row-%d"' % vid)
     assert '<span class="when word due">DUE TODAY</span>' in line
-    assert 'hx-post="/items/%d/answer"' % vid in line and 'name="slot" value="qw-%d"' % vid in line
-    assert 'hx-target="#qw-%d"' % vid in line and 'id="q-%d"' % vid not in line
+    assert 'class="answers"' not in line and "ask-line" not in line and 'id="q-%d"' % vid not in line
+    assert ">Plan a step</a>" in line
+    asked = week_line(body, pid)
+    assert '<p class="ask-line">Was it handed in?</p>' in asked
+    assert 'hx-post="/items/%d/answer"' % pid in asked and 'name="slot" value="qw-%d"' % pid in asked and 'hx-target="#qw-%d"' % pid in asked
+    assert body.count('class="answers"') == 1                                          # one question, one answer row
 
 
 def test_a_question_is_asked_on_its_line_and_counted_in_the_lead(tmp_path):
@@ -101,15 +109,28 @@ def test_a_detail_opened_from_a_line_closes_back_to_the_line(tmp_path):
     vid = _id(tmp_path, "Vocabulary")
     c = app_for(tmp_path)
     detail = c.get(f"/items/{vid}?card=row-{vid}").text
-    assert f'<div class="item" id="row-{vid}"' in detail and f'hx-get="/items/{vid}/question?slot=row-{vid}"' in detail
+    # The record keeps the line's colour and the sheet's word at its head (re-critique 2026-09-30).
+    assert f'<div class="item due" id="row-{vid}"' in detail and '<span class="when word due">DUE TODAY</span>' in detail
+    assert detail.count(f'hx-get="/items/{vid}/question?slot=row-{vid}"') == 2                  # Close at the head and at the foot
+    assert re.search(r'<span class="meta"><a href="/kids/Alex/courses/\d+">Honors English 9</a>', detail)
     line = c.get(f"/items/{vid}/question?slot=row-{vid}").text
     assert f'<div class="item due" id="row-{vid}"' in line and '<span class="when word due">DUE TODAY</span>' in line
-    assert f'name="slot" value="qw-{vid}"' in line
+    assert 'class="answers"' not in line                                                        # not asked: no answers on the line
+
+
+def test_a_child_with_one_class_keeps_the_class_picker_behind_more_filters(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    sam = c.get("/kids/Sam").text
+    head = sam[sam.index('class="filters controls"'):sam.index('<details class="more-filters"')]
+    assert 'name="course"' not in head and 'name="course"' in sam.split('<details class="more-filters"')[1]
+    alex = c.get("/kids/Alex").text
+    assert 'name="course"' in alex[alex.index('class="filters controls"'):alex.index('<details class="more-filters"')]
 
 
 def test_the_pages_share_the_planners_rules():
     assert "max-width: 1100px" in _rule(".weeks")
     assert "text-transform: uppercase" in _rule("details.week > summary > h4")
     assert "font-weight: 650" in _rule(".sort a[aria-current]")
-    coarse = re.search(r"@media \(pointer: coarse\)\s*\{\s*\.sort a\s*\{([^}]*)\}", CSS).group(1)
+    coarse = re.search(r"@media \(pointer: coarse\)\s*\{\s*\.sort a[^{]*\{([^}]*)\}", CSS).group(1)
     assert "min-height: 44px" in coarse

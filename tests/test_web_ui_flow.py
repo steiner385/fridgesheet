@@ -104,7 +104,7 @@ def test_the_plan_tab_links_carry_the_plan_tab_as_return_to(tmp_path):
     sid = _step(c)
     plan = c.get("/kids/Alex/plan").text
     assert 'href="/kids/Alex/check-in/step?return_to=/kids/Alex/plan">Add a step' in plan
-    assert f'href="/kids/Alex/check-in/step?step_id={sid}&amp;return_to=/kids/Alex/plan">Edit or complete step' in plan
+    assert f'href="/kids/Alex/check-in/step?step_id={sid}&amp;return_to=/kids/Alex/plan">Edit step' in plan
 
 
 def test_a_step_form_opened_from_the_plan_says_so_and_saves_back_to_it(tmp_path):

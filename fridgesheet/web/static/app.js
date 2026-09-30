@@ -199,11 +199,23 @@ document.addEventListener("submit", function (event) {
   if (form && !window.confirm(form.getAttribute("data-confirm"))) event.preventDefault();
 });
 
-// An in-page two-step (Today's "Print now"): Cancel closes the <details> the button sits in.
+// An in-page two-step (Today's "Print now"): Cancel closes the <details> the button sits in and
+// puts focus back on its summary, where the question was opened from (re-critique 2026-09-30:
+// it fell to <body>).
 document.addEventListener("click", function (event) {
   var cancel = event.target.closest("[data-close-details]");
-  if (cancel) { var box = cancel.closest("details"); if (box) box.removeAttribute("open"); }
+  if (cancel) {
+    var box = cancel.closest("details");
+    if (box) { box.removeAttribute("open"); var s = box.querySelector("summary"); if (s) s.focus(); }
+  }
 });
+
+// A fold that stands open on a wide screen and closed on a phone (Today's print controls):
+// the markup ships it open, so the page works without script; under the strip breakpoint it
+// starts folded and the week is the first thing under the title.
+if (window.matchMedia && window.matchMedia("(max-width: 1023px)").matches) {
+  document.querySelectorAll("details[data-phone-fold][open]").forEach(function (d) { d.removeAttribute("open"); });
+}
 
 // Graphical config editors (Settings: late-rules, no-print-days): rows are added, removed and
 // reordered entirely client-side -- the file is one form with one Save, so nothing here needs

@@ -22,11 +22,16 @@
         <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
         {% if narrowed %}<span class="sep muted">·</span><label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
       </span>
-      <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
+      {# The class picker stands in the head when there is a choice to make; a child with one
+         class keeps it behind More filters (re-critique 2026-09-30: seven controls before the
+         first line on a nine-year-old's phone). #}
+      {% set class_pick %}<label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>{% endset %}
+      {% if course_options | length > 1 %}{{ class_pick }}{% endif %}
       {# Two filters a parent reaches for (the outcome, their own answer) and, behind a second
          fold, the three that are rarely needed: five selects at once were a wall (critique
          2026-09-29). Either fold opens itself when one of its filters is in force. #}
-      <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict }}><summary>More filters</summary>
+      <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict or (f.course_id and course_options | length <= 1) }}><summary>More filters</summary>
+        {% if course_options | length <= 1 %}{{ class_pick }}{% endif %}
         <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
         <label>Your answer <select name="flagged"><option value="">any</option><option value="any" {{ 'selected' if f.flagged == 'any' }}>answered or asked</option><option value="handled" {{ 'selected' if f.flagged == 'handled' }}>handled</option><option value="marked" {{ 'selected' if f.flagged == 'marked' }}>asked or following up</option><option value="none" {{ 'selected' if f.flagged == 'none' }}>not answered</option>
           {# Each answer, as it stands: the one label table's state column, in the menu's order (#129). #}

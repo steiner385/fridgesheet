@@ -163,6 +163,26 @@ def test_the_today_card_links_reach_a_finger():
     assert re.search(r'<label class="tick"><input type="checkbox" id="refresh-first"', dash)
 
 
+def test_undo_never_wraps_and_the_small_controls_clear_their_floors():
+    """Re-critique 2026-09-30: `.item { overflow-wrap: anywhere }` reached the done-line's Undo and
+    drew it as a column of letters on every phone; "Check Canvas again", "Browse all work", a
+    step's Edit and a kid box's name were under the product's own touch floors."""
+    assert "flex: none" in _rule(".done-line form")
+    assert "white-space: nowrap" in _rule(".done-line form button") and "overflow-wrap: normal" in _rule(".done-line form button")
+    assert "min-width: 0" in _rule(".done-line > span:not(.glyph)")
+    strip = re.search(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S)
+    assert re.search(r"\.sec-head \.controls button\s*\{[^}]*min-height: 44px", "\n".join(re.findall(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S)))
+    coarse = _coarse()
+    assert re.search(r"\.review-queue > p a\s*\{[^}]*min-height: 44px", coarse)
+    assert re.search(r"\.item-head \.meta a, \.ours a, \.day-box > h3 a\s*\{[^}]*min-height: 24px", coarse)
+
+
+def test_planner_prose_keeps_to_the_measure_on_every_planner_page():
+    rule = re.search(r"(?m)^\.planner-main \.item > p,[^{]*\{([^}]*)\}", CSS)
+    assert rule and "max-width: var(--measure)" in rule.group(1)
+    assert ".planner-main .sec-head .lead" in rule.group(0) and ".planner-main .inset" in rule.group(0)
+
+
 def test_the_strip_keeps_a_space_before_a_question_count():
     """"Alex1" on the phone: inline-flex drops the text node's space between the name and the count."""
     strip = re.search(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S).group(1)

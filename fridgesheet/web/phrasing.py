@@ -142,6 +142,9 @@ PHRASES: dict[str, dict[str, str]] = {
     # The planner's day boxes are printed even when empty (the Student Planner, 2026-09-29).
     "copy.nothing_due_tonight":  {"early": "Nothing due tonight", "middle": "Nothing due tonight", "older": "Nothing due tonight"},
     "copy.nothing_due_tomorrow": {"early": "Nothing due tomorrow", "middle": "Nothing due tomorrow", "older": "Nothing due tomorrow"},
+    "copy.nothing_due_tonight_or_tomorrow": {"early": "Nothing due tonight or tomorrow", "middle": "Nothing due tonight or tomorrow", "older": "Nothing due tonight or tomorrow"},
+    # The Plan's one line for what the check-in's review queue would list.
+    "copy.more_on_school_list": {"early": "{n} more on the school's list", "middle": "{n} more on the school's list", "older": "{n} more on the school's list"},
     "copy.due_tomorrow":     {"early": "Due tomorrow", "middle": "Due tomorrow", "older": "Due tomorrow"},
     "copy.overdue_fixable":  {"early": "Late, but you can still fix it", "middle": "Overdue, still fixable", "older": "Overdue, still fixable"},
     "copy.on_paper_no_grade": {"early": "On paper, no grade yet", "middle": "On paper, no grade yet", "older": "On paper, no grade yet"},
@@ -204,6 +207,8 @@ PHRASES: dict[str, dict[str, str]] = {
     "record.you_said_excused": {"early": "You said it's excused, {when}", "middle": "You answered excused, {when}", "older": "You answered excused, {when}"},
     "record.canvas_excused": {"early": "Canvas: excused", "middle": "Canvas: excused", "older": "Canvas: excused"},
     "a.mark_step_complete":  {"early": "Mark step complete", "middle": "Mark step complete", "older": "Mark step complete"},
+    # The one tap on a live step's line (the planner's tick; re-critique 2026-09-30).
+    "a.step_done":           {"early": "I did it", "middle": "Done", "older": "Done"},
     # --- kid mode: who is looking (spec 2026-09-27 §13) --------------------------------------
     "copy.who_looking":   {"early": "Who's looking?", "middle": "Who's looking?", "older": "Who's looking?"},
     "copy.who_remember":  {"early": "This browser will remember. You can change it any time.",

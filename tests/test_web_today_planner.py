@@ -43,7 +43,8 @@ def test_the_week_counts_each_kids_work_by_the_day_it_is_due(tmp_path):
     body = _page(tmp_path)
     week = re.search(r'<ol class="week-strip"[^>]*>(.*?)</ol>', body, re.S).group(1)
     tonight = re.search(r'day-cell today"><h4>.*?</h4>\s*<p>(.*?)</p>', week, re.S).group(1)
-    assert "Alex 1" in tonight and "Sam 2" in tonight          # Vocabulary tonight; Sam's two overdue rows count under tonight
+    assert "Alex 1" in tonight and "Sam 2 late" in tonight     # Vocabulary tonight; Sam's two overdue rows are named late, not due (re-critique 2026-09-30)
+    assert "Sam 2<" not in tonight and "Sam 2 ·" not in tonight
     tomorrow = re.search(r'day-cell"><h4><span class="day-word">Tomorrow</span>.*?</h4>\s*<p>(.*?)</p>', week, re.S).group(1)
     assert "Alex 1" in tomorrow and "Sam" not in tomorrow      # Worksheet 3
 
@@ -69,6 +70,38 @@ def test_the_print_two_step_is_unchanged_in_the_sheet_strip(tmp_path):
     strip = re.search(r'<section class="sec sheet-strip".*?</section>', body, re.S).group(0)
     assert '<details class="print-confirm"><summary>Print now</summary>' in strip
     assert re.search(r'<button class="primary" hx-post="/jobs/print"', strip) and body.count('class="primary"') == 1
+
+
+def test_the_sheets_controls_stand_open_on_a_wide_screen_and_fold_on_a_phone(tmp_path):
+    """Re-critique 2026-09-30: on a phone four boxed controls stood between the title and the
+    first line. The markup ships the fold open (no script needed on a wide screen, where the
+    summary is not drawn); app.js closes it under the strip breakpoint, and the planner is
+    ordered first there."""
+    seed(tmp_path).close()
+    body = app_for(tmp_path, worker=True).get("/").text
+    assert '<details class="print-controls" data-phone-fold open><summary>Print or preview</summary>' in body
+    assert body.index('<div class="today-pages">') < body.index('class="sec sheet-strip"') < body.index('class="planner-main week-block"') < body.index('class="planner-main kids-block"')
+    assert "display: contents" in _rule(".today-pages") and "display: none" in _rule(".print-controls > summary")
+    phone = re.search(r"@media \(max-width: 1023px\)\s*\{\s*/\* Five cells fit a phone(.*?)\n\}", CSS, re.S).group(1)
+    assert re.search(r"\.today-pages > \.week-block\s*\{[^}]*order: -1", phone)           # week, then the folded strip, then the kids
+    assert re.search(r"\.print-controls > summary\s*\{[^}]*min-height: 44px", phone)
+    js = (WEB / "static" / "app.js").read_text(encoding="utf-8")
+    assert 'details[data-phone-fold][open]' in js and 'max-width: 1023px' in js
+    assert re.search(r'querySelector\("summary"\); if \(s\) s\.focus\(\);', js)      # Cancel returns focus to the summary
+
+
+def test_the_household_page_speaks_in_the_parents_voice(tmp_path):
+    """Maintainer, 2026-09-30: Today's ask lines and answers are the parent's phrasing whatever
+    the child's tier; only the sheet's word keeps the child's words."""
+    from tests.web_fixtures import client_with_grades
+    seed(tmp_path).close()
+    c = client_with_grades(tmp_path, Sam=5)
+    body = c.get("/").text
+    sam = body[body.index('data-section="Sam"'):body.index("</div><!-- /kid -->", body.index('data-section="Sam"'))]
+    assert "It&#39;s handed in" in sam and "I handed it in" not in sam
+    assert "When will you work on it?" in sam and "When will you do it?" not in sam
+    assert "Teacher hasn&#39;t got it" in sam                                        # the sheet's word, in Sam's words
+    assert "I handed it in" in c.get("/kids/Sam/plan").text                          # the child's own page still speaks as the child
 
 
 def test_the_kid_box_and_the_week_cells_share_the_day_box_rule():

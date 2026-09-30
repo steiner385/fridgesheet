@@ -21,8 +21,12 @@
     <p class="ours">{{ step.owner }}{% if step.minutes %} · {{ step.minutes }} min{% endif %}</p>
     {% if step.family_account %}<p class="ours">{{ step.family_account }}</p>{% endif %}
     {% if step.changed %}<p class="inset changed"><strong>School evidence changed since this step was saved.</strong> Review it together; your agreement is still here.</p>{% endif %}
+    {# The planner's promise: a line with a checkbox can be ticked. One tap completes the step
+       (the same route as the step form's Complete); it moves under Completed steps, where
+       "Edit or reopen" is its undo (re-critique 2026-09-30). #}
+    <form method="post" action="{{ base }}/step/{{ step.id }}/complete" class="answers"><input type="hidden" name="revision" value="{{ step.revision }}"><input type="hidden" name="return_to" value="{{ here }}"><button>{{ 'a.step_done' | say(tier) }}</button></form>
     <div class="item-foot">{% if step.view %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% with item=step.view %}{% include "_record.html" %}{% endwith %}</details>{% endif %}
-      <a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit or complete step</a>
+      <a href="{{ base }}/step?step_id={{ step.id }}&amp;return_to={{ here | urlencode }}">Edit step</a>
       <span class="stamp">{% if step.since == 'agreed' %}Agreed at the {{ last_check.finished_at | wd_md }} check-in · {% elif step.since == 'edited' %}Edited since the {{ last_check.finished_at | wd_md }} check-in · {% elif step.since == 'added' %}Added since the {{ last_check.finished_at | wd_md }} check-in · {% endif %}Recorded {{ step.created_at | wd_md_time }}{% if step.created_by %} by {{ step.created_by }}{% endif %}{% if step.updated_at != step.created_at %} · edited {{ step.updated_at | wd_md_time }}{% if step.recorded_by %} by {{ step.recorded_by }}{% endif %}{% endif %}</span></div>
   </div>
   {% endfor %}

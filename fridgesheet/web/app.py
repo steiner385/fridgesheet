@@ -176,6 +176,21 @@ def _filters(state: AppState) -> dict:
         from .stores import items as items_store
         return status_words.status_tone(items_store.sheet_status(view))
 
+    def line_tone(view, tier: str = "") -> dict:
+        """How a row is drawn as a planner line on Assignments (the weekly pages) and in the
+        record opened from one: the sheet's word and its colour while the row is open; a done
+        row checked in green; a row the family answered away in grey; anything else in ink.
+        One place, so the line and its record can never disagree (re-critique 2026-09-30)."""
+        is_open = bool((view.open_in or view.upcoming) and not view.handled)
+        word_tone = sheet_tone(view) if is_open else ""
+        if is_open:
+            tone = word_tone
+        elif view.handled:
+            tone = "grey"
+        else:
+            tone = "ok" if view.outcome in ("on_time", "late", "done_offline") else ""
+        return {"open": is_open, "word": sheet_word(view, tier) if is_open else "", "word_tone": word_tone, "tone": tone}
+
     def phrase(word, tier: str = "") -> str:
         # Stays a plain `str` -- autoescaped like everything else. `phrasing.phrase` echoes
         # an untranslated `word` straight back, and `v.grade` can be Canvas's own grade
@@ -243,7 +258,8 @@ def _filters(state: AppState) -> dict:
             "flag_label": lambda flag, form="state", tier="": phrasing.flag_label(flag or "", form, tier),
             "standing": lambda item, tier: verdicts.standing(item, tier),
             "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
-            "pace_key": verdicts.pace_key, "sheet_word": sheet_word, "sheet_tone": sheet_tone, "word_tone": status_words.status_tone}
+            "pace_key": verdicts.pace_key, "sheet_word": sheet_word, "sheet_tone": sheet_tone, "word_tone": status_words.status_tone,
+            "line_tone": line_tone}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
