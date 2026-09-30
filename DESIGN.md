@@ -286,8 +286,10 @@ components:
 
 # Design System: Fridge Sheet
 
-<!-- Captured by /impeccable document on 2026-09-29 (Assignments added 2026-09-30) from
-     fridgesheet/web/static/app.css, the planner templates (_must_finish, _item, _plan_panel,
+<!-- Captured by /impeccable document on 2026-09-29 (Assignments added 2026-09-30; the extract
+     step recorded 2026-09-30) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
+     generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
      the review renders in .impeccable/review/ (the Plan, today-desktop / today-mobile, and
      assignments-desktop / -mobile / -kid-early-mobile / -folded-desktop), fridgesheet/sheet.py
@@ -295,7 +297,8 @@ components:
      child's Plan page (seed 5d8bc5ca), on Today (seed 484d9aac, "the week strip") and on a
      child's Assignments page (seed d4a7b45f, "the weekly pages"), and the incumbent shell as it
      still stands on the other pages. Where the build departs from the direction contract, the
-     build is what is written here. -->
+     build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
+     tokens.TIERS by tests/test_tokens.py. -->
 
 ## Overview
 
@@ -345,6 +348,19 @@ and colour used as the only carrier of meaning.
 A near-monochrome planner with five ink colours that each mean one thing, four highlighter fills
 that carry them, and a printed blue-grey for every rule and box.
 
+**Tokens.** Every value below lives once, in `fridgesheet/tokens.py`: `COLORS` is this palette by
+its pen-and-stamp name; `ROOT` maps the page's roles onto it as the CSS custom properties
+(`--ink`, `--muted`, `--control`, `--rule`, `--box`, `--paper`, `--wash`, `--accent`, `--warn`,
+`--ok`, `--late`, `--check`, `--warn-wash`, `--hl-due`/`-red`/`-check`/`-late`, the three
+`--type-*` sizes, `--page-max`, `--measure`, `--rail`, `--pad`, `--radius`, `--s1` to `--s6`);
+`TIERS` and `TIER_TOKENS` are what a reading tier moves; `PRINT` is the sheet's type ramp in
+points and its colours by the same roles; `CHART` is the Trends strokes. The `:root` line and the
+three `[data-tier]` lines of `app.css` are generated from it by `scripts/tokens_css.py`
+(`--check` to verify); `sheet.py` and `charts.py` import it. To change a value, edit
+`tokens.py`, run `python scripts/tokens_css.py`, and update the frontmatter here;
+`tests/test_tokens.py` fails until the four agree. The printed sheet's colours are the page's:
+a word is the same red, amber, blue or purple on the fridge as on the screen.
+
 ### Primary
 - **Ballpoint Blue** (#1f5fa8): links, the default answer's 2px stroke, the current child tab's
   underline, the focus ring, the current filter chip, and the one filled primary button on the
@@ -362,12 +378,17 @@ that carry them, and a printed blue-grey for every rule and box.
   middle #24702c.
 
 ### Tertiary
-- **Amber Pencil** (#b8860b): late, as a stroke: the late series on Trends. As a word it is too
-  light (3.3:1), so on screen the LATE word and its checkbox rule use **Amber Pencil Ink**
-  (#9a5b00, 5.4:1; `--late`, early #8a5200, middle #915600) on Highlighter Amber.
+- **Amber Pencil** (#b8860b): late, as a stroke: the late series and the "late" outcome on
+  Trends. As a word it is too light (3.3:1), so the LATE word and its checkbox rule on screen,
+  and the LATE word on the printed sheet, use **Amber Pencil Ink** (#9a5b00, 5.4:1; `--late`,
+  early #8a5200, middle #915600), on Highlighter Amber on screen.
 - **Purple Stamp** (#6b3fa0; `--check`, early #5f3594, middle #653a9a): "check on paper". The
   PAPER — CHECK, IN CLASS — CHECK and HAC — NO GRADE words on Highlighter Purple, the checkbox
   rule under them, the fourth chart series. Work the school cannot see, so neither red nor green.
+- **Teal Pencil** (#00707f) and **Brown Pencil** (#8a6d3b): chart-only strokes, in
+  `tokens.COLORS` but not in this frontmatter because no page role wears them. Teal Pencil is the
+  sixth series stroke on Trends; Brown Pencil is the "unknown" outcome. Neither may colour a word,
+  a rule or a fill anywhere else.
 
 ### Neutral
 - **Ink** (#1c1c1c): all body text and headings. Early #10151b, middle #161b22.
@@ -434,7 +455,8 @@ so no page inherits a colour nobody designed for that tier.
 
 **Display Font:** system-ui (with -apple-system, "Segoe UI", sans-serif)
 **Body Font:** system-ui (the same stack)
-**Print Font:** Helvetica (Helvetica-Bold, Helvetica-Oblique) in the PDF sheet
+**Print Font:** Helvetica (Helvetica-Bold, Helvetica-Oblique) in the PDF sheet, at the sizes
+in `tokens.PRINT`
 
 **Character:** The device's own text face, set plainly, with hierarchy carried by size and a
 slightly heavy 650 weight rather than by a second family. The one typographic flourish is the day
@@ -475,9 +497,12 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
   for a head inside a box rather than along its edge.
 - **Caption** (400, 12px, `--type-tiny`): stamps, legends under tables, provenance. 13px (middle),
   14px (early).
-- **Print heading** (Helvetica-Bold 16pt/19), **print cell** (Helvetica 10pt/12, bold for the
-  status word), **print small** (8.5pt/10.5) and **print tiny** (8pt/9.5) for the sheet's
-  sub-lines. 10pt cells and 8pt sub-lines are the floor: two children still fit one page.
+- **Print heading** (Helvetica-Bold 16pt/19), **print group head** (Helvetica-Bold 11pt/13,
+  a table print's group), **print cell** (Helvetica 10pt/12, bold for the status word),
+  **print small** (8.5pt/10.5) and **print tiny** (8pt/9.5) for the sheet's sub-lines, and a
+  7pt footer: the (size, leading) pairs of `tokens.PRINT` (`h1`, `group`, `cell`, `small`,
+  `tiny`, `footer`), read by `sheet.py`. 10pt cells and 8pt sub-lines are the floor: two
+  children still fit one page.
 
 ### Named Rules
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
@@ -738,8 +763,12 @@ steps" is the same line with its "Must finish · MISSING" word highlighted insid
 Landscape Letter, 0.5in margins, one section per child. Helvetica-Bold 16pt heading, 10pt cells
 with the status word bold in its colour, 8.5pt and 8pt sub-lines for the "until" date, the
 follow-up marker and notes, an 11pt checkbox per row, a legend at the foot. Overdue first, then
-coming due, then two trailer counts. The reader is a child standing at a fridge; the Plan on
-screen is this sheet's spread.
+coming due, then two trailer counts. Its colours are the page's, by role from `tokens.PRINT`:
+the status words in Red Pen, Amber Pencil Ink, Ballpoint Blue and Purple Stamp (the same table
+as the screen's, `STATUS_COLOR`), NEW in Checkmark Green, notes, "was" lines and the footer in
+Pencil Grey, the header rule, the section rule and the checkbox in Ink, and the 0.25pt hairline
+under each row in Ruled Grey. The reader is a child standing at a fridge; the Plan on screen is
+this sheet's spread.
 
 ## Do's and Don'ts
 
@@ -779,19 +808,19 @@ screen is this sheet's spread.
 - **Don't** add shadows to boxes, lines or anything at rest; a shadow may lift only a sticky bar,
   an open menu or the chooser's buttons, and no heavier than the provisional ambient lift.
 - **Don't** animate anything but the checkbox fill and the strike (180ms ease-out).
-- **Don't** introduce a second value for a status colour. The printed sheet still uses #1A5FB4
-  (blue), #1E7A3E (green), #B26A00 (amber), #6C3FA0 (purple) and #555555 (grey); the targets are
-  Ballpoint Blue, Checkmark Green, Amber Pencil, Purple Stamp and Pencil Grey, and the
-  unification belongs to the extract step.
+- **Don't** introduce a second value for a status colour. The printed sheet, the charts and the
+  page read one source (`fridgesheet/tokens.py`); a colour that differs between the fridge and
+  the screen is a bug, not a variant.
 - **Don't** use gradients, glows, or decorative imagery; the only gradients are the strip's fade
   and the planner's ruling.
 - **Don't** put a card, a left rule or a box inside a day box; the inset is the one thing quoted
   inside a line.
 - **Don't** hide a row or an action from a child by tier; fold navigation and secondary fields if
   you must, identically at every tier.
-- **Don't** hard-code a colour in a template or in `sheet.py`, `charts.py` or `app.js`; every
-  colour in this file is the token to reach for. `app.css` carries none outside its token blocks
-  (held by `tests/test_web_colour_and_type.py`); `sheet.py` and `charts.py` are the drift to
-  remove.
+- **Don't** hard-code a colour or a type size in a template, in `sheet.py`, `charts.py` or
+  `app.js`, or in `app.css` outside its generated token lines; every value in this file is a
+  name in `tokens.py` to reach for (`tests/test_web_colour_and_type.py` and
+  `tests/test_tokens.py` hold the line). Edit `tokens.py`, run `scripts/tokens_css.py`, and
+  update this frontmatter; never edit the `:root` or `[data-tier]` lines by hand.
 - **Don't** fill more than one button per page, and don't fill an answer: the first answer on a
   line is the Ballpoint Blue default stroke.
