@@ -301,7 +301,6 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
   table.items tbody td.due small.rel::before { content: " · "; }
   table.items tbody td.item > small { display: inline; }
   table.items tbody td.item > small::before { content: " · "; color: var(--muted); }
-  table.work.open-list { table-layout: auto; }
 }
 /* A phone held sideways: 390px of height, of which the strip and the bar took 31% (#196).
    Here the two share the first row -- the strip at the left, the bar at the right -- and the
@@ -449,13 +448,6 @@ table.items td > small.row-actions { display: flex; margin-top: 4px; }
 table.items td > small a, table.work td.item small a { color: inherit; text-decoration: none; }
 table.items td > small a:hover, table.items td > small a:focus-visible, table.work td.item small a:hover, table.work td.item small a:focus-visible { text-decoration: underline; }
 table.work td.due small.rel { display: block; }
-/* Open work stacks several short tables; fixed columns line them up under each other. The
-   date column is pinned to 8rem at most: at the 1600px page width a 22% share was 350px of
-   date, with the assignment pushed off the reader's eye line. */
-table.work.open-list { table-layout: fixed; }
-table.work.open-list th:nth-child(1) { width: min(22%, 8rem); }
-table.work.open-list th:nth-child(2) { width: 43%; }
-table.work td.where small.thru { display: block; color: var(--muted); font-size: var(--type-small); font-weight: normal; }
 /* The Open / Everything choice on Assignments, drawn as the same chips Changes and Trends use
    (#192): one look for "narrow this list" everywhere. The radio stays in the label for the
    form and the keyboard; it is only not drawn. */
@@ -556,8 +548,6 @@ th .arrow { font-size: var(--type-small); }
 .sec { margin: 0 0 var(--s6); }
 .sec-head, details.sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); }
 .sec-head h3, details.sec > summary h3 { margin: 0; font-size: calc(var(--type-root) * 1.125); font-weight: 650; display: inline; }
-/* Open work's kid sections keep the layout standard's 22px at the root (its own type table). */
-.sec-head h3.kid-head { font-size: calc(var(--type-root) * 1.375); }
 .sec-head .count, details.sec > summary .count { font-size: var(--type-small); color: var(--muted); font-weight: 400; }
 /* Full-width so the lead always wraps under the head; the measure is kept as right padding,
    because a max-width would let a short lead fit beside the controls instead. */
@@ -837,6 +827,40 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .week > .day { margin: var(--s3) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .week > .day + .item { border-top: 1px solid var(--rule); }
 .week > .item:last-child { border-bottom: 0; }
+/* The sheet on a screen (the Student Planner, Open work; the surface brief for open.html,
+   2026-09-30): the kids as tabs on the ruled line (the child tabs, with an open count beside
+   each name), the chosen kid's sheet beneath as one paper page in the day-box rule, its label
+   along the top edge the way the sheet's heading reads. "Every kid" is one more tab, in pencil,
+   at the tabs' right. The pages the tabs hide keep their markup ([hidden]). */
+.kid-tabs { margin-bottom: var(--s5); flex-wrap: wrap; max-width: 1100px; }              /* the pages' own width */
+/* The open count beside a name is the page's tally, in pencil: Ballpoint Blue 600 beside a name
+   is the question count and nothing else (finish review 2026-09-30). */
+.kid-tabs .tally { color: var(--muted); font-weight: 400; font-size: var(--type-small); }
+.kid-tabs .every { margin-left: auto; color: var(--muted); }
+.open-sheets { display: grid; gap: var(--s5); max-width: 1100px; padding-bottom: var(--s4); }
+.open-sheets > .sec.kid { margin: 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s1); }
+.open-sheets > .sec.kid > h3 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.open-sheets > .sec.kid > h3 a { color: inherit; text-decoration: none; }
+.open-sheets > .sec.kid > h3 a:hover, .open-sheets > .sec.kid > h3 a:focus-visible { text-decoration: underline; }
+.open-sheets > .sec.kid > h3 .tally, .open-sheets > .sec.kid > h4 .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+/* The sheet's date line, in pencil under the label. */
+.open-sheets > .sec.kid > .as-of { margin: var(--s1) 0 0; font-size: var(--type-small); }
+/* The two halves of the sheet as day rows; the second parted from the first by the printed rule,
+   as the paper draws a rule above the first coming-due row. */
+.open-sheets > .sec.kid > h4.day { margin: var(--s3) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.open-sheets > .sec.kid > h4.day.coming { margin-top: var(--s4); padding-top: var(--s3); border-top: 1.5px solid var(--box); }
+.open-sheets > .sec.kid > .item:has(+ h4.day.coming), .open-sheets > .sec.kid > .empty-half { border-bottom: 0; }   /* one rule, not a hairline and a rule */
+.open-sheets > .sec.kid > .day + .item { border-top: 1px solid var(--rule); }
+.open-sheets > .sec.kid > .item:last-child { border-bottom: 0; }
+.open-sheets > .sec.kid > .empty-half, .open-sheets > .sec.kid > .trailer, .open-sheets > .sec.kid > .nothing-open { margin: var(--s2) 0; max-width: var(--measure); }
+.open-sheets > .sec.kid > .trailer { font-size: var(--type-small); }
+/* The sheet's legend once under the page: its capitals on their highlighters, in pencil. */
+.sheet-legend { font-size: var(--type-small); max-width: 1100px; margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); line-height: 1.7; }
+.sheet-legend .word { font-weight: 700; padding: 0 .35em; border-radius: 2px; }
+.sheet-legend .word.red { color: var(--warn); background: var(--hl-red); }
+.sheet-legend .word.late { color: var(--late); background: var(--hl-late); }
+.sheet-legend .word.check { color: var(--check); background: var(--hl-check); }
+.sheet-legend .word.due { color: var(--accent); background: var(--hl-due); }
 @media (pointer: coarse) {
   .sort a, .review-queue > p a { min-height: 44px; display: inline-flex; align-items: center; }
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's

@@ -163,8 +163,10 @@ def test_every_table_sits_in_a_table_wrap(name):
         assert opened > closed, f"{name}: a table.items outside .table-wrap at offset {m.start()}"
 
 
-def test_the_first_column_of_open_work_is_pinned_narrow():
-    assert re.search(r"table\.work\.open-list th:nth-child\(1\)\s*\{[^}]*width: min\(22%, 8rem\)", CSS)
+def test_open_work_is_no_longer_a_table():
+    """The sheet on a screen (2026-09-30): Open work's rows are planner lines on one paper page
+    per kid; the fixed-column table and its pinned date column went with it."""
+    assert "open-list" not in CSS
 
 
 # --- section 2 and 4: the breakpoints and the status bar ----------------------------------------------
@@ -220,8 +222,9 @@ def test_the_page_title_is_the_only_h2_on_the_page(tmp_path, path):
 def test_open_works_kids_are_sections_and_their_lists_parts_of_them(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
-    assert re.search(r'<div class="sec-head"><h3 class="kid-head"><a href="/kids/Alex">Alex</a></h3></div>', body)
-    assert "<h4>Still fixable" in body and "<h4>Coming due" in body
+    # The kid's page is a section whose h3 is its label along the top edge (the sheet on a screen).
+    assert re.search(r'<section class="sec kid" id="Alex"[^>]*>\s*<h3 id="sheet-Alex"><a href="/kids/Alex">Alex</a> — open work', body)
+    assert '<h4 class="day">Still fixable' in body and '<h4 class="day coming">Coming due' in body
 
 
 def test_a_filter_chip_in_force_is_drawn_and_announced(tmp_path):

@@ -479,15 +479,23 @@ Reached from the class name under any assignment.
 
 ### Open work
 
-The printed sheet, on a screen. Per child:
+The printed sheet, on a screen, one child at a time. The children are tabs under the title,
+each with its count of open work (*Alex · 6*); the first child's sheet is open, and **Every
+kid** lays every sheet out at once. A child's sheet is one ruled page, the same rows the paper
+prints in the order the paper prints them, each as an assignment line with the sheet's word at
+its right:
 
 - **Still fixable** — past due, not handed in, and still inside its late-work window (and
-  no more than *Overdue days* back). Soonest-closing first, each with *Credit thru Thu 9/24
-  · 50%*.
-- **Coming due** — not yet handed in, due within *Days ahead*.
+  no more than *Overdue days* back). Soonest-closing first, each ending *Until Thu 9/24*: the
+  last day the teacher still takes it.
+- **Coming due** — not yet handed in, due within *Days ahead*, under a rule of its own.
 - *Nothing open. Nice work.* when both are empty.
 - **Not shown:** a count of work past its window and of open work you marked handled. Each
   count is a link to exactly the items it counts.
+
+Nothing is answered here. Click an assignment's name to open its record in place; a line the
+app has a question about carries a **question** link to the Questions page. The sheet's legend
+sits under the page.
 
 ### Questions
 

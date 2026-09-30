@@ -63,23 +63,25 @@ def test_the_open_page_states_parity_with_the_sheet(tmp_path):
     assert "can appear here and not on paper" not in body
 
 
-# --- #85: Open work on the three-column work list ------------------------------------------
+# --- #85: Open work's rows are the same item surface as every other page -------------------
 
-def test_open_work_uses_the_three_column_work_list(tmp_path):
+def test_open_work_draws_its_rows_as_planner_lines(tmp_path):
+    """The sheet on a screen (2026-09-30): no table, no columns; every row is the item surface
+    at card density with the sheet's word, and its name opens the record in place."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
-    assert body.count('class="items work open-list"') == 3              # Alex fixable + coming due, Sam fixable
-    assert "Where it stands" in body
+    assert "<table" not in body and "Where it stands" not in body
     for old in ("<th>Handed in</th>", "<th>Grade</th>", "<th>Credit thru</th>", "<th>Flag</th>", "<th>Pts</th>"):
         assert old not in body, old
-    # Every row carries its detail row, closed until opened.
-    assert re.search(r'<tr class="detail" hidden><td colspan="3" id="detail-\d+"></td></tr>', body)
+    lines = re.findall(r'<div class="item[^"]*" id="row-(\d+)" data-focus>', body)
+    assert len(lines) == 7                                              # Alex 2 + 3, Sam 2
+    assert re.search(r'hx-get="/items/\d+\?card=row-\d+" hx-target="#row-\d+" hx-swap="outerHTML"', body)
 
 
 def test_a_fixable_row_still_says_when_credit_ends(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/open").text
-    assert "Credit thru Tue 9/22" in body and "Credit thru Thu 9/24" in body
+    assert "Until Tue 9/22" in body and "Until Thu 9/24" in body
 
 
 def test_a_question_on_open_work_links_to_its_card(tmp_path):

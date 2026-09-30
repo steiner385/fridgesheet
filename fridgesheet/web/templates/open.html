@@ -1,53 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Open work · Fridge Sheet{% endblock %}
 {% block content %}
-{# The printed sheet, on a screen: per kid, what is past due and still fixable, then what is
-   coming due. The rows are the work list's rows (`_item_row.html`) -- the same verdict, the
-   same question tag, the same detail card -- so a flag or a note set here is the same flag or
-   note, and an item cannot be a question on Assignments and a bare row here (#85). #}
-{% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
-{% macro rows(list, student, tier, q_base, thru) %}
-  <div class="table-wrap">
-  <table class="items work open-list">
-    <thead><tr><th>Due</th><th>Assignment</th><th>Where it stands</th></tr></thead>
-    <tbody>
-    {% for v in list %}
-    {% include "_item_row.html" %}
-    <tr class="detail" hidden><td colspan="3" id="detail-{{ v.id }}"></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-{% endmacro %}
+{# The sheet on a screen (the Student Planner, Open work; the surface brief in .impeccable/surfaces/):
+   the kids as tabs on the ruled line, the chosen kid's sheet beneath as one paper page in the
+   sheet's order -- still fixable, soonest-closing window first, then coming due by date -- every
+   assignment a planner line with the sheet's word on its highlighter, the trailers at the page's
+   foot and the sheet's legend once beneath. Every kid's page is in the markup (parity of rows,
+   `tests/test_web_tier_parity.py`); the tabs hide the others, and "Every kid" shows them all.
+   Nothing is answered here: a name opens its record in place of the line, and that is all. The
+   rows are `items.open_work`, the same rows the sheet prints (`tests/test_open_work_parity.py`). #}
 {% set page_title = "Open work" %}
 {% set page_intro = "Past due and still inside the late-work window (up to " ~ overdue_days ~ " days back), then due in the next " ~ days_ahead ~ " days: the same rows the printed sheet shows." %}
 {% include "_page_head.html" %}
+{% block partial %}
+{% macro pts(p) %}{{ p | round(1) | string | replace('.0', '') if p else '—' }}{% endmacro %}
+<div id="open-pages">
+{% if groups %}
+{# The tabs and the pages swap together, so the tab in front is always the page beneath. #}
+<nav class="child-nav kid-tabs" aria-label="Whose sheet">
+  {% for s, w in groups %}<a href="/open?kid={{ s.key | urlencode }}" hx-get="/open?kid={{ s.key | urlencode }}" hx-target="#open-pages" hx-swap="outerHTML" hx-push-url="true"{% if shown == s.key %} aria-current="page"{% endif %}>{{ s.key | nickname }} <span class="tally">· {{ (w.fixable | length) + (w.upcoming | length) }}</span></a>
+  {% endfor %}<a href="/open?kid=all" class="every" hx-get="/open?kid=all" hx-target="#open-pages" hx-swap="outerHTML" hx-push-url="true"{% if shown == 'all' %} aria-current="page"{% endif %}>Every kid</a>
+</nav>
+<div class="planner-main open-sheets">
 {% for s, w in groups %}
-<section class="sec kid" id="{{ s.key }}"{% set t = s.key | tier_of %}{% if t %} data-tier="{{ t }}"{% endif %}>
-  {# A kid is a section of the page (h3), its two lists parts of that (h4) -- #191. #}
-  <div class="sec-head"><h3 class="kid-head"><a href="/kids/{{ s.key }}">{{ s.key | nickname }}</a></h3></div>
-  {% set student, tier, q_base = s, s.key | tier_of, "/questions?kid=" ~ (s.key | urlencode) %}
+{% set student = s %}{% set tier = s.key | tier_of %}{% set n_open = (w.fixable | length) + (w.upcoming | length) %}
+{# One paper page per kid, its label along the top edge as the sheet's heading reads; the kid's
+   tier on the page, so a younger reader's sheet is set in their words and size. #}
+<section class="sec kid" id="{{ s.key }}"{% if tier %} data-tier="{{ tier }}"{% endif %} aria-labelledby="sheet-{{ s.key }}"{% if shown != 'all' and shown != s.key %} hidden{% endif %}>
+  <h3 id="sheet-{{ s.key }}"><a href="/kids/{{ s.key | urlencode }}">{{ s.key | nickname }}</a> — open work <span class="tally">· {{ n_open }} open</span></h3>
+  <p class="as-of muted">{{ as_of | wd_md }} · next {{ days_ahead }} days plus overdue within {{ overdue_days }}</p>
   {% if not w.fixable and not w.upcoming %}
-  <p>Nothing open. Nice work.</p>
+  <p class="muted nothing-open">Nothing open. Nice work.</p>
   {% else %}
-  <h4>Still fixable <span class="muted">· {{ w.fixable | length }}</span></h4>
-  {% if w.fixable %}
-  {{ rows(w.fixable, student, tier, q_base, true) }}
-  {% else %}<p class="muted">Nothing past due that can still be fixed.</p>{% endif %}
-  <h4>Coming due <span class="muted">· {{ w.upcoming | length }}</span></h4>
-  {% if w.upcoming %}
-  {{ rows(w.upcoming, student, tier, q_base, false) }}
-  {% else %}<p class="muted">Nothing coming due in the next {{ days_ahead }} days.</p>{% endif %}
+  {# A line is the item surface at card density with the sheet's word, read-only: no ask line
+     and no answers (a question is a link to the page that asks, #85); the name opens the record
+     in place (`routes/kid.py: card_for`). The still-fixable lines say when credit ends. #}
+  {% set q_base = "/questions?kid=" ~ (s.key | urlencode) %}
+  {% set density = 'card' %}{% set opens_detail = true %}{% set class_link = true %}{% set read_only = true %}
+  <h4 class="day">Still fixable <span class="tally">· {{ w.fixable | length }}</span></h4>
+  {% for view in w.fixable %}
+  {% set item = view %}{% set slot = 'qo-' ~ view.id %}{% set box_id = 'row-' ~ view.id %}
+  {% set word_tone = view | sheet_tone %}{% set tone = word_tone %}{% set word = view | sheet_word(tier) %}{% set late_line = true %}
+  {% include "_item.html" %}
+  {% else %}<p class="muted empty-half">Nothing past due that can still be fixed.</p>{% endfor %}
+  <h4 class="day coming">Coming due <span class="tally">· {{ w.upcoming | length }}</span></h4>
+  {% for view in w.upcoming %}
+  {% set item = view %}{% set slot = 'qo-' ~ view.id %}{% set box_id = 'row-' ~ view.id %}
+  {% set word_tone = view | sheet_tone %}{% set tone = word_tone %}{% set word = view | sheet_word(tier) %}{% set late_line = false %}
+  {% include "_item.html" %}
+  {% else %}<p class="muted empty-half">Nothing coming due in the next {{ days_ahead }} days.</p>{% endfor %}
   {% endif %}
   {% if w.past_window or w.handled %}
-  <p class="muted">Not shown:
+  {# The sheet's trailers: what the page leaves out, counted the way the paper counts it, each a
+     link to exactly the set it counts on Assignments (#125). #}
+  <p class="muted trailer">Not shown:
     {% if w.past_window %}<a href="/kids/{{ s.key | urlencode }}?show=past_window">{{ w.past_window | length }} past the late-work window or more than {{ overdue_days }} days overdue ({{ pts(w.past_window_points) }} pts)</a>{% endif %}
     {%- if w.past_window and w.handled %} · {% endif %}
     {% if w.handled %}<a href="/kids/{{ s.key | urlencode }}?show=handled">{{ w.handled | length }} handled</a>{% endif %}
   </p>
   {% endif %}
 </section>
+{% endfor %}
+</div>
+{# The sheet's legend, once, in the sheet's own capitals on their highlighters. #}
+<p class="legend sheet-legend muted"><span class="key"><span class="word red">MISSING / ZERO</span> past due or scored 0</span> <span class="key"><span class="word late">LATE</span> turned in late, not graded</span> <span class="key"><span class="word check">PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE</span> no grade yet: ask</span> <span class="key"><span class="word due">DUE TODAY / TOMORROW</span> and later due dates in ink</span> <span class="key"><em>until</em> a date: the last day the teacher still takes it</span></p>
 {% else %}
 <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
-{% endfor %}
+{% endif %}
+</div>
+{% endblock %}
 {% endblock %}

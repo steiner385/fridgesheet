@@ -312,6 +312,21 @@ components:
     textColor: "{colors.ink}"
     typography: "{typography.label}"
     padding: "0"
+  sheet-page:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.planner}"
+    padding: "0 12px 4px"
+  kid-tab-tally:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.label}"
+    padding: "0"
+  sheet-legend:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.label}"
+    padding: "12px 0 0"
 ---
 
 # Design System: Fridge Sheet
@@ -320,7 +335,9 @@ components:
      step recorded 2026-09-30; the polish after the re-critique of 2026-09-30 recorded the same
      day from the build, snapshots in .impeccable/critique/2026-09-30T03-23-44Z__*; the shell
      recorded 2026-09-30 from base.html, _header.html, _child_nav.html, app.css and app.js after
-     the finish review's three fixes, renders in .impeccable/review/shell-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     the finish review's three fixes, renders in .impeccable/review/shell-*.png; Open work recorded 2026-09-30 from open.html,
+     _item.html, routes/open.py and app.css after the finish review's three fixes, renders in
+     .impeccable/review/open-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -329,7 +346,9 @@ components:
      and fridgesheet/web/charts.py. Scan mode: this records The Student Planner as it shipped on a
      child's Plan page (seed 5d8bc5ca), on Today (seed 484d9aac, "the week strip") and on a
      child's Assignments page (seed d4a7b45f, "the weekly pages"), and the shell as the planner's
-     index tabs (surface brief .impeccable/surfaces/fridgesheet-web-templates-base-html.md). Where the build departs from the direction contract, the
+     index tabs (surface brief .impeccable/surfaces/fridgesheet-web-templates-base-html.md), and Open work
+     as the sheet on a screen (2026-09-30, seed 169d6a89, "one page at a time"; surface brief
+     .impeccable/surfaces/fridgesheet-web-templates-open-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -356,9 +375,12 @@ turned back a week at a time (2026-09-30, seed d4a7b45f), the item line carried 
 page, and the shell followed the same day as the planner's edge (the maintainer's pick of three
 shell forms, "the planner's index tabs"): the pages are index tabs down the rail, the current one
 pulled forward onto the page, the status is the page's ruled "as of" line in pencil, and a child's
-three pages are the same tabs turned sideways. A class's page, Open work, Settings, Reports and
-the other parent tools now sit inside the planner's shell but keep their own incumbent content
-(cards, tables, chips) until each is brought into the world on its own.
+three pages are the same tabs turned sideways. Open work followed the same day as the sheet on a
+screen (the maintainer's pick of three surface forms, "one page at a time"): the kids as tabs on
+the ruled line, the chosen kid's sheet beneath as one paper page in the sheet's order, its lines
+read-only. A class's page, Settings, Reports and the other parent tools now sit inside the
+planner's shell but keep their own incumbent content (cards, tables, chips) until each is
+brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -385,6 +407,10 @@ and colour used as the only carrier of meaning.
 - On Assignments every week the work was due is a printed week box, newest first, this week's
   word on the yellow highlighter; a week with nothing shown folds to its label and tally, and
   the day rows inside a week are small labels in the same pencil.
+- On Open work the kids are tabs on the ruled line and the chosen kid's sheet is one paper page:
+  the sheet's heading along the top edge, STILL FIXABLE then COMING DUE as day rows parted by the
+  printed rule, every line read-only with the sheet's word and "Until Wed 10/7" in pencil, the
+  trailer at the foot and the sheet's legend once beneath.
 
 ## Colors
 
@@ -406,7 +432,8 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 
 ### Primary
 - **Ballpoint Blue** (#1f5fa8): links (the status line's Update and running-job words among
-  them), the default answer's 2px stroke, the question count beside a tab, the focus ring, the
+  them), the default answer's 2px stroke, the question count beside a tab (never a tab's open count: on Open work
+  that is a Pencil Grey tally), the focus ring, the
   current filter chip, and the one filled primary button on the
   pages that have one ("Print now" on Today, "Finish check-in" on Check-in). On the Plan and on
   Assignments nothing is filled blue: the primary lives on the check-in page, and the Open /
@@ -444,7 +471,9 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
   struck-through name, the "nothing due tonight" line (and the day pair's "Nothing due tonight
   or tomorrow" on a phone), the week strip's per-child counts and the
   family line in a kid's day box on Today; on Assignments the sort line and its drawn chevron,
-  a week's label and its tally, the day rows and "Nothing due this week". Early #4a5568, middle
+  a week's label and its tally, the day rows and "Nothing due this week"; on Open work the tabs'
+  tallies ("Alex · 6"), the page's as-of line, STILL FIXABLE and COMING DUE, the "Until Wed 10/7"
+  sub-line, the trailer and the legend's text. Early #4a5568, middle
   #5a6474.
 - **Stroke Grey** (#8a8a8a): the 1px stroke on buttons, selects and inputs, so a control reads as
   a control against the planner's lighter rules.
@@ -455,7 +484,8 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
   its label's underline, the 2px stroke of an untoned checkbox, the rail's edge (its right edge
   beside a page, its bottom edge on a phone), the three sides of the current index tab and of
   the current child tab, the rule the child tabs stand on, the ruled header line in kid mode
-  (where there are no tabs) and under "Our next steps". Darker than Ruled Grey so a box reads as printed on the
+  (where there are no tabs) and under "Our next steps", and on Open work the kids' tabs' rule, the page box,
+  its label's underline and the printed rule above COMING DUE. Darker than Ruled Grey so a box reads as printed on the
   page rather than ruled into it. Early #7f95ad, middle #8aa0b5.
 - **Paper White** (#ffffff): a day box, a card, a table, an input, the current index tab pulled
   forward from the rail and the current child tab, the empty checkbox.
@@ -517,8 +547,8 @@ sizes chosen for a child reading standing at a fridge.
 ### Hierarchy
 The frontmatter sizes are the root's. Headline, Title and Subtitle are set as multiples of the
 tier root (`--type-root`: 16px at the root, 16 / 18 / 20px on the older / middle / early tiers),
-so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.125× (the Open work
-per-child head 1.375×, a report title 1.25×), Subtitle 1×.
+so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.125× (a report title
+1.25×), Subtitle 1×.
 - **Display** (600, 28px): the tally numeral in a kid's day box on Today and the kid chooser's
   heading. The
   chooser's own buttons are 22px, the one size outside this ramp, on a page that has no tier.
@@ -533,7 +563,8 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
   (older), 18px (middle) and 20px (early), and every rem-free size below follows. The ruled header
   line and a line's facts, ask line and answers are body size.
 - **Label** (400, 13px, `--type-small`): meta lines (class · points · due), the step under a
-  line, the foot links, the status line, badges, chips, the record inset. The rail's tabs are
+  line, the foot links, the status line, badges, chips, the record inset, and on Open work the
+  as-of line, the "Until Wed 10/7" sub-line and the legend. The rail's tabs are
   body size, not label size: a page's name is not a meta line. Tiers raise it to 15px
   (middle) and 16px (early) so the lines a child is asked to judge are never the smallest text.
 - **Day label** (650, `--type-small`, .08em tracking, uppercase, Pencil Grey): the rail's group
@@ -541,13 +572,15 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
   "DUE TOMORROW", "ON PAPER, NO GRADE YET" along a day box's top edge; on Today a kid's name and
   "· BY TOMORROW" along their box's edge (the name a link in the label's own grey), and the week
   strip's day word and date, and on Assignments a week's label ("THIS WEEK · MON 9/28", "WEEK
-  OF MON 8/31") with its tally after it at 400, untracked and in sentence case. Never smaller
+  OF MON 8/31") with its tally after it at 400, untracked and in sentence case, and on Open work a
+  kid's page label ("ALEX — OPEN WORK · 6 open", the name a link in the label's grey). Never smaller
   than the line it heads, because it is set from the same tier token as the meta. On a phone
   the week strip's label alone drops to Caption size with .04em tracking so five cells share
   one row.
 - **Day row** (650, `--type-small`, .04em tracking, uppercase, Pencil Grey): "TUE 9/29" over the
   lines due that day inside a week box on Assignments; the day label's lighter-tracked sibling
-  for a head inside a box rather than along its edge.
+  for a head inside a box rather than along its edge. On Open work the two halves of a kid's
+  sheet are day rows ("STILL FIXABLE · 3", "COMING DUE · 3", the tally at 400 in sentence case).
 - **Caption** (400, 12px, `--type-tiny`): stamps, legends under tables, provenance. 13px (middle),
   14px (early).
 - **Print heading** (Helvetica-Bold 16pt/19), **print group head** (Helvetica-Bold 11pt/13,
@@ -666,6 +699,28 @@ A week with nothing shown is a fold whose summary is the label line with a tally
 sections (Settled by the records, Waiting) follow under the pages. On a phone the head's
 controls wrap and the sheet's word drops to its own line as on the Plan.
 
+**The sheet on a screen** (Open work): under the page head the kids as tabs (`.child-nav.kid-tabs`,
+the child tabs capped at 1100px like the pages beneath), each name followed by its open count as a
+Pencil Grey tally ("Alex · 6"), "Every kid" as one more tab in pencil at the right (`margin-left:
+auto`); the first kid's tab is pulled forward by default, `?kid=<key>` turns the page and `?kid=all`
+makes "Every kid" current. Then, on the ruled page, `.planner-main.open-sheets`: a one-column grid
+with 24px gaps at 1100px holding one `section.sec.kid` per kid, every kid's page in the markup and
+the ones not chosen `hidden`, so a tier never hides a row. A page is the day box holding a kid's
+sheet: Paper White, 1.5px Day-box rule, 2px corners, 0 12px 4px inside, its label along the top
+edge in Day label type ("ALEX — OPEN WORK · 6 open", the name a link in the label's grey, the
+tally at 400 in sentence case), then the as-of line in Pencil Grey label type ("Wed 9/30 · next 14
+days plus overdue within 14"). STILL FIXABLE · 3 as a day row, then its lines soonest-closing
+window first (the first ruled above), the 1.5px Day-box rule above COMING DUE · 3 (the line before
+it drops its hairline, so one rule parts the halves), then its lines by due date. An empty half is
+one Pencil Grey line ("Nothing past due that can still be fixed.", "Nothing coming due in the next
+14 days."); a kid with nothing open gets "Nothing open. Nice work." The trailer ("Not shown: 1 past
+the late-work window or more than 14 days overdue (10 pts) · 2 handled") is Pencil Grey label type
+at the page's foot, each count a link to the set it counts on Assignments. Under the pages, once,
+the sheet's legend (`.sheet-legend`): a wrapped row of keys in label type, the sheet's capitals on
+their highlighters. A tab is an htmx swap of `#open-pages` (tabs and pages together) and a plain
+link without script. The lines are read-only (see The planner line): the name opens the record in
+place, and that is the page's one interaction.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -698,7 +753,7 @@ never a way to make a card look important.
 **The Only-Box Rule.** On the planner the day box is the only box. A line has no border, no left
 rule and no fill of its own; its tone is the colour of its checkbox's rule and of the highlighted
 word, nothing else. Cards remain the container on the pages whose content is still the incumbent
-composition (a class's page, Open work, Settings, Reports) inside the planner's shell.
+composition (a class's page, Settings, Reports) inside the planner's shell.
 
 ## Shapes
 
@@ -763,6 +818,9 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   the planner world fills nothing.
 - **Flag badge:** the family's answer as it stands ("let go 9/12") in a line's meta, the same
   neutral pill.
+- **Question badge (Open work):** on a read-only line the app's question is a "question" link in
+  the meta, the same pill, to the page that asks (`/questions?kid=…#q-<id>`); 44px on a coarse
+  pointer like every linked badge.
 
 ### Cards / Containers
 - **Day box (planner):** Paper White, 1.5px Day-box Blue-grey border, 2px corners, 0 12px 4px
@@ -801,6 +859,11 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   prose capped at the measure. A week with nothing shown is the same box folded: its summary is
   the label with a text marker (▸ closed, ▾ open) and the tally, no rule and no padding beneath
   until it opens; this week is printed open even when empty.
+- **Sheet page (Open work):** the day box holding a kid's whole sheet (`.open-sheets > .sec.kid`):
+  the same Paper White, 1.5px rule, 2px corners and 0 12px 4px inside, its label along the top
+  edge the way the sheet's heading reads ("ALEX — OPEN WORK · 6 open"), the as-of line in pencil,
+  STILL FIXABLE and COMING DUE as day rows parted by the printed rule, read-only lines, the
+  trailer at the foot. The pages not chosen stay in the markup, `hidden`.
 - **Day cell (the week strip):** a day box shrunk to a label and one line: the same 1.5px rule
   and 2px corners, 0 12px 8px inside, the label along the top edge, one Label-size Pencil Grey
   line of counts. Tonight's cell carries its day word on the yellow stroke (Ink, 0 .35em, 2px
@@ -865,6 +928,11 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   keys as links parted by "·"; the active key is Ink at 650 with no underline, followed by a
   drawn chevron (a 10-unit SVG path in the pencil colour at .6em, up or down for the direction)
   that the key's `aria-current` already says in words. 44px tall on a coarse pointer.
+- **Kid tabs (Open work, `.child-nav.kid-tabs`):** the child tabs with the kids as pages: each
+  name with its open count as a Pencil Grey 400 label-size tally ("Alex · 6"), never the blue
+  question count; "Every kid" in Pencil Grey at the right (`margin-left: auto`), one more tab.
+  The current one is pulled forward as any child tab; on `?kid=all` "Every kid" is current.
+  Capped at 1100px so the row is the pages' own width. 44px on a coarse pointer.
 
 ### Status line (signature, the shell)
 The page's ruled "as of" line (`header.status`): one wrapping line of Pencil Grey `--type-small`
@@ -908,7 +976,11 @@ done-line takes the answers' place: the green glyph, the sentence flexing to the
 one Pencil Grey label-size line each, no rule. Foot: "▸ Record" and "Plan a step" as blue links
 and a Caption-size stamp pushed right ("New since Tue 9/29"). Inside a table's opened row or a
 card the same line draws without the checkbox and without its hairline. A step on "Our next
-steps" is the same line with its "Must finish · MISSING" word highlighted inside the meta.
+steps" is the same line with its "Must finish · MISSING" word highlighted inside the meta. On
+Open work the line is read-only (`read_only`): no ask line, no answers, no foot and no Edit on
+the step; the name opens the record in place, a question is a "question" link in the meta, and a
+still-fixable line's facts end with the sheet's sub-line in Pencil Grey ("Until Wed 10/7",
+`copy.until`) where the working pages say the whole late-work sentence.
 
 ### The printed sheet (signature, paper)
 Landscape Letter, 0.5in margins, one section per child. Helvetica-Bold 16pt heading, 10pt cells
@@ -935,7 +1007,7 @@ this sheet's spread.
 - **Do** give every button, control, tab and main link 44px on a coarse pointer (a line's name,
   its foot links, the done-line's Undo, the sort keys, the review line's link, a kid box's three
   links, the print-controls summary, the rail's tabs and its App / More / Menu fold tabs, the
-  status line's links, and a section's link-styled control under the strip); a
+  status line's links, the kids' tabs and "Every kid" on Open work, and a section's link-styled control under the strip); a
   secondary link inside a line or card keeps a 24px floor with 3px padding-block (the class in
   a line's meta, a step's Edit, a kid box's name; the maintainer's rule, 2026-09-29, measured at
   18px on the names 2026-09-30), and a checkbox or radio input is 24px.
@@ -982,3 +1054,5 @@ this sheet's spread.
   update this frontmatter; never edit the `:root` or `[data-tier]` lines by hand.
 - **Don't** fill more than one button per page, and don't fill an answer: the first answer on a
   line is the Ballpoint Blue default stroke.
+- **Don't** set a count beside a name in Ballpoint Blue unless it is the question count; a tab's
+  open count on Open work is a Pencil Grey tally ("Alex · 6").
