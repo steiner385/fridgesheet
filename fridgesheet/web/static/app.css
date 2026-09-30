@@ -6,8 +6,11 @@
    `--rail` is the sidebar; `--pad` the side gutters, narrower under the strip breakpoint. */
 /* The Student Planner (the visual world chosen 2026-09-29; .impeccable/surfaces/): planner
    white for the page, printed day-box rules in planner blue-grey (`--box`), and four highlighter
-   fills (`--hl-*`) that carry the sheet's word on a line in its colour family. */
-:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #c9d3dd; --box: #8fa3b8; --paper: #fff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
+   fills (`--hl-*`) that carry the sheet's word on a line in its colour family.
+   The :root line below and the three [data-tier] lines are GENERATED from fridgesheet/tokens.py,
+   the one token source the printed sheet and the charts read too: change a value there and run
+   `python scripts/tokens_css.py` (tests/test_tokens.py holds the two equal). */
+:root { --ink: #1c1c1c; --muted: #595959; --control: #8a8a8a; --rule: #c9d3dd; --box: #8fa3b8; --paper: #ffffff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; --page-max: 1600px; --measure: 760px; --rail: 220px; --pad: 24px; --radius: 8px; --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; }
 
 /* The presentation a child's grade earns (web/tiers.py). The attribute is not anchored to
    :root on purpose: a page about one child carries it on <body>, and the Open work page --
@@ -21,9 +24,9 @@
    school evidence, dates, eyebrows and stamps are set in. A tier moves them with the body size,
    so the lines a child is asked to judge are never the smallest text on their page: the 20px
    early page used to render "Canvas: no submission recorded · 0/10" at 13px (kids' UX audit F2). */
-[data-tier="early"]  { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --box: #7f95ad; --paper: #fff; --wash: #fffaee; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --late: #8a5200; --check: #5f3594; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
-[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --box: #8aa0b5; --paper: #fff; --wash: #fffcf4; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --late: #915600; --check: #653a9a; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
-[data-tier="older"]  { --ink: #1c1c1c; --muted: #595959; --rule: #c9d3dd; --box: #8fa3b8; --paper: #fff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
+[data-tier="early"] { --ink: #10151b; --muted: #4a5568; --rule: #b9c6d4; --box: #7f95ad; --paper: #ffffff; --wash: #fffaee; --accent: #0b5cab; --warn: #a3170f; --ok: #1d6b27; --late: #8a5200; --check: #5f3594; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 20px; --type-small: 16px; --type-tiny: 14px; }
+[data-tier="middle"] { --ink: #161b22; --muted: #5a6474; --rule: #ccd5de; --box: #8aa0b5; --paper: #ffffff; --wash: #fffcf4; --accent: #14539b; --warn: #a81d14; --ok: #24702c; --late: #915600; --check: #653a9a; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 18px; --type-small: 15px; --type-tiny: 13px; }
+[data-tier="older"] { --ink: #1c1c1c; --muted: #595959; --rule: #c9d3dd; --box: #8fa3b8; --paper: #ffffff; --wash: #fffdf6; --accent: #1f5fa8; --warn: #b3261e; --ok: #2e7d32; --late: #9a5b00; --check: #6b3fa0; --warn-wash: #fdecea; --hl-due: #fff1a8; --hl-red: #ffd9d4; --hl-check: #ead9ff; --hl-late: #ffe4b8; --type-root: 16px; --type-small: 13px; --type-tiny: 12px; }
 
 /* A tier sets its type scale by applying the token to the element that carries the attribute.
    A custom property cannot reach its ancestor (<html>), only its descendants. The attribute lives

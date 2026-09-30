@@ -24,6 +24,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from . import tokens
 from .dates import due_time, long_date, md, time12, wd_md, wd_md_time
 from .open_items import HANDLED_FLAGS, MARKED_FLAGS, Diff, Item, OpenWork
 from .status_words import STATUS_WORD, status_word     # re-exported: every existing caller of
@@ -31,7 +32,12 @@ from .status_words import STATUS_WORD, status_word     # re-exported: every exis
                                                          # keeps working unchanged
 from .web import phrasing
 
-RED, AMBER, BLUE, GREEN, PURPLE, GREY = (colors.HexColor(h) for h in ("#B3261E", "#B26A00", "#1A5FB4", "#1E7A3E", "#6C3FA0", "#555555"))
+# The sheet's colours are the page's (fridgesheet/tokens.py, "one system for screen and
+# paper"): a word is the same red, amber, blue or purple on the fridge as on the screen, and
+# the rules are the planner's blue-grey. `_P` holds the hex for reportlab's inline markup.
+_P = tokens.PRINT
+RED, AMBER, BLUE, GREEN, PURPLE, GREY, INK, RULE = (
+    colors.HexColor(_P[k]) for k in ("warn", "late", "accent", "ok", "check", "muted", "ink", "rule"))
 STATUS_COLOR = {
     "MISSING": RED, "ZERO": RED, "LATE": AMBER,
     "PAPER — CHECK": PURPLE, "IN CLASS — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
@@ -40,15 +46,20 @@ STATUS_COLOR = {
 
 # 10pt cells and 8pt sub-lines: the kid reading the fridge is the reader NN/g puts at a 12pt
 # floor on screen, and 8.5/7 was the smallest text in the whole product. Two kids still fit
-# one page.
-H1 = ParagraphStyle("h1", fontName="Helvetica-Bold", fontSize=16, leading=19)
-SM = ParagraphStyle("sm", fontName="Helvetica", fontSize=8.5, leading=10.5)
-CELL = ParagraphStyle("cell", fontName="Helvetica", fontSize=10, leading=12)
-CELLB = ParagraphStyle("cellb", fontName="Helvetica-Bold", fontSize=10, leading=12)
-TINY = ParagraphStyle("tiny", fontName="Helvetica", fontSize=8, leading=9.5)
-NEWTAG = ParagraphStyle("new", fontName="Helvetica-Bold", fontSize=8.5, leading=10, textColor=GREEN)
-WAS = ParagraphStyle("was", fontName="Helvetica-Oblique", fontSize=8, leading=9.5, textColor=GREY)
-NOTE = ParagraphStyle("note", fontName="Helvetica", fontSize=8.5, leading=10.5, textColor=GREY)
+# one page. The sizes are tokens.PRINT's (size, leading) pairs.
+def _style(name: str, ramp: str, font: str = "Helvetica", **kw) -> ParagraphStyle:
+    size, leading = _P[ramp]
+    return ParagraphStyle(name, fontName=font, fontSize=size, leading=leading, **kw)
+
+
+H1 = _style("h1", "h1", "Helvetica-Bold")
+SM = _style("sm", "small")
+CELL = _style("cell", "cell")
+CELLB = _style("cellb", "cell", "Helvetica-Bold")
+TINY = _style("tiny", "tiny")
+NEWTAG = ParagraphStyle("new", fontName="Helvetica-Bold", fontSize=_P["small"][0], leading=10, textColor=GREEN)
+WAS = _style("was", "tiny", "Helvetica-Oblique", textColor=GREY)
+NOTE = _style("note", "small", textColor=GREY)
 
 COL_WIDTHS = [0.28, 0.42, 1.12, 1.10, 2.03, 0.35, 0.72, 1.48]   # inches; sums to 7.5
 MARGIN = 0.5 * inch
@@ -90,7 +101,7 @@ def fmt_pts(p: float | None) -> str:
 
 
 def _checkbox() -> Table:
-    return Table([[""]], colWidths=[11], rowHeights=[11], style=[("BOX", (0, 0), (-1, -1), 0.75, colors.black)])
+    return Table([[""]], colWidths=[11], rowHeights=[11], style=[("BOX", (0, 0), (-1, -1), 0.75, INK)])
 
 
 def marker(flag: str) -> str:
@@ -107,13 +118,13 @@ def handled_words() -> str:
 
 
 def _status_cell(it: Item, tier: str = "") -> Paragraph:
-    style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, colors.black))
+    style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, INK))
     text = _esc(status_word(it.status, tier))
     if it.flag in MARKED_FLAGS:
-        text += f'<br/><font name="Helvetica-Bold" size="8" color="#6C3FA0">{_esc(marker(it.flag))}</font>'
+        text += f'<br/><font name="Helvetica-Bold" size="{_P["tiny"][0]}" color="{_P["check"]}">{_esc(marker(it.flag))}</font>'
     if it.overdue and it.late_until:
         credit = f"{it.credit} " if it.credit and it.credit != "?" else ""
-        text += f'<br/><font name="Helvetica" size="8" color="#555555">{_esc(credit)}until {wd_md(it.late_until)}</font>'
+        text += f'<br/><font name="Helvetica" size="{_P["tiny"][0]}" color="{_P["muted"]}">{_esc(credit)}until {wd_md(it.late_until)}</font>'
     return Paragraph(text, style)
 
 
@@ -156,15 +167,15 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
     style = [
         ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 10),
         ("FONT", (0, 1), (-1, -1), "Helvetica", 10),
-        ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.black),
+        ("LINEBELOW", (0, 0), (-1, 0), 1, INK),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, RULE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (5, 0), (5, -1), "RIGHT"),
         ("TOPPADDING", (0, 0), (-1, -1), 2.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]
     for i in range(2, len(data)):
         if work.items[i - 1].overdue != work.items[i - 2].overdue:
-            style.append(("LINEABOVE", (0, i), (-1, i), 1, colors.black))
+            style.append(("LINEABOVE", (0, i), (-1, i), 1, INK))
     tail = _tail_lines(ks, overdue_days)
     if tail:
         # Spanning rows inside the table, so the trailer can never be orphaned on the next page.
@@ -172,9 +183,9 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
             data.append([t] + [""] * 7)
             r = len(data) - 1
             style += [("SPAN", (0, r), (-1, r)), ("LINEBELOW", (0, r), (-1, r), 0, colors.white), ("TOPPADDING", (0, r), (-1, r), 4)]
-        style.append(("LINEBELOW", (0, len(data) - 1 - len(tail)), (-1, len(data) - 1 - len(tail)), 1, colors.black))
+        style.append(("LINEBELOW", (0, len(data) - 1 - len(tail)), (-1, len(data) - 1 - len(tail)), 1, INK))
     else:
-        style.append(("LINEBELOW", (0, -1), (-1, -1), 1, colors.black))
+        style.append(("LINEBELOW", (0, -1), (-1, -1), 1, INK))
     t = Table(data, colWidths=[w * inch for w in COL_WIDTHS], repeatRows=1)
     t.setStyle(TableStyle(style))
     return [KeepTogether(head + [t]) if len(data) <= 8 else None, *([] if len(data) <= 8 else head + [t]), Spacer(1, 12)]
@@ -197,19 +208,19 @@ def _tail_lines(ks: KidSheet, overdue_days: int) -> list:
 
 
 def _legend(data_as_of: datetime, stale_note: str | None) -> list:
-    sw = lambda label, hexcolor: f'<font color="{hexcolor}"><b>{label}</b></font>'
+    sw = lambda label, role: f'<font color="{_P[role]}"><b>{label}</b></font>'
     lines = [
         Spacer(1, 4),
-        Paragraph(sw("MISSING / ZERO", "#B3261E") + " past due or scored 0 &nbsp; " + sw("LATE", "#B26A00") + " turned in late, not graded &nbsp; "
-                  + sw("PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE", "#6C3FA0") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "#1A5FB4")
+        Paragraph(sw("MISSING / ZERO", "warn") + " past due or scored 0 &nbsp; " + sw("LATE", "late") + " turned in late, not graded &nbsp; "
+                  + sw("PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE", "check") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "accent")
                   + " &nbsp; later due dates in black &nbsp; <i>credit until date</i> = last day the teacher still takes it", SM),
         Spacer(1, 2),
         Paragraph("<b>Via</b> where it was read (Canvas, HAC, Both) · how it is turned in (online, paper, in class) &nbsp; "
-                  + sw("NEW", "#1E7A3E") + " not on the last sheet &nbsp; <i>was …</i> status changed since the last sheet &nbsp; "
+                  + sw("NEW", "ok") + " not on the last sheet &nbsp; <i>was …</i> status changed since the last sheet &nbsp; "
                   f"Data as of {wd_md_time(data_as_of)}", SM),
     ]
     if stale_note:
-        lines.append(Paragraph(f'<font color="#B3261E"><b>Note:</b> {_esc(stale_note)}</font>', SM))
+        lines.append(Paragraph(f'<font color="{_P["warn"]}"><b>Note:</b> {_esc(stale_note)}</font>', SM))
     return lines
 
 
@@ -227,7 +238,7 @@ def build_pdf(sheets: list[KidSheet], out_path: Path, *, data_as_of: datetime, d
     def footer(canvas, doc):
         pages["n"] = max(pages["n"], doc.page)
         canvas.saveState()
-        canvas.setFont("Helvetica", 7)
+        canvas.setFont("Helvetica", _P["footer"])
         canvas.setFillColor(GREY)
         canvas.drawRightString(letter[0] - MARGIN, 0.4 * inch, f"fridgesheet · printed {md(printed_at)} {time12(printed_at)} · page {doc.page}")
         canvas.restoreState()
@@ -257,8 +268,8 @@ def pdf_text(path: Path, *, raw: bool = False) -> str:
     return p.stdout.decode("utf-8", errors="replace")
 
 
-TABLE_HEAD = ParagraphStyle("th", fontName="Helvetica-Bold", fontSize=8.5, leading=10.5)
-GROUP_HEAD = ParagraphStyle("gh", fontName="Helvetica-Bold", fontSize=11, leading=13, spaceBefore=6)
+TABLE_HEAD = _style("th", "small", "Helvetica-Bold")
+GROUP_HEAD = _style("gh", "group", "Helvetica-Bold", spaceBefore=6)
 
 
 def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetime,
@@ -288,8 +299,8 @@ def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetim
             data.append([Paragraph(_esc(str(row.get(c.id, ""))), CELL) for c in cols])
         t = Table(data, colWidths=[col_width] * len(cols), repeatRows=1)
         t.setStyle(TableStyle([
-            ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black),
-            ("LINEBELOW", (0, 1), (-1, -2), 0.25, colors.HexColor("#D9D9D9")),
+            ("LINEBELOW", (0, 0), (-1, 0), 1, INK),
+            ("LINEBELOW", (0, 1), (-1, -2), 0.25, RULE),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3),
             ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -304,7 +315,7 @@ def build_table_pdf(rendered, out_path: Path, *, title: str, printed_at: datetim
     def footer(canvas, doc):
         pages["n"] = max(pages["n"], doc.page)
         canvas.saveState()
-        canvas.setFont("Helvetica", 7)
+        canvas.setFont("Helvetica", _P["footer"])
         canvas.setFillColor(GREY)
         # Plain text on the canvas, not markup: `_esc` here would print a title's `&` as `&amp;`.
         canvas.drawRightString(page[0] - MARGIN, 0.4 * inch,

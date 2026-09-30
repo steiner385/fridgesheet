@@ -13,11 +13,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-SERIES_COLORS = ("#1f5fa8", "#b3261e", "#2e7d32", "#6b3fa0", "#b8860b", "#00707f")
-#: Outcome colours, as the tables' `warn` class and docs/outcomes.md agree: the same strokes
-#: the Trends chart has always used.
-OUTCOME_COLORS = {"on_time": "#2e7d32", "late": "#b8860b", "not_done": "#b3261e",
-                  "done_offline": "#1f5fa8", "unknown": "#8a6d3b"}
+from .. import tokens
+
+#: The series strokes by position and the outcome strokes (docs/outcomes.md), from the one
+#: token source (fridgesheet/tokens.py) the page and the printed sheet also read.
+SERIES_COLORS: tuple[str, ...] = tokens.CHART["series"]
+OUTCOME_COLORS: dict[str, str] = tokens.CHART["outcomes"]
 #: The y label of a chart that counts rows. Only such a chart may stack: summing averages
 #: on top of each other would be meaningless, so a stacked_bar with any other y draws grouped.
 COUNT_LABEL = "Count"
