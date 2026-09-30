@@ -99,7 +99,7 @@ def test_no_heading_is_pinned_in_pixels():
 
 def test_filter_labels_and_class_links_follow_the_body():
     assert "font-size" not in _rule(".filters label")                         # 14px was off every ramp
-    links = _rule("table.items td > small a, table.work td.item small a")
+    links = _rule("table.items td > small a")
     assert "text-decoration: none" in links                                    # seven identical underlines per table
     assert re.search(r"table\.items td > small a:hover, [^{]*:focus-visible[^{]*\{[^}]*text-decoration: underline", CSS)
 

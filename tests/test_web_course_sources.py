@@ -71,7 +71,7 @@ def test_a_class_with_a_hac_twin_lists_each_assignment_once(tmp_path):
     already widened to the twin, so every row of a paired class appeared twice."""
     cid = course_id(tmp_path, "Honors English 9")
     c, _ = client(tmp_path)
-    items = c.get(f"/kids/Alex/courses/{cid}").text.split("<h3>Items</h3>", 1)[1]
+    items = c.get(f"/kids/Alex/courses/{cid}").text.split('<div class="sec-head"><h3>Assignments</h3>', 1)[1]
     for name in ("Quiz 1", "Essay draft", "Participation"):        # Canvas, Canvas, HAC-only
         assert items.count(f">{name}</a>") == 1, name
 

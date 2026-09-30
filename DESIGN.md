@@ -327,6 +327,17 @@ components:
     textColor: "{colors.pencil-grey}"
     typography: "{typography.label}"
     padding: "12px 0 0"
+  grade-cell:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.display}"
+    rounded: "{rounded.planner}"
+    padding: "0 12px 8px"
+  sources-fold:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.label}"
+    padding: "0"
 ---
 
 # Design System: Fridge Sheet
@@ -337,7 +348,9 @@ components:
      recorded 2026-09-30 from base.html, _header.html, _child_nav.html, app.css and app.js after
      the finish review's three fixes, renders in .impeccable/review/shell-*.png; Open work recorded 2026-09-30 from open.html,
      _item.html, routes/open.py and app.css after the finish review's three fixes, renders in
-     .impeccable/review/open-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     .impeccable/review/open-*.png; a class's page recorded 2026-09-30 from course.html,
+     _week_line.html, routes/kid.py and app.css after the finish review's four fixes, renders in
+     .impeccable/review/class-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -348,7 +361,9 @@ components:
      child's Assignments page (seed d4a7b45f, "the weekly pages"), and the shell as the planner's
      index tabs (surface brief .impeccable/surfaces/fridgesheet-web-templates-base-html.md), and Open work
      as the sheet on a screen (2026-09-30, seed 169d6a89, "one page at a time"; surface brief
-     .impeccable/surfaces/fridgesheet-web-templates-open-html.md). Where the build departs from the direction contract, the
+     .impeccable/surfaces/fridgesheet-web-templates-open-html.md), and a class's page as the
+     class's record (2026-09-30, seed 2254cef2, "the grade strip"; surface brief
+     .impeccable/surfaces/fridgesheet-web-templates-course-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -378,9 +393,11 @@ pulled forward onto the page, the status is the page's ruled "as of" line in pen
 three pages are the same tabs turned sideways. Open work followed the same day as the sheet on a
 screen (the maintainer's pick of three surface forms, "one page at a time"): the kids as tabs on
 the ruled line, the chosen kid's sheet beneath as one paper page in the sheet's order, its lines
-read-only. A class's page, Settings, Reports and the other parent tools now sit inside the
-planner's shell but keep their own incumbent content (cards, tables, chips) until each is
-brought into the world on its own.
+read-only. A class's page followed as the class's record (the maintainer's pick of three surface
+forms, "the grade strip"): the grade's history as a strip of small boxes across the top, the
+newest on the highlighter, over the class's assignments as the weekly pages; the last work table
+went with it. Settings, Reports and the other parent tools now sit inside the planner's shell but
+keep their own incumbent content (cards, chips) until each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -411,6 +428,10 @@ and colour used as the only carrier of meaning.
   the sheet's heading along the top edge, STILL FIXABLE then COMING DUE as day rows parted by the
   printed rule, every line read-only with the sheet's word and "Until Wed 10/7" in pencil, the
   trailer at the foot and the sheet's legend once beneath.
+- On a class's page the grade's history is a strip of small boxes, one per refresh that moved
+  it, the official number first and the newest date on the highlighter; the teacher and the
+  sources fold are pencil lines beneath, "How it moved" and Notes quiet folds, and the class's
+  assignments the same weekly pages as Assignments, the class name a plain word in each meta.
 
 ## Colors
 
@@ -473,7 +494,9 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
   family line in a kid's day box on Today; on Assignments the sort line and its drawn chevron,
   a week's label and its tally, the day rows and "Nothing due this week"; on Open work the tabs'
   tallies ("Alex · 6"), the page's as-of line, STILL FIXABLE and COMING DUE, the "Until Wed 10/7"
-  sub-line, the trailer and the legend's text. Early #4a5568, middle
+  sub-line, the trailer and the legend's text; on a class's page the strip cells' "whose" lines
+  ("HAC average · as of 9/26", "Canvas current"), the other gradebook's number, the teacher line
+  and the sources sentence. Early #4a5568, middle
   #5a6474.
 - **Stroke Grey** (#8a8a8a): the 1px stroke on buttons, selects and inputs, so a control reads as
   a control against the planner's lighter rules.
@@ -549,8 +572,9 @@ The frontmatter sizes are the root's. Headline, Title and Subtitle are set as mu
 tier root (`--type-root`: 16px at the root, 16 / 18 / 20px on the older / middle / early tiers),
 so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.125× (a report title
 1.25×), Subtitle 1×.
-- **Display** (600, 28px): the tally numeral in a kid's day box on Today and the kid chooser's
-  heading. The
+- **Display** (600, 28px): the tally numeral in a kid's day box on Today, the grade in a class
+  page's strip cells (the Headline size on a phone, where three cells share the row) and the kid
+  chooser's heading. The
   chooser's own buttons are 22px, the one size outside this ramp, on a page that has no tier.
 - **Headline** (700, 1.5× root = 24px, -0.3px tracking): the child's name or the page title, in
   the exact words of its rail link. One per page.
@@ -573,7 +597,9 @@ so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.12
   "· BY TOMORROW" along their box's edge (the name a link in the label's own grey), and the week
   strip's day word and date, and on Assignments a week's label ("THIS WEEK · MON 9/28", "WEEK
   OF MON 8/31") with its tally after it at 400, untracked and in sentence case, and on Open work a
-  kid's page label ("ALEX — OPEN WORK · 6 open", the name a link in the label's grey). Never smaller
+  kid's page label ("ALEX — OPEN WORK · 6 open", the name a link in the label's grey), and on a
+  class's page a grade cell's label (OFFICIAL, MON 9/28, CANVAS; the newest date on the yellow
+  stroke). Never smaller
   than the line it heads, because it is set from the same tier token as the meta. On a phone
   the week strip's label alone drops to Caption size with .04em tracking so five cells share
   one row.
@@ -721,6 +747,26 @@ their highlighters. A tab is an htmx swap of `#open-pages` (tabs and pages toget
 link without script. The lines are read-only (see The planner line): the name opens the record in
 place, and that is the page's one interaction.
 
+**The class's record** (a class's page): under the crumb and the class's name (the long name in
+pencil after it), `.planner-main.class-record` at 1100px holds the grade strip: Today's week
+strip turned to the grade (`.week-strip.grade-strip`, `repeat(auto-fill, minmax(150px, 1fr))`
+with 8px gaps), one small day box per observation of this course's own number (Canvas' current
+score or HAC's average), oldest first, the label along the top edge the refresh date, the value
+at Display size in ink with the letter beside it, and under the newest cell one pencil line
+naming whose number it is ("Canvas current", "HAC average · official"); the other gradebook's
+number from the class's twin stands first in an OFFICIAL cell when it is the family's official
+source, else last in a cell named for its gradebook, in pencil, its own date said as "as of
+9/26". On a phone every cell stays on one row (`grid-auto-flow: column`), the numeral at the
+Headline size. Beneath the strip two Pencil Grey label-size lines: the teacher, the email and
+the twin ("Also in HAC as …"), then the sources fold (`details.sources-fold`) whose summary is
+the sentence "Sources for this class: Canvas for scores, HAC for the average · change", "change"
+the one link word; open (and held open by a rule of the class's own), the two selects and a
+default Save on one wrapping row. Then two quiet folds, "How it moved" (the chart, its count of
+refreshes) and "Notes" (open when there are any). Then "Assignments" with its count, the sort
+line and the weekly pages exactly as on Assignments, every row from both gradebooks printed on
+its week (a record folds nothing), the class name a plain word in each line's meta because every
+line is this class, and the sources legend beneath.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -753,7 +799,7 @@ never a way to make a card look important.
 **The Only-Box Rule.** On the planner the day box is the only box. A line has no border, no left
 rule and no fill of its own; its tone is the colour of its checkbox's rule and of the highlighted
 word, nothing else. Cards remain the container on the pages whose content is still the incumbent
-composition (a class's page, Settings, Reports) inside the planner's shell.
+composition (Settings, Reports) inside the planner's shell.
 
 ## Shapes
 
@@ -868,6 +914,19 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   and 2px corners, 0 12px 8px inside, the label along the top edge, one Label-size Pencil Grey
   line of counts. Tonight's cell carries its day word on the yellow stroke (Ink, 0 .35em, 2px
   corners). On a phone: 0 4px 4px inside, the label at Caption size.
+- **Grade cell (a class's page):** the day cell holding a grade: the refresh date (or OFFICIAL, or
+  the other gradebook's name) along the top edge, the value at Display size in ink with the
+  letter beside it, one Pencil Grey label-size line beneath saying whose number ("Canvas
+  current · official", "HAC average · as of 9/26"). The newest date sits on the yellow stroke;
+  the other gradebook's cell is pencil throughout. On a phone the numeral drops to the Headline
+  size and the line to Caption size so three cells share one row.
+- **Sources fold (a class's page):** `details.sources-fold`, one Pencil Grey label-size sentence
+  as its summary with "change" the only link word (no marker), the two selects and a default Save
+  on one wrapping row when open; a rule of the class's own keeps it open. 44px on a coarse
+  pointer.
+- **Note:** one of the family's lines: body text under a 1px Ruled Grey hairline, its meta in
+  Pencil Grey label type, no left rule and no fill (the Only-Box Rule; the left-ruled block went
+  2026-09-30).
 - **Lines list (Questions, an answered line):** Paper White, 1px Ruled Grey, 8px corners, 0 16px,
   one action per row at the right, rows under hairlines.
 
@@ -1007,7 +1066,8 @@ this sheet's spread.
 - **Do** give every button, control, tab and main link 44px on a coarse pointer (a line's name,
   its foot links, the done-line's Undo, the sort keys, the review line's link, a kid box's three
   links, the print-controls summary, the rail's tabs and its App / More / Menu fold tabs, the
-  status line's links, the kids' tabs and "Every kid" on Open work, and a section's link-styled control under the strip); a
+  status line's links, the kids' tabs and "Every kid" on Open work, a class page's sources fold
+  and the teacher's email, and a section's link-styled control under the strip); a
   secondary link inside a line or card keeps a 24px floor with 3px padding-block (the class in
   a line's meta, a step's Edit, a kid box's name; the maintainer's rule, 2026-09-29, measured at
   18px on the names 2026-09-30), and a checkbox or radio input is 24px.
@@ -1056,3 +1116,5 @@ this sheet's spread.
   line is the Ballpoint Blue default stroke.
 - **Don't** set a count beside a name in Ballpoint Blue unless it is the question count; a tab's
   open count on Open work is a Pencil Grey tally ("Alex · 6").
+- **Don't** link a line's class to the page it is already on: on a class's page the class name in
+  every meta is a plain word (`on_class_page` in `_week_line.html`).

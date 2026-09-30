@@ -56,16 +56,19 @@ def test_more_filters_keeps_the_old_selects_behind_a_disclosure(tmp_path):
         assert f'name="{name}"' in more
 
 
-def test_the_course_pages_question_tag_links_to_the_kid_pages_card(tmp_path):
-    """Finding 10: the course page has no question cards, so its tag must point at the kid
-    page's line, where the question is asked."""
+def test_the_course_page_asks_a_question_on_its_own_line(tmp_path):
+    """Finding 10 said the course page had no question cards, so its tag pointed at the kid
+    page's line. The class's record (2026-09-30) prints the same weekly pages as Assignments, so
+    the question is asked on the line itself here too, never on a bare row (#85)."""
     conn = seed(tmp_path)
     cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
     pid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
     conn.close()
     body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert f'href="/kids/Alex#row-{pid}"' in body
-    assert f'href="#row-{pid}"' not in body and f'href="#q-{pid}"' not in body
+    line = body[body.index(f'id="row-{pid}"'):]
+    line = line[:line.index('class="item-foot"')]
+    assert 'class="ask-line"' in line and 'class="answers"' in line
+    assert f'href="/kids/Alex#row-{pid}"' not in body
 
 
 # --- kids' UX audit F8: one true sentence about what has been done ---------------------------------

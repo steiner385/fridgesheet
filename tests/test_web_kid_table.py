@@ -19,7 +19,6 @@ from tests.web_fixtures import NOW, app_for, items_block, seed, week_line
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
-ROWS = (WEB / "templates" / "_item_rows.html").read_text(encoding="utf-8")
 WEEKS = (WEB / "templates" / "_weeks.html").read_text(encoding="utf-8") + (WEB / "templates" / "_week_line.html").read_text(encoding="utf-8")
 CSS = (WEB / "static" / "app.css").read_text(encoding="utf-8")
 
@@ -163,13 +162,15 @@ def test_the_sort_and_its_direction_survive_a_filter_change(tmp_path):
 
 
 def test_the_course_page_sorts_the_same_way(tmp_path):
-    """The course page merges a Canvas course with its HAC twin and sorts the whole; it
-    keeps the table and its headers, so it needs the same direction or its links 404 the idea."""
+    """The course page merges a Canvas course with its HAC twin and sorts the whole on the same
+    weekly pages as Assignments (the class's record, 2026-09-30), so its sort line marks the
+    same key and direction."""
     conn = seed(tmp_path)
     cid = _course_id(conn, "Honors English 9")
     conn.close()
     body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}?sort=name&dir=desc").text
-    assert 'aria-sort="descending"' in re.search(r"<thead>(.*?)</thead>", body, re.S).group(1)
+    line = _sort_line(body)
+    assert re.search(r'id="sort-name" href="[^"]*sort=name"[^>]*aria-current="true"', line) and 'class="arrow down"' in line
 
 
 # --- the Sources cell ----------------------------------------------------------------------
@@ -177,7 +178,6 @@ def test_the_course_page_sorts_the_same_way(tmp_path):
 def test_the_page_has_no_sources_column(tmp_path):
     """Which gradebooks list an item is evidence, not a column: it lives in the item's record
     (docs/superpowers/specs/2026-09-23-questions-not-cases-design.md, 6.1)."""
-    assert not re.search(r'class="[^"]*\bsources\b[^"]*"', ROWS)
     assert not re.search(r'class="[^"]*\bsources\b[^"]*"', WEEKS)
     seed(tmp_path).close()
     assert ">Sources<" not in items_block(app_for(tmp_path).get("/kids/Alex").text)

@@ -1,6 +1,7 @@
 """The Kid page: the item list with filters, the expanded row, and the course page."""
 from __future__ import annotations
 
+import re
 import sqlite3
 from datetime import timedelta
 from urllib.parse import quote, urlencode
@@ -180,12 +181,32 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     # widens a course id to its pair itself and sorts the merged list, so it is asked once.
     # Asking again for the peer doubled every row of a paired class (#183).
     rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
+    # The class's assignments as the weekly pages (the class's record, 2026-09-30): every row
+    # from both gradebooks printed on the week it was due, settled ones checked off in place;
+    # a record hides nothing behind a fold.
     # This course's own lines, all history (no Weeks selector here); the twin has its own page.
     mine = [gs for gs in trends.grade_series(conn, student_id=s["id"], prefs=prefs) if gs.course_id == course_id]
     chart = grade_chart(mine, title="This class", now=now)
+    # The grade strip: this course's own observations, one cell per refresh that moved the
+    # grade (Canvas' current score, or HAC's average), and the other source's number from the
+    # twin, first when it is the official one and last in pencil when it is not.
+    own_field = "current" if c["source"] == "canvas" else "average"
+    history = students.grade_history(conn, course_id)
+    history_cells = [(g, g[own_field] if g[own_field] is not None else g["final"]) for g in history]
+    history_cells = [(g, v) for g, v in history_cells if v is not None]
+    pick = source_ctx["choice"].grades
+    other_grade = next((g for g in grade_lines if g.source != c["source"]), None)
+    # The twin's number in its cell: Canvas' letter beside the value; HAC's "as of" date (the
+    # gradebook's own date, not a refresh) named for what it is, without the year, so the pencil
+    # line is short on a phone (finish review 2026-09-30).
+    other_letter = other_grade.extra if other_grade and other_grade.source == "canvas" else ""
+    other_asof = re.sub(r"/\d{4}$", "", other_grade.extra.replace("updated ", "")) if other_grade and other_grade.source == "hac" and other_grade.extra else ""
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
-                  history=students.grade_history(conn, course_id), rows=rows, sort=sort, direction=direction,
+                  history=history, history_cells=history_cells, other_grade=other_grade, other_letter=other_letter, other_asof=other_asof,
+                  own_label="Canvas current" if c["source"] == "canvas" else "HAC average", own_official=pick == c["source"],
+                  rows=rows, sort=sort, direction=direction, by_day=sort == "due",
+                  weeks=weeks_of(rows, rows, now, by_day=sort == "due"), here=f"/kids/{quote(key)}/courses/{course_id}",
                   sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
                   grade_chart_json=chart_json(chart) if chart else None,
                   notes=notes.for_target(conn, "course", course_id), **source_ctx)

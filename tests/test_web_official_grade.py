@@ -28,7 +28,8 @@ def english(conn) -> int:
 
 
 def grade_card(body: str) -> str:
-    return body.split("<h3>Grade</h3>", 1)[1].split("</div>", 1)[0]
+    """The grade strip (the class's record, 2026-09-30): the official number's cell first."""
+    return body.split('class="week-strip grade-strip"', 1)[1].split("</ol>", 1)[0]
 
 
 def test_grade_lines_put_the_official_source_first():

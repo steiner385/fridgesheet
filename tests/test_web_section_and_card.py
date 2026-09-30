@@ -367,7 +367,7 @@ def test_today_open_work_and_a_class_page_head_their_sections_the_one_way(tmp_pa
     cid = re.search(r'/kids/Alex/courses/(\d+)', course).group(1)
     page = c.get(f"/kids/Alex/courses/{cid}").text
     heads = re.findall(r'<section class="sec[^"]*"[^>]*>\s*<div class="sec-head"><h3>([^<]*)</h3>', page)
-    assert heads == ["Grade history", "Notes", "Items"]
+    assert heads == ["Assignments"]                                  # the grade strip and the two folds head themselves (the class's record)
 
 
 # --- §9 what this retired ---------------------------------------------------------------------------

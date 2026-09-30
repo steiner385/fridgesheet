@@ -1,0 +1,110 @@
+"""A class's page as the class's record (the Student Planner; the surface brief in
+.impeccable/surfaces/, 2026-09-30): the grade's history as a strip of small boxes, the official
+number first and the newest on the highlighter; the teacher and the sources fold as pencil lines;
+"How it moved" and Notes as quiet folds; the class's assignments as the weekly pages."""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+from fridgesheet.web.stores import notes
+from tests.web_fixtures import app_for, seed
+
+CSS = (Path(__file__).resolve().parents[1] / "fridgesheet" / "web" / "static" / "app.css").read_text(encoding="utf-8")
+
+
+def _rule(selector: str) -> str:
+    m = re.search(r"(?m)^" + re.escape(selector) + r"\s*\{([^}]*)\}", CSS)
+    assert m, f"no {selector} rule"
+    return m.group(1)
+
+
+def _course(tmp_path, short="Honors English 9", source="canvas"):
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = ? AND short_name = ?", (source, short)).fetchone()["id"]
+    conn.close()
+    return cid
+
+
+def _strip(body: str) -> str:
+    return body.split('class="week-strip grade-strip"', 1)[1].split("</ol>", 1)[0]
+
+
+def test_the_grade_strip_puts_the_official_number_first_and_highlights_the_newest(tmp_path):
+    cid = _course(tmp_path)
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    strip = _strip(body)
+    cells = re.findall(r'<li class="mf-section day-cell([^"]*)">', strip)
+    assert cells == [" official", " newest"]
+    assert re.search(r'<li class="mf-section day-cell official"><h4><span class="day-word">Official</span></h4>\s*<p><span class="big">88.0</span></p><p class="whose">HAC average · as of 9/11</p></li>', strip)
+    assert re.search(r'<li class="mf-section day-cell newest"><h4><span class="day-word">Tue 9/15</span></h4>\s*<p><span class="big">91.2</span> A-</p><p class="whose">Canvas current</p></li>', strip)
+    assert "<table" not in body and "Grade history" not in body and '<div class="cards">' not in body
+
+
+def test_the_twins_page_reads_its_own_number_and_names_the_other(tmp_path):
+    cid = _course(tmp_path, source="hac")
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    strip = _strip(body)
+    # HAC is the official grades source, so this page's own newest cell carries "· official" and
+    # Canvas' number stands last, in pencil.
+    assert re.search(r'day-cell newest"><h4><span class="day-word">[^<]+</span></h4>\s*<p><span class="big">88.0</span></p><p class="whose">HAC average · official</p>', strip)
+    assert re.search(r'<li class="mf-section day-cell other"><h4><span class="date">Canvas</span></h4>\s*<p><span class="big">91.2</span> A-</p><p class="whose">Canvas current</p></li>', strip)
+    assert "official" not in strip.split('day-cell other', 1)[1]
+
+
+def test_the_teacher_and_the_sources_are_pencil_lines_under_the_strip(tmp_path):
+    cid = _course(tmp_path)
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    assert '<p class="teacher-line muted">Michael Hoch · <a href="mailto:hoch@example.org">hoch@example.org</a> · Also in HAC as Honors English 9 S1</p>' in body
+    assert re.search(r'<details class="sources-fold"><summary>Sources for this class: Canvas for scores, HAC for the average · <span class="change">change</span></summary>\s*<form class="sources-form" method="post" action="/kids/Alex/courses/\d+/sources">', body)
+    assert body.count("<button>Save</button>") == 1 and 'class="primary"' not in body       # no filled primary on this page
+
+
+def test_a_rule_of_its_own_keeps_the_sources_fold_open(tmp_path):
+    cid = _course(tmp_path)
+    c = app_for(tmp_path)
+    assert '<details class="sources-fold">' in c.get(f"/kids/Alex/courses/{cid}").text
+    c.post(f"/kids/Alex/courses/{cid}/sources", data={"assignments": "hac", "grades": ""})
+    body = c.get(f"/kids/Alex/courses/{cid}").text
+    assert '<details class="sources-fold" open>' in body and "Sources for this class: HAC for scores, HAC for the average" in body
+
+
+def test_how_it_moved_and_notes_are_quiet_folds(tmp_path):
+    cid = _course(tmp_path)
+    conn = seed(tmp_path)
+    notes.add(conn, "course", cid, "Syllabus says 7-day late window", now="2026-09-15T14:30:00-04:00")
+    conn.close()
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    assert re.search(r'<details class="sec quiet grade-moves"><summary><h3>How it moved</h3><span class="count">1 refresh</span></summary>\s*<div class="chart-holder"', body)
+    assert re.search(r'<details class="sec quiet class-notes" open><summary><h3>Notes</h3><span class="count">1</span></summary>', body)
+    assert "Syllabus says" in body
+    assert body.index("grade-strip") < body.index("teacher-line") < body.index("sources-fold") < body.index("grade-moves") < body.index("class-notes") < body.index('<h3>Assignments</h3>')
+
+
+def test_the_assignments_are_the_weekly_pages_with_every_row_from_both_gradebooks(tmp_path):
+    cid = _course(tmp_path)
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    assert re.search(r'<section class="sec class-work"[^>]*>\s*<div class="sec-head"><h3>Assignments</h3><span class="count">7 listed</span></div>\s*<div id="items">', body)
+    assert re.search(r'<p class="sort" role="group" aria-label="Sort by">', body)
+    assert body.count('class="mf-section week') >= 2 and "_item_rows" not in body
+    rows = re.findall(r'id="row-(\d+)"', body)
+    assert len(rows) == 7 and len(set(rows)) == 7                                    # Canvas and its HAC twin, once each (#183)
+    for name in ("Quiz 1", "Essay draft", "Participation"):
+        assert body.count(f">{name}</a>") == 1, name
+    assert "sources-hint" in body
+    # Every line is this class: its name in the meta is a word, not seven links to this page.
+    assert re.search(r'<span class="meta">Honors English 9 · ', body) and f'href="/kids/Alex/courses/{cid}">Honors English 9</a>' not in body
+
+
+def test_the_strip_and_the_folds_are_drawn_in_the_planners_rules():
+    assert "max-width: 1100px" in _rule(".class-record")
+    assert "repeat(auto-fill, minmax(150px, 1fr))" in _rule(".grade-strip")
+    narrow = "\n".join(re.findall(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S))
+    assert re.search(r"\.class-record \.grade-strip\s*\{[^}]*grid-auto-flow: column", narrow)        # one row on a phone
+    assert "background: var(--hl-due)" in _rule(".grade-strip > li.newest > h4 > .day-word")
+    assert "color: var(--muted)" in _rule(".grade-strip > li.other > p, .grade-strip > li.empty > p")
+    assert "color: var(--muted)" in _rule(".sources-fold > summary") and "list-style: none" in _rule(".sources-fold > summary")
+    assert "text-decoration: underline" in _rule(".sources-fold > summary .change")
+    coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
+    assert re.search(r"\.sources-fold > summary, \.teacher-line a \{[^}]*min-height: 44px", coarse)
+    assert "table.work" not in CSS

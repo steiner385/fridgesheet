@@ -464,14 +464,20 @@ Every assignment is drawn the same way wherever you meet it: its name, class and
 
 ### 6.4 A class page
 
-Reached from the class name under any assignment.
+Reached from the class name under any assignment. The class's record, opened at the grade:
 
-- **Grade** — the official one first (HAC's marking-period average by default).
-- **Teacher** — name and email when the school lists one.
-- **Sources for this class** — which gradebook this *one class for this one child* reads
-  **Assignment scores** and **Class average** from. **Save** writes a rule immediately
-  ([§14](#which-gradebook-wins)).
-- **Grade history**, a chart, notes, and every item from both gradebooks.
+- **The grade strip** — one small box per refresh that moved this class's grade, oldest to
+  newest, the newest date highlighted; the official number (HAC's marking-period average by
+  default) stands first in its own box, and the other gradebook's number sits last, in grey.
+- **Teacher** — name and email on one line under the strip, with the class's twin in the other
+  gradebook.
+- **Sources for this class** — one line saying which gradebook this *one class for this one
+  child* reads **Assignment scores** and **Class average** from; **change** opens the two
+  choices and **Save** writes a rule immediately ([§14](#which-gradebook-wins)).
+- **How it moved** — the grade's chart, folded; **Notes** — the family's notes on the class,
+  folded, open when there are any.
+- **Assignments** — every item from both gradebooks as the same weekly pages as
+  [§6.3](#63-assignments), this class only; a question is answered on its line here too.
 
 ---
 

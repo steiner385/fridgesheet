@@ -108,24 +108,20 @@ def test_sort_links_keep_an_id_and_inactive_headers_say_so(tmp_path):
     assert 'id="sort-due"' in line and 'id="sort-name"' in line
     assert line.count('aria-current="true"') == 1
     assert re.search(r'<svg class="arrow (?:up|down)" aria-hidden="true"', line)
-    head = re.search(r"<thead>(.*?)</thead>", c.get(f"/kids/Alex/courses/{cid}?sort=due").text, re.S).group(1)
-    assert 'id="sort-due"' in head and head.count('aria-sort="none"') == 2
+    course = re.search(r'<p class="sort"[^>]*>(.*?)</p>', c.get(f"/kids/Alex/courses/{cid}?sort=due").text, re.S).group(1)
+    assert 'id="sort-due"' in course and course.count('aria-current="true"') == 1        # the class page sorts the same line
 
 
-def test_detail_rows_are_hidden_until_opened_and_links_say_so(tmp_path):
-    """On the kid page a line's name opens the record in place of the line (the weekly
-    pages); on the class page the record still opens in a hidden row under it."""
+def test_a_lines_name_opens_the_record_in_place_on_every_page(tmp_path):
+    """On the kid page and on the class page (the class's record, 2026-09-30) a line's name opens
+    the record in place of the line; no page keeps a hidden table row for it."""
     cid = _course(tmp_path)
     c = app_for(tmp_path)
-    kid = c.get("/kids/Alex?show=all").text
-    assert re.search(r'<a href="#row-(\d+)" hx-get="/items/\1\?card=row-\1" hx-target="#row-\1" hx-swap="outerHTML"', kid)
-    assert "tr.detail" not in kid
-    body = c.get(f"/kids/Alex/courses/{cid}").text
-    assert re.search(r'<tr class="detail" hidden>', body)
-    assert not re.search(r'<tr class="detail">', body)
-    assert re.search(r'hx-target="#detail-\d+"[^>]*aria-expanded="false"', body) or \
-        re.search(r'aria-expanded="false"[^>]*hx-target="#detail-\d+"', body)
-    assert "tr.detail" in JS and "aria-expanded" in JS
+    for path in ("/kids/Alex?show=all", f"/kids/Alex/courses/{cid}"):
+        body = c.get(path).text
+        assert re.search(r'<a href="#row-(\d+)" hx-get="/items/\1\?card=row-\1" hx-target="#row-\1" hx-swap="outerHTML"', body), path
+        assert "tr.detail" not in body and '<tr class="detail"' not in body, path
+    assert "data-close-detail" in JS
 
 
 def test_the_detail_card_can_be_closed(tmp_path):
@@ -136,9 +132,11 @@ def test_the_detail_card_can_be_closed(tmp_path):
     assert "data-close-detail" in JS
 
 
-def test_the_table_scrolls_inside_its_own_box_at_any_width(tmp_path):
-    cid = _course(tmp_path)
-    assert '<div class="table-wrap">' in app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+def test_a_table_scrolls_inside_its_own_box_at_any_width(tmp_path):
+    """The work list is planner lines everywhere now; the tables that remain (Runs, Changes,
+    the grade history on Trends) keep their scrolling wrapper."""
+    seed(tmp_path).close()
+    assert '<div class="table-wrap">' in app_for(tmp_path).get("/runs").text
     assert re.search(r"\.table-wrap\s*\{[^}]*overflow-x:\s*auto", CSS)
 
 
@@ -179,7 +177,7 @@ def test_row_links_and_disclosures_are_44px_under_a_finger():
     coarse = _coarse()
     for sel in ("table.items td.item > a", "table.items th a", "main details > summary"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-height: 44px", coarse), f"{sel} has no 44px rule for touch"
-    for sel in ("table.work td.item small a", ".inset a", ".tally a"):
+    for sel in (".inset a", ".tally a"):
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*padding-block: 8px", coarse), f"{sel} has no touch padding"
 
 

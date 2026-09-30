@@ -1,54 +1,79 @@
 {% extends "base.html" %}
 {% block title %}{{ course.short_name }} · {{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
+{# The class's record (the Student Planner, a class's page; the surface brief in .impeccable/surfaces/):
+   the grade's history as a strip of small boxes across the top, one per refresh that moved it,
+   the newest on the highlighter and the official number first; the teacher and the sources fold
+   as one pencil line beneath; "How it moved" and Notes as quiet folds; then the class's
+   assignments as the weekly pages, every row from Canvas and its HAC twin as one list (#183). #}
 {% set page_crumb = student.key | nickname %}{% set page_crumb_href = "/kids/" ~ (student.key | urlencode) %}
 {% set page_title = course.short_name %}{% set page_subtitle = course.name %}
 {% include "_page_head.html" %}
-<section class="sec"><div class="cards">
-  <div class="card"><h3>Grade</h3>
-    {% for g in grade_lines %}
-    <p>{% if loop.first %}<span class="big">{{ g.value }}</span>{% else %}{{ g.value }}{% endif %} {{ g.label }}{% if g.extra %} <span class="muted">{{ g.extra }}</span>{% endif %}{% if loop.first and grade_lines | length > 1 %} <span class="muted">· official</span>{% endif %}</p>
-    {% else %}<p class="muted">No grade observed yet.</p>{% endfor %}
-  </div>
-  <div class="card"><h3>Teacher</h3>
-    {% if course.teacher %}<p>{{ course.teacher }}</p>{% else %}<p class="muted">Not listed.</p>{% endif %}
-    {% if course.teacher_email %}<p><a href="mailto:{{ course.teacher_email }}">{{ course.teacher_email }}</a></p>{% endif %}
-    {% if peer %}<p class="muted">Also in {{ peer.source }} as {{ peer.name }}</p>{% endif %}
-  </div>
-  <div class="card"><h3>Sources for this class</h3>
-    <form method="post" action="/kids/{{ student.key | urlencode }}/courses/{{ course.id }}/sources">
+<div class="planner-main class-record">
+<section class="sec grade-record" aria-labelledby="grade-head">
+  <h3 id="grade-head" class="sr-only">Grade</h3>
+  {# One cell per observation of this course's own number (Canvas' current score, HAC's average),
+     oldest first, the newest highlighted; the other source's number from the twin stands first
+     when it is the family's official one, and last in pencil when it is not (sources.py). #}
+  <ol class="week-strip grade-strip" aria-label="Grade, refresh by refresh">
+    {# Every cell the same shape: a short label along the top edge (the refresh date, OFFICIAL,
+       or the other gradebook's name), the number, and one pencil line saying whose number. #}
+    {% if other_grade and not own_official %}
+    <li class="mf-section day-cell official"><h4><span class="day-word">Official</span></h4>
+      <p><span class="big">{{ other_grade.value }}</span>{% if other_letter %} {{ other_letter }}{% endif %}</p><p class="whose">{{ other_grade.label }}{% if other_asof %} · as of {{ other_asof }}{% endif %}</p></li>
+    {% endif %}
+    {% for g, value in history_cells %}
+    <li class="mf-section day-cell{{ ' newest' if loop.last }}"><h4><span class="day-word">{{ g.started_at | wd_md }}</span></h4>
+      <p><span class="big">{{ value }}</span>{% if g.letter %} {{ g.letter }}{% endif %}</p>{% if loop.last %}<p class="whose">{{ own_label }}{% if own_official %} · official{% endif %}</p>{% endif %}</li>
+    {% else %}
+    <li class="mf-section day-cell empty"><h4><span class="date">{{ own_label }}</span></h4><p class="muted">No grade observed yet.</p></li>
+    {% endfor %}
+    {% if other_grade and own_official %}
+    <li class="mf-section day-cell other"><h4><span class="date">{{ SOURCE_LABELS[other_grade.source] }}</span></h4>
+      <p><span class="big">{{ other_grade.value }}</span>{% if other_letter %} {{ other_letter }}{% endif %}</p><p class="whose">{{ other_grade.label }}{% if other_asof %} · as of {{ other_asof }}{% endif %}</p></li>
+    {% endif %}
+  </ol>
+  <p class="teacher-line muted">{% if course.teacher %}{{ course.teacher }}{% else %}Teacher not listed{% endif %}{% if course.teacher_email %} · <a href="mailto:{{ course.teacher_email }}">{{ course.teacher_email }}</a>{% endif %}{% if peer %} · Also in {{ SOURCE_LABELS[peer.source] }} as {{ peer.name }}{% endif %}</p>
+  {# Which gradebook this one class for this one child reads, as one pencil line; open, the two
+     choices and Save. A rule of its own keeps the fold open. #}
+  <details class="sources-fold"{{ ' open' if own_rule }}><summary>Sources for this class: {{ SOURCE_LABELS[choice.assignments] }} for scores, {{ SOURCE_LABELS[choice.grades] }} for the average · <span class="change">change</span></summary>
+    <form class="sources-form" method="post" action="/kids/{{ student.key | urlencode }}/courses/{{ course.id }}/sources">
     {% for field, word in (('assignments', 'Assignment scores'), ('grades', 'Class average')) %}
       {% set mine = own_rule[field] if own_rule else none %}
-      <p><label>{{ word }} <select name="{{ field }}">
+      <label>{{ word }} <select name="{{ field }}">
         <option value=""{{ ' selected' if mine is none }}>Household default ({{ SOURCE_LABELS[household[field]] }})</option>
         {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if mine == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}
-      </select></label>
+      </select>
       {% set d = deciding[field] %}
-      {% if d and mine is none %}<br><span class="muted">Now {{ SOURCE_LABELS[choice[field]] }}, from a rule for {{ d.kid or 'every kid' }}{{ ' in ' ~ d.course if d.course }}</span>{% endif %}</p>
+      {% if d and mine is none %}<span class="muted">Now {{ SOURCE_LABELS[choice[field]] }}, from a rule for {{ d.kid or 'every kid' }}{{ ' in ' ~ d.course if d.course }}</span>{% endif %}</label>
     {% endfor %}
-    <p><button>Save</button></p>
+      <button>Save</button>
     </form>
-  </div>
-</div></section>
-<section class="sec"><div class="sec-head"><h3>Grade history</h3></div>
-<div class="table-wrap"><table class="items"><tr><th>Seen</th><th>Canvas current</th><th>Canvas final</th><th>HAC average</th><th>Letter</th></tr>
-{% for g in history %}<tr><td>{{ g.started_at | wd_md_time }}</td><td>{{ g.current if g.current is not none else '' }}</td><td>{{ g.final if g.final is not none else '' }}</td><td>{{ g.average if g.average is not none else '' }}</td><td>{{ g.letter or '' }}</td></tr>{% else %}<tr><td colspan="5" class="muted">Nothing yet.</td></tr>{% endfor %}
-</table></div>
+  </details>
+</section>
 {% include "_chart_scripts.html" %}
-{% if grade_chart_json %}{% with config = grade_chart_json, height = 220, label = "This class's grade over time" %}{% include "_chart_canvas.html" %}{% endwith %}
-{% else %}<p class="muted">No grades recorded yet.</p>{% endif %}
-</section>
-<section class="sec"><div class="sec-head"><h3>Notes</h3></div>
-{% set target_type = "course" %}{% set target_id = course.id %}
-{% include "_notes.html" %}
-</section>
-<section class="sec"><div class="sec-head"><h3>Items</h3></div>
-<div id="items">
-{% block partial %}
-{# This page has no question cards; the tag on a row with a question opens the kid page's line. #}
-{% set q_base = "/kids/" ~ (student.key | urlencode) %}{% set q_anchor = "row" %}
-{% include "_item_rows.html" %}
-{% endblock %}
+{% if grade_chart_json %}
+<details class="sec quiet grade-moves"><summary><h3>How it moved</h3><span class="count">{{ history_cells | length }} refresh{{ 'es' if history_cells | length != 1 }}</span></summary>
+  {% with config = grade_chart_json, height = 220, label = "This class's grade over time" %}{% include "_chart_canvas.html" %}{% endwith %}
+</details>
+{% endif %}
+<details class="sec quiet class-notes"{{ ' open' if notes }}><summary><h3>Notes</h3><span class="count">{{ (notes | length) or '' }}</span></summary>
+  {% set target_type = "course" %}{% set target_id = course.id %}
+  {% include "_notes.html" %}
+</details>
 </div>
+{# The class's assignments as the weekly pages: the open and asked lines on their weeks, the
+   settled weeks folded with their tally. A question is asked on its own line here, as on
+   Assignments; the sort keys and the pages swap together in #items. #}
+<section class="sec class-work">
+  <div class="sec-head"><h3>Assignments</h3><span class="count">{{ rows | length }} listed</span></div>
+  <div id="items">
+  {% block partial %}
+  {# Every line here is this class: its name in the meta stays a word, not a link to this page. #}
+  {% set on_class_page = true %}
+  {% include "_weeks.html" %}
+  {% endblock %}
+  </div>
+  {% include "_sources_hint.html" %}
 </section>
 {% endblock %}

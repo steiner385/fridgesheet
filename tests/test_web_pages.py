@@ -256,7 +256,10 @@ def test_course_page_sort_keeps_the_peer_courses_rows(tmp_path):
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
     assert "Participation" in body                                   # the HAC-only row from the twin course
-    assert body.index("Essay draft") < body.index("Lab notebook") < body.index("Participation")   # sorted by name
+    # The weekly pages, sorted by name inside each week (the class's record, 2026-09-30).
+    assert re.search(r'<p class="sort"[^>]*>', body) and 'aria-current="true">Assignment' in body
+    for name in ("Essay draft", "Lab notebook", "Participation"):
+        assert re.search(r'<div class="item[^"]*" id="row-\d+" data-focus>\s*<div class="item-head"><span class="name"><a [^>]*>' + name, body), name
 
 
 def test_a_note_on_something_that_does_not_exist_is_404(tmp_path):
