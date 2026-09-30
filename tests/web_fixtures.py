@@ -34,6 +34,22 @@ NOW = datetime(2026, 9, 15, 14, 0, tzinfo=TZ)
 CHART_CONFIG = re.compile(r'<script type="application/json" data-chart-config>(.*?)</script>', re.S)
 
 
+def week_line(body: str, item_id: int) -> str:
+    """One assignment's line on the kid page (the weekly pages): from its `row-<id>` box to
+    the next line, the next day label or the end of its week, so an assertion can't pass on
+    some other line's text."""
+    # A week's closing tag sits at the start of a line; a line's own Record fold closes inline.
+    m = re.search(rf'<div class="item[^"]*" id="row-{item_id}".*?(?=<div class="item[ "]|<h5 class="day">|^</section>|^</details>)', body, re.S | re.M)
+    assert m, f"no line for item {item_id}"
+    return m.group(0)
+
+
+def items_block(body: str) -> str:
+    """The kid page's weekly pages: from #items to the sources legend under them (the
+    verdict sections that follow are not the list)."""
+    return body[body.index('id="items"'):body.index('class="legend sources-hint')]
+
+
 def chart_configs(body: str) -> list[dict]:
     """Every inlined chart config on a page, in page order, decoded (the `\\u003c` escapes
     `charts.escape_for_script_tag` writes are plain JSON to `json.loads`)."""

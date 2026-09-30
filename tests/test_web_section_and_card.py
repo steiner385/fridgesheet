@@ -138,21 +138,26 @@ def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_gloss
 # --- §4 the five slots, at card and detail density ------------------------------------------------
 
 def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_path):
+    """The question is asked on its own line on the kid page's weekly pages (2026-09-30):
+    the same five slots, the sheet's word at the head's right, the day in the row above."""
+    from tests.web_fixtures import week_line
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
-    card = body[body.index('<div class="item ask" id="q-%d"' % pid):body.index('id="items"')]
+    card = week_line(body, pid)
+    assert card.startswith('<div class="item check" id="row-%d"' % pid)
     order = [card.index(s) for s in ('class="item-head"', 'class="facts"', 'class="ask-line"', 'class="answers"', 'class="item-foot"')]
     assert order == sorted(order)
     assert 'class="ours"' not in card                                          # no step, no note, no answer yet
     head = _element(card, '<div class="item-head">')
-    assert re.search(r'<span class="name"><b tabindex="-1" data-focus-target>Participation</b></span>', head)
-    assert '<span class="meta">Honors English 9' in head
-    assert re.search(r'<span class="when">due \w{3} 9/8[^<]*</span>', head)      # a question: the date, not the standing
+    assert re.search(r'<span class="name"><a href="#row-%d"[^>]*data-focus-target>Participation</a></span>' % pid, head)
+    assert re.search(r'<span class="meta"><a href="/kids/Alex/courses/\d+">Honors English 9</a>', head)
+    assert '<span class="when word check">HAC — NO GRADE</span>' in head        # the sheet's word, in the sheet's colour
     facts = re.search(r'<p class="facts">(.*?)</p>', card).group(1)
-    assert "due" not in facts and "9/8" not in facts                              # said once, in the head
+    assert "due" not in facts and "9/8" not in facts                              # said once, in the day row above
+    assert '<h5 class="day">Tue 9/8</h5>' in body[:body.index('id="row-%d"' % pid)]
     foot = _element(card, '<div class="item-foot">')
-    assert foot.index("<summary>Record</summary>") < foot.index("Notes (0)") < foot.index("Plan a step")
-    assert "<summary>More</summary>" not in foot                                 # detail density only
+    assert foot.index("<summary>Record</summary>") < foot.index("Plan a step")
+    assert "Notes (" not in foot and "<summary>More</summary>" not in foot        # the record the name opens holds those
 
 
 def test_the_detail_is_the_same_card_with_close_and_the_record_open_and_nothing_twice(tmp_path):
@@ -212,7 +217,10 @@ def test_the_assignments_tab_is_four_sections_with_the_filters_in_the_tables_hea
     body = app_for(tmp_path).get("/kids/Alex").text
     content = body.split('class="child-nav"', 1)[1]
     heads = re.findall(r'<(?:section|details) class="sec[^"]*"[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', content)
-    assert heads == ["1 question about your work", "Settled by the records", "Waiting, nothing to do yet", "All assignments"]
+    # The weekly pages (2026-09-30): the list first, the app's verdicts under it; a question is a
+    # line on its week's page, and the count is a lead line in the list's head.
+    assert heads == ["All assignments", "Settled by the records", "Waiting, nothing to do yet"]
+    assert re.search(r'<p id="q-lead" class="lead">1 question about your work</p>', content)
     assert re.search(r'<details class="sec quiet">\s*<summary><h3>Waiting, nothing to do yet</h3> <span class="count">2</span></summary>', content)
     table_head = re.search(r'<h3 id="all-head">All assignments</h3>(.*?)<div id="items">', content, re.S).group(1)
     assert 'class="filters controls"' in table_head and 'name="course"' in table_head and "More filters" in table_head

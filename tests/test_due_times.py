@@ -12,6 +12,8 @@ invention and is never shown as though the school had said it.
 """
 from __future__ import annotations
 
+import re
+
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -98,7 +100,8 @@ def test_the_kid_table_shows_no_time_for_a_hac_only_item(tmp_path):
     iid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
     conn.close()
     row = _row(app_for(tmp_path).get("/kids/Alex?show=all").text, iid)
-    assert "pm" not in row.lower() and "am" not in row.lower(), row
+    meta = re.search(r'<span class="meta">(.*?)</span>', row, re.S).group(1)      # where the line says when
+    assert "pm" not in meta.lower() and "am" not in meta.lower(), meta
 
 
 def test_the_question_card_shows_the_time_too(tmp_path):
@@ -112,10 +115,8 @@ def test_the_question_card_shows_the_time_too(tmp_path):
 
 
 def _row(body: str, item_id: int) -> str:
-    import re
-    m = re.search(rf'id="row-{item_id}">(.*?)</tr>', body, re.S)
-    assert m, f"no row for item {item_id}"
-    return m.group(1)
+    from tests.web_fixtures import week_line
+    return week_line(body, item_id)
 
 
 # --- the printed sheet ----------------------------------------------------------------

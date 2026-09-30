@@ -1,21 +1,26 @@
 {% extends "base.html" %}
 {% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
+{# The weekly pages (the Student Planner, Assignments; the surface brief in .impeccable/surfaces/):
+   every assignment on the week it was due, this week's page first, earlier weeks beneath, settled
+   weeks folded to one line. The controls stay in the section head; the sort and the pages swap
+   together in #items. #}
 {% set page_title = student.key | nickname %}{% include "_page_head.html" %}
 {% include "_child_nav.html" %}
-{% include "_verdict_sections.html" %}
 <section class="sec all-work" aria-labelledby="all-head">
-  <div class="sec-head"><h3 id="all-head">All assignments</h3><span id="all-count" class="count">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span>
-    {# The table's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole
-       table; the hidden sort inputs keep the sort a parent chose when they narrow to one course. #}
+  <div class="sec-head"><h3 id="all-head">All assignments</h3><span id="all-count" class="count">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span>
+    {# The list's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole
+       list; the hidden sort inputs keep the sort a parent chose when they narrow to one course. #}
     <form class="filters controls" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
-      <span class="seg" role="group" aria-label="Show">
+      {# The view as words in the sort line's grammar, the chosen one in ink, the other a link:
+         ballpoint fills nothing on this page (finish review 2026-09-30). #}
+      <span class="seg words" role="group" aria-label="Show"><span class="muted">Show</span>
         {# Open work's "Not shown" links open exactly the set they count (#125); the choice stays
            checked here so narrowing by class keeps it. #}
         {% set narrowed = {'past_window': 'Past the late-work window', 'handled': 'Handled'}.get(f.show) %}
-        <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label>
+        <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label><span class="sep muted">·</span>
         <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
-        {% if narrowed %}<label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
+        {% if narrowed %}<span class="sep muted">·</span><label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
       </span>
       <label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>
       {# Two filters a parent reaches for (the outcome, their own answer) and, behind a second
@@ -36,17 +41,24 @@
       <input type="hidden" name="dir" value="{{ f.direction }}">
     </form>
     {% if widened %}<p class="lead" role="note">Showing everything that matches, not only open work.</p>{% endif %}
+    {# The app's questions, counted over all of the child's work and asked on their own lines
+       below; the line follows an answer out of band (_after_answer.html). #}
+    {% set tier = student.key | tier_of %}
+    <p id="q-lead" class="lead">{% if questions %}{{ 'copy.questions_head' | say(tier, {'n': questions | length, 's': 's' if questions | length != 1 else ''}) }}{% else %}{{ 'copy.no_questions' | say(tier) }}{% endif %}</p>
   </div>
   <div id="items">
   {% block partial %}
-  {% include "_item_rows.html" %}
+  {% include "_weeks.html" %}
   {# The count lives in the section head, outside this swap; the partial carries it out of band
      so a filter or sort change doesn't leave it stale. The <template> keeps it inert on a full
      page load (the head above already has the live one). #}
-  <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if f.show == 'all' else 'open' }}</span></template>
+  <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span></template>
   {% endblock %}
   </div>
-  {# What the two words in "Where it stands" mean, once, under the table (spec 2026-09-28 §2). #}
+  {# What the two words in a line's standing mean, once, under the pages (spec 2026-09-28 §2). #}
   {% include "_sources_hint.html" %}
 </section>
+{# What the records settled and what is waiting on the school: the app's verdicts, below the
+   pages, quiet. A question is not a section here: it is asked on its own line above. #}
+{% include "_verdict_sections.html" %}
 {% endblock %}

@@ -1,6 +1,8 @@
 {# One work-list row. `_item_rows.html` loops over it; an answer re-renders it out of band
    (`oob`), so the row never contradicts the card above it (#72). #}
-  <tr id="row-{{ v.id }}"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
+  {# Out of band, the swap names a table row: on Assignments the same id is a week's line, which
+     keeps its own state (the done-line and its Undo) and is not a row to replace. #}
+  <tr id="row-{{ v.id }}"{% if oob is defined and oob %} hx-swap-oob="outerHTML:tr#row-{{ v.id }}"{% endif %}>
     {# The due hour as this reader meets it ("evening" or "11:59pm"): the `due_at` filter makes
        that choice for every surface, so the row and the card never disagree. #}
     {% set at = v | due_at(tier) %}
@@ -8,7 +10,10 @@
     <td class="item"><a href="#detail-{{ v.id }}" hx-get="/items/{{ v.id }}" hx-target="#detail-{{ v.id }}" hx-swap="innerHTML" aria-expanded="false" aria-controls="detail-{{ v.id }}">{{ v.name }}</a>
         {# The answer as it stands ("let go 9/12"): the one label table, never the stored name (#129). #}
         {% if v.flag %}<span class="badge flag" title="{{ v.flag_text }}">{{ v.flag | flag_label('state', tier) }}{% if v.flag_set_at %} {{ v.flag_set_at | md }}{% endif %}</span>{% endif %}
-        {% if v.asks %}<a class="badge" href="{{ q_base | default('') }}#q-{{ v.id }}" aria-label="Question about {{ v.name }}">question</a>{% endif %}
+        {# `q_base` is the page that asks (Questions, or the kid's Assignments) and `q_anchor` the
+           id prefix of the element that asks there: a "q-" card on Questions, the "row-" line
+           on Assignments (the weekly pages). #}
+        {% if v.asks %}<a class="badge" href="{{ q_base | default('') }}#{{ q_anchor | default('q') }}-{{ v.id }}" aria-label="Question about {{ v.name }}">question</a>{% endif %}
         {% if v.step %}<span class="badge plan">in plan</span>{% endif %}
         {% if v.notes %}<span class="badge">{{ v.notes }} note{{ 's' if v.notes != 1 }}</span>{% endif %}
         <small><a href="/kids/{{ student.key | urlencode }}/courses/{{ v.course_id }}">{{ v.course_short }}</a>{% if v.kind in ('paper', 'in class') %} · {{ v.kind }}{% endif %}</small></td>

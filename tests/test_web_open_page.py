@@ -139,7 +139,11 @@ def test_the_not_shown_links_open_exactly_the_set_they_count(tmp_path):
     checked = 0
     for key in ("Alex", "Sam"):
         for href, n in _not_shown_links(body, key):
-            rows = set(re.findall(r'id="row-(\d+)"', c.get(href).text))
+            # The set they count is what the weekly pages print open; a settled week folded
+            # under them keeps its own lines behind the fold.
+            page = c.get(href).text
+            printed = "".join(re.findall(r'<section class="mf-section week.*?</section>', page, re.S))
+            rows = set(re.findall(r'id="row-(\d+)"', printed))
             assert len(rows) == n, (key, href, rows)
             checked += 1
     assert checked >= 3, "the fixture must give both links something to count"

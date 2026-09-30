@@ -9,6 +9,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ... import sources
+from ...dates import deadline_date, wd_md, week_start
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
 from ..stores import changes, items, notes, students, trends
@@ -43,13 +44,72 @@ def _sort_base(key: str, f: dict) -> str:
     return f"/kids/{quote(key)}?{urlencode(q)}&"
 
 
+def _is_open(v) -> bool:
+    """`items._keep`'s "open": still fixable or coming due, and not answered away."""
+    return bool((v.open_in or v.upcoming) and not v.handled)
+
+
+def _tally(views) -> list[tuple[str, int]]:
+    """How a settled week came out: the five outcomes (docs/outcomes.md) as phrase keys with
+    their counts, for the template to say in the child's tier."""
+    t = items.record_for(views)
+    parts = [("copy.tally_on_time", t.on_time), ("copy.tally_late", t.late), ("copy.tally_not_done", t.not_done),
+             ("copy.tally_on_paper", t.done_offline), ("copy.tally_unknown", t.unknown)]
+    return [(key, n) for key, n in parts if n] or [("copy.tally_listed", len(views))]
+
+
+def weeks_of(shown, everything, now, *, by_day: bool = False) -> list[dict]:
+    """The planner turned back a page at a time (the weekly pages, Assignments): every row the
+    other filters allow, grouped by the week it was due, the newest week first, the list's own
+    order kept inside each week; rows with no due date on a last page. A week with a row in
+    the shown set (`shown`: the Open / Everything choice) is printed open with those rows; a
+    week with none folds to its label and tally, its settled rows behind the fold. This week's
+    page is printed whether or not anything is written on it. `by_day` marks the first row of
+    each day, so a week sorted by due date reads as day rows."""
+    this_week = week_start(now.date())
+    shown_ids = {v.id for v in shown}
+    groups: dict = {this_week: []}
+    for v in everything:
+        groups.setdefault(week_start(deadline_date(v.due)) if v.due else None, []).append(v)
+    order = sorted((k for k in groups if k is not None), reverse=True) + ([None] if None in groups else [])
+    out = []
+    for k in order:
+        vs = groups[k]
+        mine = [v for v in vs if v.id in shown_ids]
+        printed = bool(mine) or k == this_week
+        lines, last_day = [], None
+        for v in (mine if printed else vs):
+            day = wd_md(deadline_date(v.due)) if (by_day and v.due) else ""
+            lines.append((v, day if day != last_day else ""))
+            last_day = day or last_day
+        if k is None:
+            word, when = "copy.no_due_date", ""
+        else:
+            word = {0: "copy.this_week", 1: "copy.next_week", -1: "copy.last_week"}.get((k - this_week).days // 7, "copy.week_of")
+            when = wd_md(k)
+        out.append(dict(key=k.isoformat() if k else "none", word=word, date=when, rows=lines, printed=printed,
+                        tally=_tally(vs), current=k == this_week))
+    return out
+
+
 @router.get("/kids/{key}")
 def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     s = student_or_404(conn, key)
     now, rules = state.now(), state.rules()
     f = _filters(request)
     rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
-    # The sections above the table cover all of the kid's work, whatever the table shows.
+    # A question is open to the family whatever the record says, and on this page it is asked
+    # on its own line (the weekly pages): Open shows every asked row the other filters allow.
+    if f["show"] == "open":
+        shown = {v.id for v in rows}
+        asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
+                 if v.asks and v.id not in shown]
+        if asked:
+            rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
+    # The weeks are turned back through every row the other filters allow: a week with nothing
+    # in the shown set still prints, folded, with its tally.
+    listed = rows if f["show"] == "all" else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
+    # The sections under the pages cover all of the kid's work, whatever the pages show.
     everything = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), show="all", **state.window())
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
     # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
@@ -64,6 +124,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     # on paper are done; not done and unknown are not, or not yet. One line above the questions.
     record = items.record_for(everything)
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f, workspace="all",
+                  weeks=weeks_of(rows, listed, now, by_day=f["sort"] == "due"), by_day=f["sort"] == "due", here=f"/kids/{quote(key)}",
                   done_so_far={"done": record.on_time + record.late + record.done_offline, "total": record.total, "on_time": record.on_time},
                   widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
                   questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
@@ -74,11 +135,11 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
 
 
 def card_for(raw: str | None, item_id: int) -> str | None:
-    """The question card an item detail replaced (#126): "q-<id>" from a question list or
-    "qc-<id>" from a check-in, for this item only. The detail takes over that card's id, and
-    its Close fetches the card back into it; anything else is a detail in a table row, which
-    app.js closes by hiding the row."""
-    return raw if raw in (f"q-{item_id}", f"qc-{item_id}") else None
+    """The question card an item detail replaced (#126): "q-<id>" from a question list,
+    "qc-<id>" from a check-in or "row-<id>" from a week's page on Assignments, for this item
+    only. The detail takes over that card's id, and its Close fetches the card back into it;
+    anything else is a detail in a table row, which app.js closes by hiding the row."""
+    return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}") else None
 
 
 @router.get("/items/{item_id}")

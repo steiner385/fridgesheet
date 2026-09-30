@@ -70,8 +70,9 @@ def test_the_check_in_evidence_shows_the_latest_note_and_a_new_step_starts_from_
 
 def test_a_grade_in_the_table_names_its_gradebook(tmp_path):
     seed(tmp_path).close()
-    table = app_for(tmp_path).get("/kids/Sam?show=all").text.split('id="items"', 1)[1]
-    assert re.search(r"0/10\s*·\s*Canvas", table)
+    from tests.web_fixtures import items_block
+    table = items_block(app_for(tmp_path).get("/kids/Sam?show=all").text)
+    assert "Canvas shows 0 of 10." in table          # the line's facts name the gradebook the zero came from
 
 
 def test_a_grade_on_the_open_page_names_its_gradebook(tmp_path):

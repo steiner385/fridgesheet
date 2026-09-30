@@ -115,15 +115,15 @@ def test_the_kid_table_has_the_three_columns_and_the_old_composite_words_are_gon
     seed(tmp_path).close()
     c = app_for(tmp_path)
     html = c.get("/kids/Alex", headers={"host": "127.0.0.1"}).text
-    table = html[html.index('id="items"'):]
-    # A sortable heading carries an arrow inside its link when it is the column doing the
-    # sorting (#11 item 9), so the label is not always the whole of the element's text.
+    table = html[html.index('id="items"'):html.index('class="legend sources-hint')]      # the weekly pages
+    # A sort key carries an arrow inside its link when it is the key doing the sorting
+    # (#11 item 9), so the label is not always the whole of the element's text.
     for header in ("Due", "Assignment", "Where it stands"):
-        assert re.search(rf">{header}(?:<| <span class=\"arrow\")", table), header
+        assert re.search(rf">{header}(?:<| <svg class=\"arrow)", table), header
     for gone in (">Status<", ">Handed in<", ">Grade<", ">Sources<"):
         assert gone not in table, gone
     # The composite words the old Status column used for settled or waiting work are the
     # verdict's words now.
     for composite in ("Submitted, ungraded", "Late, ungraded", "HAC, no grade", "Paper, check"):
         assert composite not in table, composite
-    assert "Due today" in table and 'class="rel">today</small>' in table
+    assert ">DUE TODAY<" in table and '<h5 class="day">Tue 9/15</h5>' in table     # the sheet's word, under today's day row

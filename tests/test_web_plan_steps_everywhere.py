@@ -39,16 +39,17 @@ def test_the_item_detail_shows_the_agreed_step(tmp_path):
 
 
 def test_the_table_marks_a_row_that_is_in_the_plan(tmp_path):
+    from tests.web_fixtures import week_line
     c, iid = _with_step(tmp_path)
-    table = c.get("/kids/Alex?show=all").text.split('id="items"', 1)[1]
-    row = re.search(rf'id="row-{iid}">(.*?)</tr>', table, re.S).group(1)
-    assert "in plan" in row
+    row = week_line(c.get("/kids/Alex?show=all").text, iid)
+    assert "Our step:" in row and "Ask Mr. Hoch whether it was collected" in row      # the step, on the line
 
 
 def test_an_item_with_an_agreed_step_is_not_asked_about_again(tmp_path):
+    from tests.web_fixtures import week_line
     c, iid = _with_step(tmp_path)
     kid = c.get("/kids/Alex").text
-    assert f'id="q-{iid}"' not in kid and "question about" not in kid
+    assert '<p class="ask-line">' not in week_line(kid, iid) and "question about" not in kid
     assert "Participation" not in c.get("/questions").text
 
 
@@ -58,7 +59,8 @@ def test_a_completed_step_does_not_hide_the_question(tmp_path):
     r = c.post(f"/kids/Alex/check-in/step?step_id={conn_step}", data=_form("Participation", state="done", revision="1"),
                follow_redirects=False)
     assert r.status_code == 303
-    assert f'id="q-{iid}"' in c.get("/kids/Alex").text
+    from tests.web_fixtures import week_line
+    assert '<p class="ask-line">' in week_line(c.get("/kids/Alex").text, iid)      # asked again, on its line
 
 
 # --- #48: planning a step returns to where you were -------------------------------------------

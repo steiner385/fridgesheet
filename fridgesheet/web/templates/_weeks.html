@@ -1,0 +1,41 @@
+{# The weekly pages (the Student Planner, Assignments): the sort line, then one printed week box
+   per week the list's rows were due, the newest week first (`routes/kid.py: weeks_of`). A week
+   with a shown line is printed open; a week with none folds to its label and tally, its settled
+   lines behind the fold; this week's page is printed even when empty. Each line is the item
+   surface at card density with the sheet's word (`_week_line.html`). Sorting stays: the three
+   keys as links, the active one marked and offering the other direction. The planner's ruling
+   runs behind the sort line and between the pages. #}
+{% set tier = (student.key | tier_of) if student is defined and student else "" %}
+{% macro sort_link(id, label) %}
+  {%- set active = sort == id -%}
+  {%- set flip = active and direction != 'desc' -%}
+  {%- set href = sort_base ~ 'sort=' ~ id ~ ('&dir=desc' if flip else '') -%}
+  {#- The link keeps an id so htmx can put focus back on it after the pages swap; the arrow is
+      drawn, for eyes only, because aria-current already says which key is sorting. #}
+  <a id="sort-{{ id }}" href="{{ href }}" hx-get="{{ href }}" hx-target="#items" hx-push-url="true"{% if active %} aria-current="true"{% endif %}>{{ label
+    }}{% if active %} <svg class="arrow {{ 'down' if direction == 'desc' else 'up' }}" aria-hidden="true" width="10" height="10" viewBox="0 0 10 10"><path d="{{ 'M2 3.5l3 3 3-3' if direction == 'desc' else 'M2 6.5l3-3 3 3' }}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>{% endif %}</a>
+{%- endmacro %}
+<p class="sr-only" data-announce="{{ rows | length }} assignment{{ 's' if rows | length != 1 }} shown"></p>
+<div class="planner-main pages">
+<p class="sort" role="group" aria-label="Sort by">{{ 'copy.sort_by' | say(tier) }} {{ sort_link('due', 'Due') }} · {{ sort_link('name', 'Assignment') }} · {{ sort_link('status', 'Where it stands') }}</p>
+<div class="weeks">
+{% for w in weeks %}
+{# "This week · Mon 9/28", but "Week of Mon 8/31": the separator only parts two names. #}
+{% set label %}<span class="week-word">{{ w.word | say(tier) }}</span>{% if w.date %} {% if w.word != 'copy.week_of' %}<span class="sep">· </span>{% endif %}<span class="date">{{ w.date }}</span>{% endif %}{% endset %}
+{% if w.printed %}
+<section class="mf-section week{{ ' current' if w.current }}" data-week="{{ w.key }}" aria-labelledby="week-{{ w.key }}">
+  <h4 id="week-{{ w.key }}">{{ label }}</h4>
+  {% if not w.rows %}<p class="muted empty-week">{{ 'copy.nothing_due_this_week' | say(tier) }}</p>{% endif %}
+{% else %}
+<details class="mf-section week folded" data-week="{{ w.key }}">
+  <summary><h4 id="week-{{ w.key }}">{{ label }} <span class="tally">· {% for key, n in w.tally %}{{ key | say(tier, {'n': n}) }}{{ ' · ' if not loop.last }}{% endfor %}</span></h4></summary>
+{% endif %}
+  {% for view, day in w.rows %}
+  {% if day %}<h5 class="day">{{ day }}</h5>{% endif %}
+  {% include "_week_line.html" %}
+  {% endfor %}
+{% if w.printed %}</section>{% else %}</details>{% endif %}
+{% endfor %}
+</div>
+{% if not rows %}<p class="muted">Nothing matches these filters.</p>{% endif %}
+</div>

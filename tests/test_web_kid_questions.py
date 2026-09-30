@@ -1,9 +1,10 @@
-"""The kid page's three sections above the work list (spec 6.1)."""
+"""The kid page's verdicts (spec 6.1) on the weekly pages: a question asked on its own line, the
+records' decisions and the waiting work in two quiet sections under the pages."""
 from __future__ import annotations
 
 import re
 
-from tests.web_fixtures import app_for, seed
+from tests.web_fixtures import app_for, items_block, seed, week_line
 
 
 def _page(tmp_path, q=""):
@@ -11,13 +12,22 @@ def _page(tmp_path, q=""):
     return app_for(tmp_path).get(f"/kids/Alex{q}").text
 
 
+def _id(tmp_path, name):
+    conn = seed(tmp_path)
+    try:
+        return conn.execute("SELECT id FROM items WHERE name = ?", (name,)).fetchone()["id"]
+    finally:
+        conn.close()
+
+
 def test_alex_has_one_question_one_decided_and_two_waiting(tmp_path):
+    pid = _id(tmp_path, "Participation")
     body = _page(tmp_path)
     assert "1 question about" in body
-    assert re.search(r'id="q-\d+"[^>]*>.*?Participation', body, re.S)
-    decided = body[body.index("Settled by the records"):body.index("Waiting")]
+    assert '<p class="ask-line">' in week_line(body, pid)                    # asked on its own line
+    decided = body[body.index("Settled by the records"):body.index("Waiting, nothing to do yet")]
     assert "Quiz 1" in decided and "Not right?" in decided
-    waiting = body[body.index("Waiting"):body.index('id="items"')]
+    waiting = body[body.index("Waiting, nothing to do yet"):]
     assert "Essay draft" in waiting and "Lab notebook" in waiting and "Ask now" in waiting
 
 
@@ -27,13 +37,13 @@ def test_sections_ignore_the_table_filter(tmp_path):
 
 def test_the_work_list_has_three_columns_and_no_sources_or_actionable(tmp_path):
     body = _page(tmp_path, "?show=all")
-    table = body[body.index('id="items"'):]
+    table = items_block(body)
     assert "Where it stands" in table and "Sources" not in table and "actionable" not in table
 
 
 def test_red_marks_only_school_recorded_not_done(tmp_path):
-    table = _page(tmp_path, "?show=all")
-    rows = dict(re.findall(r'<tr[^>]*id="row-\d+"[^>]*>.*?<a[^>]*>([^<]+)</a>.*?<td class="where([^"]*)"', table, re.S))
+    table = items_block(_page(tmp_path, "?show=all"))
+    rows = {m.group(2): m.group(1) for m in re.finditer(r'<div class="(item[^"]*)" id="row-\d+"[^>]*>\s*<div class="item-head"><span class="name"><a[^>]*>([^<]+)</a>', table)}
     assert "red" in rows["Homework 4"]            # Canvas marked it missing
     assert "red" not in rows["Lab notebook"]      # the app is waiting, not the school saying no
     assert "red" not in rows["Quiz 1"]            # decided done
@@ -47,15 +57,15 @@ def test_more_filters_keeps_the_old_selects_behind_a_disclosure(tmp_path):
 
 
 def test_the_course_pages_question_tag_links_to_the_kid_pages_card(tmp_path):
-    """Finding 10: the course page has no question cards, so its tag must point at the kid page."""
+    """Finding 10: the course page has no question cards, so its tag must point at the kid
+    page's line, where the question is asked."""
     conn = seed(tmp_path)
     cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Honors English 9'").fetchone()["id"]
     pid = conn.execute("SELECT id FROM items WHERE name = 'Participation'").fetchone()["id"]
     conn.close()
     body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert f'href="/kids/Alex#q-{pid}"' in body
-    assert f'href="#q-{pid}"' not in body
-
+    assert f'href="/kids/Alex#row-{pid}"' in body
+    assert f'href="#row-{pid}"' not in body and f'href="#q-{pid}"' not in body
 
 
 # --- kids' UX audit F8: one true sentence about what has been done ---------------------------------

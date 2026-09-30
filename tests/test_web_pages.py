@@ -112,15 +112,16 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     r = c.get("/kids/Alex")
     assert r.status_code == 200
     body = r.text
-    table = body[body.index('id="items"'):]
+    table = body[body.index('id="items"'):body.index('class="legend sources-hint')]      # the weekly pages
     for name in ("Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
         assert name in table, name
     assert "Quiz 1" not in table                                      # HAC's 28/30 settles it (docs/outcomes.md)
     assert "Essay draft" not in table                                 # submitted: not open
-    # Three columns (Due, Assignment, Where it stands): Homework 4 is too late for credit (and
-    # red: Canvas marked it missing), "today" hangs off the Due date, and the HAC-only
-    # Participation says in words that a week has gone by with no grade.
-    assert "Canvas marks it missing · past the late-work window" in table and 'class="where red"' in table and 'class="rel">today</small>' in table and "No grade, longer than usual" in table
+    # The weekly pages: Homework 4 is too late for credit (and red: Canvas marked it missing),
+    # today's work sits under today's day row, and the HAC-only Participation says in words
+    # that a week has gone by with no grade.
+    assert "Canvas marks it missing, and the late-work window has closed." in table and 'class="item red"' in table
+    assert '<h5 class="day">Tue 9/15</h5>' in table and ">DUE TODAY<" in table and "Still no grade anywhere, longer than grading usually takes." in table
     assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
     assert "Honors English 9" in body and "Algebra I" in body        # course filter options
     assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
@@ -128,7 +129,7 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     assert ">answered or asked<" in body                              # FLAGGED's "any", in family words
 
     flagged_only = c.get("/kids/Alex?show=all&flagged=any").text
-    flagged_table = flagged_only[flagged_only.index('id="items"'):]
+    flagged_table = flagged_only[flagged_only.index('id="items"'):flagged_only.index('class="legend sources-hint')]
     assert "Lab notebook" in flagged_table and "Reading log" not in flagged_table   # only the flagged item shows
 
 
@@ -140,7 +141,7 @@ def test_kid_page_filters_apply_and_htmx_gets_the_table_only(tmp_path):
     r = c.get("/kids/Alex?show=all&source=hac", headers={"HX-Request": "true"})
     assert "<html" not in r.text and "Participation" in r.text and "Essay draft" not in r.text
     r = c.get("/kids/Alex?show=all&flagged=marked")
-    assert "Quiz 1" not in r.text[r.text.index('id="items"'):]
+    assert "Quiz 1" not in r.text[r.text.index('id="items"'):r.text.index('class="legend sources-hint')]
 
 
 def test_unknown_kid_is_404(tmp_path):

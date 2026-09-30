@@ -36,13 +36,13 @@ def test_a_middle_reader_sees_the_middle_words(tmp_path):
 def test_an_older_reader_sees_exactly_what_ships_today(tmp_path):
     seed(tmp_path).close()
     body = html.unescape(client_with_grades(tmp_path, Sam=9).get("/kids/Sam?show=all").text)
-    assert "Missing" in body and "Teacher hasn't got it" not in body
+    assert ">MISSING<" in body and "Teacher hasn't got it" not in body       # the sheet's own word on the line
 
 
 def test_no_grade_set_renders_the_shipped_words(tmp_path):
     seed(tmp_path).close()
     body = html.unescape(client_with_grades(tmp_path).get("/kids/Sam?show=all").text)
-    assert "Missing" in body and "Teacher hasn't got it" not in body
+    assert ">MISSING<" in body and "Teacher hasn't got it" not in body
 
 
 def test_no_grade_set_renders_words_not_table_keys(tmp_path):
@@ -50,7 +50,7 @@ def test_no_grade_set_renders_words_not_table_keys(tmp_path):
     of the `older` phrase. The verdict words are keys too ("where.still_ungraded")."""
     seed(tmp_path).close()
     body = client_with_grades(tmp_path).get("/kids/Alex?show=all").text
-    assert "No grade, longer than usual" in body and "Was it handed in?" in body
+    assert "Still no grade anywhere, longer than grading usually takes." in body and "Was it handed in?" in body
     import re
     assert not re.search(r"\b(where|ask|facts|a)\.[a-z_]+\b", body.split("<body", 1)[1]), "a raw phrase key reached the page"
 
@@ -74,11 +74,9 @@ def test_an_apostrophe_phrase_stays_escaped(tmp_path):
 
 
 def _row(body: str, item_id: int) -> str:
-    """One row's markup, so an assertion can't pass on some other row's text."""
-    import re
-    m = re.search(rf'id="row-{item_id}">(.*?)</tr>', body, re.S)
-    assert m, f"no row for item {item_id}"
-    return m.group(1)
+    """One line's markup, so an assertion can't pass on some other line's text."""
+    from tests.web_fixtures import week_line
+    return week_line(body, item_id)
 
 
 def test_a_young_reader_sees_the_due_hour_as_a_part_of_day(tmp_path):
@@ -115,7 +113,9 @@ def test_a_hac_only_row_shows_neither_even_at_the_youngest_tier(tmp_path):
     body = html.unescape(client_with_grades(tmp_path, Alex=5).get("/kids/Alex?show=all").text)
     row = _row(body, iid)
     assert "morning" not in row and "afternoon" not in row and "evening" not in row
-    assert "am" not in row.lower() and "pm" not in row.lower()
+    import re
+    meta = re.search(r'<span class="meta">(.*?)</span>', row, re.S).group(1)       # where the line says when
+    assert "am" not in meta.lower() and "pm" not in meta.lower()
 
 
 def test_open_work_shows_the_plain_words_too(tmp_path):
