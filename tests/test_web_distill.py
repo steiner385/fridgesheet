@@ -107,7 +107,7 @@ def test_the_today_card_leads_with_the_tally_and_says_nothing_about_zero_news(tm
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/").text
     start = body.index('<h3><a href="/kids/Alex/check-in">')
-    card = body[start:body.index("</div>", start)]
+    card = body[start:body.index("</div><!-- /kid -->", start)]
     assert card.index('class="tally"') < card.index("Start check-in")
     assert "0 new since yesterday" not in body
 

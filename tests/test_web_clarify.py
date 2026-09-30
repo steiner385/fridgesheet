@@ -23,7 +23,7 @@ def _ids(tmp_path, *names):
 def _tally_matches_plan(c, key):
     card = c.get("/").text
     start = card.index(f'<h3><a href="/kids/{key}/check-in">')
-    card = card[start:card.index("</div>", start)]
+    card = card[start:card.index("</div><!-- /kid -->", start)]
     m = re.search(r'<span class="big">(\d+)</span> to finish by tomorrow(?:, (\d+) planned)?(?: · (\d+) more on the list)?', card)
     assert m, card
     red, planned, more = (int(g or 0) for g in m.groups())

@@ -2,23 +2,69 @@
 {% block title %}Today · Fridge Sheet{% endblock %}
 {% block content %}
 {% block partial %}
-{# The title is the rail's word; the question is the page's one intro sentence (page layout standard). #}
+{# The family's planner week (the Student Planner, Today; the surface brief in .impeccable/surfaces/):
+   the sheet's controls as the page's date header, a five-day strip with tonight highlighted, then
+   one day box per kid holding tonight's lines, answerable here. #}
 {% set page_title = "Today" %}{% set page_intro = "What needs our attention?" %}{% include "_page_head.html" %}
+<section class="sec sheet-strip" aria-labelledby="sheet-head">
+  <h3 id="sheet-head" class="sr-only">Today's sheet</h3>
+  {# `printed` is (run, runs.describe(run), pdf still on disk). The run's message is the
+     runner's log line -- a file path and "Kid=23" -- and used to be printed here verbatim
+     under the heading "Printed today", preview or not (#40 item 4). #}
+  {% for r, what, has_pdf in printed %}
+  <p>{{ r.started_at | time12 }} <strong>{{ what.label }}</strong>{% if what.pages %} · {{ what.pages }} page{{ 's' if what.pages != 1 }}{% endif %}{% if what.per_kid %} ·
+     {% for k, n in what.per_kid %}{{ k | nickname }} {{ n }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}{% if what.detail %} <span class="muted">{{ what.detail }}</span>{% endif %}
+     {% if has_pdf %} · <a href="/runs/{{ r.id }}/pdf">open the PDF</a>{% endif %}</p>
+  {% else %}<p class="muted">No sheet built today yet.</p>{% endfor %}
+  {% if jobs %}
+  {# A div, not a p: a <details> may not sit inside a <p>, and the browser closed the paragraph
+     before "Print now", dropping it to its own row. #}
+  <div class="actions">
+    <button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button>
+    <label class="tick"><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label>
+    <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
+    {# The one action the product exists for asks in the card, not in a browser dialog: the
+       question names the printer, and the answer is the page's one filled button (critique
+       2026-09-29). Cancel closes the fold (app.js, data-close-details). #}
+    <details class="print-confirm"><summary>Print now</summary>
+      <p class="ask-line">Print today's sheet on {{ 'open-work' | printer_name }}?</p>
+      <p class="answers"><button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Print</button> <button type="button" class="link" data-close-details>Cancel</button></p>
+    </details>
+  </div>
+  {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
+  {% endif %}
+</section>
+<div class="planner-main">
+{% if cards %}
+{# The week: five small day boxes, tonight's label on the highlighter, each kid's count per day. #}
+<ol class="week-strip" aria-label="This week">
+  {% for day in week %}
+  <li class="mf-section day-cell{{ ' today' if loop.first }}"><h4>{% if day.label %}<span class="day-word">{{ day.label }}</span> <span class="sep">· </span>{% endif %}<span class="date">{{ day.date }}</span></h4>
+    <p>{% for key, n in day.counts %}{{ key | nickname }} {{ n }}{{ ' · ' if not loop.last }}{% else %}<span class="muted">nothing due</span>{% endfor %}</p></li>
+  {% endfor %}
+</ol>
+{% endif %}
 <section class="sec kids" aria-label="Kids">
-<div class="cards">
-  {% for s, c, plan in cards %}
-  <div class="card">
-    {# The nightly reader wants tonight's number first; the weekly button and the links come
-       after it (critique 2026-09-29). "0 new since yesterday" is not news, so it is not said. #}
-    <h3><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a></h3>
+<div class="mf-spread today-spread">
+  {% for s, c, plan, rows in cards %}
+  {% set student = s %}{% set tier = s.key | tier_of %}
+  <div class="mf-section day-box" data-section="{{ s.key }}">
+    <h3><a href="/kids/{{ s.key | urlencode }}/check-in">{{ s.key | nickname }}</a> <span class="day">· {{ 'copy.by_tomorrow' | words(tier) }}</span></h3>
     {# The headline: every red row, with the Plan's own count in parts, one line linking to the
        plan (spec 2026-09-27 §8.3). Questions next, the same count as the rail. #}
-    {% set tier = s.key | tier_of %}
     <p class="tally">{% if plan.must_finish %}<a href="/kids/{{ s.key | urlencode }}/plan"><span class="big">{{ plan.must_finish }}</span> {{ 'copy.to_finish_by_tomorrow' | words(tier) }}{% if plan.must_planned %}, {{ 'copy.of_them_planned' | words(tier, {'n': plan.must_planned}) }}{% endif %}{% if plan.must_more %} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}{% endif %}</a>{% elif plan.must_more %}<a href="/kids/{{ s.key | urlencode }}/plan">{{ 'copy.nothing_due' | words(tier) }} · {{ 'copy.more_on_list' | words(tier, {'n': plan.must_more}) }}</a>{% else %}{{ 'copy.nothing_due' | words(tier) }}{% endif %}</p>
     <p class="tally">{% if c.questions %}<a href="/questions?kid={{ s.key | urlencode }}"><span class="big">{{ c.questions }}</span> question{{ 's' if c.questions != 1 }} to answer</a>{% else %}Nothing to answer{% endif %}</p>
+    {# Tonight's lines, the Plan's own rows for tonight, tomorrow and overdue-still-fixable, with
+       the same answers, so the nightly check ends here (re-critique 2026-09-29, Priya). #}
+    {% set exclude = ['too_late', 'ignore'] %}
+    {% for view in rows %}
+    {% set item = view %}{% set density = 'card' %}{% set slot = 'qt-' ~ view.id %}{% set box_id = 'td-' ~ view.id %}
+    {% set word_tone = view | sheet_tone %}{% set tone = word_tone %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}
+    {% include "_item.html" %}
+    {% endfor %}
     {# The family layer: is a check-in due, and what did we plan for today? #}
     <p class="family-plan">{% if plan.last_check %}{% if plan.last_check.next_check <= today %}<strong class="warn">Check-in due (planned for {{ plan.last_check.next_check | wd_md }})</strong>{% else %}Next check-in {{ plan.last_check.next_check | wd_md }}{% endif %}{% else %}No check-in yet{% endif %} · {% if plan.steps_today %}{{ plan.steps_today }} step{{ 's' if plan.steps_today != 1 }} planned today · {{ plan.minutes_today }} min{% else %}No steps planned today{% endif %}</p>
-    <p><a class="button-link" href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a> · <a href="/kids/{{ s.key | urlencode }}">Assignments</a></p>
+    <p class="links"><a href="/kids/{{ s.key | urlencode }}/check-in">Start check-in</a> · <a href="/kids/{{ s.key | urlencode }}/plan">Open plan</a> · <a href="/kids/{{ s.key | urlencode }}">Assignments</a></p>
     {% if c.new_since_yesterday %}<p class="muted">{{ c.new_since_yesterday }} new since yesterday</p>{% endif %}
     {% if c.record.total %}{# how the work that was due came out -- one definition, docs/outcomes.md #}
     <details><summary>School record so far</summary>
@@ -31,40 +77,15 @@
       <span class="muted">· of {{ c.record.total }} due so far</span>
     </p></details>
     {% endif %}
-  </div>
+  </div><!-- /kid -->
   {% else %}
   {# The button, not a command: `fridgesheet refresh` without --record never fills the database
      this page reads, and on Windows there is no terminal step at all (#153). #}
   <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
     {% if jobs %}<p class="actions"><button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button></p>{% endif %}</div>
   {% endfor %}
-  <div class="card">
-    <h3>Today's sheet</h3>
-    {# `printed` is (run, runs.describe(run), pdf still on disk). The run's message is the
-       runner's log line -- a file path and "Kid=23" -- and used to be printed here verbatim
-       under the heading "Printed today", preview or not (#40 item 4). #}
-    {% for r, what, has_pdf in printed %}
-    <p>{{ r.started_at | time12 }} <strong>{{ what.label }}</strong>{% if what.pages %} · {{ what.pages }} page{{ 's' if what.pages != 1 }}{% endif %}{% if what.per_kid %} ·
-       {% for k, n in what.per_kid %}{{ k | nickname }} {{ n }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}{% if what.detail %} <span class="muted">{{ what.detail }}</span>{% endif %}
-       {% if has_pdf %} · <a href="/runs/{{ r.id }}/pdf">open the PDF</a>{% endif %}</p>
-    {% else %}<p class="muted">No sheet built today yet.</p>{% endfor %}
-    {% if jobs %}
-    <p class="actions">
-      <button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button>
-      <label class="tick"><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label>
-      <button hx-post="/jobs/preview" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Preview today's sheet</button>
-      {# The one action the product exists for asks in the card, not in a browser dialog: the
-         question names the printer, and the answer is the page's one filled button (critique
-         2026-09-29). Cancel closes the fold (app.js, data-close-details). #}
-      <details class="print-confirm"><summary>Print now</summary>
-        <p class="ask-line">Print today's sheet on {{ 'open-work' | printer_name }}?</p>
-        <p class="answers"><button class="primary" hx-post="/jobs/print" hx-include="#refresh-first" hx-target="#job" hx-swap="outerHTML">Print</button> <button type="button" class="link" data-close-details>Cancel</button></p>
-      </details>
-    </p>
-    {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
-    {% endif %}
-  </div>
 </div>
 </section>
+</div>
 {% endblock %}
 {% endblock %}

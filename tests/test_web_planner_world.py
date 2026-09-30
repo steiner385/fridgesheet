@@ -67,7 +67,7 @@ def test_the_page_is_warm_planner_white_with_a_faint_ruling_and_no_spiral():
         wash = re.search(rf'\[data-tier="{tier}"\][^{{]*\{{[^}}]*--wash:\s*(#[0-9a-f]{{6}})', CSS).group(1)
         r, g, b = (int(wash[i:i + 2], 16) for i in (1, 3, 5))
         assert r >= g >= b, (tier, wash)                                       # warm, never a cool blue-white
-    ruling = _rule(".checkin-main")
+    ruling = _rule(".planner-main")
     assert "repeating-linear-gradient" in ruling and "color-mix" in ruling     # faint, pitched to the line
     assert ".checkin-main::before" not in CSS and "radial-gradient" not in CSS  # the spiral was not approved
     narrow = re.search(r"@media \(max-width: 1023px\)\s*\{\s*\.mf-spread(.*?)\n\}", CSS, re.S).group(1)

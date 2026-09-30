@@ -229,15 +229,32 @@ components:
     rounded: "{rounded.chooser}"
     padding: "18px"
     size: "22px"
+  sheet-strip:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    padding: "8px 0"
+  day-cell:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.pencil-grey}"
+    typography: "{typography.label}"
+    rounded: "{rounded.planner}"
+    padding: "0 12px 8px"
+  day-word-today:
+    backgroundColor: "{colors.highlighter-yellow}"
+    textColor: "{colors.ink}"
+    typography: "{typography.day-label}"
+    rounded: "{rounded.planner}"
+    padding: "0 0.35em"
 ---
 
 # Design System: Fridge Sheet
 
 <!-- Captured by /impeccable document on 2026-09-29 from fridgesheet/web/static/app.css, the
-     planner templates (_must_finish, _item, _plan_panel, checkin, _child_nav, _answers, base),
-     the four review renders in .impeccable/review/, fridgesheet/sheet.py and
+     planner templates (_must_finish, _item, _plan_panel, checkin, dashboard, _child_nav, _answers,
+     base), the review renders in .impeccable/review/ (the Plan, and today-desktop / today-mobile), fridgesheet/sheet.py and
      fridgesheet/web/charts.py. Scan mode: this records The Student Planner as it shipped on a
-     child's Plan page, and the incumbent shell as it still stands on the other pages. Where the
+     child's Plan page (seed 5d8bc5ca) and on Today (seed 484d9aac, "the week strip"), and the
+     incumbent shell as it still stands on the other pages. Where the
      build departs from the direction contract, the build is what is written here. -->
 
 ## Overview
@@ -257,9 +274,10 @@ recorded something as not in. Type is the system font, set at a comfortable size
 younger reader. The same spread serves a child of eight beside a parent and the parent alone on a
 phone at night, so density and vocabulary flex through three reading tiers while the layout, the
 rows and the actions never do. The world arrived on the child's Plan page first (2026-09-29,
-Impeccable's pick over The Teacher's Gradebook, seed 5d8bc5ca) and the item line carried it to
-every page; the shell around the other pages (Today, the Assignments table, Settings, Reports,
-the rail) still stands in its incumbent ledger composition on the planner's paper.
+Impeccable's pick over The Teacher's Gradebook, seed 5d8bc5ca), Today followed the same day as
+the family's planner week (seed 484d9aac), and the item line carried it to every page; the shell
+around the remaining pages (the Assignments table, Settings, Reports, the rail) still stands in
+its incumbent ledger composition on the planner's paper.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -275,6 +293,8 @@ and colour used as the only carrier of meaning.
 - Three reading tiers redefine every token together, so the youngest reader gets a larger,
   warmer, higher-contrast page with the same rows.
 - Flat at rest, with one motion: 180ms ease-out on the checkbox fill and the strike.
+- On Today the week is a strip of five small day cells with tonight's day word on the yellow
+  highlighter, and each child gets a day box of tonight's lines labelled with their name.
 
 ## Colors
 
@@ -308,7 +328,8 @@ that carry them, and a printed blue-grey for every rule and box.
 - **Ink** (#1c1c1c): all body text and headings. Early #10151b, middle #161b22.
 - **Pencil Grey** (#595959): the family's own writing and everything secondary: the steps under
   "Our next steps", meta lines, the day-box label, the status bar, stamps, quiet section heads, a
-  struck-through name, the "nothing due tonight" line. Early #4a5568, middle #5a6474.
+  struck-through name, the "nothing due tonight" line, the week strip's per-child counts and the
+  family line in a kid's day box on Today. Early #4a5568, middle #5a6474.
 - **Stroke Grey** (#8a8a8a): the 1px stroke on buttons, selects and inputs, so a control reads as
   a control against the planner's lighter rules.
 - **Ruled Grey** (#c9d3dd; `--rule`): the planner's blue-grey hairline under every line, the card
@@ -327,7 +348,9 @@ that carry them, and a printed blue-grey for every rule and box.
 - **Highlighter Yellow** (#fff1a8; `--hl-due`), **Highlighter Red** (#ffd9d4; `--hl-red`),
   **Highlighter Purple** (#ead9ff; `--hl-check`), **Highlighter Amber** (#ffe4b8; `--hl-late`):
   the four strokes behind the sheet's word, one per colour family, the same at every tier. They
-  exist only under a word in their ink and are never a fill on their own.
+  exist only under a word and are never a fill on their own. The one word not in its family's
+  ink is the week strip's TONIGHT, Ink on Highlighter Yellow: a day is not a status, so it takes
+  the stroke and not the blue.
 
 ### Named Rules
 **The Word Beside the Colour Rule.** Nothing is conveyed by colour alone. What is red is red *and*
@@ -350,7 +373,8 @@ blue on the fridge.
 
 **The Highlighter Rule.** The sheet's word is a highlighter stroke: the word in its ink on the
 fill of its own family (`--hl-*`), 2px corners, hugging the word (0 .35em) and never a bar across
-the page or a filled button. A word with no colour is ink on the bare page.
+the page or a filled button. A word with no colour is ink on the bare page. The week strip's day word borrows the yellow
+stroke for tonight only, in Ink.
 
 **The Only-Blue Rule.** On the planner only links and the default answer's stroke are Ballpoint
 Blue. The family's steps are written in Pencil Grey; the checkbox of a due line is blue because the
@@ -375,7 +399,8 @@ The frontmatter sizes are the root's. Headline, Title and Subtitle are set as mu
 tier root (`--type-root`: 16px at the root, 16 / 18 / 20px on the older / middle / early tiers),
 so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.125× (the Open work
 per-child head 1.375×, a report title 1.25×), Subtitle 1×.
-- **Display** (600, 28px): the Today card's big tally number and the kid chooser's heading. The
+- **Display** (600, 28px): the tally numeral in a kid's day box on Today and the kid chooser's
+  heading. The
   chooser's own buttons are 22px, the one size outside this ramp, on a page that has no tier.
 - **Headline** (700, 1.5× root = 24px, -0.3px tracking): the child's name or the page title, in
   the exact words of its rail link. One per page.
@@ -391,8 +416,11 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
   line, the foot links, the status bar, badges, chips, the record inset. Tiers raise it to 15px
   (middle) and 16px (early) so the lines a child is asked to judge are never the smallest text.
 - **Day label** (650, `--type-small`, .08em tracking, uppercase, Pencil Grey): "DUE TONIGHT",
-  "DUE TOMORROW", "ON PAPER, NO GRADE YET" along a day box's top edge. Never smaller than the line
-  it heads, because it is set from the same tier token as the meta.
+  "DUE TOMORROW", "ON PAPER, NO GRADE YET" along a day box's top edge; on Today a kid's name and
+  "· BY TOMORROW" along their box's edge (the name a link in the label's own grey), and the week
+  strip's day word and date. Never smaller than the line it heads, because it is set from the
+  same tier token as the meta. On a phone the week strip's label alone drops to Caption size
+  with .04em tracking so five cells share one row.
 - **Caption** (400, 12px, `--type-tiny`): stamps, legends under tables, provenance. 13px (middle),
   14px (early).
 - **Print heading** (Helvetica-Bold 16pt/19), **print cell** (Helvetica 10pt/12, bold for the
@@ -402,7 +430,8 @@ per-child head 1.375×, a report title 1.25×), Subtitle 1×.
 ### Named Rules
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
 characters at body size); tables, cards and charts fill the 1600px content column, and the planner
-spread takes 1100px because two day boxes need more than a measure.
+spread takes 1100px because two day boxes need more than a measure; Today's week strip and kids'
+spread take the same 1100px.
 
 **The Never-Smallest Rule.** On a tiered page the secondary sizes and the headings move with the
 body size. A fact a child must judge ("Canvas shows 0 of 10") is never rendered at the page's
@@ -441,8 +470,23 @@ box of its own; under 1024px the grid is one column, Tonight first. A day box is
 with its label bleeding to the edges; the lines in it are 8px 0 8px 30px, the 30px being the
 checkbox's column, under 1px hairlines, the last line without one. "Our next steps" follows as
 lines under a ruled head, grouped by h4 (Work to do, Blocked, Waiting), a step's name at 600 and
-its text in Pencil Grey. Behind all of it `.checkin-main` draws a faint ruling pitched to the line
+its text in Pencil Grey. Behind all of it `.planner-main` draws a faint ruling pitched to the line
 height (`--line` = 1.45 × root, Ruled Grey at 40%), and the day boxes are Paper White on top of it.
+
+**The family's week** (Today): under the page head the sheet strip, a `section` ruled top and
+bottom with the 1.5px Day-box rule, 8px inside, 24px below: the last sheet's line (or "No sheet
+built today yet." in Pencil Grey) and one wrapping row of the sheet's controls (Refresh now, the
+Refresh-first tick, Preview, the Print two-step). Then, on the ruled page, the week strip: an
+ordered list of five day cells in a five-column grid with 8px gaps, each a small day box whose
+label is the day word, a separator and the date (TONIGHT · TUE 9/29, TOMORROW · WED 9/30, then
+the bare date) over one Label-size line of per-child counts ("Alex 2 · Sam 2") or "nothing due"
+in Pencil Grey. Then the kids' spread: the planner spread's grid re-filled as
+`repeat(auto-fit, minmax(320px, 1fr))`, one day box per child side by side, each box's label
+the child's name; inside, two tally lines, a hairline, tonight's lines, the family line, three
+links, the School record fold. Under 1024px the five cells stay in one row with 4px gaps on
+`1.3fr 1.3fr 1fr 1fr 1fr` tracks (the two named days get the room their words need), the
+separator vanishes and the day word stacks over the date, no sideways scroll; the kids' boxes
+stack one to a row.
 
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
@@ -505,8 +549,8 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   with its neighbours. Never a fill. On a waiting line no answer is the default.
 - **Danger:** Paper White fill, Red Pen text and border. The one that deletes.
 - **Disabled:** 50% opacity, default cursor.
-- **Two-step in the card (Today):** an action that spends paper asks in place, never in a browser
-  dialog. "Print now" is a disclosure summary in the primary look; open, it steps back to the
+- **Two-step in the sheet strip (Today):** an action that spends paper asks in place, never in a
+  browser dialog. "Print now" is a disclosure summary in the primary look; open, it steps back to the
   plain look and the question ("Print today's sheet on Kitchen Inkjet?") sits under it with the
   filled "Print" and a "Cancel" link button. A job's log then lives behind a "Details" fold.
 - **Link button:** no border or fill, Pencil Grey underlined text, for "Close" and "undo".
@@ -534,8 +578,17 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
 - **Inset:** anything quoted inside a box: the record, a witness line, the class's pace, the
   "school evidence changed" notice. Planner White, 8px corners, 8px 12px, label type, no left
   rule; the changed notice's lead is Ballpoint Blue 600.
-- **Lines list (Today's steps):** Paper White, 1px Ruled Grey, 8px corners, 0 16px, one action per
-  row at the right, rows under hairlines.
+- **Kid's day box (Today):** the day box with the child's name as its label, a link in the label's
+  grey that underlines on hover, followed by "· BY TOMORROW". Its first lines are the two tallies
+  (the Display numeral and its words, one link), then a 1px Ruled Grey hairline above the first
+  planner line; the family line and the three links sit 8px apart under the last line, and the
+  fold 8px below them. Boxes fill `minmax(320px, 1fr)` tracks, never spanning the row.
+- **Day cell (the week strip):** a day box shrunk to a label and one line: the same 1.5px rule
+  and 2px corners, 0 12px 8px inside, the label along the top edge, one Label-size Pencil Grey
+  line of counts. Tonight's cell carries its day word on the yellow stroke (Ink, 0 .35em, 2px
+  corners). On a phone: 0 4px 4px inside, the label at Caption size.
+- **Lines list (Questions, an answered line):** Paper White, 1px Ruled Grey, 8px corners, 0 16px,
+  one action per row at the right, rows under hairlines.
 
 ### Inputs / Fields
 - **Style:** Paper White, 1px Stroke Grey, 6px corners, inherits body type, 4px 6px padding
@@ -569,6 +622,14 @@ source's state in Checkmark Green or Red Pen with the word "OK" or the error, th
 outcome as a badge, a running job, an available update, and the clock. Drops its reassurances on
 narrow screens and never its warnings. Below it, when the data is older than the runner will
 print from, a Red Pen Wash banner with Red Pen text and a "Refresh now" link.
+
+### The sheet strip (signature, Today)
+The sheet's controls as the page's date header: one section ruled above and below with the
+1.5px Day-box rule, holding what printed today (time, label, pages, per-child counts, a link to
+the PDF) or the Pencil Grey "No sheet built today yet.", then one wrapping row of buttons with
+8px 12px gaps: Refresh now, the Refresh-data-first tick, Preview, and the Print two-step whose
+open answers sit 4px under the question. It is the only place on Today that Ballpoint Blue fills
+anything.
 
 ### The planner line (signature)
 One assignment, one line, app-wide. An 18px square checkbox at the left (2px Day-box rule, Paper
@@ -613,7 +674,9 @@ screen is this sheet's spread.
 - **Do** bound prose and forms to `--measure` (760px), the planner spread to 1100px, and let
   tables, cards and charts fill the column.
 - **Do** build a new page from the same blocks: status bar, page head, notices, sections of
-  `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density.
+  `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density; a
+  page that is a planner wraps its spread in `.planner-main` for the ruling and deals its boxes
+  as `.mf-section` inside `.mf-spread`.
 - **Do** use the 4px spacing scale (`--s1` to `--s6`) and the 2px / 6px / 8px / 10px radius set.
 
 ### Don't:

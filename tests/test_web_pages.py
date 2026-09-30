@@ -39,7 +39,7 @@ def test_dashboard_cards_per_kid(tmp_path):
     def card(key):
         """One kid's card, by its heading; the rail names every kid before the cards do."""
         start = body.index(f'<h3><a href="/kids/{key}/check-in">')
-        return body[start:body.index("</div>", start)]
+        return body[start:body.index("</div><!-- /kid -->", start)]
     # Vocabulary tonight, Worksheet 3 tomorrow; the rest of the Plan's Must finish list
     # (Participation and Lab notebook on paper, Reading log later) is named so "2" is the
     # "Must finish 5" a parent then opens.
@@ -63,7 +63,7 @@ def test_dashboard_with_nothing_printed_says_so(tmp_path):
 
 def _card(body: str, key: str) -> str:
     start = body.index(f'<h3><a href="/kids/{key}/check-in">')
-    return body[start:body.index("</div>", start)]
+    return body[start:body.index("</div><!-- /kid -->", start)]
 
 
 def test_a_kid_with_nothing_due_reads_nothing_due(tmp_path):
