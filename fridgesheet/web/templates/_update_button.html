@@ -14,8 +14,8 @@
    listener once per swap. #}
 <div id="update-action"{% if oob is defined and oob %} hx-swap-oob="true"{% endif %}>
 {% if update_ready %}
-  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="card update-action" data-latest="{{ update.latest }}">
-    <h3>Update Fridge Sheet</h3>
+  <form action="/settings/update" method="post" hx-post="/settings/update" hx-target="#update-job" class="sec update-action" data-latest="{{ update.latest }}">
+    <div class="sec-head"><h3>Update Fridge Sheet</h3></div>
     <div class="row">
       <label>Enter your update PIN <input type="password" name="pin" autocomplete="off" required></label>
       <button type="submit" class="primary">Update to {{ update.latest }}</button>
