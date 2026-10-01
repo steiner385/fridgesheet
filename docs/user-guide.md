@@ -738,9 +738,11 @@ yesterday*, 3 days, a week, a month), a child and kinds. Click an item to expand
 
 ## 13. Settings
 
-One form with one **Save** at the bottom, then separate editors below it.
+One form with one **Save config.toml** at the bottom, then, under a printed rule, two editors
+that each save their own file. Each part is a ruled section of the page; the fields sit label
+over control with their help in grey beneath.
 
-| Card | Fields |
+| Section | Fields |
 |---|---|
 | **School login** | **OneLogin username**, **OneLogin password** (blank keeps the stored one). |
 | **Printing and the report window** | **Printer**, **Days ahead**, **Overdue days** (1–60, for the Open Work Sheet), **Archive folder** (a second copy of every PDF, e.g. a Google Drive folder, filed as `2026-27/2026-09-11 Open Work.pdf`), **Nicknames**. |
@@ -749,7 +751,7 @@ One form with one **Save** at the bottom, then separate editors below it.
 | **Network** | **Port** (default 8433), **Allow other devices on this network** ([§16](#16-using-it-on-a-phone-or-tablet)). |
 | **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
 
-Buttons: **Save**, **Test login**.
+Buttons: **Save config.toml**, **Test login**.
 
 Below the form:
 

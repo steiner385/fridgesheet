@@ -370,15 +370,15 @@ def test_settings_folds_the_licences_and_the_late_rules_and_marks_where_save_sto
     about = re.search(r"<h3>About</h3>(.*?)</section>", body, re.S).group(1)
     assert re.search(r'<details class="fold"><summary>Fridge Sheet \S+ <span class="muted">', about)   # closed: the version line shows
     assert "MIT" in about                                                                               # the licences are still there
-    rules = re.search(r'<form class="card" id="late-rules".*?</form>', body, re.S).group(0)
+    rules = re.search(r'<form class="sec" id="late-rules".*?</form>', body, re.S).group(0)
     fold = re.search(r'<details class="fold" >\s*<summary>(\d+) quarters? and (\d+) rules? set — show and edit</summary>', rules)
     assert fold, "the quarters and rules fold, closed on a fresh load"
     assert rules.index("<legend>Default</legend>") < rules.index('<details class="fold"') < rules.index("<legend>Quarters")
     assert 'name="quarter_date"' in rules and 'id="rule-row-tmpl"' in rules
-    below = body.split('<div class="settings-below">', 1)[1]
-    assert below.lstrip().startswith("<p class=\"field-help seam\">Save above keeps the cards above it.") or \
-        re.match(r"\s*\{#.*?#\}\s*<p class=\"field-help seam\">", below, re.S) or 'class="field-help seam"' in below.split("<section", 1)[0]
-    assert re.search(r"\.settings-below\s*\{[^}]*border-top", CSS)
+    # The seam is the printed rule, and each Save names its file (the setup page, 2026-10-01).
+    assert "Save above keeps the cards above it" not in body
+    assert "Save config.toml" in body and "Save late-rules.toml" in body and "Save no-print-days.txt" in body
+    assert re.search(r"\.settings-below\s*\{[^}]*border-top: 1\.5px solid var\(--box\)", CSS)
 
 
 def test_a_saved_or_failed_late_rules_edit_comes_back_open(tmp_path):

@@ -351,7 +351,8 @@ components:
      .impeccable/review/open-*.png; a class's page recorded 2026-09-30 from course.html,
      _week_line.html, routes/kid.py and app.css after the finish review's four fixes, renders in
      .impeccable/review/class-*.png; Questions recorded 2026-09-30 from questions.html, _item.html,
-     _answered.html, routes/questions.py and app.css, renders in .impeccable/review/questions-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     _answered.html, routes/questions.py and app.css, renders in .impeccable/review/questions-*.png; Settings recorded 2026-10-01 from settings.html, the two
+     editors, _update_button.html and app.css, renders in .impeccable/review/settings-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -366,7 +367,9 @@ components:
      class's record (2026-09-30, seed 2254cef2, "the grade strip"; surface brief
      .impeccable/surfaces/fridgesheet-web-templates-course-html.md), and Questions as the
      parent's answering page (2026-09-30, seed a3a53837, "the household's list"; surface brief
-     .impeccable/surfaces/fridgesheet-web-templates-questions-html.md). Where the build departs from the direction contract, the
+     .impeccable/surfaces/fridgesheet-web-templates-questions-html.md), and Settings as the
+     household's setup page (2026-10-01, seed 40e594fb, "ruled sections, one Save each"; surface
+     brief .impeccable/surfaces/fridgesheet-web-templates-settings-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -401,9 +404,12 @@ forms, "the grade strip"): the grade's history as a strip of small boxes across 
 newest on the highlighter, over the class's assignments as the weekly pages; the last work table
 went with it. Questions followed as the parent's answering page ("the household's list"): one
 ruled list for the whole house in the order the school's deadlines close, the kid named first on
-each line, answered in place in the parent's voice. Settings, Reports and the other parent tools
-now sit inside the planner's shell but keep their own incumbent content (cards, chips) until
-each is brought into the world on its own.
+each line, answered in place in the parent's voice. Settings followed as the household's setup
+page ("ruled sections, one Save each"): the planner's blocks in order, each topic a ruled
+section with its fields on the ruling, three forms parted by the printed rule, each closing on a
+Save that names its file. Reports and the other parent tools now sit inside the planner's shell
+but keep their own incumbent content (cards, chips, tables) until each is brought into the world
+on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -442,6 +448,11 @@ and colour used as the only carrier of meaning.
   the kid's name first in each line's pencil meta; who has nothing to ask is one pencil line under
   the title; beneath the list, per kid, the let-go sentence as a pencil line with its button and
   the waiting lines and unpaired twins as quiet folds. No box around any of it.
+- On Settings every topic is a ruled section with its fields label over control and its help in
+  pencil; the three forms are parted by the printed rule and each ends in a Save that names the
+  file it writes, the sticky Save config.toml the page's one filled button; a fieldset is a
+  hairline with a day-row label, an editor's row a ruled line with its buttons at the right, a
+  notice a line under a hairline. No card on the page.
 
 ## Colors
 
@@ -795,6 +806,26 @@ at the list's width, the waiting lines under hairlines inside with no box. The p
 the parent's voice (`voice=''`), as Today does, and so do the cards and done-lines swapped into
 its `q-` slots.
 
+**The setup page** (Settings): under the title and its one intro line ("Set up once; each part
+saves to the file it names."), the first form (`form.settings-form`, a grid of sections 24px
+apart at 1100px): School login, Printing and the report window, Where you are, Gradebook
+sources, Network and Updates, each a `section.sec` with its `.sec-head` h3 at Title size, its
+fields label over control on the ruling (`.settings-grid`, 220px tracks, the label at 550, the
+control 1px Stroke Grey with 6px corners), its help as Pencil Grey label-size lines bounded to the
+measure and an environment note the same in pencil; the form closes on the sticky Save bar
+(`.settings-save-bar`, Planner White over a hairline, "Save config.toml" the page's one filled
+button, "Test login" beside it). Then `.settings-below`, parted from the form by the 1.5px
+Day-box rule and 24px above and below each part: Gradebook overrides (still a table), the job
+card when a job runs, Late-work rules and Days the sheet does not print as `form.sec` editors
+with their `.sec-head`, their help, a fieldset drawn as a hairline above with the legend as a
+day-row label (DEFAULT, QUARTERS, RULES), their folds closed on a fresh load and open after a
+save or an error (`details.fold`, `details.skip-days`: a pencil line with the ▸ text marker), the
+rows inside as ruled lines under hairlines with their inputs at the left and Remove, ↑ and ↓
+pushed right (`.row`), and a default "Save late-rules.toml" / "Save no-print-days.txt" at the
+end; then About, a quiet fold. A notice ("Saved.") is one line in ink under a hairline; a warning
+keeps the Red Pen Wash with Red Pen text. The incumbent's eight white cards, boxed fieldsets and
+seam sentence are gone.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -827,7 +858,7 @@ never a way to make a card look important.
 **The Only-Box Rule.** On the planner the day box is the only box. A line has no border, no left
 rule and no fill of its own; its tone is the colour of its checkbox's rule and of the highlighted
 word, nothing else. Cards remain the container on the pages whose content is still the incumbent
-composition (Settings, Reports) inside the planner's shell.
+composition (Reports) inside the planner's shell.
 
 ## Shapes
 
@@ -915,7 +946,7 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   (`p.review-line`) under the steps: the count in the phrase table's words ("2 more on the
   school's list", `copy.more_on_school_list`), a "Browse all work" link at 44px on a coarse
   pointer, and the sources legend after it. The check-in keeps the queue itself.
-- **Card (incumbent shell: Today, Settings, Reports, the check-in's "Agree and wrap up"):** Paper
+- **Card (incumbent shell: Reports, the job card, the check-in's "Agree and wrap up"):** Paper
   White, 1px Ruled Grey, 8px corners, 12px 16px inside, no shadow.
 - **Inset:** anything quoted inside a box: the record, a witness line, the class's pace, the
   "school evidence changed" notice. Planner White, 8px corners, 8px 12px, label type, no left
@@ -973,6 +1004,20 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
 - **Checkbox / radio:** 24px square on a coarse pointer (WCAG 2.5.8). The planner line's own
   checkbox is drawn, not an input: the answer buttons are the control.
 - **Error / Disabled:** no distinct field error style; errors are said in a warn notice.
+- **Fieldset (Settings, the report builder):** no box: a 1px Ruled Grey hairline above with the
+  legend as a Day row label (650, `--type-small`, .04em, uppercase, Pencil Grey; its aside at
+  400 in sentence case), 8px of room beneath, 12px below the group.
+- **Editor row (`.row`, Settings):** one quarter, rule or no-print date as a ruled line: inputs
+  at the left in a wrapping row, Remove (danger) and the ↑ ↓ buttons pushed right, a 1px Ruled
+  Grey hairline beneath, the last row without one; "Add quarter" / "Add rule" / "Add date" a
+  default button after the rows.
+- **Notice:** what the last POST did, said once between the head and the content: one line in
+  Ink under a 1px Ruled Grey hairline, bounded to the measure; a warning (`.notice.warn`) keeps
+  the Red Pen Wash fill with Red Pen text and 4px corners. No left rule anywhere.
+- **Sticky Save bar (Settings):** `.settings-save-bar`, Planner White over a 1px hairline, stuck
+  to the viewport's bottom while the long first form scrolls, holding the page's one filled
+  button ("Save config.toml") and "Test login"; the two editors' Saves name their files in the
+  default look.
 
 ### Navigation
 - **Rail (`.rail`):** Planner White, the 1.5px Day-box rule as its right edge, 16px above, below
@@ -1154,3 +1199,6 @@ this sheet's spread.
   every meta is a plain word (`on_class_page` in `_week_line.html`).
 - **Don't** change tier line by line: a page that lists several kids' lines (Questions) speaks in
   the parent's voice and names the kid in each line's meta (`kid_label`).
+- **Don't** box a form's parts: a fieldset is a hairline with a day-row label, an editor's row a
+  ruled line, a notice a line under a hairline; a page with three forms fills one Save and names
+  the file each Save writes.

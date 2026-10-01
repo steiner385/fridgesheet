@@ -4,13 +4,17 @@
 {# Both come from `routes.settings._page`; defaulted so a render that forgot them still shows the page. #}
 {% set env_notes = env_notes | default({}) %}
 {% set skip_problems = skip_problems | default([]) %}
-{% set page_title = "Settings" %}{% include "_page_head.html" %}
+{# The household's setup page (the Student Planner, Settings; the surface brief in .impeccable/surfaces/):
+   the planner's blocks in order, each topic a ruled section with its fields label over control
+   and its help in pencil; the first form ends in the sticky Save that names config.toml, and the
+   two editors are two more sections, parted by the printed rule, each ending in its own Save. #}
+{% set page_title = "Settings" %}{% set page_intro = "Set up once; each part saves to the file it names." %}{% include "_page_head.html" %}
 {% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
 {% for e in errors %}<p class="notice warn" role="alert">{{ e }}</p>{% endfor %}
 {% if form %}
 <form method="post" action="/settings" class="settings-form">
-  <section class="card">
-    <h3>School login</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>School login</h3></div>
     <div class="settings-grid">
       <label>OneLogin username <input name="username" value="{{ form.username }}" autocomplete="username"></label>
       <label>OneLogin password <input name="password" type="password" autocomplete="current-password" placeholder="leave blank to keep the stored one"></label>
@@ -24,8 +28,8 @@
       there — over a tailnet it is encrypted; over Wi-Fi it is only as private as the network is.</details>{% endif %}
   </section>
 
-  <section class="card">
-    <h3>Printing and the report window</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>Printing and the report window</h3></div>
     <div class="settings-grid">
       <label>Printer <select name="printer"><option value="" {{ 'selected' if not form.printer }}>System default</option>
          {% for p in printers %}<option value="{{ p }}" {{ 'selected' if p == form.printer }}>{{ p }}</option>{% endfor %}
@@ -45,8 +49,8 @@
     <p class="field-help">Automatic printing: {{ status }}</p>
   </section>
 
-  <section class="card">
-    <h3>Where you are</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>Where you are</h3></div>
     <div class="settings-grid">
       {# A datalist, not a select: the common US zones to pick from, and any IANA name typed
          for a household elsewhere (#122). Blank means this computer's zone, which the help
@@ -61,8 +65,8 @@
     </div>
   </section>
 
-  <section class="card">
-    <h3>Gradebook sources</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>Gradebook sources</h3></div>
     <div class="settings-grid">
       <label>Assignment scores come from <select name="sources_assignments">
          {% for v in ('canvas', 'hac') %}<option value="{{ v }}"{{ ' selected' if form.sources_assignments == v }}>{{ SOURCE_LABELS[v] }}</option>{% endfor %}</select></label>
@@ -73,8 +77,8 @@
        One class or one kid can differ: set it on the class's page.</p>
   </section>
 
-  <section class="card">
-    <h3>Network</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>Network</h3></div>
     <div class="settings-grid">
       <label>Port <input name="port" value="{{ form.port }}" size="5">
          {% if env_notes.port %}<span class="field-help env-note">{{ env_notes.port }}</span>{% endif %}</label>
@@ -92,15 +96,16 @@
     {% endif %}
   </section>
 
-  <section class="card">
-    <h3>Updates</h3>
+  <section class="sec">
+    <div class="sec-head"><h3>Updates</h3></div>
     <p class="field-help">{{ about.split('\n')[0] }}</p>
     {% include "_update_status.html" %}
     <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label><br>
        <span class="field-help">The only thing this app talks to besides the school systems; it sends nothing.</span></p>
     {# Why there is no update button, said here beside the PIN field it may be about -- not
        under the card, where "Set an update PIN below" pointed the wrong way (#145). #}
-    {% if update_blocked_reason %}<p class="muted">{{ update_blocked_reason }}</p>{% endif %}
+    {# Said once: when the status line above already carries the Linux note, the reason is not repeated. #}
+    {% if update_blocked_reason and not (update and update.available and not is_windows and update_blocked_reason == linux_update_how) %}<p class="muted">{{ update_blocked_reason }}</p>{% endif %}
     <div class="settings-grid">
       <label>{{ 'New update PIN' if form.has_update_pin else 'Update PIN' }} <input type="password" name="update_pin" autocomplete="new-password"
              placeholder="{{ 'leave blank to keep the stored one' if form.has_update_pin else 'at least 4 characters' }}"></label>
@@ -112,7 +117,7 @@
   </section>
 
   <div class="settings-save-bar">
-    <button class="primary">Save</button>
+    <button class="primary">Save config.toml</button>
     {% if jobs %}<button type="button" hx-post="/jobs/login" hx-target="#job" hx-swap="outerHTML">Test login</button>{% endif %}
   </div>
 </form>
@@ -121,9 +126,8 @@
    inside another <form> is invalid HTML that browsers do not render predictably. The same goes
    for the Gradebook overrides table below, whose Remove buttons are forms of their own. #}
 <div class="settings-below">
-{# Said once, at the seam: the sticky Save above covers the cards above it, and each card
-   below has a Save of its own (#186). #}
-<p class="field-help seam">Save above keeps the cards above it. Each card below saves on its own.</p>
+{# The printed rule parts the form above from the parts below; each part below names the file
+   its Save writes, so the seam needs no sentence (#186; the setup page, 2026-10-01). #}
 {% include "_update_button.html" %}
 <script>
 // After a successful POST /settings/update: the server is about to be killed by the
@@ -165,8 +169,8 @@ document.body.addEventListener('htmx:afterRequest', function (e) {
 });
 </script>
 {% if source_rules %}
-<section class="card">
-<h3>Gradebook overrides</h3>
+<section class="sec">
+<div class="sec-head"><h3>Gradebook overrides</h3></div>
 <div class="table-wrap"><table class="items"><tr><th>Kid</th><th>Class</th><th>Assignment scores</th><th>Class average</th><th></th></tr>
 {% for r in source_rules %}<tr><td>{{ r.kid or 'Every kid' }}</td><td>{{ r.course or 'Every class' }}</td>
   <td>{{ SOURCE_LABELS[r.assignments] if r.assignments else 'Default' }}</td><td>{{ SOURCE_LABELS[r.grades] if r.grades else 'Default' }}</td>
@@ -177,8 +181,8 @@ document.body.addEventListener('htmx:afterRequest', function (e) {
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% with errors=[], saved=false %}{% include "_late_rules_editor.html" %}{% endwith %}
 {% with errors=[], saved=false, notes=[], problems=skip_problems %}{% include "_no_print_days_editor.html" %}{% endwith %}
-<section class="card">
-<h3>About</h3>
+<section class="sec">
+<div class="sec-head"><h3>About</h3></div>
 {# The version line stays in view; the components and their licences -- a phone screen of
    text -- fold under it (#186). #}
 <details class="fold"><summary>{{ about.split('\n')[0] }} <span class="muted">— what it is built from, and the licences</span></summary>
