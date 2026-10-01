@@ -1,38 +1,53 @@
 {% extends "base.html" %}
 {% block title %}Questions · Fridge Sheet{% endblock %}
 {% block content %}
+{# The parent's answering page (the Student Planner, Questions; the surface brief in .impeccable/surfaces/):
+   one ruled list for the whole house, every question in the order the school's deadlines close,
+   the kid named first on each line, answered in place; who has nothing to ask said once in pencil
+   under the title; beneath the list, per kid, the let-go sentence as a pencil line and Waiting on
+   the teacher and Can't pair these as quiet folds. The page speaks in the parent's voice, as
+   Today does: one list cannot change tier line by line. #}
 {% set page_title = "Questions" %}
 {% set page_intro = "Where the school's records disagree, or say too little to act on. Answer one and it leaves this page." %}
 {% include "_page_head.html" %}
-{% for g in groups %}
-{% set student = g.student %}{% set tier = student.key | tier_of %}
-<section class="sec kid-questions"{% if tier %} data-tier="{{ tier }}"{% endif %}>
-  <div class="sec-head"><h3>{{ student.key | nickname }}</h3><span class="count">{{ g.questions | length }}</span><span class="controls"><a href="/kids/{{ student.key | urlencode }}">Open {{ student.key | nickname }}'s work →</a></span></div>
-  {# Past-credit work is a status, not a question, so it is not in the list below: the bar names
-     every item it will mark, and its confirm names them again (#124). #}
-  {% if g.past_credit | length >= 2 %}{% set names = g.past_credit | map(attribute='name') | join(', ') %}
-  <form class="lines bulk" method="post" action="/questions/let-go" data-confirm="Let all {{ g.past_credit | length }} go: {{ names }}? They stop counting as open work on the sheet and Open work. Nothing is deleted, and Undo puts them back.">
-    <input type="hidden" name="kid" value="{{ student.key }}">
-    <span>{{ g.past_credit | length }} of {{ student.key | nickname }}'s assignments are too late for credit: {% for v in g.past_credit %}<b>{{ v.name }}</b> <span class="muted">({{ v.course_short }}{% if v.due %}, due {{ v.due | wd_md }}{% endif %})</span>{{ ', ' if not loop.last }}{% endfor %}.</span> <button>Let all {{ g.past_credit | length }} go</button>
-  </form>
-  {% endif %}
-  {% if g.let_go %}
-  <form class="lines bulk" method="post" action="/questions/let-go/undo" role="status">
-    <input type="hidden" name="kid" value="{{ student.key }}"><input type="hidden" name="ids" value="{{ g.let_go | map(attribute='id') | join(',') }}">
-    <span>Let go: {% for v in g.let_go %}<b>{{ v.name }}</b>{{ ', ' if not loop.last }}{% endfor %}.</span> <button class="link">Undo</button>
-  </form>
-  {% endif %}
-  {% for item in g.questions %}{% include "_question.html" %}{% else %}<p class="muted">Nothing to ask about {{ student.key | nickname }}'s work.</p>{% endfor %}
-  {% if g.asked %}
-  <h4>Waiting on the teacher</h4>
-  <div class="lines">{% for item in g.asked %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = item | standing(tier) %}{% include "_item.html" %}{% endfor %}</div>
-  {% endif %}
-  {% if g.twins %}
-  <details class="sec quiet"><summary><h3>Can't pair these</h3> <span class="count">{{ g.twins | length }}</span></summary>
-    <p class="lead">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>
-    <ul>{% for c, h in g.twins %}<li>Canvas "{{ c.name }}" ({{ c.due | wd_md }}) and HAC "{{ h.name }}" ({{ h.due | wd_md }})</li>{% endfor %}</ul>
-  </details>
-  {% endif %}
+{% set voice = '' %}
+{# Who has nothing to ask, once, in pencil; when nobody does, the list says so once instead. #}
+{% if questions %}{% for s in quiet_kids %}<p class="quiet-kid muted">Nothing to ask about {{ s.key | nickname }}'s work.</p>{% endfor %}{% endif %}
+<section class="sec household-questions" aria-labelledby="to-answer">
+  <div class="sec-head"><h3 id="to-answer">To answer</h3><span class="count">{{ questions | length }}</span></div>
+  <div class="planner-main to-answer">
+  {% for s, view in questions %}
+  {% set student = s %}{% set item = view %}{% set slot = 'q-' ~ view.id %}{% set kid_label = s.key | nickname %}
+  {% include "_question.html" %}
+  {% else %}<p class="muted nothing-to-answer">Nothing to ask about anyone's work tonight.</p>{% endfor %}
+  </div>
 </section>
+{% for g in groups %}
+{% set student = g.student %}{% set who = student.key | nickname %}
+{# Past-credit work is a status, not a question, so it is not in the list above: the line names
+   every item it will mark, and its confirm names them again (#124). #}
+{% if g.past_credit | length >= 2 %}{% set names = g.past_credit | map(attribute='name') | join(', ') %}
+<form class="let-go" method="post" action="/questions/let-go" data-confirm="Let all {{ g.past_credit | length }} go: {{ names }}? They stop counting as open work on the sheet and Open work. Nothing is deleted, and Undo puts them back.">
+  <input type="hidden" name="kid" value="{{ student.key }}">
+  <span>{{ g.past_credit | length }} of {{ who }}'s assignments are too late for credit: {% for v in g.past_credit %}<b>{{ v.name }}</b> <span class="muted">({{ v.course_short }}{% if v.due %}, due {{ v.due | wd_md }}{% endif %})</span>{{ ', ' if not loop.last }}{% endfor %}.</span> <button>Let all {{ g.past_credit | length }} go</button>
+</form>
+{% endif %}
+{% if g.let_go %}
+<form class="let-go undo" method="post" action="/questions/let-go/undo" role="status">
+  <input type="hidden" name="kid" value="{{ student.key }}"><input type="hidden" name="ids" value="{{ g.let_go | map(attribute='id') | join(',') }}">
+  <span>Let go: {% for v in g.let_go %}<b>{{ v.name }}</b>{{ ', ' if not loop.last }}{% endfor %}.</span> <button class="link">Undo</button>
+</form>
+{% endif %}
+{% if g.asked %}
+<details class="sec quiet waiting-fold"><summary><h3>Waiting on the teacher · {{ who }}</h3><span class="count">{{ g.asked | length }}</span></summary>
+  <div class="waiting">{% for item in g.asked %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = item | standing('') %}{% include "_item.html" %}{% endfor %}</div>
+</details>
+{% endif %}
+{% if g.twins %}
+<details class="sec quiet twins-fold"><summary><h3>Can't pair these · {{ who }}</h3><span class="count">{{ g.twins | length }}</span></summary>
+  <p class="lead">These may be one assignment listed under two names. The app keeps them apart; nothing is asked of the family.</p>
+  <ul>{% for c, h in g.twins %}<li>Canvas "{{ c.name }}" ({{ c.due | wd_md }}) and HAC "{{ h.name }}" ({{ h.due | wd_md }})</li>{% endfor %}</ul>
+</details>
+{% endif %}
 {% endfor %}
 {% endblock %}

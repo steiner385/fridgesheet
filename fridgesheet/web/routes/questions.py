@@ -25,6 +25,18 @@ def _slot(raw: str, item_id: int) -> str:
     return raw if _SLOT.fullmatch(raw or "") else f"q-{item_id}"
 
 
+def _voice(slot: str, student=None, state=None) -> dict:
+    """The Questions page speaks in the parent's voice (one list for the house cannot change
+    tier line by line, 2026-09-30), so a card or a done-line swapped into its `q-` slot does too,
+    and names the kid as the list does; every other slot keeps the child's words."""
+    if not slot.startswith("q-"):
+        return {}
+    ctx = {"voice": ""}
+    if student is not None and state is not None:
+        ctx["kid_label"] = state.settings.nicknames.get(student["key"], student["key"])
+    return ctx
+
+
 def _view(conn, state, item_id):
     s = students.owner_of_item(conn, item_id)
     v = items.one(conn, s, item_id, now=state.now(), rules=state.rules(), prefs=state.sources(), **state.window()) if s is not None else None
@@ -63,7 +75,7 @@ def _already_planned(step) -> HTTPException:
 def _planned_line(request, conn, state, s, v, *, slot, step_id, planned, **extra) -> HTMLResponse:
     """The done-line for a plan answer or its undo, with the plan panel out of band."""
     ctx = checkin._context(conn, s, state)
-    ctx.update(item=v, slot=_slot(slot, v.id), step_id=step_id, planned=planned, plan_panel=True, **extra)
+    ctx.update(item=v, slot=_slot(slot, v.id), step_id=step_id, planned=planned, plan_panel=True, **_voice(_slot(slot, v.id), s, state), **extra)
     return render_partial(request, conn, "_answered.html", **ctx)
 
 
@@ -94,7 +106,7 @@ def answer(item_id: int, request: Request, answer: str = Form(...), prev: str = 
     _apply(conn, item_id, answer, db.now_iso(state.tz))
     s, v = _view(conn, state, item_id)
     return render_partial(request, conn, "_answered.html", student=s, item=v, prev=prev, prev_set_at=prev_set_at,
-                          slot=_slot(slot, item_id))
+                          slot=_slot(slot, item_id), **_voice(_slot(slot, item_id), s, state))
 
 
 @router.get("/items/{item_id}/question")
@@ -102,7 +114,7 @@ def question_card(item_id: int, request: Request, slot: str = "", conn: sqlite3.
     """One question card as it now stands: what an item detail's Close puts back when the
     detail was opened from that card (#126), so a note or flag added meanwhile shows on it."""
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id))
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), **_voice(_slot(slot, item_id), s, state))
 
 
 @router.post("/items/{item_id}/undo")
@@ -127,7 +139,7 @@ def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str 
         plans.delete(conn, s["id"], step["id"])
         s, v = _view(conn, state, item_id)
         ctx = checkin._context(conn, s, state)
-        ctx.update(item=v, slot=_slot(slot, item_id), undone=True, plan_panel=True)
+        ctx.update(item=v, slot=_slot(slot, item_id), undone=True, plan_panel=True, **_voice(_slot(slot, item_id), s, state))
         return render_partial(request, conn, "_question.html", **ctx)
     now = db.now_iso(state.tz)
     before = _answer_of(conn, item_id)
@@ -140,7 +152,7 @@ def undo(item_id: int, request: Request, prev: str = Form(""), prev_set_at: str 
     s, v = _view(conn, state, item_id)
     # "Answer undone" only when an answer was: nothing is announced that did not happen.
     return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id),
-                          undone=_answer_of(conn, item_id) != before)
+                          undone=_answer_of(conn, item_id) != before, **_voice(_slot(slot, item_id), s, state))
 
 
 def _answer_of(conn, item_id) -> tuple | None:
@@ -155,7 +167,7 @@ def reopen(item_id: int, request: Request, slot: str = "", conn: sqlite3.Connect
     its verdict carries, in place of the line. Nothing is written until the family answers, so
     nothing is announced as undone; the answer they give is recorded, and undone, the usual way."""
     s, v = _view(conn, state, item_id)
-    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), reopened=True)
+    return render_partial(request, conn, "_question.html", student=s, item=v, slot=_slot(slot, item_id), reopened=True, **_voice(_slot(slot, item_id), s, state))
 
 
 @router.get("/questions")
@@ -179,7 +191,19 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
             # Just let go by the bar, and still let go: what its one Undo would put back (#124).
             "let_go": [v for v in views if v.id in let_go_ids and _let_go_by_bar(conn, v.id)] if kid == s["key"] else [],
         })
-    return render(request, conn, "questions.html", current="questions", groups=groups, kid=kid)
+    # One list for the house (the parent's answering page, 2026-09-30): every kid's questions in
+    # the order the school's deadlines close (the late-work window's last day, else the due
+    # date), the kid named on each line; who has nothing to ask is said once under the title.
+    far = date.max
+
+    def closes(v):
+        due = dates.deadline_date(v.due) if v.due else far
+        return (v.late_until.date() if v.late_until else due, due, v.name.lower())
+
+    questions = sorted(((g["student"], v) for g in groups for v in g["questions"]), key=lambda sv: closes(sv[1]))
+    quiet_kids = [g["student"] for g in groups if not g["questions"]]
+    return render(request, conn, "questions.html", current="questions", groups=groups, kid=kid,
+                  questions=questions, quiet_kids=quiet_kids)
 
 
 #: The reason the bar writes, which is also how its Undo knows a let-go is still the bar's.

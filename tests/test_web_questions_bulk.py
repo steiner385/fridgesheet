@@ -53,7 +53,7 @@ def _past_credit(tmp_path, kid="Alex"):
 
 
 def _bar(body):
-    return re.search(r'<form class="lines bulk".*?</form>', body, re.S).group(0)
+    return re.search(r'<form class="let-go" method="post" action="/questions/let-go".*?</form>', body, re.S).group(0)
 
 
 def test_the_bar_names_every_item_it_will_let_go_and_does_not_say_this_page(tmp_path):

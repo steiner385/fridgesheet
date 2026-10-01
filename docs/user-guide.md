@@ -506,7 +506,9 @@ sits under the page.
 ### Questions
 
 "Where the school's records disagree, or say too little to act on. Answer one and it leaves
-this page." Fridge Sheet only asks when *you* can do something. Each card shows the
+this page." Fridge Sheet only asks when *you* can do something. The page is one list for the
+whole house, in the order the school's deadlines close, with the child's name first on each
+line; a child with nothing to ask is one line under the title. Each line shows the
 assignment, the facts in one sentence, the question in bold, and two to four answers.
 **Record** unfolds the raw facts from each gradebook, how long this class usually
 takes to grade, and **Email with these facts** — a pre-written email to the teacher.
@@ -525,12 +527,12 @@ takes to grade, and **Email with these facts** — a pre-written email to the te
 **Today** and **Tomorrow** add a step to the child's plan for that day. Every answer can be
 **Undo**ne right after.
 
-Under each child, **Waiting on the teacher** lists what you have asked about, and **Can't
-pair these** lists probable Canvas/HAC twins the app would not guess at (nothing is asked
-of you).
+Beneath the list, per child, **Waiting on the teacher** folds open to what you have asked
+about, and **Can't pair these** to probable Canvas/HAC twins the app would not guess at
+(nothing is asked of you).
 
 **Let all N go.** When a child has two or more assignments past their late-credit window,
-a bar offers to mark them all *Let it go* at once. These are "too late for credit" work,
+a line beneath the list offers to mark them all *Let it go* at once. These are "too late for credit" work,
 not the question cards on this page, so the bar names each one (class and due date) and the
 confirm names them again. They stop counting as open work; nothing is deleted. Afterwards
 the page says which went, with one **Undo** that puts back exactly those items (an item you

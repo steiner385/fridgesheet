@@ -256,8 +256,11 @@ def test_the_questions_page_is_one_section_per_kid_with_lines_for_the_waiting(tm
     flags.set_flag(conn, lab, "ask_teacher", now="2026-09-15T08:00:00-04:00")
     conn.close()
     body = app_for(tmp_path).get("/questions").text
-    assert re.search(r'<section class="sec kid-questions"[^>]*>\s*<div class="sec-head"><h3>Alex</h3><span class="count">1</span>', body)
-    assert re.search(r'<h4>Waiting on the teacher</h4>\s*<div class="lines">\s*<div class="line grey" id="q-%d">' % lab, body)
+    # One list for the house (the parent's answering page, 2026-09-30): "To answer" with the
+    # count, the kid named in each line's meta; the waiting lines fold per kid beneath.
+    assert re.search(r'<section class="sec household-questions"[^>]*>\s*<div class="sec-head"><h3 id="to-answer">To answer</h3><span class="count">1</span>', body)
+    assert re.search(r'<span class="meta"><span class="kid">Alex</span> · Honors English 9', body)
+    assert re.search(r'<details class="sec quiet waiting-fold"><summary><h3>Waiting on the teacher · Alex</h3><span class="count">1</span></summary>\s*<div class="waiting">\s*<div class="line grey" id="q-%d">' % lab, body)
     assert body.count("<h2") == 1
     line = _element(body, '<div class="line grey" id="q-%d">' % lab)
     assert line.count("mailto:") == 1                                  # the partial's Email link, once
@@ -284,14 +287,12 @@ def test_a_waiting_line_still_says_its_kind_and_due_date(tmp_path):
         assert "paper" in line and "due Thu 9/10" in line, (grade, line)
 
 
-def test_a_kid_with_no_questions_still_gets_a_section_saying_so(tmp_path):
+def test_a_kid_with_no_questions_is_one_pencil_line_under_the_title(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/questions").text
-    tail = '<section class="sec kid-questions"' + body.rsplit('<section class="sec kid-questions"', 1)[1]
-    sam = tail[:tail.index("</section>") + len("</section>")]
-    assert "<h3>Sam</h3>" in sam
-    assert '<span class="count">0</span>' in sam
-    assert "Nothing to ask about Sam's work" in sam
+    assert '<p class="quiet-kid muted">Nothing to ask about Sam\'s work.</p>' in body
+    assert body.index("quiet-kid") < body.index('class="sec household-questions"')
+    assert "Nothing to ask about Alex" not in body
 
 
 def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
