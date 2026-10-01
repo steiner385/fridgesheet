@@ -26,13 +26,15 @@
   {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same numbers
      as Today's boxes, so this page and that one cannot disagree. Red is the school's word. #}
   {% if record.on_time_rate is not none %}
-  <p class="record-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · {{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
+  {# Red Pen for "not done" alone: the school's word. "Unknown" is the app's own inference and
+     stays in ink (finish review 2026-10-01). Each count is one span so none breaks mid-phrase. #}
+  <p class="record-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · <span>{{ record.on_time }} on time</span> · <span>{{ record.late }} late</span> · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · <span>{{ record.done_offline }} on paper</span> · <span>{{ record.unknown }} unknown</span></p>
   <p class="figure-note muted">Of the work due so far this year: handed in on time, late, or not at all.</p>
   {% else %}<p class="record-line muted">Nothing has come due yet.</p>{% endif %}
   <h4 class="day">Grades</h4>
   {# One line per class, from the gradebook the family's Settings name for class averages: a
      chart must not mix HAC and Canvas. One chart per kid, not one for the house (#40 item 12). #}
-  <p class="figure-note muted">{% if course_names %}{{ course_names | join(", ") }} — one line per class, from the gradebook Settings names for class averages.{% else %}No grades recorded yet.{% endif %}</p>
+  <p class="figure-note muted">{% if not course_names %}No grades recorded yet.{% elif kid %}{{ course_names | join(", ") }} — one line per class, from the gradebook Settings names for class averages.{% else %}One chart per kid, one line per class, from the gradebook Settings names for class averages.{% endif %}</p>
   {% for key, cfg in grade_charts %}
   {% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class from its grades source" %}{% include "_chart_canvas.html" %}{% endwith %}
   {% elif grade_charts | length > 1 %}<p class="figure-note muted">{{ key | nickname }}: no grades recorded yet.</p>{% endif %}
@@ -45,14 +47,15 @@
   <table class="items">
     <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
     <tbody>
-    {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
+    {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td>{{ w.unknown }}</td></tr>{% endfor %}
     </tbody>
   </table>
   </div>
   </details>
   <h4 class="day">Open the longest</h4>
   <p class="figure-note muted">Days past due and still open.</p>
-  <ul class="longest">{% for name, days in longest %}<li>{{ name }} <span class="muted">· {{ days }} days</span></li>{% else %}<li class="muted">Nothing is open.</li>{% endfor %}</ul>
+  {# Whose it is, first, on the house's page; one kid's page says so in its label. Whole days. #}
+  <ul class="longest">{% for name, days, who, course in longest %}<li>{% if not kid %}<span class="kid">{{ who | nickname }}</span> · {% endif %}{{ name }} <span class="muted">· {{ course }} · {{ days | round | int }} days</span></li>{% else %}<li class="muted">Nothing is open.</li>{% endfor %}</ul>
 </section>
 </div>
 {% endif %}

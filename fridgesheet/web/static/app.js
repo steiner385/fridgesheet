@@ -164,8 +164,27 @@ function chartKey(chart) {
   return key;
 }
 
+// The planner's hand on every chart (finish review 2026-10-01): the page's font, pencil for the
+// axis text and titles, the planner's blue-grey hairline for the grid. Read from the page's own
+// tokens, so a reading tier carries through; the configs themselves are untouched (tests read
+// them as JSON).
+var CHART_HAND_SET = false;
+function plannerHand() {
+  if (CHART_HAND_SET || typeof Chart === "undefined") return;
+  CHART_HAND_SET = true;
+  var root = getComputedStyle(document.documentElement);
+  var muted = root.getPropertyValue("--muted").trim();
+  var rule = root.getPropertyValue("--rule").trim();
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily || Chart.defaults.font.family;
+  if (muted) Chart.defaults.color = muted;
+  if (rule) Chart.defaults.borderColor = rule;
+  Chart.defaults.plugins.title.font = { weight: 400 };
+  Chart.defaults.plugins.title.color = muted || Chart.defaults.color;
+}
+
 function attachCharts(root) {
   pruneCharts();                    // whatever this swap replaced, before anything new
+  plannerHand();
   var els = root.querySelectorAll ? root.querySelectorAll("[data-chart-canvas]") : [];
   Array.prototype.forEach.call(els, function (canvas) {
     if (canvas.dataset.drawn) return;
@@ -177,6 +196,9 @@ function attachCharts(root) {
       config.options = config.options || {};
       config.options.plugins = config.options.plugins || {};
       config.options.plugins.legend = { display: false };
+      // On the report card page the day row above a bar chart already names it; the canvas
+      // title would say it twice. A grade chart's title carries the kid's name and stays.
+      if (config.type === "bar" && canvas.closest && canvas.closest(".report-card")) config.options.plugins.title = { display: false };
       var chart = new Chart(canvas.getContext("2d"), config);
       CHARTS.push(chart);
       canvas.parentNode.insertAdjacentElement("afterend", chartKey(chart));

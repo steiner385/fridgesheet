@@ -518,6 +518,8 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .trends-page > .report-card > h4.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .report-card .record-line { margin: var(--s2) 0 0; max-width: var(--measure); }
 .report-card .record-line b { font-weight: 650; }
+.report-card .record-line > span, .report-card .record-line > b { white-space: nowrap; }   /* a count never breaks mid-phrase */
+.report-card .longest .kid { font-weight: 650; }
 .report-card .figure-note { margin: var(--s1) 0 0; font-size: var(--type-small); max-width: var(--measure); }
 .report-card .chart-holder { margin: var(--s2) 0 0; padding: 0; border: 0; background: none; }      /* a figure on the page, not a box in a box */
 .report-card .chart-key { margin: var(--s1) 0 0; }
