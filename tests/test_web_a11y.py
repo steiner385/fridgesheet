@@ -133,10 +133,11 @@ def test_the_detail_card_can_be_closed(tmp_path):
 
 
 def test_a_table_scrolls_inside_its_own_box_at_any_width(tmp_path):
-    """The work list is planner lines everywhere now; the tables that remain (Runs, Changes,
-    the grade history on Trends) keep their scrolling wrapper."""
-    seed(tmp_path).close()
-    assert '<div class="table-wrap">' in app_for(tmp_path).get("/runs").text
+    """The work list is planner lines everywhere now, and so are Runs and Changes; the tables
+    that remain (the numbers under Trends' chart, the saved reports) keep their scrolling wrapper."""
+    from tests.web_fixtures import history
+    history(tmp_path).close()
+    assert '<div class="table-wrap">' in app_for(tmp_path).get("/trends").text
     assert re.search(r"\.table-wrap\s*\{[^}]*overflow-x:\s*auto", CSS)
 
 

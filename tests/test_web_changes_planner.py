@@ -80,12 +80,13 @@ def test_a_record_under_a_line_keeps_the_sheets_word_and_can_close(tmp_path):
 
 
 def test_the_log_is_drawn_in_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".change-log")
-    day = _rule(".change-log > h3.day")
+    # Runs shares the log's rules (the sheet's own log, 2026-10-01), so each selector names both.
+    assert "max-width: 1100px" in _rule(".change-log, .run-log")
+    day = _rule(".change-log > h3.day, .run-log > h3.day")
     assert "text-transform: uppercase" in day and "letter-spacing: .04em" in day and "color: var(--muted)" in day
-    line = _rule(".change")
+    line = _rule(".change, .run")
     assert "border-bottom: 1px solid var(--rule)" in line and "background" not in line
-    assert "font-weight: 650" in _rule(".change .what") and "color: var(--muted)" in _rule(".change .at")
+    assert "font-weight: 650" in _rule(".change .what, .run .what") and "color: var(--muted)" in _rule(".change .at, .run .at")
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
     assert re.search(r"\.change \.subject a, \.pager a\s*\{[^}]*padding-block: 11px", coarse)              # 44px under a finger, one underline
     assert "max-width: 1100px" in _rule(".change-words") and "background: var(--paper)" in _rule(".change-log > .detail-slot")

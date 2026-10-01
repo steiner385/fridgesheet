@@ -19,6 +19,20 @@ def trigger_label(trigger: str) -> str:
     return TRIGGER_LABELS.get(trigger, trigger)
 
 
+#: A day row's tally on the Runs page (the sheet's own log, 2026-10-01): the day's total, then
+#: what did not go right, in this order. A clean day says only "1 run"; OK is the quiet case
+#: and is not counted out loud.
+TALLY_WORDS = (("FAIL", "failed"), ("SKIP", "skipped"))
+
+
+def tally(counts: dict[str, int]) -> list[str]:
+    """`{"OK": 1, "FAIL": 1}` -> `["2 runs", "1 failed"]`."""
+    total = sum(counts.values())
+    words = [f"{total} run{'s' if total != 1 else ''}"]
+    words += [f"{counts[k]} {word}" for k, word in TALLY_WORDS if counts.get(k)]
+    return words
+
+
 def latest(conn: sqlite3.Connection) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM runs ORDER BY started_at DESC, id DESC LIMIT 1").fetchone()
 

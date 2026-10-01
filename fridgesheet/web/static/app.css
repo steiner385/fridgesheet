@@ -450,7 +450,6 @@ button.link { border: none; background: none; color: var(--muted); text-decorati
 /* The second, quieter line of any cell (Runs: who started it; Changes: the kid and the class):
    a column folded under the one it described, so the table fits a phone (#187). */
 table.items td > small { display: block; color: var(--muted); font-size: var(--type-small); }
-table.items td > small.row-actions { display: flex; margin-top: 4px; }
 /* The class under every assignment is a link, but seven identical underlines down a table read
    as noise; the underline returns under the pointer and the keyboard (critique 2026-09-29). */
 table.items td > small a { color: inherit; text-decoration: none; }
@@ -530,23 +529,36 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .report-card .longest li:last-child { border-bottom: 0; }
 /* The planner's log (the Student Planner, Changes; the surface brief for changes.html,
    2026-10-01): the Window, Kid and Kind words as one sort line; each day a day row with its
-   tally over ruled lines, one per thing that moved; a record opens in a slot under its line. */
+   tally over ruled lines, one per thing that moved; a record opens in a slot under its line.
+   Runs is the same log turned to the sheet (the surface brief for runs.html, 2026-10-01):
+   `.run-log` and `.run` share the day row and the line; a run's line adds the outcome word on
+   its highlighter at the right and the PDF and Reprint as foot links. */
 .change-words { max-width: 1100px; }                 /* the log's own width */
 .change-words a, .trend-words a { white-space: nowrap; }   /* a word of the sort line never breaks mid-phrase */
 .change-words .sep { margin: 0 var(--s2); }
-.change-log { max-width: 1100px; padding-bottom: var(--s2); }
-.change-log > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.change-log > h3.day:first-child { margin-top: var(--s2); }
-.change-log > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.change-log > .day + .change { border-top: 1px solid var(--rule); }
-.change { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
-.change .at { color: var(--muted); font-size: var(--type-small); min-width: 5.5em; }
-.change .what { font-weight: 650; }
+.change-log, .run-log { max-width: 1100px; padding-bottom: var(--s2); }
+.change-log > h3.day, .run-log > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.change-log > h3.day:first-child, .run-log > h3.day:first-child { margin-top: var(--s2); }
+.change-log > h3.day .tally, .run-log > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.change-log > .day + .change, .run-log > .day + .run { border-top: 1px solid var(--rule); }
+.change, .run { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.change .at, .run .at { color: var(--muted); font-size: var(--type-small); min-width: 5.5em; }
+.change .what, .run .what { font-weight: 650; }
 .change .subject a { color: var(--accent); }        /* `.subject`, not `.item`: that class is the planner line */
-.change .meta { color: var(--muted); font-size: var(--type-small); }
+.change .meta, .run .by { color: var(--muted); font-size: var(--type-small); }
 .change .meta a { color: inherit; text-decoration: none; }
 .change .meta a:hover, .change .meta a:focus-visible { text-decoration: underline; }
-.change .detail { color: var(--ink); max-width: var(--measure); }
+.change .detail, .run .detail { color: var(--ink); max-width: var(--measure); }
+/* The outcome as a word at the line's right: OK in Checkmark Green on the bare page (there is no
+   green highlighter), FAIL in Red Pen on the red highlighter -- the header's badge wears the same
+   two colours -- and SKIP in pencil, since nothing happened. */
+.run .outcome { margin-left: auto; font-weight: 700; color: var(--muted); padding: 0 .35em; border-radius: 2px; }
+.run .outcome.ok { color: var(--ok); }
+.run .outcome.fail { color: var(--warn); background: var(--hl-red); }
+.run .foot { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; font-size: var(--type-small); }
+.run .foot form { margin: 0; }
+.run .foot a { color: var(--accent); }
+.run-log > .no-runs { margin: var(--s3) 0 0; }
 .change-log > .detail-slot { padding: var(--s2) var(--s3) var(--s3); border-bottom: 1px solid var(--rule); background: var(--paper); }   /* a record under a line sits on paper, over the ruling */
 .change-log > .detail-slot[hidden] { display: none; }
 .detail-slot .item { padding-left: 0; border-bottom: 0; }
@@ -991,6 +1003,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .sources-fold > summary, .teacher-line a { min-height: 44px; display: inline-flex; align-items: center; }   /* the class page's fold and the teacher's email */
   .waiting .line a { min-height: 44px; display: inline-flex; align-items: center; }                 /* Email under a waiting line on Questions */
   .change .subject a, .pager a { display: inline-block; padding-block: 11px; }                           /* 44px under a finger, one underline (Changes) */
+  .run .foot a { display: inline-flex; align-items: center; min-height: 44px; }                           /* open the PDF beside the 44px Reprint (Runs) */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
   .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }

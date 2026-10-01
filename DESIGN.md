@@ -338,6 +338,17 @@ components:
     textColor: "{colors.pencil-grey}"
     typography: "{typography.label}"
     padding: "0"
+  run-line:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "8px 0"
+  run-outcome-fail:
+    backgroundColor: "{colors.highlighter-red}"
+    textColor: "{colors.red-pen}"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "0 0.35em"
 ---
 
 # Design System: Fridge Sheet
@@ -417,9 +428,11 @@ Save that names its file. Trends followed as the year so far ("the report card p
 page labelled THE YEAR SO FAR, the hand-in record its first line, the charts its figures with the
 numbers folded, the longest open in pencil at its foot. Changes followed as the planner's log ("each day with its
 tally"): the window's days newest first, each a day row carrying its tally over ruled lines, one
-per thing that moved, the choices as words. Reports, Runs, Schedules and Diagnostics now sit
-inside the planner's shell but keep their own incumbent content (cards, chips, tables) until
-each is brought into the world on its own.
+per thing that moved, the choices as words. Runs followed as the same log turned to the sheet
+("days, like Changes"): each day a day row with its tally over the day's runs, the outcome a word
+on its highlighter at the line's right, the PDF and Reprint as foot links. Reports, Schedules and
+Diagnostics now sit inside the planner's shell but keep their own incumbent content (cards, chips,
+tables) until each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -578,7 +591,9 @@ an underline, a rule or a link.
 
 **The Red Pen Rule.** Red is reserved for what the school recorded as not in. A past due date is
 not red on its own; the app's own inference ("No" under Handed in, "School evidence changed") is
-bold or blue, not red; a budget overrun on a child's page is not red.
+bold or blue, not red; a budget overrun on a child's page is not red. The one other place Red Pen
+is spent is the app's own health, where the shell already says it in a word: the status line's
+badge, a source's state, a run's FAIL on the Runs log (the finish review, 2026-10-01).
 
 **The Sheet's Colour Rule.** The sheet's word on a line wears the colour the sheet prints it in,
 from one table (`status_words.STATUS_TONE`, the same table as `sheet.STATUS_COLOR`): DUE words
@@ -884,6 +899,21 @@ without the planner's checkbox or its own hairline). An empty window is one penc
 ("Nothing has changed in this window."); a long window pages 500 at a time with "Showing 1–500
 of 1,204 changes · Older ›" as a pencil line under the log.
 
+**The sheet's own log** (Runs): the same device turned to the sheet, with no words line (the page
+has no filters) and the job card above it when one runs. `.planner-main.run-log` shares the log's
+rules (`.change-log, .run-log`; `.change, .run`): the last 100 runs grouped by the household's day
+(`routes/runs.days_of`, the stored offset read into the app's zone), newest first, each day a Day
+row with its tally at 400 ("· 2 runs · 1 failed"; a clean day says only "· 1 run"; failed then
+skipped, `runs.tally`); each `.run` one ruled line: the time in Pencil Grey label type, the
+report's title at 650 in Ink (a saved report's own title; a refresh says "Refresh"), who started
+it in the pencil (`.by`: "On a schedule", "In the app", "At a terminal"; an unknown trigger as
+written), the message in Ink capped at the measure, and the outcome word pushed to the line's
+right edge at 700 (`.outcome`: OK in Checkmark Green on the bare page, since there is no green
+highlighter; FAIL in Red Pen on Highlighter Red, as the header's badge wears Red Pen; SKIP in
+pencil). A run with a file on disk carries a foot (`.foot`, the whole width under the message):
+"open the PDF" as a Ballpoint link and the Reprint button, 44px each under a finger. No runs yet
+is one pencil line ("No runs yet.").
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -1048,6 +1078,11 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   as its summary with "change" the only link word (no marker), the two selects and a default Save
   on one wrapping row when open; a rule of the class's own keeps it open. 44px on a coarse
   pointer.
+- **Run line (Runs):** `.run`, one of the planner's log lines (the same rules as `.change`): the
+  time and who started it in Pencil Grey label type, the report's title at 650, the message in
+  Ink, the outcome word pushed to the right edge at 700 — Checkmark Green for OK, Red Pen on
+  Highlighter Red for FAIL, pencil for SKIP; the PDF link and Reprint as a foot across the whole
+  line, 44px each on a coarse pointer.
 - **Note:** one of the family's lines: body text under a 1px Ruled Grey hairline, its meta in
   Pencil Grey label type, no left rule and no fill (the Only-Box Rule; the left-ruled block went
   2026-09-30).
