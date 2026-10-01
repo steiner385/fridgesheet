@@ -110,7 +110,6 @@ rounded:
   control: "6px"
   card: "8px"
   pill: "10px"
-  chooser: "12px"
 spacing:
   s1: "4px"
   s2: "8px"
@@ -259,12 +258,6 @@ components:
     textColor: "{colors.pencil-grey}"
     typography: "{typography.label}"
     padding: "12px 24px 8px"
-  chooser-button:
-    backgroundColor: "{colors.paper-white}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.chooser}"
-    padding: "18px"
-    size: "22px"
   sheet-strip:
     backgroundColor: "{colors.planner-white}"
     textColor: "{colors.ink}"
@@ -370,6 +363,12 @@ components:
     textColor: "{colors.ink}"
     typography: "{typography.body}"
     padding: "8px 0"
+  cover-button:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.headline}"
+    rounded: "{rounded.planner}"
+    padding: "18px"
 ---
 
 # Design System: Fridge Sheet
@@ -460,8 +459,10 @@ numeral"): the refresh and each report as ruled sections parted by the printed r
 Display size at the head's right, one pencil line for the days, the next run and the last with
 the Runs word, one Save each. Diagnostics followed as the app's checkup ("each check a planner
 line"): a day row dated when the checks ran with its tally over one line per check, a drawn tick
-or cross, the word on its highlighter at the right, the report as a file folded. With these every
-page sits in the planner's world; only the chooser (/who) is untouched.
+or cross, the word on its highlighter at the right, the report as a file folded. The chooser
+followed as the planner's cover ("the cover, dated"): the mark and the name, today's date as a
+day row over the question, one tall stroke button per kid, the grown-up's quieter beneath. With
+it every page sits in the planner's world.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -997,6 +998,17 @@ pencil line (`.raw-line`), so nothing the file says is lost. Beneath, "▸ The r
 hairline at tiny size, wrapped, scrolling past 320px — a file on the page, not a console. Before
 the first run one pencil line: "Diagnostics have not been run yet."
 
+**The planner's cover** (the chooser, /who): its own document without the rail or the status
+bar, `main.planner-main` for the ruling, `.who` a centred 520px column: the mark and "Fridge
+Sheet" as the brand link (44px under a finger), today's date as the page's own Day row in pencil
+over a hairline (`p.day`, the household's day, left-aligned as the logs draw it),
+"Who's looking?" at Headline size (28px 600) in Ink, then the form: one `button` per kid the
+column's width at 22px on Paper White with the control stroke (1px `--control`) and the planner's
+2px corners, 18px padding (Planner White on hover), the grown-up's beneath after 12px at
+body size on the wash in Pencil Grey with the same stroke, and "This browser will remember. You
+can change it any time." as the last pencil line (`.remember`). No card, no shadow, no box around
+the choice; with no kids yet the grown-up's button stands alone under the question.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -1014,7 +1026,7 @@ the tabs stand on, exactly the rule's own width and no blur, so the tab opens on
 
 The maintainer has opened the door to subtle elevation *(2026-09-29)*: a light ambient shadow may
 lift the few things that float over content, namely the sticky Save bar and check-in halves bar,
-an opened row-actions menu, and the kid chooser's buttons. Nothing at rest in the content column
+and an opened row-actions menu. Nothing at rest in the content column
 lifts. The only motion is the planner's own: 180ms ease-out on the checkbox's fill and border and
 on the struck name's colour; nothing else moves.
 
@@ -1036,8 +1048,8 @@ composition (Reports) inside the planner's shell.
 Printed stationery. The planner's corners are near-square (2px): the day box, the 18px checkbox
 with its 2px rule, the highlighter stroke, a chart swatch, the rail's index tabs and the child
 tabs and the Menu / App / More fold tabs. Controls keep 6px (buttons, inputs, selects), 8px on cards, insets and chart holders
-(`--radius`), 10px pills on badges, chips and chart-key buttons, 12px on the kid chooser's large
-buttons, 4px on the stale banner. Strokes are 1px Stroke Grey on controls, 1px Ruled Grey on
+(`--radius`), 10px pills on badges, chips and chart-key buttons, 2px on the cover's buttons,
+4px on the stale banner. Strokes are 1px Stroke Grey on controls, 1px Ruled Grey on
 hairlines and cards, 1.5px Day-box Blue-grey on the day box, its label's underline, the rail's
 edge, the three sides of a current tab, the rule the child tabs stand on and the ruled header
 lines, 2px on the checkbox and the default answer. The checkbox's tick is drawn, not a
@@ -1076,8 +1088,6 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   plan", "Add a step"); under the strip it is a Ballpoint Blue underlined link. A section's
   control that is a `<button>` ("Check Canvas again") follows it under the strip, drawn as the
   same underlined link but keeping its 44px height (`.sec-head .controls button`).
-- **Chooser button:** the kid chooser's 22px text, 18px padding, 12px corners, Ruled Grey stroke;
-  the grown-up's is 16px on the wash in Pencil Grey.
 
 ### Chips
 - **Style:** Planner White fill, 1px Ruled Grey border, 10px pill, 1px 8px padding, label type,
@@ -1161,6 +1171,9 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   as its summary with "change" the only link word (no marker), the two selects and a default Save
   on one wrapping row when open; a rule of the class's own keeps it open. 44px on a coarse
   pointer.
+- **Cover button (the chooser):** `.who button`, Paper White, 1px Control Grey stroke, 2px
+  corners, 22px type, 18px padding, the column's width; `.grownup` the same stroke at body size
+  on Planner White in Pencil Grey. Planner White fill on hover; focus draws the world's ring.
 - **Report line (Reports):** `.report`, a ruled line on the shelf: the name at 650 (a saved
   report's a Ballpoint link), "updated …" and the log's memory of its last run in Pencil Grey
   label type with the outcome word as Runs draws it, Preview and Print as stroke buttons at the
@@ -1371,7 +1384,7 @@ this sheet's spread.
 - **Don't** fill the sheet's word as a button or stretch its highlighter into a bar; the stroke
   hugs the word.
 - **Don't** add shadows to boxes, lines or anything at rest; a shadow may lift only a sticky bar,
-  an open menu or the chooser's buttons, and no heavier than the provisional ambient lift.
+  an open menu, and no heavier than the provisional ambient lift.
 - **Don't** animate anything but the checkbox fill and the strike (180ms ease-out).
 - **Don't** introduce a second value for a status colour. The printed sheet, the charts and the
   page read one source (`fridgesheet/tokens.py`); a colour that differs between the fridge and

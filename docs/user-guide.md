@@ -203,9 +203,9 @@ For a server with no desktop, read [§2.3 Headless server](#23-a-server-with-no-
 
 ### Who's looking?
 
-Open the app on a browser it hasn't met and it asks **Who's looking?** — one big button per
-kid's nickname, then **A grown-up** last. Tap one and the browser remembers for a year; `/`
-goes straight there from then on.
+Open the app on a browser it hasn't met and it shows the planner's cover: today's date, then
+**Who's looking?** — one big button per kid's nickname, then **A grown-up** last, quieter. Tap
+one and the browser remembers for a year; `/` goes straight there from then on.
 
 A kid's button opens their plan, with **Must finish** first. Their rail names only their own
 pages — their name, then Plan, Check-in, Assignments, Trends and Changes — and ends with

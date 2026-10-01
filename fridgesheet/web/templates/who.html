@@ -8,17 +8,21 @@
 <link rel="stylesheet" href="/static/app.css?v={{ version }}">
 </head>
 {# A page of its own: no rail (which would name every child), no status bar. One tap, and
-   the browser remembers (spec 2026-09-27 §13.1). #}
+   the browser remembers (spec 2026-09-27 §13.1). The planner's cover (the Student Planner;
+   the surface brief in .impeccable/surfaces/): the mark and the name, today's date as a day
+   row in pencil over the question, one tall stroke button per kid, the grown-up's quieter
+   beneath, the remembering sentence as the last pencil line, on the ruled paper. #}
 <body class="print-page">
-<main>
+<main class="planner-main">
   <div class="who">
     <h1><a href="/who" class="brand"><img src="/static/mark.svg" alt="" width="28" height="28"> Fridge Sheet</a></h1>
+    <p class="day">{{ today | wd_md }}</p>
     <h2>{{ 'copy.who_looking' | say('') }}</h2>
-    <p class="muted">{{ 'copy.who_remember' | say('') }}</p>
     <form method="post" action="/who">
       {% for s in kids %}<button name="who" value="{{ s.key }}"{% if s.key | tier_of %} data-tier="{{ s.key | tier_of }}"{% endif %}>{{ s.key | nickname }}</button>{% endfor %}
       <button name="who" value="family" class="grownup">{{ 'copy.a_grownup' | say('') }}</button>
     </form>
+    <p class="muted remember">{{ 'copy.who_remember' | say('') }}</p>
   </div>
 </main>
 </body>
