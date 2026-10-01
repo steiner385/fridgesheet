@@ -36,14 +36,14 @@ def test_the_year_is_one_paper_page_with_its_parts_as_day_rows(tmp_path):
     assert re.search(r'<div class="planner-main trends-page">\s*<section class="sec report-card" aria-labelledby="year-head">\s*<h3 id="year-head">The year so far <span class="tally">· last 8 weeks</span></h3>', body)
     days = re.findall(r'<h4 class="day">([^<]*)</h4>', body)
     assert days == ["On-time hand-ins", "Grades", "Work due each week", "Open the longest"]
-    assert re.search(r'<p class="record-line"><b>\d+% on time</b> so far · <span>\d+ on time</span> · <span>\d+ late</span> · <span class="[^"]*">\d+ not done</span>', body)
+    assert re.search(r'<p class="hand-ins-line"><b>\d+% on time</b> so far · <span>\d+ on time</span> · <span>\d+ late</span> · <span class="[^"]*">\d+ not done</span>', body)
     assert body.count("data-chart-canvas") >= 2
     assert re.search(r'<details class="fold numbers"><summary>The numbers</summary>\s*<div class="table-wrap">\s*<table class="items">', body)
     assert re.search(r'<ul class="longest">(<li><span class="kid">(Alex|Sam)</span> · [^<]+ <span class="muted">· [^<]* · \d+ days</span></li>)+</ul>', body) and "Quiz 1 <span" in body
     assert "· 0 days" not in body                                                              # due today is not yet past due
     assert re.search(r'<span>\d+ unknown</span>', body) and re.search(r'class="warn">\d+ not done</span>', body)   # Red Pen for the school's word alone
     assert 'class="cards"' not in body and 'class="card"' not in body[body.index("<main"):]
-    assert body.index("record-line") < body.index("data-chart-canvas") < body.index('class="fold numbers"') < body.index('class="longest"')
+    assert body.index("hand-ins-line") < body.index("data-chart-canvas") < body.index('class="fold numbers"') < body.index('class="longest"')
 
 
 def test_a_kids_page_names_the_kid_on_the_label_and_draws_one_chart(tmp_path):

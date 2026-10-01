@@ -28,9 +28,9 @@
   {% if record.on_time_rate is not none %}
   {# Red Pen for "not done" alone: the school's word. "Unknown" is the app's own inference and
      stays in ink (finish review 2026-10-01). Each count is one span so none breaks mid-phrase. #}
-  <p class="record-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · <span>{{ record.on_time }} on time</span> · <span>{{ record.late }} late</span> · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · <span>{{ record.done_offline }} on paper</span> · <span>{{ record.unknown }} unknown</span></p>
+  <p class="hand-ins-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · <span>{{ record.on_time }} on time</span> · <span>{{ record.late }} late</span> · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · <span>{{ record.done_offline }} on paper</span> · <span>{{ record.unknown }} unknown</span></p>
   <p class="figure-note muted">Of the work due so far this year: handed in on time, late, or not at all.</p>
-  {% else %}<p class="record-line muted">Nothing has come due yet.</p>{% endif %}
+  {% else %}<p class="hand-ins-line muted">Nothing has come due yet.</p>{% endif %}
   <h4 class="day">Grades</h4>
   {# One line per class, from the gradebook the family's Settings name for class averages: a
      chart must not mix HAC and Canvas. One chart per kid, not one for the house (#40 item 12). #}
