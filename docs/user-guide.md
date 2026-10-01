@@ -704,9 +704,15 @@ The **Open Work Sheet** is built in. You can build your own on **Reports**.
     keys, up to three **Filters** (*is / is not / contains / ≥ / ≤*).
   - **Chart**: none, line, bar or stacked bar.
   - **Page**: portrait or landscape; each group on its own page.
-  - **Preview** shows the table live below the form (up to 2000 rows); **Save** keeps it.
-- In the **Yours** list: **Edit**, **CSV**, **JSON**, **Preview** (builds the PDF),
-  **Print** (with **Refresh first**), **Delete** (also removes its schedule).
+  - The builder is three ruled sections — *What goes in*, *Order and filters*, *Chart and
+    page* — ending in **Save** and **Preview**; Preview draws the report as a page below the
+    form (up to 2000 rows), and the report's own page is that same page.
+- The page is the household's report shelf: **Built in** and **Yours**, one line per report.
+  Each line says what Runs remembers of it in grey (*Printed Wed 9/30 7:00 AM · OK*, a failed
+  run's time with **FAIL** on red, or *Not run yet*) and carries **Preview** (builds the PDF)
+  and **Print** at its right; **Refresh data first**, above the shelf, applies to both. Under
+  a saved report's line, **More** folds open **Edit**, **CSV**, **JSON** and **Delete** (which
+  also removes its schedule).
 - The report's own page has **Print / save PDF** for your browser's print dialog.
 - To print a report on a schedule, use its section on **Schedules**.
 

@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Reports · Fridge Sheet{% endblock %}
 {% block content %}
+{# The household's report shelf (the Student Planner, Reports; the surface brief in .impeccable/surfaces/):
+   two day rows, Built in and Yours, over ruled lines, one per report; each line remembers its
+   last run from the sheet's log (`last`, runs.latest_for) and carries Preview and Print at its
+   right; a saved report's Edit, CSV, JSON and Delete fold under its line. The job card fills in
+   beneath the shelf. #}
 {% set page_title = "Reports" %}
+{% set page_intro = "The sheet and the reports you have made: look at one, print it, or build a new one." %}
 {% set page_actions %}<a class="button-link" href="/reports/new">New report</a>{% endset %}
 {% include "_page_head.html" %}
 {% for m in messages %}<p class="notice" role="status">{{ m }}</p>{% endfor %}
@@ -11,13 +17,13 @@
    this page is looking for (#11 item 13). It stays as each report's title attribute, so the
    README's command line still has somewhere to read it from. #}
 {% if not saved %}
-<p class="muted">Starter reports are four ready-made ones you can print, edit or delete:
+<p class="muted starters">Starter reports are four ready-made ones you can print, edit or delete:
   {% for name, _ in TEMPLATES %}<strong>{{ name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}.
   <button hx-post="/reports/seed" hx-target="body">Add the starter reports</button></p>
 {% endif %}
-{# One "Refresh data first" for the page, as Today's card has, rather than one per row (#193):
+{# One "Refresh data first" for the page, as Today's card has, rather than one per line (#193):
    every Preview and Print below includes it. Unticked, they use the last refresh. #}
-{% if jobs %}<p class="filters"><label><input type="checkbox" id="refresh-first" name="refresh_first"> Refresh data first</label> <span class="muted">for the Preview and Print buttons below</span></p>{% endif %}
+{% if jobs %}<p class="refresh-first"><label class="tick"><input type="checkbox" id="refresh-first" name="refresh_first"> <span>Refresh data first <span class="muted">for the Preview and Print buttons below</span></span></label></p>{% endif %}
 {% macro job_buttons(key, title) %}
     {# Preview first, then Print: the Dashboard's order, and the one that lets a parent look
        before spending paper. #}
@@ -30,32 +36,33 @@
       <button>Print</button>
     </form>
 {% endmacro %}
-<h3>Built in</h3>
-<div class="table-wrap"><table class="items"><tr><th>Report</th><th></th></tr>
-{% for r in code %}<tr><td title="{{ r.key }}">{{ r.title }}</td>
-  <td class="row-actions">{% if jobs %}{{ job_buttons(r.key, r.title) }}{% endif %}</td></tr>{% endfor %}
-</table></div>
-<h3>Yours</h3>
-{% if saved %}
-<div class="table-wrap"><table class="items"><tr><th>Report</th><th>Updated</th><th></th></tr>
-{% for r in saved %}
-<tr>
-  <td><a href="/reports/{{ r.id }}/view" title="view:{{ r.id }}">{{ r.name }}</a></td>
-  <td class="muted">{{ r.updated_at | wd_md_time }}</td>
-  {# What a parent does every week stays in the row; the rest folds under More (#193): seven
-     controls a row was three lines of buttons on a phone. #}
-  <td class="row-actions">
-    {% if jobs %}{{ job_buttons('view:' ~ r.id, r.name) }}{% endif %}
-    <details class="row-more"><summary>More</summary><span class="more-actions">
-      <a class="badge" href="/reports/{{ r.id }}">Edit</a>
-      <a class="badge" href="/reports/{{ r.id }}/export.csv">CSV</a>
-      <a class="badge" href="/reports/{{ r.id }}/export.json">JSON</a>
-      <form hx-post="/reports/{{ r.id }}/delete" hx-target="body" hx-confirm="Delete {{ r.name }}?"><button class="danger">Delete</button></form>
-    </span></details>
-  </td>
-</tr>
+{# What the sheet's log knows: the newest run's word (Printed, Previewed, PDF only) and when,
+   with the outcome on its highlighter as Runs draws it; a failed or skipped run says only the
+   time and the word, since "Failed … FAIL" would say it twice. #}
+{% macro last_run(l) %}<span class="last">{% if l %}{% if l.label %}{{ l.label }} {% endif %}{{ l.when | wd_md_time }} · <span class="word outcome {{ l.outcome | lower }}">{{ l.outcome }}</span>{% else %}Not run yet{% endif %}</span>{% endmacro %}
+<div class="planner-main report-shelf">
+<h3 class="day">Built in</h3>
+{% for r in code %}
+<div class="report">
+  <span class="name" title="{{ r.key }}">{{ r.title }}</span>
+  {{ last_run(last.get(r.key)) }}
+  {% if jobs %}<span class="acts">{{ job_buttons(r.key, r.title) }}</span>{% endif %}
+</div>
 {% endfor %}
-</table></div>
-{% else %}<p class="muted">No saved reports yet.</p>{% endif %}
+<h3 class="day">Yours</h3>
+{% for r in saved %}
+<div class="report">
+  <span class="name"><a href="/reports/{{ r.id }}/view" title="view:{{ r.id }}">{{ r.name }}</a></span>
+  <span class="updated">updated {{ r.updated_at | wd_md_time }}</span>
+  {{ last_run(last.get('view:' ~ r.id)) }}
+  {% if jobs %}<span class="acts">{{ job_buttons('view:' ~ r.id, r.name) }}</span>{% endif %}
+  {# What a parent does every week stays on the line; the rest folds under More (#193). #}
+  <details class="fold more"><summary>More</summary><span class="more-actions">
+    <a href="/reports/{{ r.id }}">Edit</a> · <a href="/reports/{{ r.id }}/export.csv">CSV</a> · <a href="/reports/{{ r.id }}/export.json">JSON</a>
+    <form hx-post="/reports/{{ r.id }}/delete" hx-target="body" hx-confirm="Delete {{ r.name }}?"><button class="danger">Delete</button></form>
+  </span></details>
+</div>
+{% else %}<p class="muted no-saved">No saved reports yet.</p>{% endfor %}
+</div>
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
 {% endblock %}
