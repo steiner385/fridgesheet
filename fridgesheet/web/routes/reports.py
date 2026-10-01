@@ -18,7 +18,7 @@ from ... import reports as registry
 from ...naming import safe_name
 from .. import charts, db, schedules, views
 from ..app import Db, State, render, render_partial
-from ..stores import reports as store, students
+from ..stores import reports as store, runs, students
 
 router = APIRouter()
 
@@ -45,10 +45,27 @@ def definition_from_form(form) -> views.Definition:
     ).to_json())
 
 
+def last_runs(conn, keys):
+    """What the sheet's log knows about each report (the shelf remembers, 2026-10-01): its newest
+    run as when it started, the outcome word Runs draws, and -- for a run that went OK -- the
+    describe() word (Printed, Previewed, PDF only), so a preview is never called a print. A
+    failed or skipped run keeps only the outcome word; "Failed … FAIL" would say it twice. None
+    when the log has never seen the key."""
+    out = {}
+    for key in keys:
+        row = runs.latest_for(conn, key)
+        out[key] = None if row is None else {
+            "when": row["started_at"], "outcome": row["outcome"],
+            "label": runs.describe(row).label if row["outcome"] == "OK" else ""}
+    return out
+
+
 def _page(request, conn, state, *, messages=(), errors=()):
+    saved = store.all(conn)
+    code = list(registry.REPORTS.values())
     return render(request, conn, "reports.html", current="reports",
-                  saved=store.all(conn), code=list(registry.REPORTS.values()),
-                  TEMPLATES=store.TEMPLATES,
+                  saved=saved, code=code, TEMPLATES=store.TEMPLATES,
+                  last=last_runs(conn, [r.key for r in code] + [f"view:{r['id']}" for r in saved]),
                   messages=list(messages), errors=list(errors))
 
 

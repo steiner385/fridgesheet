@@ -349,6 +349,17 @@ components:
     typography: "{typography.body}"
     rounded: "{rounded.planner}"
     padding: "0 0.35em"
+  report-line:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "8px 0"
+  report-page:
+    backgroundColor: "{colors.paper-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.planner}"
+    padding: "0 12px 8px"
 ---
 
 # Design System: Fridge Sheet
@@ -430,9 +441,12 @@ numbers folded, the longest open in pencil at its foot. Changes followed as the 
 tally"): the window's days newest first, each a day row carrying its tally over ruled lines, one
 per thing that moved, the choices as words. Runs followed as the same log turned to the sheet
 ("days, like Changes"): each day a day row with its tally over the day's runs, the outcome a word
-on its highlighter at the line's right, the PDF and Reprint as foot links. Reports, Schedules and
-Diagnostics now sit inside the planner's shell but keep their own incumbent content (cards, chips,
-tables) until each is brought into the world on its own.
+on its highlighter at the line's right, the PDF and Reprint as foot links. Reports followed as
+the household's report shelf ("the shelf remembers"): Built in and Yours as day rows over ruled
+lines, one per report, each remembering its last run from the sheet's log with Preview and Print
+at its right; the builder as ruled sections ending in Save with Preview beside it; the report
+itself one paper page. Schedules and Diagnostics now sit inside the planner's shell but keep
+their own incumbent content (cards, tables) until each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -914,6 +928,31 @@ pencil). A run with a file on disk carries a foot (`.foot`, the whole width unde
 "open the PDF" as a Ballpoint link and the Reprint button, 44px each under a finger. No runs yet
 is one pencil line ("No runs yet.").
 
+**The household's report shelf** (Reports): `.planner-main.report-shelf` shares the day row and
+the log's width: BUILT IN and YOURS as Day rows over `.report` lines under hairlines: the report's
+name at 650 in Ink (a saved report's name a Ballpoint link to its page, 44px under a finger), a
+saved report's "updated Tue 9/29 8:00 AM" in pencil, then what the sheet's log remembers in pencil
+(`.last`, `routes/reports.last_runs` over `runs.latest_for`: "Printed Wed 9/30 7:00 AM" with OK
+in Checkmark Green — the `describe()` word, so a preview says "Previewed"; a failed or skipped
+run says only its time with FAIL on Highlighter Red or SKIP in pencil; "Not run yet" when the log
+has never seen it), and at the line's right Preview and Print as two stroke buttons (`.acts`,
+only with a worker); under a saved report's line "▸ More", a pencil fold across the line's foot
+holding Edit · CSV · JSON in ballpoint (24px on a coarse pointer) and Delete as the Danger button.
+One "Refresh data first" tick line above the shelf; the starter sentence as a pencil line with
+its button on a bare shelf; "No saved reports yet." as a pencil line under YOURS; the job card
+beneath. The builder (`form.builder-form`, at the measure) is three ruled sections — What goes
+in, Order and filters, Chart and page — each a `section.sec` with its head, its fields label over
+control in the Settings grid (auto-fill, so a lone Group by keeps one column), Kids, Columns,
+Sort, Filters and Chart as hairline fieldsets with day-row legends, closing on `p.form-save` with
+the filled Save and a stroke Preview; the preview fills `#preview` beneath. The report itself
+(`section.sec.report-page`, `_report_preview.html`, on the builder and on its own page) is one
+paper page in the day-box rule: the title along the top edge at label size with its tally after
+it at 400 ("· 8 rows · Rows from: the last 30 days"), the chart flat on the page, each group a
+Day row over its table in the scrolling wrapper, "No rows matched this report." as a pencil
+line; the report's own page (`body.print-page`) keeps the shell's head `screen-only` with Edit,
+CSV, JSON and Print / save PDF as its actions and a "Printed Thu 10/1 12:19 PM" pencil line above
+the page, which prints as it reads.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -1078,6 +1117,15 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   as its summary with "change" the only link word (no marker), the two selects and a default Save
   on one wrapping row when open; a rule of the class's own keeps it open. 44px on a coarse
   pointer.
+- **Report line (Reports):** `.report`, a ruled line on the shelf: the name at 650 (a saved
+  report's a Ballpoint link), "updated …" and the log's memory of its last run in Pencil Grey
+  label type with the outcome word as Runs draws it, Preview and Print as stroke buttons at the
+  right, and a saved report's "▸ More" fold across the foot with Edit · CSV · JSON in ballpoint
+  and Delete in Red Pen.
+- **Report page (Reports):** `section.sec.report-page`, Paper White in the 1.5px Day-Box Rule
+  with 2px corners, the report's title along the top edge at label size with its tally, each
+  group a Day row over its table, the chart flat on the page; the builder's preview and the
+  report's own page alike.
 - **Run line (Runs):** `.run`, one of the planner's log lines (the same rules as `.change`): the
   time and who started it in Pencil Grey label type, the report's title at 650, the message in
   Ink, the outcome word pushed to the right edge at 700 — Checkmark Green for OK, Red Pen on

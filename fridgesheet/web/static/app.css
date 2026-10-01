@@ -124,7 +124,6 @@ header.status .short { display: none; }
 .card { background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); padding: 12px 16px; }
 .card h2, .card h3 { margin: 0 0 8px; font-size: var(--type-root); }
 /* The report's own title inside its card: on the print view that is what prints as the heading. */
-.card h3.report-title { font-size: calc(var(--type-root) * 1.25); }
 .big { font-size: 28px; font-weight: 600; }
 .tally { margin: 4px 0; }
 .tally .big { margin-right: 4px; }
@@ -183,9 +182,6 @@ legend .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
    More, so a row is one line at 1280px and two on a phone (#193). */
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
 .row-actions form { margin: 0; }
-.row-more { display: inline-block; }
-.row-more > summary { cursor: pointer; color: var(--accent); padding: 6px 8px; list-style-position: inside; }
-.row-more .more-actions { display: inline-flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
 /* The report builder: the same label-over-control grid as Settings, bounded to the measure (#194). */
 .builder-form { max-width: var(--measure); }
 .builder-form fieldset { margin-top: 12px; }
@@ -301,6 +297,10 @@ select, input:not([type=checkbox]):not([type=radio]) { font: inherit; padding: 4
      detail row under every assignment drew as an empty box (re-critique 2026-09-29). */
   table.items tbody tr[hidden] { display: none; }
   table.items tbody td { display: block; border: 0; padding: 0; }
+  /* A report's table (and the numbers under Trends' chart) has no .item/.due/.where to stack into
+     a line: it stays a table and swipes inside its wrapper (the finish review, Reports 2026-10-01). */
+  .report-page table.items thead tr, .report-page table.items tbody tr, .report-card table.items thead tr, .report-card table.items tbody tr { display: table-row; padding: 0; gap: 0; border-bottom: 0; }
+  .report-page table.items thead th, .report-page table.items tbody td, .report-card table.items thead th, .report-card table.items tbody td { display: table-cell; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
   table.items td.item { order: 1; }
   table.items td.due { order: 2; font-size: var(--type-small); color: var(--muted); }
   table.items td.where { order: 3; }
@@ -436,7 +436,8 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 }
 @media print {
   .print-page { background: white; }
-  .print-page .page-head.screen-only, .print-page .crumb, .print-page .page-actions, .print-page .page-intro { display: none; }
+  .print-page .page-head.screen-only, .print-page .crumb, .print-page .page-actions, .print-page .page-intro, .print-page .screen-only { display: none; }
+  .print-page .print-only { display: inline; }
   .print-page main { padding: 0; max-width: none; margin: 0; }
 }
 /* The data is older than the runner will print from (web/staleness.py). Loud, because on a
@@ -536,11 +537,11 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .change-words { max-width: 1100px; }                 /* the log's own width */
 .change-words a, .trend-words a { white-space: nowrap; }   /* a word of the sort line never breaks mid-phrase */
 .change-words .sep { margin: 0 var(--s2); }
-.change-log, .run-log { max-width: 1100px; padding-bottom: var(--s2); }
-.change-log > h3.day, .run-log > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.change-log > h3.day:first-child, .run-log > h3.day:first-child { margin-top: var(--s2); }
+.change-log, .run-log, .report-shelf { max-width: 1100px; padding-bottom: var(--s2); }
+.change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.change-log > h3.day:first-child, .run-log > h3.day:first-child, .report-shelf > h3.day:first-child { margin-top: var(--s2); }
 .change-log > h3.day .tally, .run-log > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.change-log > .day + .change, .run-log > .day + .run { border-top: 1px solid var(--rule); }
+.change-log > .day + .change, .run-log > .day + .run, .report-shelf > .day + .report { border-top: 1px solid var(--rule); }
 .change, .run { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
 .change .at, .run .at { color: var(--muted); font-size: var(--type-small); min-width: 5.5em; }
 .change .what, .run .what { font-weight: 650; }
@@ -552,13 +553,53 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* The outcome as a word at the line's right: OK in Checkmark Green on the bare page (there is no
    green highlighter), FAIL in Red Pen on the red highlighter -- the header's badge wears the same
    two colours -- and SKIP in pencil, since nothing happened. */
-.run .outcome { margin-left: auto; font-weight: 700; color: var(--muted); padding: 0 .35em; border-radius: 2px; }
-.run .outcome.ok { color: var(--ok); }
-.run .outcome.fail { color: var(--warn); background: var(--hl-red); }
+.run .outcome, .report .outcome { font-weight: 700; color: var(--muted); padding: 0 .35em; border-radius: 2px; }
+.run .outcome { margin-left: auto; }
+.run .outcome.ok, .report .outcome.ok { color: var(--ok); }
+.run .outcome.fail, .report .outcome.fail { color: var(--warn); background: var(--hl-red); }
 .run .foot { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; font-size: var(--type-small); }
 .run .foot form { margin: 0; }
 .run .foot a { color: var(--accent); }
 .run-log > .no-runs { margin: var(--s3) 0 0; }
+/* The household's report shelf (the surface brief for reports.html, 2026-10-01): the same day rows
+   over ruled lines, one per report; the name, what the sheet's log remembers of it in pencil, and
+   Preview and Print as two stroke buttons at the line's right; a saved report's More as a pencil
+   fold across the line's foot. The report itself is one paper page (`.report-page`), on the
+   builder under the form and on the report's own page. */
+.refresh-first { margin: 0 0 var(--s2); display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; }
+.refresh-first .tick { margin: 0; }
+.starters { max-width: var(--measure); }
+.starters button { margin-left: var(--s2); }
+.report { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.report .name { font-weight: 650; }
+.report .name a { color: var(--accent); }
+.report .updated, .report .last { color: var(--muted); font-size: var(--type-small); }
+.report .acts { margin-left: auto; display: flex; gap: var(--s2); align-items: center; }
+.report .acts form { margin: 0; }
+.report > details.fold.more { flex-basis: 100%; margin: 0; }
+.report > details.fold.more > summary { margin: 0; font-size: var(--type-small); }
+.report .more-actions { display: inline-flex; flex-wrap: wrap; gap: var(--s1) var(--s2); align-items: center; padding: var(--s1) 0 var(--s1) 1.1em; font-size: var(--type-small); }
+.report .more-actions a { color: var(--accent); }
+.report .more-actions form { margin: 0 0 0 var(--s2); }
+.report-shelf > .no-saved { margin: var(--s2) 0 0; }
+.builder-form > .sec { margin: 0 0 var(--s5); }
+.builder-form .settings-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }   /* a lone Group by or Page keeps one column, not the whole measure */
+#preview > .report-page { margin-top: var(--s5); }
+.builder-form .form-save button { margin: 0 var(--s2) 0 0; }
+.report-page { margin: var(--s4) 0 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s2); max-width: 1100px; }
+.report-page > h3.report-title { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.report-page > h3.report-title .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.report-page > h4.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.report-page .chart-holder { margin: var(--s2) 0 0; padding: 0; border: 0; background: none; }
+.report-page .chart-key { margin: var(--s1) 0 0; }
+.report-page .figure-note, .report-page .no-rows, .report-page .warn { margin: var(--s2) 0 0; font-size: var(--type-small); max-width: var(--measure); }
+.report-page .table-wrap { margin-top: var(--s2); }
+.report-page .table-wrap table { margin: 0; }
+.report-sheet .printed-at { margin: 0 0 var(--s2); font-size: var(--type-small); }
+.print-only { display: none; }                                   /* "Printed" is said on paper; the screen says "As of" */
+.builder-form #chartFields:not([hidden]), .builder-form #chartSeries:not([hidden]) { display: contents; }   /* the chart's fields are cells of the grid */
+.refresh-first .tick > span { max-width: var(--measure); }   /* the help runs on after the label and wraps as one sentence */
+.report-sheet .report-page { margin-top: 0; }
 .change-log > .detail-slot { padding: var(--s2) var(--s3) var(--s3); border-bottom: 1px solid var(--rule); background: var(--paper); }   /* a record under a line sits on paper, over the ruling */
 .change-log > .detail-slot[hidden] { display: none; }
 .detail-slot .item { padding-left: 0; border-bottom: 0; }
@@ -1004,6 +1045,8 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .waiting .line a { min-height: 44px; display: inline-flex; align-items: center; }                 /* Email under a waiting line on Questions */
   .change .subject a, .pager a { display: inline-block; padding-block: 11px; }                           /* 44px under a finger, one underline (Changes) */
   .run .foot a { display: inline-flex; align-items: center; min-height: 44px; }                           /* open the PDF beside the 44px Reprint (Runs) */
+  .report .name a { display: inline-flex; align-items: center; min-height: 44px; }                         /* a saved report's name, the line's main link (Reports) */
+  .report .more-actions a { display: inline-block; padding-block: 3px; min-height: 24px; }                 /* Edit · CSV · JSON under the fold (Reports) */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
   .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }

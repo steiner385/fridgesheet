@@ -1,17 +1,19 @@
-<div class="card">
+{# The report as one paper page (the Student Planner, Reports; the surface brief in
+   .impeccable/surfaces/): its title along the top edge with its tally, the chart as a figure flat
+   on the page, each group a day row over its table. Serves the builder's live preview and the
+   report's own page alike. #}
+<section class="sec report-page">
   {% for p in problems %}<p class="warn">{{ p }}</p>{% endfor %}
   {% if rendered %}
-  <h3 class="report-title">{{ rendered.title }}</h3>
-  {% if rendered.window %}<p class="muted">Rows from: {{ rendered.window | lower }}</p>{% endif %}
   {% set n = rendered.groups | map(attribute="rows") | map("length") | sum %}
-  <p class="muted">{{ n }} row{{ 's' if n != 1 }}{% if rendered.truncated %} shown, {{ rendered.truncated }} more left out{% endif %} · check this before printing a long one.</p>
+  <h3 class="report-title">{{ rendered.title }} <span class="tally">· {{ n }} row{{ 's' if n != 1 }}{% if rendered.truncated %} shown{% endif %}{% if rendered.window %} · Rows from: {{ rendered.window | lower }}{% endif %}</span></h3>
   {% if rendered.chart %}
   {% with config = chart_json, height = 260, label = rendered.title ~ ", as a chart" %}{% include "_chart_canvas.html" %}{% endwith %}
   {% endif %}
-  {% if rendered.chart_note %}<p class="muted">{{ rendered.chart_note }}</p>{% endif %}
+  {% if rendered.chart_note %}<p class="figure-note muted">{{ rendered.chart_note }}</p>{% endif %}
   {% for g in rendered.groups %}
-    {% if g.label %}<h3>{{ g.label }}</h3>{% endif %}
-    {# In its own scrolling box: a wide report used to run past the card's edge on a phone,
+    {% if g.label %}<h4 class="day">{{ g.label }}</h4>{% endif %}
+    {# In its own scrolling box: a wide report used to run past the page's edge on a phone,
        clipped, with nothing to swipe (page layout standard, section 3). #}
     <div class="table-wrap">
     <table class="items">
@@ -20,8 +22,8 @@
     </table>
     </div>
   {% else %}
-    <p class="muted">No rows matched this report.</p>
+    <p class="muted no-rows">No rows matched this report.</p>
   {% endfor %}
-  {% if rendered.truncated %}<p class="muted">{{ rendered.truncated }} more rows are not shown.</p>{% endif %}
+  {% if rendered.truncated %}<p class="muted figure-note">{{ rendered.truncated }} more rows are not shown; check the count before printing a long one.</p>{% endif %}
   {% endif %}
-</div>
+</section>
