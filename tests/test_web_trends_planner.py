@@ -40,6 +40,7 @@ def test_the_year_is_one_paper_page_with_its_parts_as_day_rows(tmp_path):
     assert body.count("data-chart-canvas") >= 2
     assert re.search(r'<details class="fold numbers"><summary>The numbers</summary>\s*<div class="table-wrap">\s*<table class="items">', body)
     assert re.search(r'<ul class="longest">(<li><span class="kid">(Alex|Sam)</span> · [^<]+ <span class="muted">· [^<]* · \d+ days</span></li>)+</ul>', body) and "Quiz 1 <span" in body
+    assert "· 0 days" not in body                                                              # due today is not yet past due
     assert re.search(r'<span>\d+ unknown</span>', body) and re.search(r'class="warn">\d+ not done</span>', body)   # Red Pen for the school's word alone
     assert 'class="cards"' not in body and 'class="card"' not in body[body.index("<main"):]
     assert body.index("record-line") < body.index("data-chart-canvas") < body.index('class="fold numbers"') < body.index('class="longest"')
