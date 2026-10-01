@@ -32,13 +32,14 @@ def test_every_topic_is_a_ruled_section_and_nothing_on_the_page_is_a_card(tmp_pa
     assert '<p class="page-intro">Set up once; each part saves to the file it names.</p>' in main
 
 
-def test_one_save_per_file_said_plainly_and_one_filled_button(tmp_path):
+def test_one_save_per_file_said_plainly_each_filled(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/settings").text
     main = body[body.index("<main"):]
     assert '<button class="primary">Save config.toml</button>' in main
-    assert "<button>Save late-rules.toml</button>" in main and "<button>Save no-print-days.txt</button>" in main
-    assert main.count('class="primary"') == 1                                                 # the One Voice Rule
+    assert '<button class="primary">Save late-rules.toml</button>' in main and '<button class="primary">Save no-print-days.txt</button>' in main
+    assert main.count('class="primary"') == 3                                                 # one per form, the forms parted by the printed rule
+    assert 'class="danger"' not in main                                                       # Remove is a row edit, not a deletion: no Red Pen
     assert "Save above keeps the cards above it" not in main and 'class="field-help seam"' not in main
     assert main.index("Save config.toml") < main.index('class="settings-below"') < main.index("Save late-rules.toml") < main.index("Save no-print-days.txt")
 
@@ -61,6 +62,9 @@ def test_the_editors_fold_closed_and_their_rows_are_ruled_lines(tmp_path):
 def test_the_seam_is_the_printed_rule_and_the_folds_are_pencil_lines():
     below = _rule(".settings-below")
     assert "border-top: 1.5px solid var(--box)" in below and "max-width: 1100px" in below
+    assert "border-top: 1.5px solid var(--box)" in _rule(".settings-below > form.sec + form.sec, .settings-below > form.sec + section.sec")
+    assert "max-width: var(--measure)" in _rule(".settings-grid .field-help, .settings-grid .env-note")
+    assert "white-space: nowrap" in _rule("#late-rules fieldset > label")
     assert "max-width: 1100px" in _rule(".settings-form")
     fold = _rule("details.skip-days > summary, details.fold > summary")
     assert "color: var(--muted)" in fold and "list-style: none" in fold and "font-weight: 400" in fold

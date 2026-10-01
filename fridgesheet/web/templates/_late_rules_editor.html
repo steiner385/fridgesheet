@@ -24,12 +24,12 @@
     <div id="quarter-rows">
       {% for q in late_rules.quarters %}
       <p class="row"><input type="date" name="quarter_date" value="{{ q }}">
-        <button type="button" class="danger" data-remove-row>Remove</button></p>
+        <button type="button" data-remove-row>Remove</button></p>
       {% endfor %}
     </div>
     <button type="button" data-add-row="quarter-row-tmpl" data-add-target="quarter-rows">Add quarter</button>
     <template id="quarter-row-tmpl"><p class="row"><input type="date" name="quarter_date">
-      <button type="button" class="danger" data-remove-row>Remove</button></p></template>
+      <button type="button" data-remove-row>Remove</button></p></template>
   </fieldset>
 
   <fieldset>
@@ -48,7 +48,7 @@
         <input name="rule_source" placeholder="Source (private note)" value="{{ r.source }}">
         <button type="button" data-move-row="up" title="Move up">&uarr;</button>
         <button type="button" data-move-row="down" title="Move down">&darr;</button>
-        <button type="button" class="danger" data-remove-row>Remove</button>
+        <button type="button" data-remove-row>Remove</button>
       </p>
       {% endfor %}
     </div>
@@ -69,10 +69,10 @@
         <input name="rule_source" placeholder="Source (private note)">
         <button type="button" data-move-row="up" title="Move up">&uarr;</button>
         <button type="button" data-move-row="down" title="Move down">&darr;</button>
-        <button type="button" class="danger" data-remove-row>Remove</button>
+        <button type="button" data-remove-row>Remove</button>
       </p>
     </template>
 
-  {# The default look: the page's one filled button is the sticky Save config.toml (the One Voice Rule). #}
-  <p><button>Save late-rules.toml</button></p>
+  {# Filled: one primary per form, each form parted from the next by the printed rule (finish review 2026-10-01). #}
+  <p class="form-save"><button class="primary">Save late-rules.toml</button></p>
 </form>

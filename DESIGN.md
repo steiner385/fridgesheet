@@ -450,7 +450,7 @@ and colour used as the only carrier of meaning.
   the waiting lines and unpaired twins as quiet folds. No box around any of it.
 - On Settings every topic is a ruled section with its fields label over control and its help in
   pencil; the three forms are parted by the printed rule and each ends in a Save that names the
-  file it writes, the sticky Save config.toml the page's one filled button; a fieldset is a
+  file it writes, each Save filled as its form's one primary; a fieldset is a
   hairline with a day-row label, an editor's row a ruled line with its buttons at the right, a
   notice a line under a hairline. No card on the page.
 
@@ -551,8 +551,9 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
 says "not done", "0" or "Missing"; what is green is green *and* has a checkmark or the word
 "done". This is the accessibility requirement and the age requirement at the same time.
 
-**The One Voice Rule.** Ballpoint Blue fills at most one button per page, the page's main action,
-and marks at most one current choice per control group. Everything else it touches is a stroke,
+**The One Voice Rule.** Ballpoint Blue fills at most one button per form, the form's main action
+(a page is one form, unless the printed rule parts several, as Settings' three Saves are), and
+marks at most one current choice per control group. Everything else it touches is a stroke,
 an underline, a rule or a link.
 
 **The Red Pen Rule.** Red is reserved for what the school recorded as not in. A past due date is
@@ -813,16 +814,17 @@ sources, Network and Updates, each a `section.sec` with its `.sec-head` h3 at Ti
 fields label over control on the ruling (`.settings-grid`, 220px tracks, the label at 550, the
 control 1px Stroke Grey with 6px corners), its help as Pencil Grey label-size lines bounded to the
 measure and an environment note the same in pencil; the form closes on the sticky Save bar
-(`.settings-save-bar`, Planner White over a hairline, "Save config.toml" the page's one filled
-button, "Test login" beside it). Then `.settings-below`, parted from the form by the 1.5px
+(`.settings-save-bar`, Planner White over a hairline, "Save config.toml" filled, "Test login"
+beside it). Then `.settings-below`, parted from the form by the 1.5px
 Day-box rule and 24px above and below each part: Gradebook overrides (still a table), the job
 card when a job runs, Late-work rules and Days the sheet does not print as `form.sec` editors
 with their `.sec-head`, their help, a fieldset drawn as a hairline above with the legend as a
 day-row label (DEFAULT, QUARTERS, RULES), their folds closed on a fresh load and open after a
 save or an error (`details.fold`, `details.skip-days`: a pencil line with the ▸ text marker), the
 rows inside as ruled lines under hairlines with their inputs at the left and Remove, ↑ and ↓
-pushed right (`.row`), and a default "Save late-rules.toml" / "Save no-print-days.txt" at the
-end; then About, a quiet fold. A notice ("Saved.") is one line in ink under a hairline; a warning
+pushed right (`.row`), and a filled "Save late-rules.toml" / "Save no-print-days.txt" at the end,
+each form parted from the next by the printed rule; then About, a quiet fold. Remove on a row is
+the default stroke: a row edit is reversible, not a deletion. A notice ("Saved.") is one line in ink under a hairline; a warning
 keeps the Red Pen Wash with Red Pen text. The incumbent's eight white cards, boxed fieldsets and
 seam sentence are gone.
 
@@ -1016,8 +1018,8 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   the Red Pen Wash fill with Red Pen text and 4px corners. No left rule anywhere.
 - **Sticky Save bar (Settings):** `.settings-save-bar`, Planner White over a 1px hairline, stuck
   to the viewport's bottom while the long first form scrolls, holding the page's one filled
-  button ("Save config.toml") and "Test login"; the two editors' Saves name their files in the
-  default look.
+  button ("Save config.toml") and "Test login"; the two editors below the printed rule each fill
+  their own Save, named for its file.
 
 ### Navigation
 - **Rail (`.rail`):** Planner White, the 1.5px Day-box rule as its right edge, 16px above, below
@@ -1200,5 +1202,5 @@ this sheet's spread.
 - **Don't** change tier line by line: a page that lists several kids' lines (Questions) speaks in
   the parent's voice and names the kid in each line's meta (`kid_label`).
 - **Don't** box a form's parts: a fieldset is a hairline with a day-row label, an editor's row a
-  ruled line, a notice a line under a hairline; a page with three forms fills one Save and names
-  the file each Save writes.
+  ruled line, a notice a line under a hairline; a page with three forms parts them with the
+  printed rule and fills one Save per form, named for the file it writes.

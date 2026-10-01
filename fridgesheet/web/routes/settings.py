@@ -19,8 +19,8 @@ log = logging.getLogger("fridgesheet.web.settings")
 
 #: What the Updates card says instead of a button off Windows (#145): a Linux install is a
 #: source checkout, and `selfupdate_linux.NOT_WINDOWS` is what the route would answer anyway.
-LINUX_UPDATE_HOW = ("Updating from this page is only for the Windows install. Here, update the checkout with "
-                    "`git pull && pip install -e .` and restart the service.")
+LINUX_UPDATE_HOW = ("Updating from this page is only for the Windows install. Here, update the checkout "
+                    "(git pull, then pip install -e .) and restart the service.")
 
 
 def _lan_qr(lan_url: str | None) -> str | None:

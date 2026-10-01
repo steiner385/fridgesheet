@@ -494,12 +494,21 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .settings-form > .sec, .settings-below > .sec, .settings-below > form.sec { margin: 0; }
 .settings-below { margin-top: var(--s5); padding-top: var(--s5); border-top: 1.5px solid var(--box); max-width: 1100px; }
 .settings-below > * + * { margin-top: var(--s5); }
+/* The three forms are parted by the printed rule: late-rules from no-print-days, and About after (finish review 2026-10-01). */
+.settings-below > form.sec + form.sec, .settings-below > form.sec + section.sec { border-top: 1.5px solid var(--box); padding-top: var(--s5); }
+.form-save { margin: var(--s4) 0 0; }
+/* An editor's inline label ("Accepted late for [14] days") holds its words together on a phone. */
+#late-rules fieldset > label { display: inline-flex; align-items: center; gap: var(--s2); white-space: nowrap; margin-right: var(--s4); }
+/* A small number's box says what it holds. */
+.settings-grid label > input[name="port"], .settings-grid label > input[name="days_ahead"], .settings-grid label > input[name="overdue_days"] { width: 8ch; }   /* outranks the grid's 100% */
+.update-status p { margin: 0 0 var(--s1); }
 .sec > .field-help, .sec > p > .field-help { max-width: var(--measure); }
 .card h3 { margin: 0 0 12px; font-size: var(--type-root); }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; margin: 0 0 8px; }
 .settings-grid label { display: grid; gap: 4px; font-weight: 550; min-width: 0; }
 .settings-grid input:not([type=checkbox]), .settings-grid select { width: 100%; min-width: 0; }
 .field-help { color: var(--muted); font-size: 13px; margin: 4px 0 8px; font-weight: 400; }
+.settings-grid .field-help, .settings-grid .env-note { max-width: var(--measure); }   /* help keeps to the measure inside a wide grid */
 details.field-help summary { cursor: pointer; }
 .network-row { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-start; }
 .network-row .qr { flex: none; }
