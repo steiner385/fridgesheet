@@ -77,6 +77,7 @@ def _page(request, conn, state, *, messages=(), errors=()):
                   refresh_warning=schedules.refresh_warning(rows, refresh),
                   printer_options={r.key: _printer_options(printers, r.printer) for r in rows},
                   notices=_notices(state, rows, refresh),
+                  clock=schedules.clock_words, days_words=schedules.days_words,
                   messages=list(messages), errors=list(errors))
 
 

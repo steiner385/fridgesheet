@@ -630,7 +630,12 @@ sheet does not print* is skipped.
 
 ## 10. Schedules: printing and refreshing on their own
 
-**Schedules** has one form for the data refresh and one per report. Fridge Sheet fires every
+**Schedules** is the household's timetable: one ruled section for the data refresh and one
+per report, each with its own **Save**. A section's head carries its time at the right (*2:00
+PM*; *every 2 hours, 5:00 AM–9:00 PM* for the refresh; *not scheduled* in grey when it is off),
+and the grey line under the head says its days, **next:** when it will fire, and **last:** when
+it last ran on a schedule with **OK** in green or **FAIL** on red — or "has not run on a
+schedule yet". Fridge Sheet fires every
 schedule itself, once a minute, from inside the server that is already running in the
 background — there is no systemd timer or Windows task for a report's own schedule any more;
 **Save** only ever writes `config.toml`. That only works while the server itself is running:
@@ -638,7 +643,7 @@ on Linux, `fridgesheet service install`; on Windows, the installer's own logon t
 
 ### Refresh the data
 
-- **Refresh on a schedule**, **Every [N] hours**, **Between** [start] **and** [end], the
+- **Refresh on a schedule**, **Every (hours)**, **Between** [start] **and** [end], the
   days. The page previews the times ("Refreshes at 06:00, 09:00, …"). At most 12 a day; the
   window cannot cross midnight.
 - **Save** writes `[refresh]` in `config.toml` and nothing else.
@@ -653,11 +658,8 @@ on Linux, `fridgesheet service install`; on Windows, the installer's own logon t
   goes on the fridge.
 - **Save** writes `[reports.<key>]` in `config.toml` and nothing else.
 
-Every row, refresh or report, shows **next:** with the next time it will fire, and either
-**last:** with when it last actually ran on a schedule and whether that was OK, or "has not
-run on a schedule yet" if it never has. If the scheduler inside Fridge Sheet itself has
-stopped, the page header says "Schedules are paused: …" instead of the rows quietly going
-stale.
+If the scheduler inside Fridge Sheet itself has stopped, the page header says "Schedules
+are paused: …" instead of the sections quietly going stale.
 
 **How a scheduled run behaves**
 
@@ -995,7 +997,10 @@ data files are readable only by your user.
 
 ## 20. Troubleshooting
 
-Start with **Diagnostics → Run diagnostics**. Any `FAIL` line is where to look.
+Start with **Diagnostics → Run diagnostics**. The page reads the last report as one line
+per check — a green tick or a red cross, the check's name, its detail, and **OK** or **FAIL** at
+the right — under a line saying when it was checked and how many failed; **The report as a
+file** folds open the text to paste into an issue. Any `FAIL` line is where to look.
 
 | Symptom | Likely cause and fix |
 |---|---|
