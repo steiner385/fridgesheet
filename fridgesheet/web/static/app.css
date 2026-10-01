@@ -532,6 +532,7 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
    2026-10-01): the Window, Kid and Kind words as one sort line; each day a day row with its
    tally over ruled lines, one per thing that moved; a record opens in a slot under its line. */
 .change-words { max-width: 1100px; }                 /* the log's own width */
+.change-words a, .trend-words a { white-space: nowrap; }   /* a word of the sort line never breaks mid-phrase */
 .change-words .sep { margin: 0 var(--s2); }
 .change-log { max-width: 1100px; padding-bottom: var(--s2); }
 .change-log > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
@@ -992,5 +993,6 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .change .subject a, .pager a { display: inline-block; padding-block: 11px; }                           /* 44px under a finger, one underline (Changes) */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
-  .item-head .meta a, .ours a, .day-box > h3 a, .change .meta a { display: inline-block; padding-block: 3px; min-height: 24px; }
+  .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }
+  .change .meta a { display: inline-block; padding-block: 3px; min-height: 24px; }                      /* the kid under a log line (Changes) */
 }
