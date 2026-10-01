@@ -1,32 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Changes · Fridge Sheet{% endblock %}
 {% block content %}
+{# The planner's log (the Student Planner, Changes; the surface brief in .impeccable/surfaces/):
+   the Window, Kid and Kind choices as pencil words in the sort line's grammar, then the window's
+   days newest first, each a day row carrying its tally over the day's lines, one line per thing
+   that moved; a name opens its record in a slot under its line. The words are plain links: they
+   sit outside #changes, so an hx-get swapping only the log would leave them on the old window. #}
 {% set page_title = "Changes" %}
 {% set page_intro = "What the gradebooks and you have done since a chosen moment. Newest first." %}
 {% include "_page_head.html" %}
-{% set base = "/changes?" ~ (("kid=" ~ (kid | urlencode) ~ "&") if kid else "") ~ (("kind=" ~ kind ~ "&") if kind else "") %}
-<div class="filters">
-  <span>Window:</span>
-  {# Plain links, like the Kid and Kind chips: `.filters` sits outside #changes, so an hx-get
-     that swapped only the table would leave every other chip carrying the old window. #}
-  {% for key, label, days in WINDOWS %}
-  <a class="badge{{ ' current' if window == key else '' }}"{{ ' aria-current="true"' | safe if window == key }} href="{{ base }}window={{ key }}">{{ label }}</a>
-  {% endfor %}
-  {% if not who_student %}<span>Kid:</span>
-  <a class="badge{{ ' current' if not kid else '' }}"{{ ' aria-current="true"' | safe if not kid }} href="/changes?window={{ window }}{{ ('&kind=' ~ kind) if kind else '' }}">all</a>
-  {% for s in students %}
-  <a class="badge{{ ' current' if kid == s.key else '' }}"{{ ' aria-current="true"' | safe if kid == s.key }} href="/changes?window={{ window }}&kid={{ s.key | urlencode }}{{ ('&kind=' ~ kind) if kind else '' }}">{{ s.key | nickname }}</a>
-  {% endfor %}{% endif %}
-  <span>Kind:</span>
-  <a class="badge{{ ' current' if not kind else '' }}"{{ ' aria-current="true"' | safe if not kind }} href="/changes?window={{ window }}{{ ('&kid=' ~ (kid | urlencode)) if kid else '' }}">all</a>
-  {% for k in KINDS %}
-  <a class="badge{{ ' current' if kind == k else '' }}"{{ ' aria-current="true"' | safe if kind == k }} href="/changes?window={{ window }}{{ ('&kid=' ~ (kid | urlencode)) if kid else '' }}&kind={{ k }}">{{ LABELS[k] }}</a>
-  {% endfor %}
-</div>
+<p class="sort change-words" role="group" aria-label="Show">
+  {% for key, label, days_n in WINDOWS %}<a href="/changes?{% if kid %}kid={{ kid | urlencode }}&{% endif %}{% if kind %}kind={{ kind }}&{% endif %}window={{ key }}"{% if window == key %} aria-current="true"{% endif %}>{{ label }}</a>{{ ' · ' if not loop.last }}{% endfor %}
+  {% if not who_student %}<span class="sep">—</span> <span class="muted">Kid</span> <a href="/changes?window={{ window }}{% if kind %}&kind={{ kind }}{% endif %}"{% if not kid %} aria-current="true"{% endif %}>all</a>{% for s in students %} · <a href="/changes?window={{ window }}&kid={{ s.key | urlencode }}{% if kind %}&kind={{ kind }}{% endif %}"{% if kid == s.key %} aria-current="true"{% endif %}>{{ s.key | nickname }}</a>{% endfor %}{% endif %}
+  <span class="sep">—</span> <span class="muted">Kind</span> <a href="/changes?window={{ window }}{% if kid %}&kid={{ kid | urlencode }}{% endif %}"{% if not kind %} aria-current="true"{% endif %}>all</a>{% for k in KINDS %} · <a href="/changes?window={{ window }}{% if kid %}&kid={{ kid | urlencode }}{% endif %}&kind={{ k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ LABELS[k] }}</a>{% endfor %}
+</p>
 <div id="changes">
 {# Only an htmx request to /changes renders just this block, and nothing in the UI sends one
-   today: the chips and the pager are plain links (see above). It is kept, and tested, as the
-   one place to fetch the rows alone -- cheap to keep, and what an in-place pager would use. #}
+   today; it is kept, and tested, as the one place to fetch the log alone. #}
 {% block partial %}
 {% include "_change_rows.html" %}
 {% endblock %}

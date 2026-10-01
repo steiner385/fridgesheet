@@ -722,9 +722,12 @@ the message the PDF and **Reprint**.
 not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own file
 ([§19](#19-files-backup-and-privacy)), so it never replaces the sheet a day printed.
 
-**Changes** — everything that moved: *New, Grade posted, Grade changed, Now missing,
-Cleared, You answered, You cleared a flag, Class average*. Choose the window (*Since
-yesterday*, 3 days, a week, a month), a child and kinds. Click an item to expand it.
+**Changes** — the planner's log of everything that moved: *New, Grade posted, Grade changed,
+Now missing, Cleared, You answered, You cleared a flag, Class average*. The window (*Since
+yesterday*, 3 days, a week, a month), the child and the kind are words above the log; the
+chosen one is in ink. Each day is a row with its tally (*12 changes · 2 grades posted · 1 now
+missing*) over the day's lines: the time, the kind, the item, the child and class, the detail.
+Click an item's name to open its record under the line.
 
 **Trends** — one page for the year so far, for the house or one child, over 4, 8 or 16 weeks
 (the choices are words above the page):

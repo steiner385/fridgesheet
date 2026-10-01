@@ -232,9 +232,10 @@ def test_a_filter_chip_in_force_is_drawn_and_announced(tmp_path):
     assert re.search(r"\.badge\.current\s*\{[^}]*background: var\(--accent\)", CSS)
     seed(tmp_path).close()
     c = app_for(tmp_path)
+    # Changes chooses with words in the sort line's grammar (the planner's log, 2026-10-01).
     changes = c.get("/changes?window=7d&kid=Alex").text
-    assert re.search(r'<a class="badge current" aria-current="true" href="[^"]*window=7d"', changes)
-    assert re.search(r'<a class="badge current" aria-current="true" href="[^"]*kid=Alex[^"]*">Alex</a>', changes)
+    assert re.search(r'<a href="[^"]*window=7d" aria-current="true">Last week</a>', changes)
+    assert re.search(r'<a href="[^"]*kid=Alex[^"]*" aria-current="true">Alex</a>', changes)
     assert changes.count('aria-current="true"') == 3            # window, kid, kind: one each
     trends = c.get("/trends?kid=Sam&weeks=8").text
     assert trends.count('aria-current="true"') == 2
@@ -402,10 +403,11 @@ def test_runs_and_changes_are_four_columns_with_the_context_under_the_name(tmp_p
     runs_page = c.get("/runs").text
     assert re.findall(r"<th>([^<]*)</th>", runs_page) == ["Started", "Report", "Outcome", "Message"]
     assert re.search(r"<td>Open Work Sheet<small class=\"by\">On a schedule</small></td>", runs_page)
+    # Changes is lines, not a table (the planner's log, 2026-10-01): the kid and the class in the pencil meta.
     changes = c.get("/changes?window=30d").text
-    assert re.findall(r"<th>([^<]*)</th>", changes) == ["When", "What", "Item", "Detail"]
-    assert re.search(r'<small class="under"><a href="/kids/Alex">Alex</a> · Honors English 9 · canvas</small>', changes)
-    assert 'colspan="4"' in changes and 'colspan="7"' not in runs_page
+    assert "<table" not in changes
+    assert re.search(r'<span class="meta"><a href="/kids/Alex">Alex</a> · Honors English 9 · canvas</span>', changes)
+    assert 'colspan="7"' not in runs_page
     assert re.search(r"table\.items td > small\s*\{[^}]*display: block", CSS)
 
 
