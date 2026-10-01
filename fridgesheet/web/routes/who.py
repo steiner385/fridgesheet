@@ -7,15 +7,17 @@ import sqlite3
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from ..app import Db, FAMILY, remember_who, render, student_or_404
+from ..app import Db, FAMILY, State, remember_who, render, student_or_404
 from ..stores import students
 
 router = APIRouter()
 
 
 @router.get("/who")
-def chooser(request: Request, conn: sqlite3.Connection = Db):
-    return render(request, conn, "who.html", kids=students.visible(conn))
+def chooser(request: Request, conn: sqlite3.Connection = Db, state=State):
+    # The cover is the planner opened to today (the Student Planner, 2026-10-01): the date is a
+    # day row over the question, in the household's zone.
+    return render(request, conn, "who.html", kids=students.visible(conn), today=state.now().date())
 
 
 @router.post("/who")

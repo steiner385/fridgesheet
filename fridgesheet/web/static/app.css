@@ -681,11 +681,21 @@ th .arrow { font-size: var(--type-small); }
 .asked-line { margin: 16px 0 0; }
 
 /* The chooser (spec 2026-09-27 §13.1): a kid's name is a big target; the grown-up's is quieter. */
-.who { max-width: 520px; margin: 48px auto; text-align: center; }
-.who h2 { font-size: 28px; margin: 0 0 8px; }
-.who form { display: grid; gap: 12px; }
-.who button { font-size: 22px; padding: 18px; border-radius: 12px; border: 1px solid var(--rule); background: var(--paper); cursor: pointer; }
-.who button.grownup { font-size: 16px; padding: 12px; background: var(--wash); color: var(--muted); margin-top: 12px; }
+/* The planner's cover (the Student Planner, the chooser; the surface brief for who.html,
+   2026-10-01): the mark and the name, today's date as a day row in pencil over the question,
+   one tall stroke button per kid with the planner's corners, the grown-up's quieter beneath,
+   the remembering sentence as the last pencil line; centred on the ruled paper. */
+main.planner-main:has(> .who) { max-width: none; margin: 0; min-height: 100dvh; box-sizing: border-box; }   /* the ruled paper is the page, not a patch */
+.who { max-width: 520px; margin: 0 auto; padding: var(--s6) var(--s4) var(--s6); text-align: center; }
+.who h1 { margin: 0 0 var(--s5); font-size: var(--type-root); }
+/* The date is the page's own day row over a hairline, as the logs draw one -- not a label over the heading. */
+.who .day { margin: 0 0 var(--s5); padding-bottom: var(--s1); border-bottom: 1px solid var(--rule); text-align: left; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.who h2 { font-size: 28px; font-weight: 600; margin: 0 0 var(--s4); text-wrap: balance; }
+.who form { display: grid; gap: var(--s3); }
+.who button { font-size: 22px; padding: 18px; border-radius: 2px; border: 1px solid var(--control); background: var(--paper); color: var(--ink); cursor: pointer; }
+.who button:hover { background: var(--wash); }                 /* the world's hover; focus draws its own ring */
+.who button.grownup { font-size: var(--type-root); padding: var(--s3); background: var(--wash); color: var(--muted); margin-top: var(--s3); }
+.who .remember { margin: var(--s4) 0 0; font-size: var(--type-small); text-wrap: pretty; }
 
 /* The kid rail's "Not {name}?" link (spec 2026-09-27 §13.2): set apart from the tabs above it,
    not one more link in the list. */
@@ -1075,6 +1085,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .run .foot a { display: inline-flex; align-items: center; min-height: 44px; }                           /* open the PDF beside the 44px Reprint (Runs) */
   .report .name a { display: inline-flex; align-items: center; min-height: 44px; }                         /* a saved report's name, the line's main link (Reports) */
   .report .more-actions a { display: inline-block; padding-block: 3px; min-height: 24px; }                 /* Edit · CSV · JSON under the fold (Reports) */
+  .who h1 .brand { min-height: 44px; padding: 8px 0; }                                                     /* the cover's brand link */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
   .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }
