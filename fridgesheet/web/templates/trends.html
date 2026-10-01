@@ -2,54 +2,58 @@
 {% block title %}Trends · Fridge Sheet{% endblock %}
 {% block content %}
 {% include "_chart_scripts.html" %}
+{# The report card page (the Student Planner, Trends; the surface brief in .impeccable/surfaces/):
+   the Kid and Weeks choices as one pencil line in the sort line's grammar, then one paper page
+   for the year: the hand-in record as its first line, each kid's grade chart and the weeks chart
+   as the page's figures with the numbers folded, and what has sat open longest in pencil at the
+   foot. The numbers are the same as Today's (`outcomes.tally`) and the table's rows equal the
+   chart's datasets (tests/test_web_trends_page.py). #}
 {% set page_title = "Trends" %}{% set page_intro = "How the year is going: hand-ins, grades and the work due each week." %}{% include "_page_head.html" %}
-<div class="filters">
-  {% if not who_student %}<span>Kid:</span>
-  <a class="badge{{ ' current' if not kid else '' }}"{{ ' aria-current="true"' | safe if not kid }} href="/trends?weeks={{ weeks }}">all</a>
-  {% for s in students %}<a class="badge{{ ' current' if kid == s.key else '' }}"{{ ' aria-current="true"' | safe if kid == s.key }} href="/trends?kid={{ s.key | urlencode }}&weeks={{ weeks }}">{{ s.key | nickname }}</a>{% endfor %}{% endif %}
-  <span>Weeks:</span>
-  {% for n in (4, 8, 16) %}<a class="badge{{ ' current' if weeks == n else '' }}"{{ ' aria-current="true"' | safe if weeks == n }} href="/trends?{{ ('kid=' ~ (kid | urlencode) ~ '&') if kid else '' }}weeks={{ n }}">{{ n }}</a>{% endfor %}
-</div>
-{# With nothing at all yet, one sentence says so; the cards, the charts and the table each had
-   their own way of saying the same thing (#5). #}
+<p class="sort trend-words" role="group" aria-label="Show">
+  {% if not who_student %}<span class="muted">Kid</span> <a href="/trends?weeks={{ weeks }}"{% if not kid %} aria-current="true"{% endif %}>all</a>{% for s in students %} · <a href="/trends?kid={{ s.key | urlencode }}&weeks={{ weeks }}"{% if kid == s.key %} aria-current="true"{% endif %}>{{ s.key | nickname }}</a>{% endfor %}
+  <span class="sep">—</span> {% endif %}<span class="muted">Weeks</span> {% for n in (4, 8, 16) %}<a href="/trends?{% if kid %}kid={{ kid | urlencode }}&{% endif %}weeks={{ n }}"{% if weeks == n %} aria-current="true"{% endif %}>{{ n }}</a>{{ ' · ' if not loop.last }}{% endfor %}
+</p>
+{# With nothing at all yet, one sentence says so; the page's parts each had their own way of
+   saying the same thing (#5). #}
 {% set empty = not has_grades and not longest and record.on_time_rate is none %}
 {% if empty %}
 <p class="muted">Not enough history yet. Trends fill in as refreshes accumulate — come back after a few days of runs.</p>
 {% else %}
-<div class="cards">
-  <div class="card"><h3>On-time hand-ins</h3>
-    {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same
-       numbers as the Dashboard cards, so this page and that one cannot disagree. #}
-    {% if record.on_time_rate is not none %}<p class="big">{{ (record.on_time_rate * 100) | round | int }}%</p>
-    <p class="muted">of work due so far this year that was handed in on time, late, or not at all</p>
-    <p class="outcome-line">{{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
-    {% else %}<p class="muted">Nothing has come due yet.</p>{% endif %}
+<div class="planner-main trends-page">
+<section class="sec report-card" aria-labelledby="year-head">
+  <h3 id="year-head">The year so far <span class="tally">· last {{ weeks }} week{{ 's' if weeks != 1 }}{% if kid %} · {{ kid | nickname }}{% endif %}</span></h3>
+  <h4 class="day">On-time hand-ins</h4>
+  {# `record` is outcomes.tally over everything due so far (docs/outcomes.md) -- the same numbers
+     as Today's boxes, so this page and that one cannot disagree. Red is the school's word. #}
+  {% if record.on_time_rate is not none %}
+  <p class="record-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · {{ record.on_time }} on time · {{ record.late }} late · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · {{ record.done_offline }} on paper · <span class="{{ 'warn' if record.unknown }}">{{ record.unknown }} unknown</span></p>
+  <p class="figure-note muted">Of the work due so far this year: handed in on time, late, or not at all.</p>
+  {% else %}<p class="record-line muted">Nothing has come due yet.</p>{% endif %}
+  <h4 class="day">Grades</h4>
+  {# One line per class, from the gradebook the family's Settings name for class averages: a
+     chart must not mix HAC and Canvas. One chart per kid, not one for the house (#40 item 12). #}
+  <p class="figure-note muted">{% if course_names %}{{ course_names | join(", ") }} — one line per class, from the gradebook Settings names for class averages.{% else %}No grades recorded yet.{% endif %}</p>
+  {% for key, cfg in grade_charts %}
+  {% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class from its grades source" %}{% include "_chart_canvas.html" %}{% endwith %}
+  {% elif grade_charts | length > 1 %}<p class="figure-note muted">{{ key | nickname }}: no grades recorded yet.</p>{% endif %}
+  {% endfor %}
+  <h4 class="day">Work due each week</h4>
+  <p class="figure-note muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
+  {% with config = weekly_json, height = 220, label = "Work due each week, by how it came out; the numbers fold open beneath" %}{% include "_chart_canvas.html" %}{% endwith %}
+  <details class="fold numbers"><summary>The numbers</summary>
+  <div class="table-wrap">
+  <table class="items">
+    <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
+    <tbody>
+    {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
   </div>
-  <div class="card"><h3>Open the longest</h3>
-    <p class="muted">Days past due and still open.</p>
-    {% for name, days in longest %}<p>{{ name }} <span class="muted">{{ days }} days</span></p>{% else %}<p class="muted">Nothing is open.</p>{% endfor %}
-  </div>
-</div>
-<h3>Grades</h3>
-{# One line per class, from the gradebook the family's Settings name for class averages: a
-   chart must not mix HAC and Canvas. A class that source has no grade for shows the other's. #}
-<p class="muted">{% if course_names %}{{ course_names | join(", ") }} — one line per class, from the gradebook Settings names for class averages.{% else %}No grades recorded yet.{% endif %}</p>
-{# One chart per kid, not one chart for the house: three kids' classes in one legend was 28
-   series and unreadable (#40 item 12). A kid's own view shows just theirs. #}
-{% for key, cfg in grade_charts %}
-{% if cfg %}{% with config = cfg, height = 260, label = (key | nickname) ~ ": each class's grade over time, one line per class from its grades source" %}{% include "_chart_canvas.html" %}{% endwith %}
-{% elif grade_charts | length > 1 %}<p class="muted">{{ key | nickname }}: no grades recorded yet.</p>{% endif %}
-{% endfor %}
-<h3>How the work due each week came out</h3>
-<p class="muted">By the week it was <em>due</em>, not the week a refresh noticed it — so the year so far is here from the first day. One definition for every number: <a href="https://github.com/steiner385/fridgesheet/blob/main/docs/outcomes.md">docs/outcomes.md</a>.</p>
-{% with config = weekly_json, height = 220, label = "Work due each week, by how it came out; the table below has the numbers" %}{% include "_chart_canvas.html" %}{% endwith %}
-<div class="table-wrap">
-<table class="items">
-  <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
-  <tbody>
-  {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td class="{{ 'warn' if w.unknown }}">{{ w.unknown }}</td></tr>{% endfor %}
-  </tbody>
-</table>
+  </details>
+  <h4 class="day">Open the longest</h4>
+  <p class="figure-note muted">Days past due and still open.</p>
+  <ul class="longest">{% for name, days in longest %}<li>{{ name }} <span class="muted">· {{ days }} days</span></li>{% else %}<li class="muted">Nothing is open.</li>{% endfor %}</ul>
+</section>
 </div>
 {% endif %}
 {% endblock %}

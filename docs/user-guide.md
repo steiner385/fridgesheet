@@ -726,13 +726,16 @@ not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own
 Cleared, You answered, You cleared a flag, Class average*. Choose the window (*Since
 yesterday*, 3 days, a week, a month), a child and kinds. Click an item to expand it.
 
-**Trends** — per child, 4, 8 or 16 weeks:
-- **On-time hand-ins** — on time ÷ (on time + late + not done), over work due so far.
-- **Open the longest** — what has sat open longest.
-- **Grades** — each class's average over time, one line per class from the gradebook
-  you chose for class averages (Settings › Gradebook sources). A class that gradebook
-  has no grade for shows the other's line instead; a chart never mixes the two.
-- **How the work due each week came out** — outcomes by the week work was *due*.
+**Trends** — one page for the year so far, for the house or one child, over 4, 8 or 16 weeks
+(the choices are words above the page):
+- **On-time hand-ins** — the first line: on time ÷ (on time + late + not done), over work due
+  so far, then the five counts.
+- **Grades** — each class's average over time, one chart per child, one line per class from
+  the gradebook you chose for class averages (Settings › Gradebook sources). A class that
+  gradebook has no grade for shows the other's line instead; a chart never mixes the two.
+- **Work due each week** — outcomes by the week work was *due*, as a chart; **The numbers**
+  folds open to the table beneath it.
+- **Open the longest** — what has sat open longest, at the foot of the page.
 
 ---
 

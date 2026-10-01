@@ -21,6 +21,7 @@ def test_trends_with_data_still_shows_its_cards(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/trends").text
     assert "Not enough history yet" not in body and "On-time hand-ins" in body and "Open the longest" in body
+    assert "The year so far" in body and 'class="cards"' not in body                 # one report card page, not a row of cards
 
 
 def test_the_window_chips_are_plain_links(tmp_path):

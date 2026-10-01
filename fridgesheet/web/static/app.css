@@ -506,6 +506,26 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* A small number's box says what it holds. */
 .settings-grid label > input[name="port"], .settings-grid label > input[name="days_ahead"], .settings-grid label > input[name="overdue_days"] { width: 8ch; }   /* outranks the grid's 100% */
 .update-status p { margin: 0 0 var(--s1); }
+/* The report card page (the Student Planner, Trends; the surface brief for trends.html,
+   2026-10-01): one paper page for the year with its label along the top edge, its parts as day
+   rows, the charts flat on the page with no box of their own, the numbers behind a pencil fold,
+   the longest open as pencil lines. The Kid and Weeks words are the sort line. */
+.trend-words .sep { margin: 0 var(--s2); }
+.trends-page { max-width: 1100px; padding-bottom: var(--s4); }
+.trends-page > .report-card { margin: 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s2); }
+.trends-page > .report-card > h3 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.trends-page > .report-card > h3 .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.trends-page > .report-card > h4.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.report-card .record-line { margin: var(--s2) 0 0; max-width: var(--measure); }
+.report-card .record-line b { font-weight: 650; }
+.report-card .figure-note { margin: var(--s1) 0 0; font-size: var(--type-small); max-width: var(--measure); }
+.report-card .chart-holder { margin: var(--s2) 0 0; padding: 0; border: 0; background: none; }      /* a figure on the page, not a box in a box */
+.report-card .chart-key { margin: var(--s1) 0 0; }
+.report-card details.fold { margin: var(--s2) 0 0; }
+.report-card details.fold > .table-wrap { margin-top: var(--s2); }
+.report-card .longest { list-style: none; margin: var(--s2) 0 0; padding: 0; max-width: var(--measure); }
+.report-card .longest li { padding: var(--s1) 0; border-bottom: 1px solid var(--rule); }
+.report-card .longest li:last-child { border-bottom: 0; }
 .sec > .field-help, .sec > p > .field-help { max-width: var(--measure); }
 .card h3 { margin: 0 0 12px; font-size: var(--type-root); }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; margin: 0 0 8px; }
