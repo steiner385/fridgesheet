@@ -50,10 +50,12 @@ def test_a_clean_report_says_all_passed(tmp_path):
 
 
 def test_a_report_that_cannot_be_read_is_one_pencil_line_not_a_clean_verdict(tmp_path):
+    """POSIX only: chmod 0 does not make a file unreadable on Windows, and root reads anything."""
     import os
+    import sys
     import pytest
-    if os.geteuid() == 0:
-        pytest.skip("root reads an unreadable file")
+    if sys.platform == "win32" or getattr(os, "geteuid", lambda: 1)() == 0:
+        pytest.skip("needs a file this process cannot read")
     seed(tmp_path).close()
     (tmp_path / "doctor.txt").write_text(REPORT, encoding="utf-8")
     os.chmod(tmp_path / "doctor.txt", 0)                    # a file that is there but cannot be read
