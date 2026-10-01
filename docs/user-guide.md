@@ -714,9 +714,11 @@ The **Open Work Sheet** is built in. You can build your own on **Reports**.
 
 ## 12. Runs, Changes and Trends
 
-**Runs** — the last 100 sheets and reports built or printed: when, which (with who started
-it under the name: you, the schedule, the command line), OK/FAIL/SKIP and why, and under
-the message the PDF and **Reprint**.
+**Runs** — the sheet's own log: the last 100 sheets, reports and refreshes, grouped by day,
+newest first. Each day is a row with its tally (*2 runs · 1 failed*) over the day's lines: the
+time, which report, who started it (you, the schedule, the command line), the message, and at
+the right the outcome — **OK** in green, **FAIL** on red, **SKIP** in grey. Under a printed
+run's line, **open the PDF** and **Reprint**.
 
 **Reprint** sends that row's stored PDF to the printer again, exactly as it was — it does
 not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own file
