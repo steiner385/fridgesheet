@@ -270,7 +270,7 @@ def _flag_events(conn: sqlite3.Connection, student_id: int | None) -> list[Event
         word = phrasing.flag_label(r["flag"], "state")
         out.append(Event("flag_set", _dt(r["set_at"]), detail=f"{word}: {r['text']}" if r["text"] else word, **common))
         if r["cleared_at"]:
-            out.append(Event("flag_cleared", _dt(r["cleared_at"]), detail=f"was {word}", **common))
+            out.append(Event("flag_cleared", _dt(r["cleared_at"]), detail=f"undid “{word}”", **common))
     return out
 
 

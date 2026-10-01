@@ -7,7 +7,7 @@
    at the moment she wants the facts (re-critique 2026-09-30). #}
 {% set card = card if card is defined and card else '' %}
 {% set density = 'detail' %}{% set slot = 'qd-' ~ item.id %}{% set box_id = card %}
-{% if card.startswith('row-') %}
+{% if card.startswith('row-') or (with_tone is defined and with_tone) %}
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set lt = item | line_tone(tier) %}
 {% set word = lt.word %}{% set word_tone = lt.word_tone %}{% set tone = lt.tone %}{% set late_line = lt.open %}{% set class_link = true %}

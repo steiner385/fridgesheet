@@ -36,15 +36,15 @@ def test_each_day_is_a_row_with_its_tally_over_its_lines(tmp_path):
     body = app_for(tmp_path).get("/changes?window=30d").text
     log = re.search(r'<div class="planner-main change-log">(.*?)</div>\s*(?:<p class="muted pager">|\n*\s*</div>)', body, re.S)
     assert log
-    days = re.findall(r'<h4 class="day">([A-Z][a-z]{2} \d+/\d+) <span class="tally">· (\d+) changes? · ([^<]*)</span></h4>', body)
+    days = re.findall(r'<h3 class="day">([A-Z][a-z]{2} \d+/\d+) <span class="tally">· (\d+) changes? · ([^<]*)</span></h3>', body)
     assert days, "a day row with its tally"
     for _, total, rest in days:
         assert re.match(r"\d+ [a-z ]+( · \d+ [a-z ]+)*$", rest), rest
     assert "<table" not in body and 'class="badge' not in body
-    assert re.search(r'<div class="change">\s*<span class="at">\d{1,2}:\d{2} [AP]M</span>\s*<span class="what">[^<]+</span>\s*<span class="subject"><a href="#change-\d+-\d+" hx-get="/items/\d+" hx-target="#change-\d+-\d+" aria-expanded="false" aria-controls="change-\d+-\d+">', body)
+    assert re.search(r'<div class="change">\s*<span class="at">\d{1,2}:\d{2} [AP]M</span>\s*<span class="what">[^<]+</span>\s*<span class="subject"><a href="#change-\d+-\d+" hx-get="/items/\d+\?tone=line" hx-target="#change-\d+-\d+" aria-expanded="false" aria-controls="change-\d+-\d+">', body)
     assert re.search(r'<span class="meta"><a href="/kids/Alex">Alex</a> · Honors English 9', body)
     assert re.search(r'<div class="detail-slot" id="change-\d+-\d+" hidden></div>', body)
-    assert body.index('<h4 class="day">') < body.index('<div class="change">')
+    assert body.index('<h3 class="day">') < body.index('<div class="change">')
 
 
 def test_the_tally_words_follow_the_kinds_in_order():
@@ -58,22 +58,35 @@ def test_an_empty_window_is_one_pencil_line(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/changes?window=1d&kind=course_grade").text
     assert '<p class="muted nothing-changed">Nothing has changed in this window.</p>' in body
-    assert '<h4 class="day">' not in body
+    assert '<h3 class="day">' not in body
 
 
 def test_a_record_opens_in_a_slot_under_its_line():
     assert 'closest("tr.detail, .detail-slot")' in JS and 'row.matches("tr")' in JS
     assert "display: none" in _rule(".change-log > .detail-slot[hidden]")
     assert "display: none" in _rule(".detail-slot .item::before, .detail-slot .item::after")
+    assert "display: inline-block" in _rule("tr.detail .close-detail, .detail-slot .close-detail")
+
+
+def test_a_record_under_a_line_keeps_the_sheets_word_and_can_close(tmp_path):
+    from fridgesheet.web import db
+    history(tmp_path).close()
+    conn = db.open_db(tmp_path)
+    qid = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    conn.close()
+    record = app_for(tmp_path).get(f"/items/{qid}?tone=line").text
+    assert re.search(r'<span class="when word red">', record)                                  # the sheet's word at the head
+    assert record.count("data-close-detail") == 2 and "hx-get=\"/items/" not in record.split("data-close-detail", 1)[1].split(">", 1)[0]
 
 
 def test_the_log_is_drawn_in_the_planners_rules():
     assert "max-width: 1100px" in _rule(".change-log")
-    day = _rule(".change-log > h4.day")
+    day = _rule(".change-log > h3.day")
     assert "text-transform: uppercase" in day and "letter-spacing: .04em" in day and "color: var(--muted)" in day
     line = _rule(".change")
     assert "border-bottom: 1px solid var(--rule)" in line and "background" not in line
     assert "font-weight: 650" in _rule(".change .what") and "color: var(--muted)" in _rule(".change .at")
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
-    assert re.search(r"\.change \.subject a, \.pager a\s*\{[^}]*min-height: 44px", coarse)
+    assert re.search(r"\.change \.subject a, \.pager a\s*\{[^}]*padding-block: 11px", coarse)              # 44px under a finger, one underline
+    assert "max-width: 1100px" in _rule(".change-words") and "background: var(--paper)" in _rule(".change-log > .detail-slot")
     assert re.search(r"\.change \.meta a\s*\{[^}]*min-height: 24px", coarse)

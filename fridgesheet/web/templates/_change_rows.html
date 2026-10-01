@@ -3,12 +3,12 @@
    and the class in the pencil meta, the detail. The kid is still a link to their page. #}
 <div class="planner-main change-log">
 {% for g in days %}{% set day_i = loop.index %}
-<h4 class="day">{{ g.date | wd_md }} <span class="tally">· {{ g.tally | join(' · ') }}</span></h4>
+<h3 class="day">{{ g.date | wd_md }} <span class="tally">· {{ g.tally | join(' · ') }}</span></h3>
 {% for e in g.events %}{% set slot = 'change-' ~ day_i ~ '-' ~ loop.index %}
 <div class="change">
   <span class="at">{{ e.at | time12 }}</span>
   <span class="what">{{ e.label }}</span>
-  {% if e.item_id %}<span class="subject"><a href="#{{ slot }}" hx-get="/items/{{ e.item_id }}" hx-target="#{{ slot }}" aria-expanded="false" aria-controls="{{ slot }}">{{ e.item_name }}</a></span>{% elif e.item_name %}<span class="subject">{{ e.item_name }}</span>{% endif %}
+  {% if e.item_id %}<span class="subject"><a href="#{{ slot }}" hx-get="/items/{{ e.item_id }}?tone=line" hx-target="#{{ slot }}" aria-expanded="false" aria-controls="{{ slot }}">{{ e.item_name }}</a></span>{% elif e.item_name %}<span class="subject">{{ e.item_name }}</span>{% endif %}
   <span class="meta"><a href="/kids/{{ e.student_key | urlencode }}">{{ e.student_key | nickname }}</a>{% if e.course_short %} · {{ e.course_short }}{% endif %}{% if e.source %} · {{ e.source }}{% endif %}</span>
   {% if e.detail %}<span class="detail">{{ e.detail }}</span>{% endif %}
 </div>
