@@ -14,7 +14,7 @@
 {# Who has nothing to ask, once, in pencil; when nobody does, the list says so once instead. #}
 {% if questions %}{% for s in quiet_kids %}<p class="quiet-kid muted">Nothing to ask about {{ s.key | nickname }}'s work.</p>{% endfor %}{% endif %}
 <section class="sec household-questions" aria-labelledby="to-answer">
-  <div class="sec-head"><h3 id="to-answer">To answer</h3><span class="count">{{ questions | length }}</span></div>
+  <div class="sec-head"><h3 id="to-answer">To answer</h3><span id="qcount-page" class="count">{{ questions | length }}</span></div>
   <div class="planner-main to-answer">
   {% for s, view in questions %}
   {% set student = s %}{% set item = view %}{% set slot = 'q-' ~ view.id %}{% set kid_label = s.key | nickname %}

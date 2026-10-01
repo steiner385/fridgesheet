@@ -258,7 +258,7 @@ def test_the_questions_page_is_one_section_per_kid_with_lines_for_the_waiting(tm
     body = app_for(tmp_path).get("/questions").text
     # One list for the house (the parent's answering page, 2026-09-30): "To answer" with the
     # count, the kid named in each line's meta; the waiting lines fold per kid beneath.
-    assert re.search(r'<section class="sec household-questions"[^>]*>\s*<div class="sec-head"><h3 id="to-answer">To answer</h3><span class="count">1</span>', body)
+    assert re.search(r'<section class="sec household-questions"[^>]*>\s*<div class="sec-head"><h3 id="to-answer">To answer</h3><span id="qcount-page" class="count">1</span>', body)
     assert re.search(r'<span class="meta"><span class="kid">Alex</span> · Honors English 9', body)
     assert re.search(r'<details class="sec quiet waiting-fold"><summary><h3>Waiting on the teacher · Alex</h3><span class="count">1</span></summary>\s*<div class="waiting">\s*<div class="line grey" id="q-%d">' % lab, body)
     assert body.count("<h2") == 1
@@ -298,7 +298,8 @@ def test_a_kid_with_no_questions_is_one_pencil_line_under_the_title(tmp_path):
 def test_an_answer_collapses_a_card_to_the_line_density(tmp_path):
     pid = _id(tmp_path, "Participation")
     r = app_for(tmp_path).post(f"/items/{pid}/answer", data={"answer": "done", "prev": "", "slot": f"q-{pid}"})
-    assert re.match(rf'\s*<div class="line ok done-line" id="q-{pid}" data-focus', r.text)
+    # On Questions the whole line is the slot, so the answer keeps the line and strikes it (2026-09-30).
+    assert re.match(rf'\s*<div class="item ok" id="q-{pid}" data-focus', r.text) and 'class="line ok done-line"' in r.text
     assert "Undo" in r.text
 
 

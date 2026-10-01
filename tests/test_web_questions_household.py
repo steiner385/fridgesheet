@@ -34,7 +34,7 @@ def test_the_page_is_one_list_for_the_house_with_the_kid_on_each_line(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/questions").text
     assert body.count('<section class="sec') == 1                                           # one list, no section per kid
-    assert re.search(r'<section class="sec household-questions"[^>]*>\s*<div class="sec-head"><h3 id="to-answer">To answer</h3><span class="count">1</span></div>\s*<div class="planner-main to-answer">', body)
+    assert re.search(r'<section class="sec household-questions"[^>]*>\s*<div class="sec-head"><h3 id="to-answer">To answer</h3><span id="qcount-page" class="count">1</span></div>\s*<div class="planner-main to-answer">', body)
     assert re.search(r'<div class="item ask" id="q-\d+" data-focus>\s*<div class="item-head"><span class="name"><b tabindex="-1" data-focus-target>Participation</b></span><span class="meta"><span class="kid">Alex</span> · Honors English 9', body)
     assert "Was it handed in?" in body and 'class="default">Yes, handed in</button>' in body
     assert '<p class="quiet-kid muted">Nothing to ask about Sam\'s work.</p>' in body
@@ -55,7 +55,10 @@ def test_the_list_speaks_in_the_parents_voice_whatever_the_kids_tier(tmp_path):
     assert "Was it handed in?" in back and "Did you hand it in?" not in back
     # The kid's own page still asks in the kid's words.
     assert "Did you hand it in?" in c.get("/kids/Alex?show=all").text
-    assert '<span class="kid">· Alex</span>: ' in done                                        # the done-line still names the kid
+    # The answered line keeps its head (the name struck, the kid, the class) over the done-line.
+    assert re.match(rf'\s*<div class="item ok" id="q-{pid}" data-focus', done) and '<span class="kid">Alex</span> · Honors English 9' in done
+    assert 'class="line ok done-line"' in done and "<svg" in done and "✓" not in done
+    assert 'id="qcount-page" class="count" hx-swap-oob="true">0</span>' in done or 'id="qcount-page" class="count" hx-swap-oob="true"></span>' in done
 
 
 def test_an_all_quiet_house_says_so_once(tmp_path):
@@ -101,6 +104,8 @@ def test_waiting_and_unpaired_fold_per_kid_beneath_the_list(tmp_path):
     body = app_for(tmp_path).get("/questions").text
     fold = re.search(r'<details class="sec quiet waiting-fold"><summary><h3>Waiting on the teacher · Alex</h3><span class="count">1</span></summary>\s*<div class="waiting">(.*?)</div>\s*</details>', body, re.S)
     assert fold and f'<div class="line grey" id="q-{lab}">' in fold.group(1) and fold.group(1).count("mailto:") == 1
+    assert "◷" not in fold.group(1) and "<svg" in fold.group(1) and " · <a href=\"mailto:" in fold.group(1)        # a drawn mark, parted facts
+    assert 'id="qcount-page" class="count">1</span>' in body                                   # the one question still open
     assert body.index("waiting-fold") > body.index('class="sec household-questions"')
     assert "Waiting on the teacher · Sam" not in body                                       # a kid with nothing waiting has no fold
 
