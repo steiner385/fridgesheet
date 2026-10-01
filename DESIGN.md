@@ -350,7 +350,8 @@ components:
      _item.html, routes/open.py and app.css after the finish review's three fixes, renders in
      .impeccable/review/open-*.png; a class's page recorded 2026-09-30 from course.html,
      _week_line.html, routes/kid.py and app.css after the finish review's four fixes, renders in
-     .impeccable/review/class-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     .impeccable/review/class-*.png; Questions recorded 2026-09-30 from questions.html, _item.html,
+     _answered.html, routes/questions.py and app.css, renders in .impeccable/review/questions-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -363,7 +364,9 @@ components:
      as the sheet on a screen (2026-09-30, seed 169d6a89, "one page at a time"; surface brief
      .impeccable/surfaces/fridgesheet-web-templates-open-html.md), and a class's page as the
      class's record (2026-09-30, seed 2254cef2, "the grade strip"; surface brief
-     .impeccable/surfaces/fridgesheet-web-templates-course-html.md). Where the build departs from the direction contract, the
+     .impeccable/surfaces/fridgesheet-web-templates-course-html.md), and Questions as the
+     parent's answering page (2026-09-30, seed a3a53837, "the household's list"; surface brief
+     .impeccable/surfaces/fridgesheet-web-templates-questions-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -396,8 +399,11 @@ the ruled line, the chosen kid's sheet beneath as one paper page in the sheet's 
 read-only. A class's page followed as the class's record (the maintainer's pick of three surface
 forms, "the grade strip"): the grade's history as a strip of small boxes across the top, the
 newest on the highlighter, over the class's assignments as the weekly pages; the last work table
-went with it. Settings, Reports and the other parent tools now sit inside the planner's shell but
-keep their own incumbent content (cards, chips) until each is brought into the world on its own.
+went with it. Questions followed as the parent's answering page ("the household's list"): one
+ruled list for the whole house in the order the school's deadlines close, the kid named first on
+each line, answered in place in the parent's voice. Settings, Reports and the other parent tools
+now sit inside the planner's shell but keep their own incumbent content (cards, chips) until
+each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -432,6 +438,10 @@ and colour used as the only carrier of meaning.
   it, the official number first and the newest date on the highlighter; the teacher and the
   sources fold are pencil lines beneath, "How it moved" and Notes quiet folds, and the class's
   assignments the same weekly pages as Assignments, the class name a plain word in each meta.
+- On Questions every question in the house is one ruled list, in the order the deadlines close,
+  the kid's name first in each line's pencil meta; who has nothing to ask is one pencil line under
+  the title; beneath the list, per kid, the let-go sentence as a pencil line with its button and
+  the waiting lines and unpaired twins as quiet folds. No box around any of it.
 
 ## Colors
 
@@ -496,7 +506,8 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
   tallies ("Alex · 6"), the page's as-of line, STILL FIXABLE and COMING DUE, the "Until Wed 10/7"
   sub-line, the trailer and the legend's text; on a class's page the strip cells' "whose" lines
   ("HAC average · as of 9/26", "Canvas current"), the other gradebook's number, the teacher line
-  and the sources sentence. Early #4a5568, middle
+  and the sources sentence; on Questions the quiet-kid line, the let-go sentence, the kid's name
+  in a line's meta (at 650) and the waiting lines. Early #4a5568, middle
   #5a6474.
 - **Stroke Grey** (#8a8a8a): the 1px stroke on buttons, selects and inputs, so a control reads as
   a control against the planner's lighter rules.
@@ -767,6 +778,23 @@ line and the weekly pages exactly as on Assignments, every row from both gradebo
 its week (a record folds nothing), the class name a plain word in each line's meta because every
 line is this class, and the sources legend beneath.
 
+**The household's list** (Questions): under the title and intro, one Pencil Grey label-size
+line per kid with nothing to ask ("Nothing to ask about Sam's work.", drawn only while someone
+has a question); then one section, "To answer" with the house's count, and on the ruled page
+(`.planner-main.to-answer`, 1100px) the questions as planner lines under hairlines (the first
+ruled above), in the order the school's deadlines close (the late-work window's last day, else
+the due date), each line's pencil meta opening with the kid's name at 650 ("Alex · Honors
+English 9 · 10 pts"), the facts, the ask line and the answers; an answered line becomes the
+done-line in place, naming the kid ("Participation · Alex: Asked the teacher on 9/30 · Email the
+teacher · Undo"). With nobody to ask, one line: "Nothing to ask about anyone's work tonight."
+Beneath the list, per kid: the let-go sentence as a `form.let-go` pencil line at label size
+("2 of Alex's assignments are too late for credit: …", the names in Ink at 650, the default
+"Let all 2 go" button at its end; afterwards "Let go: …" with a link-button Undo in its place);
+"Waiting on the teacher · Alex" and "Can't pair these · Alex" as quiet folds (`details.sec.quiet`)
+at the list's width, the waiting lines under hairlines inside with no box. The page speaks in
+the parent's voice (`voice=''`), as Today does, and so do the cards and done-lines swapped into
+its `q-` slots.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -927,8 +955,14 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
 - **Note:** one of the family's lines: body text under a 1px Ruled Grey hairline, its meta in
   Pencil Grey label type, no left rule and no fill (the Only-Box Rule; the left-ruled block went
   2026-09-30).
-- **Lines list (Questions, an answered line):** Paper White, 1px Ruled Grey, 8px corners, 0 16px,
-  one action per row at the right, rows under hairlines.
+- **Lines list (Assignments' verdict sections):** Paper White, 1px Ruled Grey, 8px corners,
+  0 16px, one action per row at the right, rows under hairlines. On Questions the waiting lines
+  shed the box (`.waiting > .line`): lines under hairlines on the page, the Email link at the
+  right, 44px on a coarse pointer.
+- **Let-go line (Questions):** `form.let-go`, one Pencil Grey label-size sentence naming every
+  assignment it will let go (the names in Ink at 650) with the default button at its end, 16px
+  above; after it runs, "Let go: …" with a link-button Undo in its place (`role="status"`). No
+  box, no fill.
 
 ### Inputs / Fields
 - **Style:** Paper White, 1px Stroke Grey, 6px corners, inherits body type, 4px 6px padding
@@ -1118,3 +1152,5 @@ this sheet's spread.
   open count on Open work is a Pencil Grey tally ("Alex · 6").
 - **Don't** link a line's class to the page it is already on: on a class's page the class name in
   every meta is a plain word (`on_class_page` in `_week_line.html`).
+- **Don't** change tier line by line: a page that lists several kids' lines (Questions) speaks in
+  the parent's voice and names the kid in each line's meta (`kid_label`).

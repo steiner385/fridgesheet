@@ -669,6 +669,7 @@ tr.detail .item::before, .card .item::before, tr.detail .item::after, .card .ite
 /* The sentence wraps; Undo never does. `.item { overflow-wrap: anywhere }` reached the button and
    broke "Undo" into a column of letters on a phone (re-critique 2026-09-30, the one shared P0). */
 .done-line > span:not(.glyph) { flex: 1 1 auto; min-width: 0; }
+.item > .done-line { border-bottom: 0; }                                    /* the line's own hairline is enough */
 .done-line form { margin-left: auto; flex: none; }
 .done-line form button { white-space: nowrap; overflow-wrap: normal; }
 .item .done-line { border: 0; padding: var(--s2) 0; margin: 0; background: none; }
@@ -890,9 +891,31 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .class-record > details.sec.quiet { margin: var(--s4) 0 0; }
 .class-record .grade-moves .chart-holder { margin-top: var(--s2); }
 .class-record .notes { margin-top: var(--s2); }
+/* The parent's answering page (the Student Planner, Questions; the surface brief for
+   questions.html, 2026-09-30): one ruled list for the house, the kid's name first in each
+   line's pencil meta; who has nothing to ask as a pencil line under the title; beneath the
+   list, per kid, the let-go sentence as a pencil line with its button at the end, and the
+   waiting lines under hairlines inside a quiet fold. No box around any of it. */
+.quiet-kid { margin: 0 0 var(--s2); font-size: var(--type-small); max-width: var(--measure); }
+.to-answer { max-width: 1100px; padding-bottom: var(--s2); }
+.to-answer > .item:first-child { border-top: 1px solid var(--rule); }
+.to-answer > .nothing-to-answer { margin: var(--s2) 0; }
+.item-head .meta .kid { font-weight: 650; }
+.let-go { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline; margin: var(--s4) 0 0; max-width: 1100px; font-size: var(--type-small); color: var(--muted); }
+.let-go > span { flex: 1 1 auto; min-width: 0; max-width: var(--measure); }
+.let-go b { color: var(--ink); font-weight: 650; }
+.let-go button { font-size: var(--type-small); }
+.waiting-fold, .twins-fold { max-width: 1100px; }                          /* the list's own width */
+/* The line's mark is a drawn stroke in the line's own colour: the tick, or the small clock. */
+.glyph svg { width: .8em; height: .8em; display: inline-block; vertical-align: -.08em; }
+.waiting > .line { display: flex; gap: var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.waiting > .line:last-child { border-bottom: 0; }
+.waiting .glyph { color: var(--muted); flex: none; }
+.waiting .line .meta { font-size: var(--type-small); color: var(--muted); }
 @media (pointer: coarse) {
   .sort a, .review-queue > p a { min-height: 44px; display: inline-flex; align-items: center; }
   .sources-fold > summary, .teacher-line a { min-height: 44px; display: inline-flex; align-items: center; }   /* the class page's fold and the teacher's email */
+  .waiting .line a { min-height: 44px; display: inline-flex; align-items: center; }                 /* Email under a waiting line on Questions */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
   .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }
