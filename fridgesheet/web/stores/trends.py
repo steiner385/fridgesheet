@@ -209,7 +209,14 @@ def on_time_rate(weeks: list[WeekCounts]) -> float | None:
 
 def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
               now: datetime, prefs=None) -> list[tuple[str, float]]:
-    """How long each still-open item has been open, longest first: the days since it was
+    """`open_days_by_kid` as (name, days) pairs: what the charts and the older callers read."""
+    return [(name, days) for name, days, _, _ in open_days_by_kid(conn, student_id=student_id, now=now, prefs=prefs)]
+
+
+def open_days_by_kid(conn: sqlite3.Connection, *, student_id: int | None = None,
+                     now: datetime, prefs=None) -> list[tuple[str, float, str, str]]:
+    """How long each still-open item has been open, longest first, as (name, days, kid key,
+    class): the days since it was
     *due*, for items no source has cleared. Ten rows at most -- this is a chart, not an
     inventory.
 
@@ -237,7 +244,7 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
     if student_id is not None:
         ids = [i for i in ids if i == student_id]
     started_at = {r["id"]: r["started_at"] for r in conn.execute("SELECT id, started_at FROM refreshes")}
-    out: list[tuple[str, float]] = []
+    out: list[tuple[str, float, str, str]] = []
     for sid in ids:
         live = reconcile.live_items(conn, sid, now)
         if not live:
@@ -253,6 +260,7 @@ def open_days(conn: sqlite3.Connection, *, student_id: int | None = None,
             if since is None:
                 continue
             a, b = reconcile.comparable(now, since)
-            out.append((item["name"], max(0.0, round((a - b).total_seconds() / 86400, 1))))
+            course = item["course_short"] if "course_short" in item.keys() else (item["course_name"] or "")
+            out.append((item["name"], max(0.0, round((a - b).total_seconds() / 86400, 1)), item["kid"], course or ""))
     out.sort(key=lambda p: p[1], reverse=True)
     return out[:MAX_OPEN_DAYS_ROWS]

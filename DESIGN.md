@@ -352,7 +352,8 @@ components:
      _week_line.html, routes/kid.py and app.css after the finish review's four fixes, renders in
      .impeccable/review/class-*.png; Questions recorded 2026-09-30 from questions.html, _item.html,
      _answered.html, routes/questions.py and app.css, renders in .impeccable/review/questions-*.png; Settings recorded 2026-10-01 from settings.html, the two
-     editors, _update_button.html and app.css, renders in .impeccable/review/settings-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     editors, _update_button.html and app.css, renders in .impeccable/review/settings-*.png; Trends recorded 2026-10-01 from trends.html and app.css,
+     renders in .impeccable/review/trends-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -369,7 +370,9 @@ components:
      parent's answering page (2026-09-30, seed a3a53837, "the household's list"; surface brief
      .impeccable/surfaces/fridgesheet-web-templates-questions-html.md), and Settings as the
      household's setup page (2026-10-01, seed 40e594fb, "ruled sections, one Save each"; surface
-     brief .impeccable/surfaces/fridgesheet-web-templates-settings-html.md). Where the build departs from the direction contract, the
+     brief .impeccable/surfaces/fridgesheet-web-templates-settings-html.md), and Trends as the year
+     so far (2026-10-01, seed c137f15a re-roll 1, "the report card page"; surface brief
+     .impeccable/surfaces/fridgesheet-web-templates-trends-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -407,9 +410,11 @@ ruled list for the whole house in the order the school's deadlines close, the ki
 each line, answered in place in the parent's voice. Settings followed as the household's setup
 page ("ruled sections, one Save each"): the planner's blocks in order, each topic a ruled
 section with its fields on the ruling, three forms parted by the printed rule, each closing on a
-Save that names its file. Reports and the other parent tools now sit inside the planner's shell
-but keep their own incumbent content (cards, chips, tables) until each is brought into the world
-on its own.
+Save that names its file. Trends followed as the year so far ("the report card page"): one paper
+page labelled THE YEAR SO FAR, the hand-in record its first line, the charts its figures with the
+numbers folded, the longest open in pencil at its foot. Reports and the other parent tools now
+sit inside the planner's shell but keep their own incumbent content (cards, chips, tables) until
+each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -453,6 +458,11 @@ and colour used as the only carrier of meaning.
   file it writes, each Save filled as its form's one primary; a fieldset is a
   hairline with a day-row label, an editor's row a ruled line with its buttons at the right, a
   notice a line under a hairline. No card on the page.
+- On Trends the year is one paper page, THE YEAR SO FAR · last 8 weeks along its top edge: the
+  Kid and Weeks choices as one pencil line in the sort line's grammar above it; inside, ON-TIME
+  HAND-INS, GRADES, WORK DUE EACH WEEK and OPEN THE LONGEST as day rows over the record line,
+  the charts drawn flat on the page, "The numbers" as a pencil fold and the longest open as
+  pencil lines under hairlines.
 
 ## Colors
 
@@ -828,6 +838,23 @@ the default stroke: a row edit is reversible, not a deletion. A notice ("Saved."
 keeps the Red Pen Wash with Red Pen text. The incumbent's eight white cards, boxed fieldsets and
 seam sentence are gone.
 
+**The report card page** (Trends): under the title and intro, one run-in line in the sort line's
+grammar (`p.sort.trend-words`: "Kid all · Alex · Sam — Weeks 4 · 8 · 16", the chosen words Ink
+at 650 with no underline, the others Ballpoint links, the groups parted by an em dash; in kid
+mode the Kid words are not drawn). Then `.planner-main.trends-page` at 1100px holding one
+`section.sec.report-card`, the sheet page's box (Paper White, 1.5px Day-box rule, 2px corners,
+0 12px 8px inside) labelled along its top edge in Day label type ("THE YEAR SO FAR · last 8
+weeks · Alex", the tally at 400 in sentence case). Inside, the parts as Day row heads 16px
+apart: ON-TIME HAND-INS over the record line in body type ("17% on time" at 650, the five
+counts parted by "·", "not done" and "unknown" in Red Pen when not zero) and a pencil note;
+GRADES over its caption and one chart per kid, each `.chart-holder` drawn flat on the page (no
+border, no fill, no padding) with its key beneath; WORK DUE EACH WEEK over its caption, the
+stacked bar and "▸ The numbers", a pencil fold (`details.fold.numbers`) holding the table;
+OPEN THE LONGEST over `ul.longest`, pencil-parted lines under hairlines capped at the measure.
+With no history at all the page is one sentence ("Not enough history yet …") and no box. The
+Chart.js figures keep their own axis titles, chart title and key for now; the planner's hand on
+the chart itself is the next surface's question.
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -966,6 +993,9 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   prose capped at the measure. A week with nothing shown is the same box folded: its summary is
   the label with a text marker (▸ closed, ▾ open) and the tally, no rule and no padding beneath
   until it opens; this week is printed open even when empty.
+- **Report card page (Trends):** the sheet page's box holding the year (`.trends-page >
+  .report-card`): the label along the top edge, the parts as Day row heads, the record line, the
+  charts flat on the page, the numbers fold, the longest-open lines. One box on the page.
 - **Sheet page (Open work):** the day box holding a kid's whole sheet (`.open-sheets > .sec.kid`):
   the same Paper White, 1.5px rule, 2px corners and 0 12px 4px inside, its label along the top
   edge the way the sheet's heading reads ("ALEX — OPEN WORK · 6 open"), the as-of line in pencil,

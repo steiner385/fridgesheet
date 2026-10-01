@@ -134,4 +134,6 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
                   weekly_json=chart_json(weekly_chart(week_rows, now)),
                   week_rows=week_rows,
                   record=_record(conn, student, now=now, rules=state.rules(), prefs=prefs),
-                  longest=trends.open_days(conn, student_id=sid, now=now, prefs=prefs))
+                  # "Days past due and still open": work due today is open but not yet a day past due, so
+                  # it is not on this list (finish review 2026-10-01).
+                  longest=[r for r in trends.open_days_by_kid(conn, student_id=sid, now=now, prefs=prefs) if r[1] >= 1])
