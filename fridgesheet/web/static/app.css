@@ -528,6 +528,28 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .report-card .longest { list-style: none; margin: var(--s2) 0 0; padding: 0; max-width: var(--measure); }
 .report-card .longest li { padding: var(--s1) 0; border-bottom: 1px solid var(--rule); }
 .report-card .longest li:last-child { border-bottom: 0; }
+/* The planner's log (the Student Planner, Changes; the surface brief for changes.html,
+   2026-10-01): the Window, Kid and Kind words as one sort line; each day a day row with its
+   tally over ruled lines, one per thing that moved; a record opens in a slot under its line. */
+.change-words .sep { margin: 0 var(--s2); }
+.change-log { max-width: 1100px; padding-bottom: var(--s2); }
+.change-log > h4.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.change-log > h4.day:first-child { margin-top: var(--s2); }
+.change-log > h4.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.change-log > .day + .change { border-top: 1px solid var(--rule); }
+.change { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.change .at { color: var(--muted); font-size: var(--type-small); min-width: 5.5em; }
+.change .what { font-weight: 650; }
+.change .subject a { color: var(--accent); }        /* `.subject`, not `.item`: that class is the planner line */
+.change .meta { color: var(--muted); font-size: var(--type-small); }
+.change .meta a { color: inherit; text-decoration: none; }
+.change .meta a:hover, .change .meta a:focus-visible { text-decoration: underline; }
+.change .detail { color: var(--ink); max-width: var(--measure); }
+.change-log > .detail-slot { padding: var(--s2) 0 var(--s3); border-bottom: 1px solid var(--rule); }
+.change-log > .detail-slot[hidden] { display: none; }
+.detail-slot .item { padding-left: 0; border-bottom: 0; }
+.detail-slot .item::before, .detail-slot .item::after { display: none; }
+.change-log + .pager, .pager { font-size: var(--type-small); margin: var(--s3) 0 0; }
 .sec > .field-help, .sec > p > .field-help { max-width: var(--measure); }
 .card h3 { margin: 0 0 12px; font-size: var(--type-root); }
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 20px; margin: 0 0 8px; }
@@ -966,7 +988,8 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .sort a, .review-queue > p a { min-height: 44px; display: inline-flex; align-items: center; }
   .sources-fold > summary, .teacher-line a { min-height: 44px; display: inline-flex; align-items: center; }   /* the class page's fold and the teacher's email */
   .waiting .line a { min-height: 44px; display: inline-flex; align-items: center; }                 /* Email under a waiting line on Questions */
+  .change .subject a, .pager a { min-height: 44px; display: inline-flex; align-items: center; }           /* a line's name and the pager on Changes */
   /* The class under a line, a step's Edit and a kid box's name are secondary links: WCAG 2.5.8's
      24px floor, with padding (PRODUCT.md; re-critique 2026-09-30 measured 18px on the names). */
-  .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }
+  .item-head .meta a, .ours a, .day-box > h3 a, .change .meta a { display: inline-block; padding-block: 3px; min-height: 24px; }
 }

@@ -28,6 +28,28 @@ LABELS = {
     "flag_cleared": "You cleared a flag", "course_grade": "Class average",
 }
 
+#: A day's tally on the Changes page (the planner's log, 2026-10-01): each kind as (one, many),
+#: in KINDS order, said after the day's total ("12 changes · 2 grades posted · 1 now missing").
+TALLY_WORDS = {
+    "new_item": ("new", "new"), "grade_posted": ("grade posted", "grades posted"),
+    "grade_changed": ("grade changed", "grades changed"), "now_missing": ("now missing", "now missing"),
+    "cleared": ("cleared", "cleared"), "flag_set": ("answer", "answers"),
+    "flag_cleared": ("flag cleared", "flags cleared"), "course_grade": ("class average", "class averages"),
+}
+
+
+def tally(counts: dict[str, int]) -> list[str]:
+    """The words of a day's tally: the total first, then each kind that happened, in KINDS order."""
+    total = sum(counts.values())
+    out = [f"{total} change{'s' if total != 1 else ''}"]
+    for kind in KINDS:
+        n = counts.get(kind, 0)
+        if n:
+            one, many = TALLY_WORDS[kind]
+            out.append(f"{n} {one if n == 1 else many}")
+    return out
+
+
 #: How many events one call renders by default. A household's first refresh produces a
 #: `new_item`-shaped event per item -- on the order of a thousand rows, all at one timestamp --
 #: and a page that prints all of them is not a feed, it is a database dump.

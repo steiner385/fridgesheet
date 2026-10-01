@@ -29,8 +29,8 @@ def test_the_window_chips_are_plain_links(tmp_path):
     other chip on the old window. Pinned so nobody "improves" them back."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/changes").text
-    chips = body[body.index('<div class="filters">'):body.index('<div id="changes">')]
-    assert "hx-get" not in chips and 'href="/changes?window=7d"' in chips
+    words = body[body.index('<p class="sort change-words"'):body.index('<div id="changes">')]
+    assert "hx-get" not in words and 'href="/changes?window=7d"' in words
 
 
 def test_a_kid_with_no_live_work_costs_no_observation_query(tmp_path, monkeypatch):
