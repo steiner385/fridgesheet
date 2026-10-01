@@ -498,7 +498,11 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .settings-below > form.sec + form.sec, .settings-below > form.sec + section.sec { border-top: 1.5px solid var(--box); padding-top: var(--s5); }
 .form-save { margin: var(--s4) 0 0; }
 /* An editor's inline label ("Accepted late for [14] days") holds its words together on a phone. */
-#late-rules fieldset > label { display: inline-flex; align-items: center; gap: var(--s2); white-space: nowrap; margin-right: var(--s4); }
+#late-rules fieldset { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
+#late-rules fieldset > legend { flex-basis: 100%; }
+#late-rules fieldset > label { display: inline-flex; align-items: center; gap: var(--s2); white-space: nowrap; }
+#late-rules fieldset > label > input[name="default_late_days"] { width: 8ch; }
+#late-rules fieldset > label > input[name="default_credit"] { width: 10ch; }
 /* A small number's box says what it holds. */
 .settings-grid label > input[name="port"], .settings-grid label > input[name="days_ahead"], .settings-grid label > input[name="overdue_days"] { width: 8ch; }   /* outranks the grid's 100% */
 .update-status p { margin: 0 0 var(--s1); }
