@@ -12,6 +12,22 @@ from ..stores import changes
 router = APIRouter()
 
 
+def days_of(events, now):
+    """The page's events grouped by the day they happened (the household's day), newest first,
+    each day with its tally (the planner's log, 2026-10-01). A naive timestamp is read as it is."""
+    groups: list[dict] = []
+    for e in events:
+        at = e.at.astimezone(now.tzinfo) if e.at.tzinfo else e.at
+        day = at.date()
+        if not groups or groups[-1]["date"] != day:
+            groups.append({"date": day, "events": [], "counts": {}})
+        groups[-1]["events"].append(e)
+        groups[-1]["counts"][e.kind] = groups[-1]["counts"].get(e.kind, 0) + 1
+    for g in groups:
+        g["tally"] = changes.tally(g["counts"])
+    return groups
+
+
 @router.get("/changes")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     q = request.query_params
@@ -40,5 +56,5 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     # (changes.html, trends.html) -- an unencoded key would break the pager's own link.
     base = "/changes?" + "".join(f"{k}={quote(v, safe='') if k == 'kid' else v}&"
                                   for k, v in (("window", window), ("kid", kid), ("kind", kind)) if v)
-    return render(request, conn, "changes.html", current="changes", events=events, window=window, page_no=page_no,
+    return render(request, conn, "changes.html", current="changes", events=events, days=days_of(events, now), window=window, page_no=page_no,
                   page_base=base, kid=kid, kind=kind, WINDOWS=changes.WINDOWS, KINDS=changes.KINDS, LABELS=changes.LABELS)

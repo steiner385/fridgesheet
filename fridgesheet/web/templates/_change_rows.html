@@ -1,28 +1,27 @@
-{# Four columns, not six (#187): the kid and the class sit under the item, the way the work
-   list puts the class under the assignment, so the table fits a 390px phone without a swipe.
-   The kid is still a link to their page. #}
-<div class="table-wrap">
-<table class="items changes">
-  <thead><tr><th>When</th><th>What</th><th>Item</th><th>Detail</th></tr></thead>
-  <tbody>
-  {% for e in events %}
-  <tr>
-    <td>{{ e.at | wd_md_time }}</td>
-    <td><span class="badge">{{ e.label }}</span></td>
-    <td>{% if e.item_id %}<a href="#change-{{ loop.index }}" hx-get="/items/{{ e.item_id }}" hx-target="#change-{{ loop.index }}">{{ e.item_name }}</a>{% endif %}<small class="under"><a href="/kids/{{ e.student_key }}">{{ e.student_key | nickname }}</a>{% if e.course_short %} · {{ e.course_short }}{% endif %}{% if e.source %} · {{ e.source }}{% endif %}</small></td>
-    <td>{{ e.detail }}</td>
-  </tr>
-  <tr class="detail" hidden><td colspan="4" id="change-{{ loop.index }}"></td></tr>
-  {% else %}
-  <tr><td colspan="4" class="muted">Nothing has changed in this window.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{# The log: each day a day row with its tally, then one ruled line per event: the time in pencil,
+   the kind as a word, the item (its name opens the record in the slot beneath the line), the kid
+   and the class in the pencil meta, the detail. The kid is still a link to their page. #}
+<div class="planner-main change-log">
+{% for g in days %}{% set day_i = loop.index %}
+<h3 class="day">{{ g.date | wd_md }} <span class="tally">· {{ g.tally | join(' · ') }}</span></h3>
+{% for e in g.events %}{% set slot = 'change-' ~ day_i ~ '-' ~ loop.index %}
+<div class="change">
+  <span class="at">{{ e.at | time12 }}</span>
+  <span class="what">{{ e.label }}</span>
+  {% if e.item_id %}<span class="subject"><a href="#{{ slot }}" hx-get="/items/{{ e.item_id }}?tone=line" hx-target="#{{ slot }}" aria-expanded="false" aria-controls="{{ slot }}">{{ e.item_name }}</a></span>{% elif e.item_name %}<span class="subject">{{ e.item_name }}</span>{% endif %}
+  <span class="meta"><a href="/kids/{{ e.student_key | urlencode }}">{{ e.student_key | nickname }}</a>{% if e.course_short %} · {{ e.course_short }}{% endif %}{% if e.source %} · {{ e.source }}{% endif %}</span>
+  {% if e.detail %}<span class="detail">{{ e.detail }}</span>{% endif %}
+</div>
+{% if e.item_id %}<div class="detail-slot" id="{{ slot }}" hidden></div>{% endif %}
+{% endfor %}
+{% else %}
+<p class="muted nothing-changed">Nothing has changed in this window.</p>
+{% endfor %}
 </div>
 {% if events.dropped %}
-{# 499 rows on "since yesterday" is not a feed. One page at a time, newest first, and a way
-   to the rest -- the old caption said "narrow the window" and offered no other door (#40 item 11). #}
-<p class="muted">Showing {{ events.first }}–{{ events.last }} of {{ events.total }} changes.
+{# 499 rows on "since yesterday" is not a feed. One page at a time, newest first, and a way to
+   the rest (#40 item 11). #}
+<p class="muted pager">Showing {{ events.first }}–{{ events.last }} of {{ events.total }} changes.
   {% if events.has_newer %}<a href="{{ page_base }}page={{ page_no - 1 }}">‹ Newer</a>{% endif %}
   {% if events.has_older %}<a href="{{ page_base }}page={{ page_no + 1 }}">Older ›</a>{% endif %}</p>
 {% endif %}

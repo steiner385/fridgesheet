@@ -714,17 +714,22 @@ The **Open Work Sheet** is built in. You can build your own on **Reports**.
 
 ## 12. Runs, Changes and Trends
 
-**Runs** — the last 100 sheets and reports built or printed: when, which (with who started
-it under the name: you, the schedule, the command line), OK/FAIL/SKIP and why, and under
-the message the PDF and **Reprint**.
+**Runs** — the sheet's own log: the last 100 sheets, reports and refreshes, grouped by day,
+newest first. Each day is a row with its tally (*2 runs · 1 failed*) over the day's lines: the
+time, which report, who started it (you, the schedule, the command line), the message, and at
+the right the outcome — **OK** in green, **FAIL** on red, **SKIP** in grey. Under a printed
+run's line, **open the PDF** and **Reprint**.
 
 **Reprint** sends that row's stored PDF to the printer again, exactly as it was — it does
 not rebuild from today's data. A Preview or a `--kid`/`--date` build has its own file
 ([§19](#19-files-backup-and-privacy)), so it never replaces the sheet a day printed.
 
-**Changes** — everything that moved: *New, Grade posted, Grade changed, Now missing,
-Cleared, You answered, You cleared a flag, Class average*. Choose the window (*Since
-yesterday*, 3 days, a week, a month), a child and kinds. Click an item to expand it.
+**Changes** — the planner's log of everything that moved: *New, Grade posted, Grade changed,
+Now missing, Cleared, You answered, You cleared a flag, Class average*. The window (*Since
+yesterday*, 3 days, a week, a month), the child and the kind are words above the log; the
+chosen one is in ink. Each day is a row with its tally (*12 changes · 2 grades posted · 1 now
+missing*) over the day's lines: the time, the kind, the item, the child and class, the detail.
+Click an item's name to open its record under the line.
 
 **Trends** — one page for the year so far, for the house or one child, over 4, 8 or 16 weeks
 (the choices are words above the page):

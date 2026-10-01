@@ -338,6 +338,17 @@ components:
     textColor: "{colors.pencil-grey}"
     typography: "{typography.label}"
     padding: "0"
+  run-line:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "8px 0"
+  run-outcome-fail:
+    backgroundColor: "{colors.highlighter-red}"
+    textColor: "{colors.red-pen}"
+    typography: "{typography.body}"
+    rounded: "{rounded.planner}"
+    padding: "0 0.35em"
 ---
 
 # Design System: Fridge Sheet
@@ -353,7 +364,8 @@ components:
      .impeccable/review/class-*.png; Questions recorded 2026-09-30 from questions.html, _item.html,
      _answered.html, routes/questions.py and app.css, renders in .impeccable/review/questions-*.png; Settings recorded 2026-10-01 from settings.html, the two
      editors, _update_button.html and app.css, renders in .impeccable/review/settings-*.png; Trends recorded 2026-10-01 from trends.html and app.css,
-     renders in .impeccable/review/trends-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
+     renders in .impeccable/review/trends-*.png; Changes recorded 2026-10-01 from changes.html,
+     _change_rows.html, routes/changes.py, app.js and app.css, renders in .impeccable/review/changes-*.png) from fridgesheet/tokens.py (the one token source: COLORS, ROOT,
      TIERS, PRINT, CHART), fridgesheet/web/static/app.css whose :root and [data-tier] lines are
      generated from it, the planner templates (_must_finish, _item, _plan_panel,
      checkin, dashboard, _child_nav, _answers, base, kid, _weeks, _week_line, _verdict_sections),
@@ -372,7 +384,9 @@ components:
      household's setup page (2026-10-01, seed 40e594fb, "ruled sections, one Save each"; surface
      brief .impeccable/surfaces/fridgesheet-web-templates-settings-html.md), and Trends as the year
      so far (2026-10-01, seed c137f15a re-roll 1, "the report card page"; surface brief
-     .impeccable/surfaces/fridgesheet-web-templates-trends-html.md). Where the build departs from the direction contract, the
+     .impeccable/surfaces/fridgesheet-web-templates-trends-html.md), and Changes as the planner's
+     log (2026-10-01, seed 52af38ac, "each day with its tally"; surface brief
+     .impeccable/surfaces/fridgesheet-web-templates-changes-html.md). Where the build departs from the direction contract, the
      build is what is written here. The frontmatter colours are held equal to tokens.COLORS and
      tokens.TIERS by tests/test_tokens.py. -->
 
@@ -412,9 +426,13 @@ page ("ruled sections, one Save each"): the planner's blocks in order, each topi
 section with its fields on the ruling, three forms parted by the printed rule, each closing on a
 Save that names its file. Trends followed as the year so far ("the report card page"): one paper
 page labelled THE YEAR SO FAR, the hand-in record its first line, the charts its figures with the
-numbers folded, the longest open in pencil at its foot. Reports and the other parent tools now
-sit inside the planner's shell but keep their own incumbent content (cards, chips, tables) until
-each is brought into the world on its own.
+numbers folded, the longest open in pencil at its foot. Changes followed as the planner's log ("each day with its
+tally"): the window's days newest first, each a day row carrying its tally over ruled lines, one
+per thing that moved, the choices as words. Runs followed as the same log turned to the sheet
+("days, like Changes"): each day a day row with its tally over the day's runs, the outcome a word
+on its highlighter at the line's right, the PDF and Reprint as foot links. Reports, Schedules and
+Diagnostics now sit inside the planner's shell but keep their own incumbent content (cards, chips,
+tables) until each is brought into the world on its own.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -463,6 +481,11 @@ and colour used as the only carrier of meaning.
   HAND-INS, GRADES, WORK DUE EACH WEEK and OPEN THE LONGEST as day rows over the record line,
   the charts drawn flat on the page, "The numbers" as a pencil fold and the longest open as
   pencil lines under hairlines.
+- On Changes the log is the window's days, newest first, each a day row with its tally ("WED
+  9/30 · 12 changes · 1 grade posted · 1 now missing") over ruled lines, one per thing that
+  moved: the time in pencil, the kind as a word at 650, the item's name a link that opens its
+  record in a slot under the line, the kid and class in the pencil meta, the detail in ink; the
+  Window, Kid and Kind choices are words in the sort line's grammar. No table, no chip.
 
 ## Colors
 
@@ -568,7 +591,9 @@ an underline, a rule or a link.
 
 **The Red Pen Rule.** Red is reserved for what the school recorded as not in. A past due date is
 not red on its own; the app's own inference ("No" under Handed in, "School evidence changed") is
-bold or blue, not red; a budget overrun on a child's page is not red.
+bold or blue, not red; a budget overrun on a child's page is not red. The one other place Red Pen
+is spent is the app's own health, where the shell already says it in a word: the status line's
+badge, a source's state, a run's FAIL on the Runs log (the finish review, 2026-10-01).
 
 **The Sheet's Colour Rule.** The sheet's word on a line wears the colour the sheet prints it in,
 from one table (`status_words.STATUS_TONE`, the same table as `sheet.STATUS_COLOR`): DUE words
@@ -852,8 +877,42 @@ border, no fill, no padding) with its key beneath; WORK DUE EACH WEEK over its c
 stacked bar and "▸ The numbers", a pencil fold (`details.fold.numbers`) holding the table;
 OPEN THE LONGEST over `ul.longest`, pencil-parted lines under hairlines capped at the measure.
 With no history at all the page is one sentence ("Not enough history yet …") and no box. The
-Chart.js figures keep their own axis titles, chart title and key for now; the planner's hand on
-the chart itself is the next surface's question.
+Chart.js figures take the planner's hand through `Chart.defaults` (the page's font, pencil for
+axis text and titles at 400, the planner's hairline for the grid) and a bar chart under a day
+row drops its canvas title; the configs are untouched.
+
+**The planner's log** (Changes): under the title and intro, one run-in line in the sort line's
+grammar (`p.sort.change-words`: "Since yesterday · Last 3 days · Last week · Last month — Kid all
+· Alex · Sam — Kind all · New · Grade posted · …", the chosen words Ink at 650, the others
+Ballpoint links, the groups parted by em dashes; in kid mode the Kid words are not drawn; every
+word a plain link, since the words sit outside the swapped log). Then `.planner-main.change-log`
+at 1100px: the page's events grouped by the household's day, newest first, each day a Day row
+head ("WED 9/30") with its tally after it at 400 in sentence case (the total, then each kind that
+happened in the kinds' order: "· 12 changes · 1 grade posted · 1 now missing · 4 answers"), the
+first line ruled above; each `.change` one ruled line under a hairline: the time in Pencil Grey
+label type at a 5.5em minimum width, the kind as a word at 650 in Ink, the item's name a
+Ballpoint link (`.subject`; `.item` is the planner line's own class), the kid (a link in the
+pencil, 24px on a coarse pointer) and the class and gradebook in the pencil meta, the detail in
+Ink capped at the measure. A name opens the record in `.detail-slot` under its line (hidden until
+filled; app.js shows and clears it as it does a table's detail row; the record inside draws
+without the planner's checkbox or its own hairline). An empty window is one pencil line
+("Nothing has changed in this window."); a long window pages 500 at a time with "Showing 1–500
+of 1,204 changes · Older ›" as a pencil line under the log.
+
+**The sheet's own log** (Runs): the same device turned to the sheet, with no words line (the page
+has no filters) and the job card above it when one runs. `.planner-main.run-log` shares the log's
+rules (`.change-log, .run-log`; `.change, .run`): the last 100 runs grouped by the household's day
+(`routes/runs.days_of`, the stored offset read into the app's zone), newest first, each day a Day
+row with its tally at 400 ("· 2 runs · 1 failed"; a clean day says only "· 1 run"; failed then
+skipped, `runs.tally`); each `.run` one ruled line: the time in Pencil Grey label type, the
+report's title at 650 in Ink (a saved report's own title; a refresh says "Refresh"), who started
+it in the pencil (`.by`: "On a schedule", "In the app", "At a terminal"; an unknown trigger as
+written), the message in Ink capped at the measure, and the outcome word pushed to the line's
+right edge at 700 (`.outcome`: OK in Checkmark Green on the bare page, since there is no green
+highlighter; FAIL in Red Pen on Highlighter Red, as the header's badge wears Red Pen; SKIP in
+pencil). A run with a file on disk carries a foot (`.foot`, the whole width under the message):
+"open the PDF" as a Ballpoint link and the Reprint button, 44px each under a finger. No runs yet
+is one pencil line ("No runs yet.").
 
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
@@ -993,6 +1052,10 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   prose capped at the measure. A week with nothing shown is the same box folded: its summary is
   the label with a text marker (▸ closed, ▾ open) and the tally, no rule and no padding beneath
   until it opens; this week is printed open even when empty.
+- **Log line (Changes, `.change`):** one thing that moved as a ruled line under a hairline: the
+  time in Pencil Grey label type, the kind as a word at 650, the item's name a Ballpoint link
+  that opens the record in the `.detail-slot` beneath, the kid and class in the pencil meta, the
+  detail in Ink. A day's lines sit under a Day row head carrying the day's tally.
 - **Report card page (Trends):** the sheet page's box holding the year (`.trends-page >
   .report-card`): the label along the top edge, the parts as Day row heads, the record line, the
   charts flat on the page, the numbers fold, the longest-open lines. One box on the page.
@@ -1015,6 +1078,11 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   as its summary with "change" the only link word (no marker), the two selects and a default Save
   on one wrapping row when open; a rule of the class's own keeps it open. 44px on a coarse
   pointer.
+- **Run line (Runs):** `.run`, one of the planner's log lines (the same rules as `.change`): the
+  time and who started it in Pencil Grey label type, the report's title at 650, the message in
+  Ink, the outcome word pushed to the right edge at 700 — Checkmark Green for OK, Red Pen on
+  Highlighter Red for FAIL, pencil for SKIP; the PDF link and Reprint as a foot across the whole
+  line, 44px each on a coarse pointer.
 - **Note:** one of the family's lines: body text under a 1px Ruled Grey hairline, its meta in
   Pencil Grey label type, no left rule and no fill (the Only-Box Rule; the left-ruled block went
   2026-09-30).

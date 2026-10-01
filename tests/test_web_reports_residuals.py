@@ -85,8 +85,8 @@ def test_run_history_names_a_saved_report_by_its_title(tmp_path):
                  (f"view:{rid}", "2026-09-15T14:00:05-04:00", "2026-09-15T14:02:00-04:00", "schedule", "OK", "1p"))
     conn.close()
     body = _client(tmp_path).get("/runs").text
-    assert '<td>Weekly grades<small class="by">' in body          # the title, with who started it under it (#187)
-    assert f"<td>view:{rid}<" not in body
+    assert '<span class="what">Weekly grades</span>' in body      # the title, with who started it after it (#187)
+    assert f">view:{rid}<" not in body
 
 
 def test_a_scoped_changes_report_asks_the_store_for_that_kid_before_the_cap(tmp_path, monkeypatch):

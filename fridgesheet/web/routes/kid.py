@@ -152,7 +152,10 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
         raise HTTPException(404, "no such item")
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=state.now(), prefs=state.sources()), message=None,
-                          notes=notes.for_target(conn, "item", item_id), card=card_for(request.query_params.get("card"), item_id))
+                          notes=notes.for_target(conn, "item", item_id), card=card_for(request.query_params.get("card"), item_id),
+                          # `?tone=line`: a record opened under a log line (Changes) keeps the sheet's word at its
+                          # head like one opened from a week's line, without a card for Close to put back.
+                          with_tone=request.query_params.get("tone") == "line")
 
 
 @router.get("/kids/{key}/courses/{course_id}")

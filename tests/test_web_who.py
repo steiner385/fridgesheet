@@ -195,11 +195,11 @@ def test_trends_and_changes_scope_to_the_reader_without_a_parameter(tmp_path):
     assert ">Kid</span>" not in trends and 'href="/trends?weeks=8"' not in trends      # no picker (the Kid words, 2026-10-01)
     assert "Grade per class" in trends and "Sam — grade per class" not in trends       # one kid, one chart
     changes = c.get("/changes").text
-    assert "Kid:" not in changes
+    assert ">Kid</span>" not in changes
     assert "Cell diagram" not in changes                                                # Sam's change stays off Alex's page
     grown = app_for(tmp_path).get("/trends").text
     assert ">Kid</span>" in grown
-    assert "Kid:" in app_for(tmp_path).get("/changes").text                             # final review 8
+    assert ">Kid</span>" in app_for(tmp_path).get("/changes").text                      # final review 8
 
 
 def test_a_kid_key_that_needs_encoding_is_encoded_in_trends_and_changes_links(tmp_path):

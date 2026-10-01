@@ -8,7 +8,8 @@ function detailLink(cell) {
 }
 document.addEventListener("htmx:afterSwap", function (e) {
   var cell = e.detail.target;
-  var row = cell && cell.closest && cell.closest("tr.detail");
+  // A `tr.detail` under a table row, or a `.detail-slot` under a planner line (Changes).
+  var row = cell && cell.closest && cell.closest("tr.detail, .detail-slot");
   if (!row) return;
   row.hidden = false;
   var link = detailLink(cell);
@@ -17,9 +18,9 @@ document.addEventListener("htmx:afterSwap", function (e) {
 document.addEventListener("click", function (e) {
   var btn = e.target.closest && e.target.closest("[data-close-detail]");
   if (!btn) return;
-  var row = btn.closest("tr.detail");
+  var row = btn.closest("tr.detail, .detail-slot");
   if (!row) return;
-  var cell = row.querySelector("td");
+  var cell = row.matches("tr") ? row.querySelector("td") : row;
   var link = detailLink(cell);
   cell.innerHTML = "";
   row.hidden = true;

@@ -24,11 +24,13 @@ def _rows(home):
     return ids, pdf
 
 
-def test_runs_page_lists_history_newest_first_with_badges_and_links(tmp_path):
+def test_runs_page_lists_history_newest_first_with_outcome_words_and_links(tmp_path):
     ids, pdf = _rows(tmp_path)
     body = app_for(tmp_path).get("/runs").text
     assert body.index("2p Al=3 Sam=2") < body.index("refresh 1") < body.index("printer offline") < body.index("outside print window")
-    assert 'class="badge OK"' in body and 'class="badge FAIL"' in body and 'class="badge SKIP"' in body
+    # The outcome is a word at the line's right (the sheet's own log, 2026-10-01), not a chip.
+    assert 'class="word outcome ok">OK<' in body and 'class="word outcome fail">FAIL<' in body and 'class="word outcome skip">SKIP<' in body
+    assert 'class="badge' not in body.split('<div class="planner-main run-log">')[1] and "<table" not in body
     assert f'href="/runs/{ids[0]}/pdf"' in body
     assert f'href="/runs/{ids[2]}/pdf"' not in body            # the file is gone: no link
     # The trigger is shown in words now (#11 item 20), not as the runner's own vocabulary.
