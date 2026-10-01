@@ -189,9 +189,6 @@ legend .muted { font-weight: 400; letter-spacing: 0; text-transform: none; }
 .tick { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 2px 0; }
 /* A schedule's form (Schedules): bounded to the measure like every form, one card-like block
    per report (#185). */
-.schedule { max-width: var(--measure); padding: 12px 0 4px; border-top: 1px solid var(--rule); }
-.schedule h4 { margin: 0 0 4px; }
-.schedule > .tick { display: flex; margin: 4px 0; }
 /* A note is one of the family's lines under a hairline: no left rule, no fill (the Only-Box Rule;
    the class's record, 2026-09-30). */
 .note { padding: var(--s1) 0; margin: var(--s1) 0; border-bottom: 1px solid var(--rule); }
@@ -537,11 +534,11 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .change-words { max-width: 1100px; }                 /* the log's own width */
 .change-words a, .trend-words a { white-space: nowrap; }   /* a word of the sort line never breaks mid-phrase */
 .change-words .sep { margin: 0 var(--s2); }
-.change-log, .run-log, .report-shelf { max-width: 1100px; padding-bottom: var(--s2); }
-.change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.change-log > h3.day:first-child, .run-log > h3.day:first-child, .report-shelf > h3.day:first-child { margin-top: var(--s2); }
-.change-log > h3.day .tally, .run-log > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.change-log > .day + .change, .run-log > .day + .run, .report-shelf > .day + .report { border-top: 1px solid var(--rule); }
+.change-log, .run-log, .report-shelf, .checkup { max-width: 1100px; padding-bottom: var(--s2); }
+.change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day, .checkup > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.change-log > h3.day:first-child, .run-log > h3.day:first-child, .report-shelf > h3.day:first-child, .checkup > h3.day:first-child { margin-top: var(--s2); }
+.change-log > h3.day .tally, .run-log > h3.day .tally, .checkup > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.change-log > .day + .change, .run-log > .day + .run, .report-shelf > .day + .report, .checkup > .day + .check { border-top: 1px solid var(--rule); }
 .change, .run { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
 .change .at, .run .at { color: var(--muted); font-size: var(--type-small); min-width: 5.5em; }
 .change .what, .run .what { font-weight: 650; }
@@ -553,10 +550,10 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* The outcome as a word at the line's right: OK in Checkmark Green on the bare page (there is no
    green highlighter), FAIL in Red Pen on the red highlighter -- the header's badge wears the same
    two colours -- and SKIP in pencil, since nothing happened. */
-.run .outcome, .report .outcome { font-weight: 700; color: var(--muted); padding: 0 .35em; border-radius: 2px; }
-.run .outcome { margin-left: auto; }
-.run .outcome.ok, .report .outcome.ok { color: var(--ok); }
-.run .outcome.fail, .report .outcome.fail { color: var(--warn); background: var(--hl-red); }
+.run .outcome, .report .outcome, .check .outcome, .sched-line .outcome { font-weight: 700; color: var(--muted); padding: 0 .35em; border-radius: 2px; }
+.run .outcome, .check .outcome { margin-left: auto; }
+.run .outcome.ok, .report .outcome.ok, .check .outcome.ok, .sched-line .outcome.ok { color: var(--ok); }
+.run .outcome.fail, .report .outcome.fail, .check .outcome.fail, .sched-line .outcome.fail { color: var(--warn); background: var(--hl-red); }
 .run .foot { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: center; font-size: var(--type-small); }
 .run .foot form { margin: 0; }
 .run .foot a { color: var(--accent); }
@@ -600,6 +597,37 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .builder-form #chartFields:not([hidden]), .builder-form #chartSeries:not([hidden]) { display: contents; }   /* the chart's fields are cells of the grid */
 .refresh-first .tick > span { max-width: var(--measure); }   /* the help runs on after the label and wraps as one sentence */
 .report-sheet .report-page { margin-top: 0; }
+/* The household's timetable (the surface brief for schedules.html, 2026-10-01): the refresh and
+   each report as ruled sections parted by the printed rule, the time at Display size at the
+   head's right, one pencil line for the days, the next run and the last with the Runs word. */
+.timetable { max-width: 1100px; }
+.timetable > form.sec { margin: 0; }
+.timetable > form.sec + form.sec { margin-top: var(--s5); padding-top: var(--s5); border-top: 1.5px solid var(--box); }
+.schedule { max-width: var(--measure); }
+.schedule .sec-head .when { margin-left: auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); text-align: right; }
+.schedule .sec-head .when .big { line-height: 1.2; }
+.schedule .sec-head .when .muted { font-size: var(--type-small); }
+.schedule .sched-line { margin: calc(-1 * var(--s2)) 0 var(--s2); font-size: var(--type-small); max-width: var(--measure); }
+.schedule > .field-help { max-width: min(var(--measure), 68ch); }   /* pencil prose at a reading measure */
+.schedule .tick-line { margin: var(--s2) 0; }
+.schedule .tick-line .tick { margin: 0; }
+.schedule .settings-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.schedule .settings-grid label > input[type=number] { width: 8ch; }
+.schedule .settings-grid label > input[type=time] { width: auto; }
+.schedule fieldset { margin-bottom: var(--s2); }
+/* The app's checkup (the surface brief for diagnostics.html, 2026-10-01): one day row dated when
+   the checks ran over one planner line per check -- the drawn tick or cross, the name, the detail
+   in pencil, the word on its highlighter at the right -- and the report as a file folded. */
+.check { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
+.check .glyph { color: var(--ok); flex: none; }
+.check.failed .glyph { color: var(--warn); }
+.check .name { font-weight: 650; }
+.check .detail { color: var(--muted); font-size: var(--type-small); max-width: var(--measure); overflow-wrap: anywhere; }
+.checkup .raw-line { margin: 0; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); font-size: var(--type-small); overflow-wrap: anywhere; }
+.checkup > details.fold.as-file { margin: var(--s3) 0 0; }
+.checkup .report-text { margin: var(--s2) 0 0; padding: var(--s2) var(--s3); background: var(--paper); border: 1px solid var(--rule); border-radius: 2px; font-size: var(--type-tiny); max-height: 320px; overflow: auto; white-space: pre-wrap; }
+.checkup > .not-run { margin: var(--s3) 0 0; }
+.update-failed p { max-width: var(--measure); }
 .change-log > .detail-slot { padding: var(--s2) var(--s3) var(--s3); border-bottom: 1px solid var(--rule); background: var(--paper); }   /* a record under a line sits on paper, over the ruling */
 .change-log > .detail-slot[hidden] { display: none; }
 .detail-slot .item { padding-left: 0; border-bottom: 0; }

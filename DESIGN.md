@@ -360,6 +360,16 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.planner}"
     padding: "0 12px 8px"
+  schedule-section:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.display}"
+    padding: "0"
+  check-line:
+    backgroundColor: "{colors.planner-white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body}"
+    padding: "8px 0"
 ---
 
 # Design System: Fridge Sheet
@@ -445,8 +455,13 @@ on its highlighter at the line's right, the PDF and Reprint as foot links. Repor
 the household's report shelf ("the shelf remembers"): Built in and Yours as day rows over ruled
 lines, one per report, each remembering its last run from the sheet's log with Preview and Print
 at its right; the builder as ruled sections ending in Save with Preview beside it; the report
-itself one paper page. Schedules and Diagnostics now sit inside the planner's shell but keep
-their own incumbent content (cards, tables) until each is brought into the world on its own.
+itself one paper page. Schedules followed as the household's timetable ("the time as the head's
+numeral"): the refresh and each report as ruled sections parted by the printed rule, the time at
+Display size at the head's right, one pencil line for the days, the next run and the last with
+the Runs word, one Save each. Diagnostics followed as the app's checkup ("each check a planner
+line"): a day row dated when the checks ran with its tally over one line per check, a drawn tick
+or cross, the word on its highlighter at the right, the report as a file folded. With these every
+page sits in the planner's world; only the chooser (/who) is untouched.
 
 Confirmed visual rejections: dashboard chrome, gradients as decoration, cards floating on shadows,
 and colour used as the only carrier of meaning.
@@ -953,6 +968,35 @@ line; the report's own page (`body.print-page`) keeps the shell's head `screen-o
 CSV, JSON and Print / save PDF as its actions and a "Printed Thu 10/1 12:19 PM" pencil line above
 the page, which prints as it reads.
 
+**The household's timetable** (Schedules): `.timetable` at the log's width holding one
+`form.sec.schedule` per schedule, the refresh first, each at the measure, parted by the 1.5px
+Day-Box Rule with 24px either side. The head (`.sec-head`) carries the title at 650 (the report's
+key as its title attribute) and, pushed to the right (`.when`), the time at Display size in Ink
+(`.big`, 28px 600: "2:00 PM" from `schedules.clock_words`; the refresh's "every 2 hours" with
+"5:00 AM–9:00 PM" in pencil label type beside it) or "not scheduled" in pencil when it is off.
+Under the head one pencil line (`.sched-line`): the days as one phrase (`schedules.days_words`:
+"every day", "Mon–Fri", "weekends", "Tue–Thu", "Mon, Wed, Fri", "no days"), then "next: Fri 9/25
+2:00 PM" from the clock's plan, then "last: Thu 9/24 2:00 PM," with the Runs word at 700 — OK in
+Checkmark Green, FAIL in Red Pen on Highlighter Red — or "has not run on a schedule yet"; a
+problem from the plan in Red Pen in place of next. Then the on-switch as a tick line, the fields
+label over control in the Settings grid (auto-fill at 180px: Time and Printer; Every (hours),
+Between and and for the refresh, the number at 8ch), Days as a hairline fieldset with the day-row
+legend and seven ticks, help in pencil, and the section's own filled Save on `p.form-save`.
+Notices stay the planner's notice lines above the timetable.
+
+**The app's checkup** (Diagnostics): a failed update as a `section.sec.update-failed` with its
+head and two sentences at the measure, the paths in `code`; the job card while a run goes; then
+`.planner-main.checkup` sharing the log's day row and width: "CHECKED THU 10/1 11:40 AM" (the
+file's own time) with its tally at 400 ("· 12 checks · 1 failed" or "· 12 checks · all passed")
+over one `.check` line per check under a hairline: the drawn tick in Checkmark Green or the
+drawn cross in Red Pen (`.glyph`, the planner line's own SVG), the check's name at 650, its
+detail in pencil label type capped at the measure and breaking anywhere, and OK or FAIL at the
+line's right as Runs draws the word; a line of the file the parser does not recognise is one
+pencil line (`.raw-line`), so nothing the file says is lost. Beneath, "▸ The report as a file"
+(`details.fold.as-file`) holding `pre.report-text`: the text as written on Paper White inside a
+hairline at tiny size, wrapped, scrolling past 320px — a file on the page, not a console. Before
+the first run one pencil line: "Diagnostics have not been run yet."
+
 The spacing scale is 4px steps: 4, 8, 12, 16, 24, 32 (`--s1` to `--s6`). Cards sit on a
 `repeat(auto-fit, minmax(280px, 1fr))` grid with 16px gaps; form fields on a `minmax(220px, 1fr)`
 grid label-over-control. Tables are full width with 6px 8px cells, rising to 10px 8px on a coarse
@@ -1126,6 +1170,13 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   with 2px corners, the report's title along the top edge at label size with its tally, each
   group a Day row over its table, the chart flat on the page; the builder's preview and the
   report's own page alike.
+- **Schedule section (Schedules):** `form.sec.schedule` at the measure, its head with the time
+  at Display size at the right (or "not scheduled" in pencil), one pencil line for the days, next
+  and last with the Runs word, the fields label over control, Days as a hairline fieldset, its
+  own filled Save; sections parted by the Day-Box Rule.
+- **Check line (Diagnostics):** `.check`, a planner line for one doctor check: the drawn tick in
+  Checkmark Green or cross in Red Pen, the name at 650, the detail in pencil, OK or FAIL on its
+  highlighter at the right.
 - **Run line (Runs):** `.run`, one of the planner's log lines (the same rules as `.change`): the
   time and who started it in Pencil Grey label type, the report's title at 650, the message in
   Ink, the outcome word pushed to the right edge at 700 — Checkmark Green for OK, Red Pen on

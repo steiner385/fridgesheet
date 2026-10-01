@@ -78,15 +78,15 @@ def test_no_runs_is_one_pencil_line(tmp_path):
 
 
 def test_the_log_is_drawn_in_the_planners_rules_and_the_outcome_wears_its_colour():
-    assert "max-width: 1100px" in _rule(".change-log, .run-log, .report-shelf")
-    day = _rule(".change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day")
+    assert "max-width: 1100px" in _rule(".change-log, .run-log, .report-shelf, .checkup")
+    day = _rule(".change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day, .checkup > h3.day")
     assert "text-transform: uppercase" in day and "color: var(--muted)" in day
     line = _rule(".change, .run")
     assert "border-bottom: 1px solid var(--rule)" in line and "background" not in line
-    outcome = _rule(".run .outcome, .report .outcome")                                 # the shelf shares the word
-    assert "color: var(--muted)" in outcome and "margin-left: auto" in _rule(".run .outcome")   # SKIP: pencil
-    assert _rule(".run .outcome.ok, .report .outcome.ok").strip() == "color: var(--ok);"        # no green highlighter
-    fail = _rule(".run .outcome.fail, .report .outcome.fail")
+    outcome = _rule(".run .outcome, .report .outcome, .check .outcome, .sched-line .outcome")                                 # the shelf shares the word
+    assert "color: var(--muted)" in outcome and "margin-left: auto" in _rule(".run .outcome, .check .outcome")   # SKIP: pencil
+    assert _rule(".run .outcome.ok, .report .outcome.ok, .check .outcome.ok, .sched-line .outcome.ok").strip() == "color: var(--ok);"        # no green highlighter
+    fail = _rule(".run .outcome.fail, .report .outcome.fail, .check .outcome.fail, .sched-line .outcome.fail")
     assert "color: var(--warn)" in fail and "background: var(--hl-red)" in fail
     assert "flex-basis: 100%" in _rule(".run .foot")
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))

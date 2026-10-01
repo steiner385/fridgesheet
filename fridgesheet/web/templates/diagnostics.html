@@ -1,21 +1,47 @@
 {% extends "base.html" %}
 {% block title %}Diagnostics · Fridge Sheet{% endblock %}
 {% block content %}
+{# The app's checkup (the Student Planner, Diagnostics; the surface brief in .impeccable/surfaces/):
+   a failed update as a ruled section, the job card while a run goes, then one day row dated when
+   the checks ran with its tally over one planner line per check -- a drawn tick or a red mark,
+   the name, the detail in pencil, OK or FAIL on its highlighter at the right -- and the report as
+   it was written under a pencil fold. `lines`, the counts and `checked_at` come from
+   routes/diagnostics.parse_report over doctor.txt. #}
 {% set page_title = "Diagnostics" %}
 {% set page_intro = "What the app can reach and what it cannot, checked on this computer." %}
 {% set page_actions %}{% if jobs %}<button hx-post="/jobs/doctor" hx-target="#job" hx-swap="outerHTML">Run diagnostics</button>{% endif %}{% endset %}
 {% include "_page_head.html" %}
 {% if verdict and verdict[0] == 'failed' %}
-<div class="card">
-  <h3>The last update did not finish</h3>
+<section class="sec update-failed">
+  <div class="sec-head"><h3>The last update did not finish</h3></div>
   <p>An update from {{ verdict[1].from_version }} to {{ verdict[1].to_version }} was started
      on {{ verdict[1].started_at | wd_md_time }}, and this is still {{ verdict[1].from_version }}.</p>
-  <p class="muted">The installer is still on disk at <code>{{ verdict[1].installer }}</code> --
+  <p class="field-help">The installer is still on disk at <code>{{ verdict[1].installer }}</code> —
      you can run it yourself. What it logged while it ran is in
      <code>{{ verdict[1].log }}</code>.</p>
-</div>
+</section>
 {% endif %}
 {% if job %}{% with busy=false %}{% include "_job.html" %}{% endwith %}{% else %}<div id="job"></div>{% endif %}
-<h3>Last report</h3>
-{% if report %}<pre class="log">{{ report }}</pre>{% else %}<p class="muted">Diagnostics have not been run yet.</p>{% endif %}
+<div class="planner-main checkup">
+{% if report %}
+{# The day row only when the file was read, and its tally only when it held checks: a report that
+   could not be read is its one pencil line, not "all passed" (the finish review, 2026-10-01). #}
+{% if checked_at %}<h3 class="day">Checked {{ checked_at | wd_md_time }}{% if n_checks %} <span class="tally">· {{ n_checks }} check{{ 's' if n_checks != 1 }} · {% if n_failed %}{{ n_failed }} failed{% else %}all passed{% endif %}</span>{% endif %}</h3>{% endif %}
+{% for c in lines %}
+{% if c.raw is defined %}<p class="muted raw-line">{{ c.raw }}</p>{% else %}
+<div class="check {{ 'passed' if c.ok else 'failed' }}">
+  {# The line's mark is drawn, as the planner line's is: the tick for a check that passed, a cross for one that failed. #}
+  <span class="glyph" aria-hidden="true"><svg viewBox="0 0 12 12" width="12" height="12">{% if c.ok %}<path d="M2 6.5l2.5 2.5L10 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>{% else %}<path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>{% endif %}</svg></span>
+  <span class="name">{{ c.name }}</span>
+  {% if c.detail %}<span class="detail">{{ c.detail }}</span>{% endif %}
+  <span class="word outcome {{ 'ok' if c.ok else 'fail' }}">{{ 'OK' if c.ok else 'FAIL' }}</span>
+</div>
+{% endif %}
+{% endfor %}
+{# doctor.txt is also what a parent is asked to paste into an issue: the text as written, folded. #}
+<details class="fold as-file"><summary>The report as a file</summary><pre class="report-text">{{ report }}</pre></details>
+{% else %}
+<p class="muted not-run">Diagnostics have not been run yet.</p>
+{% endif %}
+</div>
 {% endblock %}

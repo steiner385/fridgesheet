@@ -144,11 +144,11 @@ def test_schedules_is_one_intro_sentence_and_forms_to_the_measure(tmp_path):
     intro = re.search(r'<p class="page-intro">(.*?)</p>', body).group(1)
     assert intro.count(". ") == 0 and "does not refresh first" in intro
     assert re.search(r"\.schedule\s*\{[^}]*max-width: var\(--measure\)", CSS)
-    forms = re.findall(r'<form[^>]*class="schedule"', body)
+    forms = re.findall(r'<form[^>]*class="sec schedule"', body)        # ruled sections (the timetable, 2026-10-01)
     assert len(forms) >= 2                                  # the refresh, then one per report
-    assert 'hx-post="/schedules/refresh" hx-target="body" class="schedule"' in body
+    assert 'hx-post="/schedules/refresh" hx-target="body" class="sec schedule"' in body
     assert body.count('<label class="tick"><input type="checkbox" name="days"') >= 14
-    assert "Refresh the data" in body and "<h3>Reports</h3>" in body
+    assert "<h3>Refresh the data</h3>" in body and '<h3 title="open-work">Open Work Sheet</h3>' in body   # a section each (2026-10-01)
 
 
 # --- section 3: tables scroll in their own box, everywhere ------------------------------------------

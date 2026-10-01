@@ -34,12 +34,57 @@ class Row:
     last_run: str = ""
     problem: str = ""                       # why an enabled schedule cannot run, from the plan
 
+    @property
+    def last_when(self) -> str:
+        return _last_words(self.last_run)[0]
+
+    @property
+    def last_outcome(self) -> str:
+        return _last_words(self.last_run)[1]
+
 
 @dataclass
 class Outcome:
     ok: bool
     messages: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+
+
+def _last_words(last_run: str) -> tuple[str, str]:
+    """`last_scheduled`'s "Thu 9/24 2:00 PM, OK" as (when, outcome) for the timetable's pencil
+    line; a value without the comma is all `when` and no word, never an error in a template."""
+    when, sep, outcome = last_run.rpartition(", ")
+    return (when, outcome) if sep else (last_run, "")
+
+
+def clock_words(hhmm: str) -> str:
+    """"14:00" -> "2:00 PM", the head's numeral on the timetable (2026-10-01). A value that is
+    not HH:MM (a config.toml typed by hand) is shown as it was written."""
+    try:
+        h, m = (int(x) for x in hhmm.split(":"))
+    except (TypeError, ValueError, AttributeError):
+        return hhmm or ""
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return hhmm
+    return f"{h % 12 or 12}:{m:02d} {'AM' if h < 12 else 'PM'}"
+
+
+def days_words(days: list[str]) -> str:
+    """The days as one phrase in pencil: "every day", "Mon–Fri", "weekends", "Mon, Wed, Fri";
+    "no days" when none is ticked."""
+    chosen = [d for d in host.DAY_NAMES if d in days]
+    if not chosen:
+        return "no days"
+    if len(chosen) == 7:
+        return "every day"
+    if chosen == list(host.DAY_NAMES[:5]):
+        return "Mon–Fri"
+    if chosen == list(host.DAY_NAMES[5:]):
+        return "weekends"
+    idx = [host.DAY_NAMES.index(d) for d in chosen]
+    if len(idx) >= 3 and idx == list(range(idx[0], idx[-1] + 1)):
+        return f"{chosen[0]}–{chosen[-1]}"
+    return ", ".join(chosen)
 
 
 def last_scheduled(conn, report_key: str) -> str:
@@ -205,6 +250,14 @@ class RefreshRow:
     problem: str = ""                       # why it does not expand, shown in place of the times
     next_run: datetime | None = None
     last_run: str = ""
+
+    @property
+    def last_when(self) -> str:
+        return _last_words(self.last_run)[0]
+
+    @property
+    def last_outcome(self) -> str:
+        return _last_words(self.last_run)[1]
 
 
 def refresh_row(home: Path, *, now: datetime) -> RefreshRow:

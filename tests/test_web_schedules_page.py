@@ -62,7 +62,8 @@ def test_the_last_scheduled_run_is_shown(tmp_path):
     runs.record(conn, "open-work", "2026-09-24T14:00:05-04:00", "2026-09-24T14:01:30-04:00", "schedule", "OK", "printed")
     runs.record(conn, "open-work", "2026-09-24T15:00:00-04:00", "2026-09-24T15:01:00-04:00", "web", "OK", "printed")
     conn.close()
-    assert "last: Thu 9/24 2:00 PM, OK" in c.get("/schedules").text
+    # The outcome is the Runs word on the pencil line (the timetable, 2026-10-01).
+    assert 'last: Thu 9/24 2:00 PM, <span class="word outcome ok">OK</span>' in c.get("/schedules").text
 
 
 def test_the_refresh_row_shows_next_and_last(tmp_path):
