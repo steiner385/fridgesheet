@@ -3,13 +3,16 @@
   <a href="/kids/{{ student.key | urlencode }}/check-in" {{ 'aria-current="page"' | safe if workspace == 'checkin' }}>Check-in</a>
   <a href="/kids/{{ student.key | urlencode }}/plan" {{ 'aria-current="page"' | safe if workspace == 'plan' }}>Plan</a>
   <a href="/kids/{{ student.key | urlencode }}" {{ 'aria-current="page"' | safe if workspace == 'all' }}>Assignments</a>
+  <a href="/kids/{{ student.key | urlencode }}/report-card" {{ 'aria-current="page"' | safe if workspace == 'report' }}>Report card</a>
 </nav>
 {% endif %}
 {# The one line under the tabs is state, not instruction (spec 2026-09-28 §3): what has been done
    on Assignments (kids' UX audit F8; only once something has), the last check-in and what was
    agreed on Check-in and Plan. The section heads do the old tab hint's job (F3, superseded). #}
 {% set tier = student.key | tier_of %}
-{% if workspace == 'all' %}
+{% if workspace == 'report' %}
+{# The report card carries no check-in state (spec 2026-10-03 §7.1): no line under its tabs. #}
+{% elif workspace == 'all' %}
 {% if done_so_far.done %}<p class="tab-hint">{{ 'copy.done_so_far' | say(tier, done_so_far) }}</p>{% endif %}
 {% elif last_check %}
 <p class="tab-hint">Last check-in <strong>{{ last_check.finished_at | wd_md_time }}</strong>{% if last_check.recorded_by %} (recorded by {{ last_check.recorded_by }}){% endif %} · Next check-in <strong>{{ last_check.next_check | wd_md }}</strong>{% if last_check.next_check <= today %} · <strong class="warn">time to check in</strong>{% endif %} · <span class="muted">What we agreed: {{ last_check.summary }}</span></p>

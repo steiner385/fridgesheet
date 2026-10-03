@@ -33,6 +33,7 @@
     <nav class="kid">
       <a href="/kids/{{ me | urlencode }}/plan" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'plan' }}">Plan <span id="qcount-{{ me }}" class="count">{{ question_counts.get(me) or '' }}</span></a>
       <a href="/kids/{{ me | urlencode }}" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'all' }}">Assignments</a>
+      <a href="/kids/{{ me | urlencode }}/report-card" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'report' }}">Report card</a>
       <details class="rail-more"{{ ' open' if (current == 'kid:' ~ me and workspace is defined and workspace == 'checkin') or current in ('trends', 'changes') }}><summary>{{ 'copy.more' | say(kt) }}</summary><div class="rail-rest">
       <a href="/kids/{{ me | urlencode }}/check-in" class="{{ 'current' if current == 'kid:' ~ me and workspace is defined and workspace == 'checkin' }}">Check-in</a>
       <a href="/trends?kid={{ me | urlencode }}" class="{{ 'current' if current == 'trends' }}">Trends</a>
