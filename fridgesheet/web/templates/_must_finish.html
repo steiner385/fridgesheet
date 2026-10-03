@@ -24,7 +24,10 @@
     ('waiting',  'copy.handed_in_waiting', must_finish.waiting,  true,  none,   true),
     ('later',    'copy.coming_due_later',  must_finish.later,    false, none,   true),
   ] %}
-  {% set exclude = ['too_late', 'ignore'] %}
+  {# "Let it go" would wave a row off the list the school still counts (spec 2026-09-27 §4.4);
+     "Too late to submit" stays, one tap, so a row the kid won't do can be closed here
+     (2026-10-03). #}
+  {% set exclude = ['ignore'] %}
   {# The spread (the Student Planner, 2026-09-29): Tonight and Tomorrow are day boxes side by
      side on a wide screen; the other sections take the full width beneath them. #}
   {% set both_empty = not must_finish.tonight and not must_finish.tomorrow %}
@@ -47,7 +50,7 @@
     {% set earlier = completed_for.get(view.id) %}
     {% if grey %}{% set exclude = view.verdict.answers | map(attribute='action') | list %}{% endif %}
     {% include "_item.html" %}
-    {% if grey %}{% set exclude = ['too_late', 'ignore'] %}{% endif %}
+    {% if grey %}{% set exclude = ['ignore'] %}{% endif %}
     {% else %}<p class="muted empty-day">{{ ('copy.nothing_due_tonight' if key == 'tonight' else 'copy.nothing_due_tomorrow') | say(tier) }}</p>
     {% endfor %}
   </div><!-- /{{ key }} -->

@@ -1317,8 +1317,9 @@ Grey label type
 coarse pointer, and the family's answer rides in it as a flag badge), and the
 sheet's word pushed right as a highlighter stroke (700, ink of its family on its fill); on a phone
 the word drops to its own line and hugs its width. Facts: one sentence from the verdict. Ask line
-(600) and answers: the first answer in the default stroke, the two answers that close a line for
-good behind a "More answers" fold inside the line, identically at every tier; on a week's line
+(600) and answers: the first answer in the default stroke, "Too late to submit" one tap as the
+row's last button on every card, and "Let it go" (the answer that says the record is right)
+behind a "More answers" fold inside the line, identically at every tier; on a week's line
 on Assignments the ask line and answers appear only when the app is asking. Once answered, the
 done-line takes the answers' place: the green glyph, the sentence flexing to the room (`flex: 1
 1 auto; min-width: 0`), and the Undo form pushed right and never shrunk (`flex: none`, its button

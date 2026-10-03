@@ -551,7 +551,7 @@ a question card.
 | **It's done** | Handed in; the school just hasn't recorded it. | Handled — off Open work, the sheet and the Questions count. |
 | **Excused** | The teacher excused it. | Handled. |
 | **Let it go** | You've decided not to chase it. | Handled. |
-| **Too late to submit** | The teacher no longer accepts it. | Handled. |
+| **Too late to submit** | The teacher no longer accepts it, or it won't be done. One tap on any assignment card, including the Plan's Must-finish rows and Today. | Handled. |
 | **Follow up** | You're keeping an eye on it. | Stays listed, with a marker (FOLLOW UP on the sheet). |
 | **Ask the teacher** | You're asking. | Stays listed, with a marker (ASK THE TEACHER on the sheet); moves to *Waiting on the teacher*. |
 
