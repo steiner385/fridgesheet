@@ -309,6 +309,8 @@ def test_the_mark_is_rendered_into_the_icon_the_exe_and_installer_use():
     static = ROOT / "fridgesheet" / "web" / "static"
     assert (static / "mark.svg").read_text(encoding="utf-8") == (static / "favicon.svg").read_text(encoding="utf-8")
     assert (static / "mark-32.png").is_file() and (static / "mark-180.png").is_file()
+    # The web app manifest's icons (routes/pwa.py): Chrome's install prompt needs both sizes.
+    assert (static / "mark-192.png").is_file() and (static / "mark-512.png").is_file()
 
 
 def test_the_docs_name_extra_hosts_as_the_way_to_use_a_computer_name():

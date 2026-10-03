@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
 from . import checkin
-from ..app import Db, State, WHO_COOKIE, forget_who, render, safe_pdf, who_of
+from ..app import Db, State, WHO_COOKIE, forget_who, remember_who, render, safe_pdf, who_of
 from ..stores import items, plans, runs, students
 from ...dates import deadline_date, wd_md
 
@@ -26,7 +26,9 @@ def dashboard(request: Request, conn: sqlite3.Connection = Db, state=State):
         r = RedirectResponse("/who", status_code=303)
         return forget_who(r) if request.cookies.get(WHO_COOKIE) else r
     if student is not None:
-        return RedirectResponse(f"/kids/{quote(student['key'], safe='')}/plan", status_code=303)
+        # The cookie slides: `/` is what a home-screen app opens on every launch, so each launch
+        # buys another year, and a kid who uses it daily never lands on the chooser on day 366.
+        return remember_who(RedirectResponse(f"/kids/{quote(student['key'], safe='')}/plan", status_code=303), student["key"])
     now, rules = state.now(), state.rules()
     today = now.date().isoformat()
     days = [now.date() + timedelta(days=i) for i in range(WEEK_DAYS)]

@@ -20,6 +20,8 @@ Both parents in the household, from a laptop primarily and optionally a phone; a
 
 A browser remembers who is looking (`/who`, one tap, no login): a kid's device opens on their plan with a rail naming only their pages; a grown-up's opens on Today. Spec: `docs/superpowers/specs/2026-09-27-plan-fills-itself-design.md` §13.
 
+The app installs on a phone's home screen (a web app manifest and a small service worker, `routes/pwa.py`). Each kid's page, in the family's view, folds a QR code for `/who/<key>` at the machine's network address: the phone that scans it opens as that kid and remembers; installed from there, the kid's own app starts on that link, so the home-screen app's separate cookie jar learns who is looking on its first launch. The worker never caches a page — only the offline page a kid sees at school, away from the home Wi‑Fi.
+
 ## Success metrics
 
 - Every page renders correctly with an empty database (first run) and with a populated one.

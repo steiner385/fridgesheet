@@ -16,7 +16,7 @@ from html import escape
 from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 import jinja2
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .. import config, dates, late_rules, status_words
+from .. import config, dates, late_rules, qr, status_words
 from ..config import Settings
 from ..sources import SourcePrefs
 from ..dates import parse_iso as _parse
@@ -242,6 +242,30 @@ def _filters(state: AppState) -> dict:
         return "\n".join(lines)
 
     @jinja2.pass_context
+    def phone_link(_ctx, key: str) -> dict:
+        """The link that chooses this kid on a phone (`/who/<key>`) at this machine's network
+        address, and its QR code, for `_phone_link.html`. `allowed` is whether the app answers
+        the network at all: a wildcard bind (the Settings tick), or an explicit non-loopback
+        `FRIDGESHEET_WEB_HOST`, whose address is then the one to use. `url` is None when the
+        LAN probe cannot name an address. A drawing failure loses the code, not the page.
+        `pass_context` for the same reason as `printer_name`: the answer follows Settings."""
+        bind = state.settings.bind_host
+        if bind in _WILDCARD_HOSTS:
+            base = actions.lan_url(state.settings.web_port)
+        elif not _is_loopback_bind(bind):
+            base = served_url(state.settings)
+        else:
+            return {"allowed": False, "url": None, "qr": None}
+        if not base:
+            return {"allowed": True, "url": None, "qr": None}
+        url = f"{base}who/{quote(key, safe='')}"
+        try:
+            drawn = qr.svg(url, size_px=200)
+        except Exception:  # noqa: BLE001  the same posture as the Settings QR: degrade, keep the page
+            drawn = None
+        return {"allowed": True, "url": url, "qr": drawn}
+
+    @jinja2.pass_context
     def printer_name(_ctx, report_key: str) -> str:
         """The printer a Print of this report will use, for its confirmation (#127). The same
         `Settings.printer_for` the runner prints with -- never `settings.printer` alone, which a
@@ -259,7 +283,7 @@ def _filters(state: AppState) -> dict:
             "standing": lambda item, tier: verdicts.standing(item, tier),
             "has_phrase": verdicts.has_phrase, "mailto_body": mailto_body, "num": num, "due_at": due_at,
             "pace_key": verdicts.pace_key, "sheet_word": sheet_word, "sheet_tone": sheet_tone, "word_tone": status_words.status_tone,
-            "line_tone": line_tone}
+            "line_tone": line_tone, "phone_link": phone_link}
 
 
 #: The shared loader. Each app renders through one overlay of it, built in `create_app`, so
@@ -433,6 +457,18 @@ def loopback(request: Request) -> bool:
 
 
 _WILDCARD_HOSTS = ("0.0.0.0", "::")
+
+
+def _is_loopback_bind(bind: str) -> bool:
+    """Whether a concrete bind address answers only this computer: empty, `localhost`, or a
+    loopback literal. Anything else (`FRIDGESHEET_WEB_HOST=192.168.1.42`) is an address the
+    network can reach, and the phone link (`_filters.phone_link`) can name it."""
+    if not bind or bind.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(bind).is_loopback
+    except ValueError:
+        return False
 
 
 def served_url(settings: Settings) -> str:
@@ -727,8 +763,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, questions as question_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes, who as who_routes
-    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router, who_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, pwa as pwa_routes, questions as question_routes, reconcile as reconcile_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes, who as who_routes
+    for r in (dashboard.router, checkin.router, kid.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router, who_routes.router, pwa_routes.router):
         app.include_router(r)
     return app
 

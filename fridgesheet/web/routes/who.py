@@ -3,6 +3,7 @@ one tap. Not a login -- the household network is the boundary, as it is everywhe
 from __future__ import annotations
 
 import sqlite3
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
@@ -25,3 +26,15 @@ def choose(request: Request, who: str = Form(...), conn: sqlite3.Connection = Db
     if who != FAMILY:
         student_or_404(conn, who)
     return remember_who(RedirectResponse("/", status_code=303), who)
+
+
+@router.get("/who/{who}")
+def choose_by_link(who: str, conn: sqlite3.Connection = Db):
+    """The choice as a link: what the QR code on a kid's page encodes, and the start URL of
+    that kid's home-screen app (routes/pwa.py). A GET that sets a cookie is fine here because
+    the cookie is not a credential (§13.1): it only says which pages to open first. Straight
+    to the plan, not via `/`, so the first launch is one hop."""
+    if who == FAMILY:
+        return remember_who(RedirectResponse("/", status_code=303), who)
+    s = student_or_404(conn, who)
+    return remember_who(RedirectResponse(f"/kids/{quote(s['key'], safe='')}/plan", status_code=303), s["key"])

@@ -916,6 +916,15 @@ pages.
 3. Settings now shows **Other devices: http://192.168.x.x:8433/** and a **QR code** — point
    the phone's camera at it. Tailscale users also get an *On your tailnet* address.
 
+**A kid's own phone.** Open the kid's page (Plan, Check-in or Assignments) on your screen and
+unfold **Put this on Sam's phone** under the tabs. The QR code there opens the app *as Sam*:
+the phone remembers, and every later visit lands on Sam's plan with Sam's rail. Then, on the
+phone, **Add to Home Screen** (Safari: the Share button; Chrome: the ⋮ menu, *Install app*).
+The icon on the home screen is Sam's own copy — it opens as Sam even though a home-screen app
+keeps its own memory apart from the browser's. Off the home Wi‑Fi (at school, on mobile data)
+the app says *Can't reach Fridge Sheet right now* instead of a browser error; nothing is
+stored on the phone but that one page.
+
 The app has no password and no HTTPS. Anyone on your network who has the address can use
 every page, and the OneLogin password typed on Settings from a phone crosses the network
 unencrypted. Only turn this on at home.
