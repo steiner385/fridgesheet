@@ -359,9 +359,11 @@ def _fold_item(conn: sqlite3.Connection, src: int, into: int) -> None:
     conn.execute("UPDATE flags SET item_id = ? WHERE item_id = ?", (into, src))
     conn.execute("UPDATE notes SET target_id = ? WHERE target_type = 'item' AND target_id = ?", (into, src))
     conn.execute("UPDATE plan_steps SET item_id = ? WHERE item_id = ?", (into, src))
-    # The twin is the later sighting, so its category label wins where both have one.
-    conn.execute("DELETE FROM item_categories WHERE item_id = ? AND source IN (SELECT source FROM item_categories WHERE item_id = ?)", (into, src))
-    conn.execute("UPDATE item_categories SET item_id = ? WHERE item_id = ?", (into, src))
+    # The twin is the later sighting, so its category label wins where both have one. The v7
+    # migration folds too, on a file that has not reached v10 yet, so the table may not exist.
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_categories'").fetchone():
+        conn.execute("DELETE FROM item_categories WHERE item_id = ? AND source IN (SELECT source FROM item_categories WHERE item_id = ?)", (into, src))
+        conn.execute("UPDATE item_categories SET item_id = ? WHERE item_id = ?", (into, src))
     # The twin is the later sighting of the row: its attributes, and the span of both.
     t = conn.execute("SELECT * FROM items WHERE id = ?", (src,)).fetchone()
     conn.execute(
