@@ -552,3 +552,18 @@ def test_a_category_is_relabelled_in_place_not_appended(tmp_path):
     quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
     assert conn.execute("SELECT category FROM item_categories WHERE item_id = ? AND source = 'hac'", (quiz,)).fetchone()["category"] == "Tests"
     assert conn.execute("SELECT count(*) FROM item_categories WHERE item_id = ?", (quiz,)).fetchone()[0] == 2
+
+
+def test_an_emptied_category_table_is_recorded_so_stale_subtotals_are_not_shown_as_current(tmp_path):
+    """A new marking period (or a scraper regression) empties HAC's category table; the latest
+    set must then be empty, not last period's rows (final review, 2026-10-03)."""
+    from fridgesheet.web.stores import grades
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac'").fetchone()["id"]
+    assert len(grades.latest_subtotals(conn, cid)) == 2
+    ingest.record(conn, snapshot(T2), tz=TZ, now=T2)                     # the fixture's own class: categories []
+    assert grades.latest_subtotals(conn, cid) == []
+    assert [len(s) for s in grades.subtotal_history(conn, cid)] == [2, 0]
+    r = ingest.record(conn, snapshot(T2), tz=TZ, now=T2)                 # still empty: nothing new to record
+    assert r.categories == 0 and conn.execute("SELECT count(*) FROM category_observations WHERE course_id = ?", (cid,)).fetchone()[0] == 3

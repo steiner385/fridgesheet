@@ -240,9 +240,10 @@ The "how" key is chosen from the official account in this order:
 
 | Condition | Key | Values |
 |---|---|---|
-| no account, or `reported is None` | `rc.no_grade` | |
 | canvas, `hidden` | `rc.canvas_hidden` | |
-| canvas, `final` set and `final < reported` | `rc.canvas_partial` | `current`, `final`, `missing` |
+| no account, or `reported is None` | `rc.no_grade` | |
+| canvas, `final` set and `final < reported`, `missing > 0` | `rc.canvas_partial` | `current`, `final`, `missing` |
+| canvas, `final` set and `final < reported`, nothing marked missing | `rc.canvas_partial_unsubmitted` | `current`, `final` |
 | canvas, otherwise | `rc.canvas_current` | `current` |
 | hac, `basis == "none"` with a number | `rc.no_breakdown` | `reported` |
 | hac, `basis == "subtotals"`, `match == "exact"`, `zero_points > 0` | `rc.adds_up_zeros` | `earned`, `possible`, `zero_points` |
@@ -345,9 +346,12 @@ Body, for the official source first and the other beneath under an `h4` naming t
 
 ### 7.3 Diagnostics
 
-The Diagnostics page gains one planner line per kid in its checks: "Averages add up: 15 of 17
-classes" with the Runs word, listing the classes that are `off` or `rows`. This is where a
-scraper regression (a category table that stops parsing) shows up first.
+The doctor gains an `averages` probe, which the Diagnostics page lists as one planner line like
+every other check: "1 of 1 HAC classes with a breakdown add up; no breakdown: Alex's Algebra I",
+naming the classes that are `off` and those with no breakdown. Never a FAIL: a class that does
+not add up is a finding about the gradebook, not a broken install. This is where a scraper
+regression (a category table that stops parsing) shows up first. (As built: one probe across
+the household rather than a line per kid; the Diagnostics page renders `doctor.txt`.)
 
 ## 8. Phrasing
 
@@ -358,8 +362,10 @@ across tiers, no digits in any phrase (`test_phrasing`). The "how" line keys fro
 |---|---|
 | `rc.no_grade` | "No average yet." |
 | `rc.canvas_hidden` | "Canvas hides this class's grade." |
-| `rc.canvas_partial` | "Canvas counts graded work only: {current} now, {final} if the {missing} missing stay at zero." |
+| `rc.canvas_partial` | "Canvas counts graded work only: {current} now, {final} if missing work stays at zero ({missing} marked missing)." |
+| `rc.canvas_partial_unsubmitted` | "Canvas counts graded work only: {current} now, {final} if unsubmitted work stays at zero." |
 | `rc.canvas_current` | "Canvas counts graded work only: {current} now." (Canvas's how is always what it counts.) |
+| `rc.canvas_dont_add_up` | "The groups add up to {rebuilt}; Canvas says {reported}." (the class page's red line when Canvas leads) |
 | `rc.no_breakdown` | "HAC says {reported}; there is nothing to rebuild it from." |
 | `rc.adds_up` | "Adds up: {earned} of {possible} points." |
 | `rc.adds_up_zeros` | "Adds up: {earned} of {possible} points. {zero_points} points of unscored work count as zero." |

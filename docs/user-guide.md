@@ -495,8 +495,8 @@ number it is and when the gradebook last changed it, and one sentence on how it 
   count work the app cannot see. Ask the teacher how the class is figured.
 - *HAC says 79.50; there is nothing to rebuild it from.* HAC gave a number but no category
   table and no rows the app can see.
-- *Canvas counts graded work only: 84.42 now, 68.94 if the 3 missing stay at zero.* For a
-  class whose official number comes from Canvas.
+- *Canvas counts graded work only: 84.42 now, 68.94 if missing work stays at zero (3 marked
+  missing).* For a class whose official number comes from Canvas.
 
 The letter is from the ten-point scale (A 90, B 80, C 70, D 60, F below) unless `[grading]`
 in `config.toml` says otherwise ([§13](#what-settings-doesnt-show)). **Print** prints the page.
