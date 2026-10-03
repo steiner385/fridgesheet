@@ -25,7 +25,7 @@ def _row_ids(tmp_path_factory, tier: str, path: str) -> set[str]:
 
 
 @pytest.mark.parametrize("tier", list(tiers.TIERS) + [""])
-@pytest.mark.parametrize("path", ["/kids/Alex?show=all", "/kids/Alex?show=open", "/open"])
+@pytest.mark.parametrize("path", ["/kids/Alex?show=all", "/kids/Alex?show=open", "/open", "/kids/Alex/report-card"])
 def test_every_tier_renders_every_row_the_oldest_gets(tmp_path_factory, tier, path):
     older = _row_ids(tmp_path_factory, "older", path)
     assert older, "the fixture must render rows for this to mean anything"
