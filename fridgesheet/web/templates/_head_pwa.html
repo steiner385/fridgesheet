@@ -1,0 +1,9 @@
+{# What makes the app installable, on every page's <head> (base.html and the chooser). A page
+   about a kid -- `student` on their pages, `who_student` on any page in kid mode -- links that
+   kid's manifest, so "Add to Home Screen" from it installs the kid's own app, whose first
+   launch sets the chooser's cookie in the home-screen app's own jar (routes/pwa.py). The
+   household's manifest otherwise. The worker is registered inline: the chooser has no app.js. #}
+{% set pwa_kid = student if student is defined and student else who_student %}
+<link rel="manifest" href="{% if pwa_kid %}/kids/{{ pwa_kid.key | urlencode }}/manifest.webmanifest{% else %}/manifest.webmanifest{% endif %}">
+<meta name="theme-color" content="#fffdf6">
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>

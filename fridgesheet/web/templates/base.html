@@ -6,6 +6,7 @@
 <title>{% block title %}Fridge Sheet{% endblock %}</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/mark-180.png">
+{% include "_head_pwa.html" %}
 {# `?v=`: a new build is a new URL, so a browser holding last week's app.js cannot draw this
    week's markup (StaticFiles sends no Cache-Control; the query is ignored when serving). #}
 <link rel="stylesheet" href="/static/app.css?v={{ version }}">

@@ -16,3 +16,4 @@
 {% else %}
 <p class="tab-hint">{{ 'copy.checkin_first' | say(tier) }}</p>
 {% endif %}
+{% if not who_student %}{% include "_phone_link.html" %}{% endif %}

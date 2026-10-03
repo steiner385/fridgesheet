@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fffdf6">
+<title>Can't reach Fridge Sheet</title>
+{# The page the service worker shows when the home computer does not answer. It is cached on
+   the phone and shown with no server behind it, so everything it needs is here: no
+   stylesheet link, no script file, no rail, no data. The few rules below are the planner's
+   paper and type, by hand. #}
+<style>
+  body { margin: 0; min-height: 100dvh; background: #fffdf6; color: #1c1c1c; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+  main { max-width: 420px; text-align: center; }
+  img { width: 56px; height: 56px; border-radius: 12px; }
+  h1 { font-size: 24px; font-weight: 600; margin: 16px 0 8px; text-wrap: balance; }
+  p { margin: 0 0 16px; color: #595959; text-wrap: pretty; }
+  button { font: inherit; font-size: 18px; padding: 14px 24px; min-height: 44px; border-radius: 2px; border: 1px solid #8a8a8a; background: #ffffff; color: #1c1c1c; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <img src="/static/mark.svg" alt="">
+  <h1>Can't reach Fridge Sheet right now</h1>
+  <p>Fridge Sheet runs on a computer at home. This phone needs to be on the home Wi‑Fi, and that computer needs to be awake.</p>
+  <button type="button" onclick="location.reload()">Try again</button>
+</main>
+</body>
+</html>

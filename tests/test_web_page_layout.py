@@ -20,9 +20,12 @@ TEMPLATES = WEB / "templates"
 #: Every full page: the shell pages that extend base.html, and the two print pages that do not.
 #: `who.html` (spec 2026-09-27 §13.1) is a third kind: the chooser, with no crumb, no page
 #: actions and no rail to speak of -- a gate before the app, not a page of it -- so it draws
-#: its own heading rather than the shared `_page_head.html`.
+#: its own heading rather than the shared `_page_head.html`. `offline.html` is a fourth: the
+#: page the service worker shows when the home computer cannot be reached, cached on the
+#: phone and drawn with no server behind it, so it carries no shell, no stylesheet and no
+#: shared partial at all (tests/test_web_pwa.py pins that).
 PAGES = sorted(p.name for p in TEMPLATES.glob("*.html")
-                if not p.name.startswith("_") and p.name not in ("base.html", "who.html"))
+                if not p.name.startswith("_") and p.name not in ("base.html", "who.html", "offline.html"))
 
 
 def _block(header: str) -> str:

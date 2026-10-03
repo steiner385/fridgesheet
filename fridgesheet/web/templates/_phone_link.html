@@ -1,0 +1,24 @@
+{# "Put this on Sam's phone": the QR code for the link that chooses this kid on the phone that
+   scans it (`/who/<key>`, routes/who.py), under the tabs on each of the kid's pages, in the
+   family's view only -- the kid on their own phone has nothing to scan. Closed by default: a
+   one-time setup must not take 200px of every kid page every day. #}
+{% set link = student.key | phone_link %}
+<details class="fold phone-link">
+  <summary>Put this on {{ student.key | nickname }}'s phone</summary>
+  {% if not link.allowed %}
+  <p class="field-help">First tick <a href="/settings">Allow other devices on this network</a> on Settings, save, and restart Fridge Sheet. Then the code appears here.</p>
+  {% elif not link.url %}
+  <p class="field-help">This computer's address on the network isn't known right now, so there is no code to show. Settings shows the address once the network is up.</p>
+  {% else %}
+  <div class="network-row">
+    {# qr.svg's own output and nothing else: <svg>, <path> and module geometry. segno never
+       echoes the encoded text into the drawing, so the URL cannot reach the markup; see the
+       same note on settings.html. #}
+    {% if link.qr %}<div class="qr">{{ link.qr | safe }}</div>{% endif %}
+    <div>
+      <p class="field-help">Point the phone's camera at the code, on the home Wi‑Fi. It opens as {{ student.key | nickname }}'s pages and the phone remembers. <b>Add to Home Screen</b> makes it an app of its own.</p>
+      <p class="field-help">Or type <a href="{{ link.url }}">{{ link.url }}</a>.</p>
+    </div>
+  </div>
+  {% endif %}
+</details>

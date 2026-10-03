@@ -140,8 +140,9 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
 - **The name "Fridge Sheet."** The product was rebranded from a district-specific name so any
   parent could install it (`docs/product/features/product-rebrand-migration.md`); the old command
   name is a shim for one release. Do not reintroduce the district into the product's identity.
-- **The mark.** `fridgesheet/web/static/mark.svg`, with `mark-32.png`, `mark-180.png` and
-  `favicon.svg`. It is the icon in the rail, the tab and on a phone's home screen.
+- **The mark.** `fridgesheet/web/static/mark.svg`, with `mark-32.png`, `mark-180.png`,
+  `mark-192.png`, `mark-512.png` and `favicon.svg`. It is the icon in the rail, the tab and on
+  a phone's home screen (the web app manifest names the 192 and 512).
 - **The reading-tier system as a mechanism.** One page, three densities and vocabularies, each
   tier redefining every token so no page inherits a colour nobody designed, colour never alone.
   The specific colours and type sizes in each tier are not binding and may change.

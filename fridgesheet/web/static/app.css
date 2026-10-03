@@ -644,6 +644,12 @@ details.field-help summary { cursor: pointer; }
 .network-row { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: flex-start; }
 .network-row .qr { flex: none; }
 .network-row .qr svg { width: 132px; height: 132px; display: block; }
+/* "Put this on Sam's phone" (_phone_link.html): one pencil fold under a kid's tabs, the code
+   drawn large enough to scan from across a kitchen counter, the sentence beside it. */
+.phone-link { margin: var(--s2) 0 0; }
+.phone-link .network-row { margin: var(--s2) 0; }
+.phone-link .network-row .qr svg { width: 200px; height: 200px; }
+.phone-link .network-row > div:not(.qr) { max-width: var(--measure); flex: 1 1 240px; }
 .settings-save-bar { position: sticky; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; background: var(--wash); border-top: 1px solid var(--rule); }
 /* The editors' folds and About's: a pencil line with the planner's text marker. */
 details.skip-days > summary, details.fold > summary { cursor: pointer; font-weight: 400; color: var(--muted); margin: var(--s2) 0; list-style: none; }
