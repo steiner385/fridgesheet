@@ -162,3 +162,28 @@ def test_the_account_is_drawn_in_the_planners_rules():
         _rule(sel)
     assert "var(--warn)" in _rule(".grade-account .check.off")                     # off is the one red the planner allows
     assert "text-align: right" in _rule(".grade-account table.categories th + th, .grade-account table.categories td + td")
+
+
+def test_a_canvas_led_mismatch_is_worded_as_canvas_not_hac(tmp_path):
+    """Sam's Science with its HAC twin unpaired: Canvas leads, its one graded row is a zero, so
+    the groups rebuild to 0 against a current of 85; the red line must name Canvas."""
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'canvas' AND short_name = 'Science 7'").fetchone()["id"]
+    with conn:
+        conn.execute("UPDATE courses SET peer_course_id = NULL WHERE id = ? OR peer_course_id = ?", (cid, cid))
+    conn.close()
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Sam/courses/{cid}").text)
+    assert '<p class="check off">The groups add up to 0.00; Canvas says 85.00.</p>' in sec
+    assert "HAC says" not in sec
+
+
+def test_a_hidden_canvas_only_class_is_one_sentence_naming_canvas(tmp_path):
+    conn = seed(tmp_path)
+    sid = conn.execute("SELECT id FROM students WHERE key = 'Sam'").fetchone()["id"]
+    with conn:
+        rid = conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES ('2026-09-15T14:00:00-04:00', '{}', 1)").lastrowid
+        cid = conn.execute("INSERT INTO courses(student_id, source, name, short_name) VALUES (?, 'canvas', 'Technology 7-2027-Dunn', 'Technology 7')", (sid,)).lastrowid
+        conn.execute("INSERT INTO grade_observations(refresh_id, course_id, average, letter, current, final, last_updated) VALUES (?, ?, NULL, NULL, NULL, NULL, NULL)", (rid, cid))
+    conn.close()
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Sam/courses/{cid}").text)
+    assert "Canvas hides this class" in sec and "either gradebook" not in sec and "<table" not in sec

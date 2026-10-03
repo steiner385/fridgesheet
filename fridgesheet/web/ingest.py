@@ -165,15 +165,20 @@ def _observe_categories(conn, refresh_id: int, course_id: int, subtotals: list[d
     """Write a HAC class's category subtotal rows under this refresh when the set differs from
     the class's latest set (spec 2026-10-03 §5). Returns the rows written."""
     new = [((s.get("category") or ""), s.get("earned"), s.get("possible")) for s in subtotals or []]
-    if not new:
-        return 0
     latest_refresh = conn.execute("SELECT MAX(refresh_id) AS r FROM category_observations WHERE course_id = ?", (course_id,)).fetchone()["r"]
+    last: list | None = None
     if latest_refresh is not None:
         last = [(r["category"], r["earned"], r["possible"]) for r in conn.execute(
-            "SELECT category, earned, possible FROM category_observations WHERE course_id = ? AND refresh_id = ? ORDER BY id",
+            "SELECT category, earned, possible FROM category_observations WHERE course_id = ? AND refresh_id = ? AND category <> '' ORDER BY id",
             (course_id, latest_refresh))]
-        if last == new:
-            return 0
+    if last == new or (last is None and not new):
+        return 0
+    if not new:
+        # The table emptied (a new marking period; a scraper regression): one sentinel row with
+        # no category marks the cleared set, so last period's rows stop reading as current.
+        conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?,?,'',NULL,NULL,NULL)",
+                     (refresh_id, course_id))
+        return 0
     for s in subtotals:
         conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?,?,?,?,?,?)",
                      (refresh_id, course_id, s.get("category") or "", s.get("earned"), s.get("possible"), s.get("percent")))

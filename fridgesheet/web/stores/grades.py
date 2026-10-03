@@ -13,18 +13,22 @@ from . import students
 
 
 def latest_subtotals(conn: sqlite3.Connection, course_id: int) -> list[sqlite3.Row]:
-    """The newest set of HAC category subtotal rows for a course, in HAC's order."""
+    """The newest set of HAC category subtotal rows for a course, in HAC's order. Empty when the
+    newest set is the cleared-table sentinel ingest writes (a row with no category)."""
     return conn.execute(
-        """SELECT * FROM category_observations WHERE course_id = ?
+        """SELECT * FROM category_observations WHERE course_id = ? AND category <> ''
            AND refresh_id = (SELECT MAX(refresh_id) FROM category_observations WHERE course_id = ?) ORDER BY id""",
         (course_id, course_id)).fetchall()
 
 
 def subtotal_history(conn: sqlite3.Connection, course_id: int) -> list[list[sqlite3.Row]]:
-    """Every set, oldest first: one list per refresh that changed the breakdown."""
+    """Every set, oldest first: one list per refresh that changed the breakdown; a cleared table
+    is an empty list."""
     out: dict[int, list[sqlite3.Row]] = {}
     for r in conn.execute("SELECT * FROM category_observations WHERE course_id = ? ORDER BY refresh_id, id", (course_id,)):
-        out.setdefault(r["refresh_id"], []).append(r)
+        rows = out.setdefault(r["refresh_id"], [])
+        if r["category"]:
+            rows.append(r)
     return list(out.values())
 
 
@@ -74,7 +78,10 @@ def how_for(account: grading.Account | None) -> tuple[str, dict]:
         if a.hidden:
             return "rc.canvas_hidden", {}
         if a.final is not None and a.final < a.reported:
-            return "rc.canvas_partial", {"current": grading.fmt_avg(a.reported), "final": grading.fmt_avg(a.final), "missing": str(a.missing)}
+            if a.missing:
+                return "rc.canvas_partial", {"current": grading.fmt_avg(a.reported), "final": grading.fmt_avg(a.final), "missing": str(a.missing)}
+            # Canvas's final zeroes unsubmitted work whether or not a row is flagged missing.
+            return "rc.canvas_partial_unsubmitted", {"current": grading.fmt_avg(a.reported), "final": grading.fmt_avg(a.final)}
         # Canvas's how is always what it counts; the match against its groups is the class page's.
         return "rc.canvas_current", {"current": grading.fmt_avg(a.reported)}
     if a.basis == "none":

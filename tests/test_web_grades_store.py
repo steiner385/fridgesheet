@@ -108,3 +108,8 @@ def test_how_for_picks_the_sentence_in_the_specs_order():
     assert grades.how_for(off_rows) == ("rc.rows_dont_add_up", {"rebuilt": "90.24", "reported": "86.57", "rows": "1"})
     off = grading.account_hac(79.0, sub, [])
     assert grades.how_for(off) == ("rc.dont_add_up", {"rebuilt": "50.00", "reported": "79.00"})
+
+
+def test_canvas_with_a_lower_final_but_nothing_marked_missing_says_unsubmitted_not_zero_missing():
+    a = grading.account_canvas(84.42, 68.94, False, [{"group": "A", "score": 84.42, "points": 100.0, "excused": False, "missing": False, "state": "graded"}])
+    assert grades.how_for(a) == ("rc.canvas_partial_unsubmitted", {"current": "84.42", "final": "68.94"})

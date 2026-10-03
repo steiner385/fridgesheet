@@ -63,7 +63,14 @@
   <div class="sec-head"><h3 id="account-head">How it's figured</h3><span class="count">{% if n_cats %}{{ n_cats }} categor{{ 'y' if n_cats == 1 else 'ies' }}{% endif %}</span></div>
   {% set with_number = accounts | rejectattr('reported', 'none') | list %}
   {% if not with_number and n_cats == 0 %}
+  {# Nothing to show: a class only one gradebook knows says that gradebook's own sentence. #}
+  {% if accounts | length == 1 %}
+  {% set only = accounts[0] %}
+  {% set only_key = ('rc.canvas_hidden' if only.hidden else 'rc.no_grade') if only.source == 'canvas' else 'copy.rc_hac_no_avg' %}
+  <p class="check">{{ only_key | say(acct_tier) }}</p>
+  {% else %}
   <p class="muted">{{ 'copy.rc_no_grade_either' | say(acct_tier) }}</p>
+  {% endif %}
   {% else %}
   {% for a in accounts %}
   {% set key, values = how_for(a) %}
@@ -87,7 +94,7 @@
   {% elif a.match == 'exact' %}
   <p class="check ok">✓ {{ 'rc.adds_up' | say(acct_tier, {'earned': fmt_points(a.earned), 'possible': fmt_points(a.possible)}) }}{% if a.source == 'hac' %} {{ 'copy.rc_hac_says' | say(acct_tier, {'reported': fmt_avg(a.reported)}) }}{% endif %}</p>
   {% else %}
-  <p class="check off">{{ (key | say(acct_tier, values)) if a.source == 'hac' else ('rc.dont_add_up' | say(acct_tier, {'rebuilt': fmt_avg(a.rebuilt), 'reported': fmt_avg(a.reported)})) }}</p>
+  <p class="check off">{{ (key | say(acct_tier, values)) if a.source == 'hac' else ('rc.canvas_dont_add_up' | say(acct_tier, {'rebuilt': fmt_avg(a.rebuilt), 'reported': fmt_avg(a.reported)})) }}</p>
   {% endif %}
   {% if a.source == 'hac' and (a.zero_points > 0 or a.excused) %}
   <p class="check-detail muted">{% if a.zero_points > 0 %}{{ 'copy.rc_unscored' | say(acct_tier, {'zero_points': fmt_points(a.zero_points)}) }}{% endif %}{% if a.zero_points > 0 and a.excused %} {% endif %}{% if a.excused %}{{ 'copy.rc_excused' | say(acct_tier, {'excused': a.excused}) }}{% endif %}</p>

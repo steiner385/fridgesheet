@@ -188,10 +188,10 @@ def fmt_points(x) -> str:
     """Points as a reader says them: 25, 520.5, 368.91."""
     if x is None:
         return ""
-    x = float(x)
+    x = round(float(x), 2)        # a raw float sum (24.999999999999996) is 25 to a reader
     if x == int(x):
         return str(int(x))
-    return f"{x:.2f}".rstrip("0")
+    return f"{x:.2f}".rstrip("0").rstrip(".")
 
 
 def fmt_avg(x) -> str:

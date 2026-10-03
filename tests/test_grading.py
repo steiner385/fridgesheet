@@ -124,3 +124,8 @@ def test_a_malformed_grading_section_warns_and_keeps_the_default(caplog):
 def test_number_formatting_for_phrases():
     assert grading.fmt_points(25.0) == "25" and grading.fmt_points(368.91) == "368.91" and grading.fmt_points(520.5) == "520.5"
     assert grading.fmt_avg(70.874) == "70.87" and grading.fmt_avg(100.0) == "100.00" and grading.fmt_avg(None) == ""
+
+
+def test_a_float_sum_just_under_a_whole_number_prints_as_the_whole_number():
+    # Line.earned for a from-rows or Canvas group line is a raw float sum: 24.999999999999996 is 25.
+    assert grading.fmt_points(24.999999999999996) == "25" and grading.fmt_points(0.1 + 0.2) == "0.3"
