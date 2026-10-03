@@ -123,6 +123,20 @@ def _after(o, set_at: str, refresh_times) -> bool:
     return a > b
 
 
+def _mark_after(o, field: str, set_at: str, refresh_times) -> bool:
+    """Whether the mark `o` carries -- its missing flag (`missing_since`) or its score
+    (`scored_since`) -- first appeared after the family answered. The row's own refresh is the
+    wrong clock: Canvas rewrites it for any field (the lock closing, a new column after an
+    upgrade), and on 2026-09-24 one such rewrite told every family answer on work Canvas had
+    called missing all along "Canvas now says missing", to be answered again."""
+    rid = outcomes.since_refresh(o, field)
+    started = refresh_times.get(rid) if rid is not None else None
+    if started is None or not set_at:
+        return False
+    a, b = reconcile._comparable(reconcile._parse_ts(started), reconcile._parse_ts(set_at))
+    return a > b
+
+
 def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> tuple[str, bool] | None:
     """What the school recorded after the family's answer that contradicts it, as (text, good),
     or None. `good` is a grade above zero or Canvas dropping its missing mark: for a follow-up,
@@ -134,9 +148,14 @@ def _stale_change(flag, set_at, c, h, refresh_times, prev=None, points=None) -> 
     not, and says nothing (#73)."""
     prev = prev or {}
     if flag in HANDLED_FLAGS:
-        if c is not None and _after(c, set_at, refresh_times) and (c["missing"] or (c["state"] == "graded" and c["score"] == 0)):
-            return ("Canvas now says missing" if c["missing"] else "Canvas now shows a zero"), False
-        if h is not None and _after(h, set_at, refresh_times) and h["score"] == 0:
+        # The school contradicts a handled answer only with a mark that appeared after it: a
+        # missing flag or a zero Canvas already showed when the family answered is what they
+        # answered, however often the row is rewritten around it.
+        if c is not None and c["missing"] and _mark_after(c, "missing_since", set_at, refresh_times):
+            return "Canvas now says missing", False
+        if c is not None and c["state"] == "graded" and c["score"] == 0 and _mark_after(c, "scored_since", set_at, refresh_times):
+            return "Canvas now shows a zero", False
+        if h is not None and h["score"] == 0 and _mark_after(h, "scored_since", set_at, refresh_times):
             return "HAC now shows a zero", False
     if flag in MARKED_FLAGS:
         for label, o in (("Canvas", c), ("HAC", h)):
