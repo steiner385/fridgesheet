@@ -100,6 +100,8 @@ def test_how_for_picks_the_sentence_in_the_specs_order():
     assert grades.how_for(grading.account_hac(None, sub, [])) == ("rc.no_grade", {})
     canvas = grading.account_canvas(84.42, 68.94, False, [{"group": "A", "score": 84.42, "points": 100.0, "excused": False, "missing": True, "state": "unsubmitted"}])
     assert grades.how_for(canvas) == ("rc.canvas_partial", {"current": "84.42", "final": "68.94", "missing": "1"})
+    whole = grading.account_canvas(91.2, 91.2, False, [])
+    assert grades.how_for(whole) == ("rc.canvas_current", {"current": "91.20"})         # Canvas's how is what it counts, never HAC's words
     zeros = grading.account_hac(50.0, sub, [{"category": "A", "score": 50.0, "points": 75.0, "excused": False}, {"category": "A", "score": None, "points": 25.0, "excused": False}])
     assert grades.how_for(zeros) == ("rc.adds_up_zeros", {"earned": "50", "possible": "100", "zero_points": "25"})
     off_rows = grading.account_hac(86.57, [], [{"category": "A", "score": 74.0, "points": 82.0, "excused": False}])
