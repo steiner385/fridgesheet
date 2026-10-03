@@ -72,7 +72,8 @@
     {# The household page speaks in the parent's voice: the ask line and the answers are the
        parent's phrasing whatever the child's tier (maintainer, 2026-09-30); only the sheet's
        word keeps the child's words, because it is the word on their sheet. #}
-    {% set exclude = ['too_late', 'ignore'] %}{% set voice = '' %}
+    {# The Plan's own answers, "Let it go" left off as there; "Too late to submit" is one tap here too (2026-10-03). #}
+    {% set exclude = ['ignore'] %}{% set voice = '' %}
     {% for view in rows %}
     {% set item = view %}{% set density = 'card' %}{% set slot = 'qt-' ~ view.id %}{% set box_id = 'td-' ~ view.id %}
     {% set word_tone = view | sheet_tone %}{% set tone = word_tone %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}

@@ -789,7 +789,7 @@ tr.detail .item::before, .card .item::before, tr.detail .item::after, .card .ite
 .item .ask-line { margin: var(--s2) 0 0; font-weight: 600; }
 .item .answers { margin-top: var(--s2); display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .item .answers form { display: inline; margin: 0; }
-/* "More answers": the two answers that close a row for good, folded in the row itself. */
+/* "More answers": "Let it go", the answer that says the record is right, folded in the row itself. */
 .answers .more-answers { display: inline; }
 .answers .more-answers > summary { cursor: pointer; color: var(--accent); font-size: var(--type-small); }
 .answers .more-answers[open] { display: flex; flex-basis: 100%; flex-wrap: wrap; gap: var(--s2); align-items: center; }

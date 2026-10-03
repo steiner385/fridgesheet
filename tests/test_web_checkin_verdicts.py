@@ -141,13 +141,15 @@ def test_an_upcoming_card_offers_today_tomorrow_and_handed_in(tmp_path):
 
 
 def test_an_upcoming_card_also_offers_too_late_to_submit(tmp_path):
-    """The manual override sits beside done/plan:today/plan:tomorrow on any not-yet-done review
-    card. Vocabulary would have shown it too, before it was Must finish's -- Must finish drops
-    "too late" and "let it go" from every row on purpose (spec 2026-09-27 §4.4), so this now
-    uses Homework 4, past its window and still a review card ("Other open work")."""
-    hid = _id(tmp_path, "Homework 4")
-    card = _card(app_for(tmp_path).get("/kids/Alex/check-in").text, hid)
-    assert 'value="too_late"' in card and "Too late to submit" in card
+    """The manual override sits beside done/plan:today/plan:tomorrow on any not-yet-done card,
+    one tap, never folded (2026-10-03): Homework 4, past its window and a review card ("Other
+    open work"), and Vocabulary, due today and a Must-finish row."""
+    ids = [_id(tmp_path, name) for name in ("Homework 4", "Vocabulary")]
+    body = app_for(tmp_path).get("/kids/Alex/check-in").text
+    for pid in ids:
+        card = _card(body, pid)
+        assert 'value="too_late"' in card and "Too late to submit" in card
+        assert "more-answers" not in card
 
 
 def test_a_waiting_card_offers_ask_the_teacher(tmp_path):

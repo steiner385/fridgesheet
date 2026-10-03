@@ -6,17 +6,20 @@
    the way to that. The first answer is the default, drawn as the heavier stroke (`button.default`,
    never the page's one filled primary: critique 2026-09-29), except on a waiting card: its own
    sentence says time will settle it (kids' UX audit F9).
-   `exclude` (a list of actions) drops answers -- Must finish drops the two handled flags that would
-   dismiss a row (spec 2026-09-27 §4.4); `first` (an action) moves one to the front. #}
+   `exclude` (a list of actions) drops answers -- Must finish and Today drop "Let it go", the one
+   handled flag that waves a row away (spec 2026-09-27 §4.4, amended 2026-10-03); `first` (an
+   action) moves one to the front. #}
   {% set token = request_key() %}
   {% set drop = exclude if exclude is defined and exclude else [] %}
   {% set answers = vd.answers | rejectattr('action', 'in', drop) | list %}
   {% if first is defined and first %}{% set answers = (answers | selectattr('action', 'equalto', first) | list) + (answers | rejectattr('action', 'equalto', first) | list) %}{% endif %}
-  {# "Too late to submit" and "Let it go" close a row for good; unless one is the row's own
-     first answer (past the window), they sit behind "More answers", identically at every tier:
-     parity is rows and actions, and a fold hides nothing (critique 2026-09-29, kids' UX audit). #}
+  {# "Too late to submit" (won't do) is one tap in the row, the last button, on every card
+     (2026-10-03): the verdict already lists it last. "Let it go" says the school's record is
+     right and closes the row for good; unless it is the row's own first answer (past the
+     window), it sits behind "More answers", identically at every tier: parity is rows and
+     actions, and a fold hides nothing (critique 2026-09-29, kids' UX audit). #}
   {% set answers = answers | rejectattr('action', 'in', ['plan:today', 'plan:tomorrow'] if item.step else []) | list %}
-  {% set adult = ['too_late', 'ignore'] %}
+  {% set adult = ['ignore'] %}
   {% set folded = (answers[1:] | selectattr('action', 'in', adult) | list) if answers else [] %}
   {% set shown = (answers[:1] + (answers[1:] | rejectattr('action', 'in', adult) | list)) if answers else [] %}
   {% macro answer(a, default) %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#{{ qid }}" hx-swap="outerHTML"><input type="hidden" name="prev" value="{{ item.flag or '' }}"><input type="hidden" name="prev_set_at" value="{{ item.flag_set_at or '' }}"><input type="hidden" name="slot" value="{{ qid }}"><input type="hidden" name="request_key" value="{{ token }}"><button name="answer" value="{{ a.action }}" class="{{ 'default' if default }}">{{ a.key | say(tier) }}</button></form>{% endmacro %}

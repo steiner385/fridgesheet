@@ -64,16 +64,45 @@ def test_the_flag_menu_leaves_out_the_flags_already_offered_as_answers(tmp_path)
     assert 'value="excused"' in menu and 'value="follow_up"' in menu          # still reachable behind More
 
 
-# --- the adult answers, folded at every tier -----------------------------------------------------------
+# --- "Too late to submit" in the row; only "Let it go" folds, at every tier ---------------------------
 
-def test_too_late_and_let_it_go_fold_behind_more_answers_unless_first(tmp_path):
-    hw = _id(tmp_path, "Homework 4")                                           # past the window: Let it go first
+ANSWERS_BLOCK = r'<div class="answers">.*?</div>\s*(?=<p class="ours"|<div class="inset"|<div class="item-foot")'
+FOLD = r'<details class="more-answers"><summary>More answers</summary>(.*?)</details>'
+
+
+def _zero_on_essay(home):
+    """Alex's submitted Essay draft with a HAC zero: the card asks, "Ask the teacher" first and
+    "The zero is right" (`ignore`) second -- the one answer that still folds."""
+    from tests.web_fixtures import _h, snapshot
+    snap = snapshot()
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Essay draft", "09/14/2026", 0.0))
+    conn = seed(home, snap)
+    try:
+        return conn.execute("SELECT id FROM items WHERE name = 'Essay draft'").fetchone()["id"]
+    finally:
+        conn.close()
+
+
+def test_too_late_to_submit_is_one_tap_in_the_row_never_folded(tmp_path):
+    """"Won't do / too late" is a single tap beside the other answers (2026-10-03): a not-done
+    row's last button, never behind "More answers"."""
+    hw = _id(tmp_path, "Homework 4")                                           # past the window: Let it go first, Too late last
     detail = app_for(tmp_path).get(f"/items/{hw}").text
-    answers = re.search(r'<div class="answers">.*?</div>\s*(?=<p class="ours"|<div class="inset"|<div class="item-foot")', detail, re.S).group(0)
-    assert re.search(r'value="ignore" class="default"', answers)             # the first answer is not folded
-    fold = re.search(r'<details class="more-answers"><summary>More answers</summary>(.*?)</details>', answers, re.S)
-    assert fold and 'value="too_late"' in fold.group(1)
-    assert 'value="done"' in answers.split("<details")[0]                      # "It's handed in" stays in the row
+    answers = re.search(ANSWERS_BLOCK, detail, re.S).group(0)
+    assert re.search(r'value="ignore" class="default"', answers)             # the first answer keeps the default stroke
+    assert 'value="too_late"' in answers and 'value="done"' in answers
+    assert "<details" not in answers                                           # nothing left to fold: both dismissals are in the row
+    assert answers.index('value="done"') < answers.index('value="too_late"')   # Too late closes the row, so it comes last
+
+
+def test_let_it_go_still_folds_behind_more_answers_unless_first(tmp_path):
+    eid = _zero_on_essay(tmp_path)
+    detail = app_for(tmp_path).get(f"/items/{eid}").text
+    answers = re.search(ANSWERS_BLOCK, detail, re.S).group(0)
+    assert re.search(r'value="ask_teacher" class="default"', answers)
+    fold = re.search(FOLD, answers, re.S)
+    assert fold and 'value="ignore"' in fold.group(1)
+    assert 'value="ignore"' not in answers.split("<details")[0]
 
 
 def test_the_fold_is_the_same_at_every_tier(tmp_path):
@@ -82,8 +111,8 @@ def test_the_fold_is_the_same_at_every_tier(tmp_path):
     for tier, grade in (("early", 5), ("older", 11)):
         home = tmp_path / tier
         home.mkdir()
-        hw = _id(home, "Homework 4")
-        homes[tier] = client_with_grades(home, Alex=grade).get(f"/items/{hw}").text
+        eid = _zero_on_essay(home)
+        homes[tier] = client_with_grades(home, Alex=grade).get(f"/items/{eid}").text
     early, older = homes["early"], homes["older"]
     for body in (early, older):
         assert body.count('<details class="more-answers">') == 1

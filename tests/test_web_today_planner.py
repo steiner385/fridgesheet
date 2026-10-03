@@ -61,7 +61,8 @@ def test_a_kids_box_holds_tonights_lines_with_their_answers(tmp_path):
     line = box[box.index('id="td-%d"' % vid):]
     assert '<span class="when word due">DUE TODAY</span>' in line
     assert 'hx-post="/items/%d/answer"' % vid in line and 'name="slot" value="qt-%d"' % vid in line
-    assert 'value="too_late"' not in line and 'value="ignore"' not in line         # the dismissals stay on the Plan's detail
+    assert 'value="too_late"' in line and "more-answers" not in line            # one tap to say it won't be done (2026-10-03)
+    assert 'value="ignore"' not in line                                          # "Let it go" stays on the Plan's detail
 
 
 def test_the_print_two_step_is_unchanged_in_the_sheet_strip(tmp_path):

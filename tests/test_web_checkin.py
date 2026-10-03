@@ -92,17 +92,18 @@ def test_must_finish_opens_the_plan_with_the_school_list_in_sections(tmp_path):
     assert "The school&#39;s list as of" in body      # apostrophe escaped: `say` returns plain text, autoescaped
 
 
-def test_a_must_finish_row_never_offers_too_late_or_let_it_go(tmp_path):
+def test_a_must_finish_row_offers_too_late_in_the_row_but_never_let_it_go(tmp_path):
+    """"Too late to submit" is one tap on every assignment card, the Plan's rows included
+    (2026-10-03, amending spec 2026-09-27 §4.4); "Let it go" stays off this list."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/kids/Sam/plan").text
     overdue = _section(body, "overdue")
     assert "Cell diagram" in overdue and "Safety quiz" in overdue
-    assert 'value="too_late"' not in overdue and 'value="ignore"' not in overdue
+    assert 'value="too_late"' in overdue and 'value="ignore"' not in overdue
     assert 'value="done"' in overdue and 'value="plan:today"' in overdue
-    # The verdict table itself still carries them: the row filtered, the answers did not change.
-    from fridgesheet.web import verdicts as V
-    assert any(a.action == "too_late" for a in V.ANSWERS["not_done"])
+    assert "more-answers" not in overdue                                     # in the row, not behind a fold
+    assert overdue.index('value="plan:tomorrow"') < overdue.index('value="too_late"')   # last: it closes the row
 
 
 def test_a_paper_row_puts_handed_in_first(tmp_path):

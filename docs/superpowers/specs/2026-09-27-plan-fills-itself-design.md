@@ -139,6 +139,10 @@ A row renders `_answers.html` with **its own verdict's answers**, filtered:
 - `too_late` and `ignore` actions are dropped on this page. They are `HANDLED_FLAGS`, which
   remove a row from the open list; the list's promise is that nothing here can be waved
   away. They remain on the Questions page, the Assignments tab and behind **More**.
+  *Amended 2026-10-03:* only `ignore` is dropped. "Too late to submit" (the family's "won't
+  do") is one tap on every assignment card, this page's rows included, as the row's last
+  button; it never folds behind "More answers". "Let it go" keeps the fold elsewhere and
+  stays off this page and Today.
 - The first remaining answer is the filled default, except on the "On paper" group, where
   `done` ("It's handed in") is moved first and filled. On an online `not_done` row the order
   stays `done`, Today, Tomorrow; on `not_due_yet` it stays Today, Tomorrow, `done`.
