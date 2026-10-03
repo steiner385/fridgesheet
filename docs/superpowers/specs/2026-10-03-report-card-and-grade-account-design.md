@@ -112,9 +112,12 @@ class Account:
   row gets a line summed from its rows with `from_rows=True` (the Biology Final Exam case).
 - `basis` is `"subtotals"` when HAC gave any subtotal row; `"rows"` when it gave none and
   every line is summed from scored rows; `"none"` when there is nothing to sum.
-- `zero_points` is `possible − Σ points of scored rows` in the subtotals basis, floored at 0:
-  the blank work HAC has already counted as zero. It is 0 in the rows basis, where the app
-  cannot know.
+- `zero_points` is summed per category in the subtotals basis: for each category with a
+  subtotal, the smaller of (subtotal possible − Σ points of its scored rows, floored at 0) and
+  (Σ points of its unscored, unexcused rows). The first is how much of HAC's denominator the
+  scored rows do not explain; the second caps it at the blank work that could explain it, so a
+  category whose rows the scraper did not see cannot be read as blank work counted at zero. It
+  is 0 in the rows basis, where the app cannot know.
 - `match` is `"exact"` when `|rebuilt − reported| ≤ 0.011` (HAC prints two decimals, and a
   rebuild from two-decimal subtotals drifts by at most a hundredth); `"unknown"` when either
   number is None; `"off"` otherwise.
