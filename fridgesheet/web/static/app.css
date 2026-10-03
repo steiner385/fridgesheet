@@ -1056,6 +1056,18 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .class-record > details.sec.quiet { margin: var(--s4) 0 0; }
 .class-record .grade-moves .chart-holder { margin-top: var(--s2); }
 .class-record .notes { margin-top: var(--s2); }
+/* How it's figured (spec 2026-10-03 §7.2): the category table flat on the page, numbers right,
+   the check line in ink with a ✓, or in Red Pen when the school's number and ours disagree. */
+.grade-account .lead { margin: 0 0 var(--s2); color: var(--muted); max-width: var(--measure); }
+.grade-account h4 { margin: var(--s3) 0 var(--s1); font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.grade-account table.categories { border-collapse: collapse; min-width: 28em; }
+.grade-account table.categories th, .grade-account table.categories td { padding: 4px 8px; border-bottom: 1px solid var(--rule); text-align: left; }
+.grade-account table.categories th + th, .grade-account table.categories td + td { text-align: right; }
+.grade-account table.categories tfoot td { font-weight: 650; border-bottom: 0; }
+.grade-account table.categories tr.from-rows td { color: var(--muted); }
+.grade-account .check { margin: var(--s2) 0 0; max-width: var(--measure); }
+.grade-account .check.off { color: var(--warn); }
+.grade-account .check-detail { margin: 0; font-size: var(--type-small); max-width: var(--measure); }
 /* The parent's answering page (the Student Planner, Questions; the surface brief for
    questions.html, 2026-09-30): one ruled list for the house, the kid's name first in each
    line's pencil meta; who has nothing to ask as a pencil line under the title; beneath the

@@ -75,6 +75,8 @@ def how_for(account: grading.Account | None) -> tuple[str, dict]:
             return "rc.canvas_hidden", {}
         if a.final is not None and a.final < a.reported:
             return "rc.canvas_partial", {"current": grading.fmt_avg(a.reported), "final": grading.fmt_avg(a.final), "missing": str(a.missing)}
+        # Canvas's how is always what it counts; the match against its groups is the class page's.
+        return "rc.canvas_current", {"current": grading.fmt_avg(a.reported)}
     if a.basis == "none":
         return "rc.no_breakdown", {"reported": grading.fmt_avg(a.reported)}
     if a.match == "exact":

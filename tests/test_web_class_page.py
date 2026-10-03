@@ -38,7 +38,9 @@ def test_the_grade_strip_puts_the_official_number_first_and_highlights_the_newes
     assert cells == [" official", " newest"]
     assert re.search(r'<li class="mf-section day-cell official"><h4><span class="day-word">Official</span></h4>\s*<p><span class="big">88.0</span></p><p class="whose">HAC average · as of 9/11</p></li>', strip)
     assert re.search(r'<li class="mf-section day-cell newest"><h4><span class="day-word">Tue 9/15</span></h4>\s*<p><span class="big">91.2</span> A-</p><p class="whose">Canvas current</p></li>', strip)
-    assert "<table" not in body and "Grade history" not in body and '<div class="cards">' not in body
+    # The retired grade-history table and the three cards stay gone; the categories table under
+    # "How it's figured" (spec 2026-10-03 §7.2) is the one table this page draws.
+    assert '<table class="items' not in body and "Grade history" not in body and '<div class="cards">' not in body
 
 
 def test_the_twins_page_reads_its_own_number_and_names_the_other(tmp_path):
@@ -108,3 +110,55 @@ def test_the_strip_and_the_folds_are_drawn_in_the_planners_rules():
     coarse = "\n".join(re.findall(r"@media \(pointer: coarse\)\s*\{(.*?)\n\}", CSS, re.S))
     assert re.search(r"\.sources-fold > summary, \.teacher-line a \{[^}]*min-height: 44px", coarse)
     assert "table.work" not in CSS
+
+
+# --- How it's figured (spec 2026-10-03 §7.2) --------------------------------------------------------
+
+def _account_section(body: str) -> str:
+    assert 'class="sec grade-account"' in body, "no How it's figured section"
+    return body.split('class="sec grade-account"', 1)[1].split("</section>", 1)[0]
+
+
+def test_how_its_figured_shows_hacs_categories_their_share_and_the_check(tmp_path):
+    cid = _course(tmp_path, source="hac")
+    body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
+    sec = _account_section(body)
+    assert "<h3 id=\"account-head\">How it's figured</h3>" in sec
+    assert '<span class="count">2 categories</span>' in sec
+    assert '<div class="table-wrap"><table class="categories">' in sec.replace("\n", "")
+    assert re.search(r"<td>Assignments</td>\s*<td>28</td><td>30</td><td>93\.33%</td><td>60%</td>", sec)
+    assert re.search(r"<td>Daily</td>\s*<td>16</td><td>20</td><td>80\.00%</td><td>40%</td>", sec)
+    assert re.search(r"<tfoot>.*<td>Total</td><td>44</td><td>50</td><td>88\.00%</td>", sec, re.S)
+    assert re.search(r'<p class="check ok">✓ Adds up: 44 of 50 points\. HAC says 88\.00\.</p>', sec)
+
+
+def test_the_twins_page_leads_with_the_official_account_and_says_what_canvas_counts(tmp_path):
+    cid = _course(tmp_path, source="canvas")
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert sec.index("<h4>HAC</h4>") < sec.index("<h4>Canvas</h4>")                   # official first, whatever page it is
+    assert "Canvas counts graded work only" in sec
+
+
+def test_a_class_with_no_breakdown_is_one_sentence(tmp_path):
+    cid = _course(tmp_path, short="Algebra I", source="hac")
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert "<table" not in sec
+    assert "HAC says 79.50" in sec and "nothing to rebuild it from" in sec
+
+
+def test_a_category_with_nothing_possible_prints_a_dash(tmp_path):
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac' AND short_name = 'Honors English 9'").fetchone()["id"]
+    rid = conn.execute("SELECT MAX(refresh_id) FROM category_observations").fetchone()[0]
+    with conn:
+        conn.execute("INSERT INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?, ?, 'Project', 0, 0, '')", (rid, cid))
+    conn.close()
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert re.search(r"<td>Project</td>\s*<td>0</td><td>0</td><td>—</td><td>0%</td>", sec)
+
+
+def test_the_account_is_drawn_in_the_planners_rules():
+    for sel in (".grade-account table.categories", ".grade-account .check", ".grade-account .check.off"):
+        _rule(sel)
+    assert "var(--warn)" in _rule(".grade-account .check.off")                     # off is the one red the planner allows
+    assert "text-align: right" in _rule(".grade-account table.categories th + th, .grade-account table.categories td + td")
