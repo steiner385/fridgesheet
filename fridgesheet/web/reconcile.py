@@ -81,7 +81,10 @@ def open_sources(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, 
 def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days_ahead: int = 14, prefer: str = "canvas") -> bool:
     """Not open yet, but due within `days_ahead` days and still unsubmitted in Canvas: the
     sheet's DUE TODAY / DUE TOMORROW / DUE <weekday> rows. Work nothing has happened to, by
-    the outcome (`not due yet`): a grade HAC already holds is done, not coming due (#137)."""
+    the outcome (`not due yet`): a grade HAC already holds is done, not coming due (#137),
+    and a zero or a missing flag recorded ahead of the deadline is a placeholder, so the work
+    is still coming due. The outcome is the whole test: `classify` says *not due yet* only
+    with nothing handed in and no grade above zero."""
     from . import outcomes                      # outcomes imports this module's helpers
     due = _due(item)
     c = obs.get("canvas")
@@ -92,7 +95,7 @@ def upcoming(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, days
     # is still coming due, not in neither list (#3).
     if a < b or a > b + timedelta(days=days_ahead):
         return False
-    return c["state"] in ("unsubmitted", None) and c["score"] is None and outcomes.classify(item, obs, now, prefer=prefer) == outcomes.NOT_DUE
+    return outcomes.classify(item, obs, now, prefer=prefer) == outcomes.NOT_DUE
 
 
 def is_actionable(item: sqlite3.Row, obs: dict[str, sqlite3.Row], flag: str | None, rules, kid: str, now: datetime,

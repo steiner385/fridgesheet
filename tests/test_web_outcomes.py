@@ -87,6 +87,22 @@ def test_not_due_yet():
     assert oc.classify(item("paper", due=FUTURE), {"hac": hac()}, NOW) == oc.NOT_DUE
 
 
+def test_a_mark_before_the_deadline_is_a_placeholder_not_an_outcome():
+    """A zero or a missing flag on work not yet due, with nothing handed in, is the teacher's
+    placeholder: the kid can still do it. It is *not due yet*, whichever source holds the mark."""
+    assert oc.classify(item(due=FUTURE), {"canvas": canvas(state="graded", score=0)}, NOW) == oc.NOT_DUE
+    assert oc.classify(item(due=FUTURE), {"canvas": canvas(missing=1)}, NOW) == oc.NOT_DUE
+    assert oc.classify(item(due=FUTURE), {"hac": hac(0)}, NOW) == oc.NOT_DUE
+    assert oc.classify(item(due=FUTURE), {"canvas": canvas(), "hac": hac(0)}, NOW) == oc.NOT_DUE
+    assert oc.classify(item(due=FUTURE), {"canvas": canvas(), "hac": hac(0)}, NOW, prefer="hac") == oc.NOT_DUE
+    # A zero on something handed in is a grade, before the deadline or after it.
+    assert oc.classify(item(due=FUTURE), {"canvas": canvas(state="graded", score=0, submitted_at=PAST)}, NOW) == oc.NOT_DONE
+    # Undated work has no deadline to be ahead of: the mark is the only word (#138).
+    assert oc.classify(item(due=None), {"canvas": canvas(state="graded", score=0)}, NOW) == oc.NOT_DONE
+    assert oc.classify(item(due=None), {"canvas": canvas(missing=1)}, NOW) == oc.NOT_DONE
+    assert oc.classify(item(due=None), {"hac": hac(0)}, NOW) == oc.NOT_DONE
+
+
 def test_nothing_known():
     assert oc.classify(item(), {}, NOW) == oc.NO_DATA
 

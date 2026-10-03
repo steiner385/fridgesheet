@@ -120,7 +120,11 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
     c, h = obs.get("canvas"), obs.get("hac")
     due = reconcile.due_of(item)
     past = due is not None and reconcile.comparable(due, now)[0] < reconcile.comparable(due, now)[1]
-    if prefer == "hac" and h is not None and h["score"] is not None:
+    # A zero or a missing flag recorded ahead of the deadline is a placeholder, not a word
+    # about the work (`outcomes.classify`): the column says when it is due, as for any row
+    # nothing has happened to.
+    not_due = outcomes.classify(item, obs, now, prefer=prefer) == outcomes.NOT_DUE
+    if prefer == "hac" and h is not None and h["score"] is not None and not not_due:
         if c is not None and c["excused"]:
             return "Excused"
         if c is not None and c["published"] == 0:
@@ -134,6 +138,8 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
             return "Unpublished"
         if hac_excused:
             return "Excused"
+        if not_due:
+            return _due_word(due, now)
         if c["missing"]:
             return "Missing"
         if c["state"] == "graded" and c["score"] == 0:
@@ -154,15 +160,7 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
             if item["kind"] in _NOTHING_TO_SUBMIT:
                 return "Paper, check" if item["kind"] == "paper" else "In class, check"
             return "Missing"
-        if due is not None:
-            # By the evening the deadline belongs to: due at 00:00 is due tonight, not
-            # tomorrow (`dates.deadline_date`, #139).
-            day = deadline_date(due)
-            days = (day - now.date()).days
-            if days == 0:
-                return "Due tonight" if due.hour == 0 else "Due today"
-            return "Due tomorrow" if days == 1 else "Due " + day.strftime("%a")
-        return "No due date"
+        return _due_word(due, now)
     if h is not None:
         if hac_excused:
             return "Excused"
@@ -170,6 +168,18 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
             return "HAC, no grade" if past else "Not graded yet"
         return _score(h, item["points"])
     return ""
+
+
+def _due_word(due: datetime | None, now: datetime) -> str:
+    """The status column for work nothing has happened to: when it is due. By the evening the
+    deadline belongs to: due at 00:00 is due tonight, not tomorrow (`dates.deadline_date`, #139)."""
+    if due is None:
+        return "No due date"
+    day = deadline_date(due)
+    days = (day - now.date()).days
+    if days == 0:
+        return "Due tonight" if due.hour == 0 else "Due today"
+    return "Due tomorrow" if days == 1 else "Due " + day.strftime("%a")
 
 
 def due_relative(due: datetime | None, now: datetime) -> str:

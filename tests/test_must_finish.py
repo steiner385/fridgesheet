@@ -9,7 +9,8 @@ from pathlib import Path
 
 from fridgesheet import late_rules
 from fridgesheet.web.stores import items, students
-from tests.web_fixtures import NOW, TZ, _a, _h, seed, snapshot
+from fridgesheet.web import outcomes
+from tests.web_fixtures import NOW, TZ, _a, _h, marked_ahead, seed, snapshot
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])
 
@@ -42,6 +43,25 @@ def test_sam_has_two_overdue_rows_a_missing_and_a_zero(tmp_path):
     mf = items.must_finish(_work(tmp_path, "Sam"), NOW.date())
     assert set(_names(mf.overdue)) == {"Cell diagram", "Safety quiz"}
     assert mf.red == mf.overdue and mf.paper == [] and len(mf) == 2
+
+
+def test_a_mark_before_the_deadline_is_coming_due_not_overdue(tmp_path):
+    """A zero entered, or a missing flag set, on work not yet due is a placeholder, not a
+    missed assignment: the row belongs with what is coming due, never in "Overdue, still
+    fixable" -- and it moves to Due tonight, then to Overdue, only as the calendar does."""
+    w = _work(tmp_path, "Sam", snap=marked_ahead())
+    mf = items.must_finish(w, NOW.date())
+    assert set(_names(mf.overdue)) == {"Cell diagram", "Safety quiz"}
+    assert _names(mf.later) == ["Lab prep", "Cell organelle extension"]
+    assert len(mf) == 4
+    ext = next(v for v in mf.later if v.name == "Cell organelle extension")
+    assert ext.outcome == outcomes.NOT_DUE and ext.upcoming and not ext.overdue
+    assert ext.status == "Due Fri" and items.sheet_status(ext) == "DUE FRI"
+    # Ten days on, the zero's work is due tonight and the flagged work is overdue for real.
+    then = NOW + timedelta(days=10)
+    later = items.must_finish(_work(tmp_path, "Sam", snap=marked_ahead(), now=then), then.date())
+    assert _names(later.tonight) == ["Cell organelle extension"]
+    assert "Lab prep" in _names(later.overdue)
 
 
 def test_the_sections_partition_fixable_and_upcoming(tmp_path):

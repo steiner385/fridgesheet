@@ -29,17 +29,23 @@ this order and the first that applies wins — that is the order of certainty.
 |---|---|---|
 | **excused** | The teacher excused it. | Canvas `excused`, or HAC's **EXC** in the score column. Counted nowhere, never asked about, never printed. |
 | **unpublished** | The teacher unpublished it. Not work the kid can do. | Canvas `published = 0`. Counted nowhere. |
-| **not done** | The work was not done. | Any one of: Canvas flagged it **missing** (unless HAC has a grade above zero — see below); a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. |
+| **not done** | The work was not done. | Any one of: Canvas flagged it **missing** (unless HAC has a grade above zero — see below); a **score of 0** was entered (in Canvas or HAC, with or without a submission — a blank hand-in scored 0 is not done); or it is **online** work, **past due**, with no submission and no grade. A flag or a 0 recorded **before the due date**, with nothing handed in, is not this yet — see *not due yet*. |
 | **late** | Handed in after the deadline. | Canvas has a submission and marks it `late`. Whatever it was then graded, it was late. |
 | **on time** | Handed in by the deadline. | Canvas has a submission, not marked late. |
 | **done on paper** | Done, but not through Canvas. | A grade above zero — in Canvas or HAC — with no online submission. Paper or in-class work handed in and marked by hand, or online work the teacher graded from a physical copy. Its timing is unknowable, so it is neither on time nor late. |
 | **unknown** | Nobody has said yet. | Past due, nothing handed in online, no grade in either source — and it is paper or in-class work, so Canvas could not have seen it. **This is the list to ask teachers about.** |
-| **not due yet** | Nothing has happened. | Due in the future (or no due date) and not handed in. |
+| **not due yet** | Nothing has happened. | Due in the future and not handed in — even when a teacher has already entered a **0** or set the **missing** flag, which ahead of the deadline is a placeholder, not a verdict on the work. Or no due date and nothing recorded at all. |
 
 Two consequences worth knowing:
 
 - **A teacher's 0 counts as not done**, on purpose. In practice it is how many teachers
   record a missed assignment, and it costs the grade exactly as a missing flag would.
+- **But not before the work is due.** A 0 or a missing flag on work whose due date has not
+  passed is the teacher's placeholder — some gradebooks fill the column ahead of time — and
+  the kid can still hand the work in. Until the deadline, it is *not due yet* and lists as
+  coming due, on the Plan, the Open work page and the printed sheet; the moment the deadline
+  passes, the same mark makes it *not done*. Undated work has no deadline to be ahead of, so
+  a mark on it counts at once.
 - **Work done on paper is not "not done"**, on purpose. Canvas lists it as unsubmitted
   forever; the grade is the proof it was done. The old Status column called these
   "Missing" and was wrong about them roughly a dozen times per kid.

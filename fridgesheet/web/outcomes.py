@@ -33,7 +33,8 @@ LATE = "late"
 #: Not done. Any one of: Canvas flagged it missing; a score of zero was entered (with or
 #: without a submission -- a blank hand-in scored 0 is not done); or it is online work,
 #: past due, with no submission and no grade. A teacher's 0 counts here precisely because
-#: many enter one instead of clicking "missing".
+#: many enter one instead of clicking "missing". A flag or a zero recorded *before* the
+#: deadline, with nothing handed in, is not this: it is `NOT_DUE` until the deadline passes.
 NOT_DONE = "not_done"
 #: Done, but not through Canvas: a grade above zero with no online submission. Paper and
 #: in-class work handed in and marked by hand, or online work the teacher graded from a
@@ -42,7 +43,8 @@ DONE_OFFLINE = "done_offline"
 #: Past due, nothing handed in online, and no grade anywhere yet -- paper or in-class work
 #: whose fate only the teacher knows. This is the list to ask about.
 UNKNOWN = "unknown"
-#: Not due yet (or no due date) and not handed in. Nothing has happened.
+#: Not due yet (or no due date) and not handed in. Nothing has happened -- a zero or a
+#: missing flag a teacher recorded ahead of the deadline is a placeholder, not an event.
 NOT_DUE = "not_due_yet"
 #: The teacher excused it. Counted nowhere.
 EXCUSED = "excused"
@@ -164,9 +166,14 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
     score = h_score if hac_decides else (c_score if c_score is not None else h_score)
     points = item["points"] or 0
     zero = score == 0 and points > 0
+    # A mark made ahead of the deadline -- a zero entered, or a missing flag set, on work that
+    # is not yet due and not handed in -- is the teacher's placeholder, not an outcome: the kid
+    # can still do the work. Undated work has no deadline to be ahead of, so its mark stands.
+    due = reconcile.due_of(item)
+    ahead = due is not None and not _is_past(item, now)
     if c is not None:
         if (c["missing"] and not hac_decides) or zero:
-            return NOT_DONE
+            return NOT_DUE if ahead and not c["submitted_at"] else NOT_DONE
         if c["submitted_at"]:
             return LATE if c["late"] else ON_TIME
         if score is not None:
@@ -176,7 +183,7 @@ def classify(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, pref
         return UNKNOWN if item["kind"] in _NOTHING_TO_SUBMIT else NOT_DONE
     # HAC only: a grade or nothing.
     if zero:
-        return NOT_DONE
+        return NOT_DUE if ahead else NOT_DONE
     if score is not None:
         return DONE_OFFLINE
     return UNKNOWN if _is_past(item, now) else NOT_DUE

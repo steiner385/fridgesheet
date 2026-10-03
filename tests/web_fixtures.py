@@ -114,6 +114,18 @@ def snapshot() -> dict:
     }
 
 
+def marked_ahead() -> dict:
+    """The snapshot with two marks a teacher made *before* the deadline, in Sam's Science 7:
+    a zero entered on work due 9/25 and a missing flag on work due 9/22, both read on 9/15.
+    Neither is an outcome yet -- the kid can still do the work -- so both are *not due yet*
+    and list as coming due, on the page and on the sheet alike."""
+    snap = snapshot()
+    sci = snap["students"]["Sam"]["canvas"]["courses"][0]["assignments"]
+    sci.append(_a(102, "Cell organelle extension", "09-25", state="graded", score=0.0, grade="0", points_possible=30.0))
+    sci.append(_a(103, "Lab prep", "09-22", missing=True))
+    return snap
+
+
 #: `seed`'s sentinel for "the caller didn't pass this" -- distinct from any real value
 #: (including "", the default a blank update PIN and an untouched config.toml agree on) so
 #: `seed(tmp_path)` alone still leaves config.toml untouched, the way every other test that

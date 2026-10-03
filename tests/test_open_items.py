@@ -87,6 +87,19 @@ def test_upcoming_statuses_and_window(rules):
     assert not work.items[0].overdue
 
 
+def test_a_mark_before_the_deadline_prints_as_coming_due_not_zero_or_missing(rules):
+    """A zero entered, or a missing flag set, ahead of the deadline is a placeholder: the kid
+    can still do the work, so the sheet prints the DUE word, not ZERO or MISSING. Undated work
+    has no deadline to be ahead of, so its zero still prints (#138)."""
+    work = run(entry([
+        canvas_item(id=1, state="graded", score=0.0, due_at=iso(3)),
+        canvas_item(id=2, missing=True, due_at=iso(1)),
+        canvas_item(id=3, state="graded", score=0.0, due_at=None),
+    ]), rules)
+    assert sorted((i.key, i.status, i.overdue) for i in work.items) == [
+        ("canvas:1", "DUE MON", False), ("canvas:2", "DUE TOMORROW", False), ("canvas:3", "ZERO", True)]
+
+
 def test_items_past_the_late_deadline_are_dropped_not_shown(rules):
     work = run(entry([canvas_item(id=1, missing=True, due_at=iso(-8)), canvas_item(id=2, missing=True, due_at=iso(-6))]), rules)
     assert [i.key for i in work.items] == ["canvas:2"]
