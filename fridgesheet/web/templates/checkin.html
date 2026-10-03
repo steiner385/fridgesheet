@@ -30,7 +30,7 @@
   </form>
 </section>
 {% endif %}
-{% if asked %}<p class="asked-line"><strong>{{ 'copy.asked_the_school' | say(tier) }}:</strong> {% for v, key, when in asked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ v.id }}">{{ v.name }}</a>: {{ key | say(tier, {'when': when}) }}{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
+{% if asked %}<p class="asked-line"><strong>{{ 'copy.asked_the_school' | say(tier) }}:</strong> {% for v, key, when in asked %}<a href="/kids/{{ student.key | urlencode }}?show=all#row-{{ v.id }}">{{ v.name }}</a>{% if v.due %} (due {{ v.due | wd_md }}{% set at = v | due_at(tier) %}{% if at %} {{ at }}{% endif %}){% endif %}: {{ key | say(tier, {'when': when}) }}{{ ' · ' if not loop.last }}{% endfor %}</p>{% endif %}
 {% if plan_only %}
 {# The Plan is the child's planner, not the check-in's review: what the queue would list is one
    line and the way to it (re-critique 2026-09-30: four "nothing here yet" folds ended a

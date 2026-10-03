@@ -1022,7 +1022,7 @@ def test_asked_the_school_lines_sit_above_worth_checking(tmp_path):
     conn.close()
     c = app_for(tmp_path)
     body = c.get("/kids/Alex/check-in").text
-    assert "Asked the school" in body and "Lab notebook</a>: Asked the teacher on Sun 9/13" in body
+    assert "Asked the school" in body and "Lab notebook</a> (due Thu 9/10 11:59pm): Asked the teacher on Sun 9/13" in body
     assert body.index("Asked the school") < body.index("Worth checking")
     plan = c.get("/kids/Alex/plan").text                                    # the Plan keeps the line, not the queue
     assert "Asked the school" in plan and "Worth checking" not in plan
@@ -1148,3 +1148,29 @@ def test_a_running_refresh_job_still_shows_and_still_reloads_the_plan(tmp_path):
     assert job is not None and not job.done
     body = TestClient(application, headers=LOCAL_HOST_HEADERS).get("/kids/Alex/plan").text
     assert 'data-reload-page="1"' in body
+
+
+def test_a_step_row_names_the_assignments_due_date_beside_the_sheets_word(tmp_path):
+    """A planned step on school work says when that work is due, next to the class, on the
+    rows that carry the sheet's word and on the rows the school already has: a "MISSING"
+    with no date beside it leaves the reader to open the record to learn how late it is."""
+    conn = seed(tmp_path)
+    c = app_for(tmp_path)
+    _plan_step_for(c, conn, "Alex", "Worksheet 3")                         # must finish, due tomorrow
+    _plan_step_for(c, conn, "Alex", "Essay draft")                         # the school has it
+    conn.close()
+    body = c.get("/kids/Alex/plan").text
+    panel = body[body.index('id="plan"'):]
+    work, school = panel.split("The school has it")
+    assert "Must finish · DUE TOMORROW" in work and "· due Wed 9/16 11:59pm" in work
+    assert "Essay draft" in school and "· due Mon 9/14 11:59pm" in school
+    printed = c.get("/kids/Alex/plan/print").text
+    assert "Worksheet 3" in printed and "due Wed 9/16 11:59pm" in printed
+
+
+def test_a_family_added_step_has_no_due_date_to_name(tmp_path):
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    _post_step(c, "Alex", _form(title="Pack the bag", next_step="Tonight", planned_for="2026-09-15"))
+    panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
+    assert "Family-added step" in panel and "due " not in panel.split("Completed steps")[0]
