@@ -18,7 +18,7 @@ from fridgesheet import config, late_rules, open_items, reports  # noqa: E402
 from fridgesheet.reports import open_work  # noqa: E402
 from fridgesheet.reports.base import BuildContext  # noqa: E402
 from fridgesheet.web.stores import flags, items, students  # noqa: E402
-from tests.web_fixtures import NOW, TZ, history, seed, snapshot  # noqa: E402
+from tests.web_fixtures import NOW, TZ, history, marked_ahead, seed, snapshot  # noqa: E402
 
 RULES = late_rules.LateRules(late_rules.Rule(), [], [])
 #: Before anything is due; the HAC-only row's first morning past due (case 1); the paper
@@ -70,6 +70,25 @@ def test_the_snapshot_only_path_agrees_with_the_database(tmp_path, now):
         w = page[key]
         assert {(i.key, i.status) for i in work.items} == {(v.key, open_work.sheet_status(v)) for v in w.fixable + w.upcoming}, (key, now)
         assert {i.key for i in work.dropped} == {v.key for v in w.past_window}, (key, now)
+    conn.close()
+
+
+@pytest.mark.parametrize("now", NOWS)
+def test_a_mark_before_the_deadline_is_coming_due_on_paper_and_on_the_page(tmp_path, now):
+    """A zero or a missing flag recorded ahead of the deadline is a placeholder: both paths
+    list the work as coming due, in the DUE word, until the deadline passes -- then it is
+    ZERO or MISSING on both, and falls out of the window on both."""
+    snap = marked_ahead()
+    conn = seed(tmp_path, snap)
+    page = _page(conn, now)
+    for key, entry in snap["students"].items():
+        work = open_items.open_items(entry, key, now, rules=RULES, student_key=key)
+        w = page[key]
+        assert {(i.key, i.status) for i in work.items} == {(v.key, open_work.sheet_status(v)) for v in w.fixable + w.upcoming}, (key, now)
+        assert {i.key for i in work.dropped} == {v.key for v in w.past_window}, (key, now)
+    sam = {v.key: open_work.sheet_status(v) for v in page["Sam"].fixable + page["Sam"].upcoming}
+    if now == NOW:
+        assert sam["canvas:102"] == "DUE FRI" and sam["canvas:103"] == "DUE TUE"
     conn.close()
 
 

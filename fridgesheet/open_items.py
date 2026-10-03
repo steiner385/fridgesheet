@@ -115,9 +115,14 @@ def _status(a: dict, due: datetime | None, now: datetime) -> str | None:
         return None
     graded = a.get("state") == "graded"
     unsubmitted = a.get("state") in ("unsubmitted", None) and a.get("score") is None
-    if a.get("missing"):
+    # A missing flag or a zero recorded ahead of the deadline, with nothing handed in, is a
+    # placeholder, not a word about the work (`web.outcomes`, docs/outcomes.md): the row is
+    # still coming due. Undated work has no deadline to be ahead of, so its mark stands (#138).
+    placeholder = due is not None and due >= now and not a.get("submitted_at") \
+        and bool(a.get("missing") or (graded and a.get("score") == 0))
+    if a.get("missing") and not placeholder:
         return "MISSING"
-    if graded and a.get("score") == 0:
+    if graded and a.get("score") == 0 and not placeholder:
         return "ZERO"
     if a.get("late") and a.get("score") is None:
         return "LATE"
@@ -129,7 +134,7 @@ def _status(a: dict, due: datetime | None, now: datetime) -> str | None:
             # nothing about it: the honest word is "check", as the screen's is (#137).
             return {"paper": "PAPER — CHECK", "in class": "IN CLASS — CHECK"}.get(kind_of(a.get("submission_types")), "MISSING")
         return None
-    if not unsubmitted:
+    if not unsubmitted and not placeholder:
         return None
     # By the evening the deadline belongs to: work due at 00:00 is due tonight, not tomorrow (#139).
     day = deadline_date(due)
@@ -286,8 +291,14 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if hac_row and hac_excused(hac_row):
                 continue
             if pick == "hac" and hac_score is not None and not a.get("excused") and a.get("published", True):
-                # The family reads this class's scores from HAC: its grade settles the item.
-                status = "ZERO" if hac_score == 0 and (a.get("points_possible") or 0) > 0 else None
+                # The family reads this class's scores from HAC: its grade settles the item --
+                # except a zero ahead of the deadline, a placeholder, when the Canvas row still
+                # says what is coming due (`_status`).
+                hac_zero = hac_score == 0 and (a.get("points_possible") or 0) > 0
+                if hac_zero and due is not None and due >= now and not a.get("submitted_at"):
+                    status = _status(a, due, now)
+                else:
+                    status = "ZERO" if hac_zero else None
             else:
                 status = _status(a, due, now)
             if status is None:
@@ -356,9 +367,10 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 continue
             due = due.replace(hour=23, minute=59)
             # A blank cell is no grade yet, open the moment it is past due, as on the screen
-            # (#137); a zero is not done; "EXC" is excused and never prints (#135).
+            # (#137); a zero is not done, once it is past due -- entered ahead of the deadline
+            # it is a placeholder, as on the screen; "EXC" is excused and never prints (#135).
             zero = a.get("score") == 0 and (a.get("points") or 0) > 0
-            if due < year_start or hac_excused(a) or not (zero or (a.get("score") is None and due < now)):
+            if due < year_start or hac_excused(a) or due >= now or not (zero or a.get("score") is None):
                 continue
             course = short_course(hname)
             it = Item(
