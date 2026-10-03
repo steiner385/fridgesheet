@@ -251,3 +251,27 @@ def test_a_handled_item_whose_flag_went_stale_is_a_question_again(conn):
     flagstore.set_flag(conn, 2, "done", now=NOW.isoformat())            # handled, not stale
     v = _verdicts(conn)
     assert v["canvas:1"] == ("question", "stale_answer") and v["canvas:2"] == ("status", "answered")
+
+
+def test_a_rewrite_of_a_row_that_already_said_missing_does_not_make_done_stale(conn):
+    """2026-09-24 on the household's machine: one refresh rewrote every Canvas row to add the new
+    `locked` field. Work the family had answered while Canvas already called it missing came back
+    as "Canvas now says missing" and was answered a second time. The mark's own refresh
+    (`missing_since`, #131) is what the answer is measured against, not the row's."""
+    _item(conn, 1, "canvas:1", "WS 1", -3)
+    with conn:
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, missing, missing_since) VALUES (1, 1, 'canvas', 'unsubmitted', 1, 1)")
+    flagstore.set_flag(conn, 1, "done", now="2026-09-12T08:00:00-04:00")
+    with conn:
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, missing, missing_since, locked) VALUES (2, 1, 'canvas', 'unsubmitted', 1, 1, 1)")
+    assert _verdicts(conn)["canvas:1"] == ("status", "answered")
+
+
+def test_a_missing_mark_first_seen_after_done_is_still_stale(conn):
+    _item(conn, 1, "canvas:1", "WS 1", -3)
+    with conn:
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, missing) VALUES (1, 1, 'canvas', 'unsubmitted', 0)")
+    flagstore.set_flag(conn, 1, "done", now="2026-09-12T08:00:00-04:00")
+    with conn:
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, missing, missing_since) VALUES (2, 1, 'canvas', 'unsubmitted', 1, 2)")
+    assert _verdicts(conn)["canvas:1"] == ("question", "stale_answer")

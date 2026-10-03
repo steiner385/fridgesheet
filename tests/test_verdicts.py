@@ -455,3 +455,45 @@ def test_verdicts_without_a_grace_period_carry_no_pace():
 def test_one_day_elapsed_is_singular():
     v = _paced(item(kind="paper", due="2026-09-14T23:59:00-04:00"), {"canvas": canvas()}, _Fixed(5))
     assert v.pace["elapsed"] == "1 day"
+
+
+# --- A rewrite is not a contradiction: the stale check reads when the mark appeared (#131's rule
+# --- for `marked_after`), not when Canvas's row was last rewritten. On 2026-09-24 one refresh
+# --- rewrote every Canvas row to add the new `locked` field, and every handled item Canvas had
+# --- called missing all along came back as "Canvas now says missing" for the family to answer again.
+
+def test_a_done_answer_on_work_canvas_already_called_missing_survives_a_rewrite():
+    # Missing since refresh 2 (9/8); the family said done on 9/10; refresh 3 (9/15) rewrote the row
+    # for another field and still says missing.
+    v = run(item(), {"canvas": canvas(rid=3, missing=1, missing_since=2, locked=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.STATUS, "answered")
+
+
+def test_a_missing_mark_that_appeared_after_the_answer_is_still_a_stale_answer():
+    v = run(item(), {"canvas": canvas(rid=3, missing=1, missing_since=3)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "stale_answer")
+    assert v.facts["change"] == "Canvas now says missing"
+
+
+def test_a_zero_canvas_already_showed_survives_a_rewrite():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=0.0, scored_since=2, locked=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.STATUS, "answered")
+
+
+def test_a_zero_canvas_posted_after_the_answer_is_a_stale_answer():
+    v = run(item(), {"canvas": canvas(rid=3, state="graded", score=0.0, scored_since=3)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.QUESTION, "stale_answer")
+    assert v.facts["change"] == "Canvas now shows a zero"
+
+
+def test_a_hac_zero_that_predates_the_answer_survives_a_rewrite():
+    h = hac(rid=3, score=0.0)
+    h["scored_since"] = 2
+    v = run(item(kind="paper"), {"canvas": canvas(rid=2), "hac": h}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert (v.state, v.kind) == (V.STATUS, "answered")
+
+
+def test_a_row_without_since_fields_still_reads_its_own_refresh():
+    """An observation stored before the since fields existed carries none: its refresh stands in."""
+    v = run(item(), {"canvas": canvas(rid=3, missing=1)}, flag="done", flag_set_at="2026-09-10T08:00:00-04:00")
+    assert v.kind == "stale_answer"
