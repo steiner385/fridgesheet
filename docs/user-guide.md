@@ -327,8 +327,8 @@ page after a refresh to see new counts.
 
 ## 6. A child's pages: Check-in, Plan, Assignments
 
-Each child has three tabs: **Check-in · Plan · Assignments**. Clicking the child's name in
-the rail opens Check-in.
+Each child has four tabs: **Check-in · Plan · Assignments · Report card**. Clicking the child's
+name in the rail opens Check-in.
 
 ### 6.1 Check-in — a short conversation that ends with a plan
 
@@ -474,10 +474,40 @@ Reached from the class name under any assignment. The class's record, opened at 
 - **Sources for this class** — one line saying which gradebook this *one class for this one
   child* reads **Assignment scores** and **Class average** from; **change** opens the two
   choices and **Save** writes a rule immediately ([§14](#which-gradebook-wins)).
+- **How it's figured** — HAC's categories, their share of the grade, and whether they add up
+  to HAC's number ([§6.5](#65-report-card)).
 - **How it moved** — the grade's chart, folded; **Notes** — the family's notes on the class,
   folded, open when there are any.
 - **Assignments** — every item from both gradebooks as the same weekly pages as
   [§6.3](#63-assignments), this class only; a question is answered on its line here too.
+
+### 6.5 Report card
+
+Every class on one line, the way the paper one reads: the class, the official average (HAC's
+marking-period average unless you chose Canvas for class averages) with its letter, whose
+number it is and when the gradebook last changed it, and one sentence on how it is figured:
+
+- *Adds up: 368.91 of 520.5 points. 25 points of unscored work count as zero.* HAC's number
+  is total points earned over total points possible across every category, and the app
+  rebuilt it from HAC's own category subtotals to the hundredth.
+- *HAC says 86.57; the 10 scored rows we can see add up to 90.24.* HAC showed no category
+  table for this class and the rows do not rebuild its number. HAC may weight categories, or
+  count work the app cannot see. Ask the teacher how the class is figured.
+- *HAC says 79.50; there is nothing to rebuild it from.* HAC gave a number but no category
+  table and no rows the app can see.
+- *Canvas counts graded work only: 84.42 now, 68.94 if the 3 missing stay at zero.* For a
+  class whose official number comes from Canvas.
+
+The letter is from the ten-point scale (A 90, B 80, C 70, D 60, F below) unless `[grading]`
+in `config.toml` says otherwise ([§13](#what-settings-doesnt-show)). **Print** prints the page.
+The fold at the foot says how each gradebook figures an average, in the child's words.
+
+On a class page, **How it's figured** sits under the grade strip: HAC's categories with points
+earned, points possible, the percent, and each category's share of the grade (its possible
+points over all possible points, which in a total-points class is its weight); the total; and
+whether it adds up to HAC's number. A category HAC's table leaves out but whose rows it lists
+is marked *from the rows*. Canvas's part is one sentence: what its current score counts and
+what its final would be if missing work stays missing.
 
 ---
 
@@ -807,6 +837,9 @@ Some settings live only in files in the data folder ([§19](#19-files-backup-and
 
 - `config.toml`: `[kids] grades`, `[web] extra_hosts`, per-report options,
   `[[sources.rule]]` (also editable per class).
+- **The letter scale.** `[grading]` in `config.toml`: `scale = { A = 90, B = 80, C = 70, D = 60 }`
+  (each letter's floor; plus and minus letters work the same way, `"A-" = 90`) and
+  `below = "F"` for everything under the lowest floor. Absent, the ten-point scale.
 - `.env`: district addresses (`FRIDGESHEET_CANVAS_BASE`, `FRIDGESHEET_HAC_BASE`,
   `FRIDGESHEET_ONELOGIN_HOST`), and overrides such as `FRIDGESHEET_PRINTER` and
   `FRIDGESHEET_TIMEZONE`. A value in the environment or `.env` **beats** the same setting on

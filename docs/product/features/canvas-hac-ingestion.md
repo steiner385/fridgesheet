@@ -37,6 +37,7 @@ One authenticated pull ("refresh") per cache window collects every kid's Canvas 
 - Extensive host-specific quirks are documented and coded around: `/api/v1/users/<kid>/courses` 403s for observers (use `include[]=observed_users`); `/api/v1/courses/<id>/users` also 403s, so teacher/TA contact falls back to the course object's `include[]=teachers`; HAC's login form is gone, so HAC is entered only via the OneLogin portal tile; the HAC student switcher is a POST form with no visible toggle; HAC Classwork renders inside iframe `sg-legacy-iframe` and must be polled, not scanned once after `domcontentloaded`; the browser reports an ordinary Chrome UA (not `HeadlessChrome/<v>`) so ParentSquare's sniffer doesn't misroute it.
 - `matching.py` pairs a Canvas assignment with its HAC twin by title (with a fallback heuristic requiring an exact due date/points match and exactly one candidate) — pairing failures cause an assignment to double-count, once from each source, which is the seed of [[actionable-work-model]]'s reconciliation problem.
 - Credentials for the pull itself are covered by [[credential-security]], not this capability.
+- Since 2026-10-03 ingest also keeps HAC's category subtotal rows per refresh (`category_observations`, written when a class's set changes) and which category or assignment group each gradebook files an item under (`item_categories`, one row per item and source, overwritten each refresh): what [[report-card]] builds the account of an average from.
 
 ## Evidence
 
