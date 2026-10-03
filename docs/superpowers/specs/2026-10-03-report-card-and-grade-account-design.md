@@ -243,6 +243,8 @@ The "how" key is chosen from the official account in this order:
 | no account, or `reported is None` | `rc.no_grade` | |
 | canvas, `hidden` | `rc.canvas_hidden` | |
 | canvas, `final` set and `final < reported` | `rc.canvas_partial` | `current`, `final`, `missing` |
+| canvas, otherwise | `rc.canvas_current` | `current` |
+| hac, `basis == "none"` with a number | `rc.no_breakdown` | `reported` |
 | hac, `basis == "subtotals"`, `match == "exact"`, `zero_points > 0` | `rc.adds_up_zeros` | `earned`, `possible`, `zero_points` |
 | `match == "exact"` | `rc.adds_up` | `earned`, `possible` |
 | hac, `basis == "rows"`, `match == "off"` | `rc.rows_dont_add_up` | `rebuilt`, `reported`, `rows` |
@@ -357,6 +359,8 @@ across tiers, no digits in any phrase (`test_phrasing`). The "how" line keys fro
 | `rc.no_grade` | "No average yet." |
 | `rc.canvas_hidden` | "Canvas hides this class's grade." |
 | `rc.canvas_partial` | "Canvas counts graded work only: {current} now, {final} if the {missing} missing stay at zero." |
+| `rc.canvas_current` | "Canvas counts graded work only: {current} now." (Canvas's how is always what it counts.) |
+| `rc.no_breakdown` | "HAC says {reported}; there is nothing to rebuild it from." |
 | `rc.adds_up` | "Adds up: {earned} of {possible} points." |
 | `rc.adds_up_zeros` | "Adds up: {earned} of {possible} points. {zero_points} points of unscored work count as zero." |
 | `rc.rows_dont_add_up` | "HAC says {reported}; the {rows} scored rows we can see add up to {rebuilt}. HAC may weight categories or count work we cannot see." |

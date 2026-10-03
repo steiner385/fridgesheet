@@ -403,7 +403,7 @@ components:
      .impeccable/surfaces/fridgesheet-web-templates-questions-html.md), and Settings as the
      household's setup page (2026-10-01, seed 40e594fb, "ruled sections, one Save each"; surface
      brief .impeccable/surfaces/fridgesheet-web-templates-settings-html.md), and Trends as the year
-     so far (2026-10-01, seed c137f15a re-roll 1, "the report card page"; surface brief
+     so far (2026-10-01, seed c137f15a re-roll 1, "the year so far page"; surface brief
      .impeccable/surfaces/fridgesheet-web-templates-trends-html.md), and Changes as the planner's
      log (2026-10-01, seed 52af38ac, "each day with its tally"; surface brief
      .impeccable/surfaces/fridgesheet-web-templates-changes-html.md). Where the build departs from the direction contract, the
@@ -444,7 +444,7 @@ ruled list for the whole house in the order the school's deadlines close, the ki
 each line, answered in place in the parent's voice. Settings followed as the household's setup
 page ("ruled sections, one Save each"): the planner's blocks in order, each topic a ruled
 section with its fields on the ruling, three forms parted by the printed rule, each closing on a
-Save that names its file. Trends followed as the year so far ("the report card page"): one paper
+Save that names its file. Trends followed as the year so far ("the year so far page"): one paper
 page labelled THE YEAR SO FAR, the hand-in record its first line, the charts its figures with the
 numbers folded, the longest open in pencil at its foot. Changes followed as the planner's log ("each day with its
 tally"): the window's days newest first, each a day row carrying its tally over ruled lines, one
@@ -893,7 +893,7 @@ the default stroke: a row edit is reversible, not a deletion. A notice ("Saved."
 keeps the Red Pen Wash with Red Pen text. The incumbent's eight white cards, boxed fieldsets and
 seam sentence are gone.
 
-**The report card page** (Trends): under the title and intro, one run-in line in the sort line's
+**The year so far page** (Trends): under the title and intro, one run-in line in the sort line's
 grammar (`p.sort.trend-words`: "Kid all · Alex · Sam — Weeks 4 · 8 · 16", the chosen words Ink
 at 650 with no underline, the others Ballpoint links, the groups parted by an em dash; in kid
 mode the Kid words are not drawn). Then `.planner-main.trends-page` at 1100px holding one
@@ -928,6 +928,27 @@ filled; app.js shows and clears it as it does a table's detail row; the record i
 without the planner's checkbox or its own hairline). An empty window is one pencil line
 ("Nothing has changed in this window."); a long window pages 500 at a time with "Showing 1–500
 of 1,204 changes · Older ›" as a pencil line under the log.
+
+**The report card** (`/kids/{key}/report-card`, 2026-10-03, spec
+docs/superpowers/specs/2026-10-03-report-card-and-grade-account-design.md): under the crumb and
+the title ("Report card", the kid's nickname and "marking period so far" in the subtitle, Print the
+page's one action) and the child's tabs, `.planner-main.report-card-page` at 1100px holding one
+`section.sec.report-lines` ("Classes" with its count) whose `ol.report-lines` is one ruled line per
+class under a hairline: the class's short name a Ballpoint link at 650 at the left, the official
+number at 1.75× root in ink with the scale's letter at 400 beside it at the right, whose number
+and "as of" in pencil beneath (`.whose`), then one sentence in the kid's tier on how it is
+figured (`.how`; `rc.*` in phrasing.py, the numbers formatted before they reach a phrase). A
+class with no number shows an em dash and "No average yet." The one fold beneath,
+`details.sec.quiet.how-figured`, says how HAC (total points) and Canvas (graded work only)
+figure an average; it is the page's only prose. A fourth tab, "Report card", stands after
+Assignments on the kid's rail and in the grown-up's child nav; the child nav draws no state line
+under the tabs here. On the class page, `section.sec.grade-account` ("How it's figured") follows
+the grade strip: the official gradebook's account first, the other's under an `h4` naming it;
+HAC's as `table.categories` flat on the page (Category, Earned, Possible, Percent, Share of the
+grade, numbers right, a Total row at 650), its check line with a ✓ in ink or, when the rebuild
+and HAC's number disagree, in Red Pen (`.check.off`); a category HAC's table leaves out but whose
+rows it lists is a pencil line marked "from the rows"; Canvas's part is a sentence. Nothing on
+either page asserts the straight-points rule: the account checks it and says when it cannot.
 
 **The sheet's own log** (Runs): the same device turned to the sheet, with no words line (the page
 has no filters) and the job card above it when one runs. `.planner-main.run-log` shares the log's
@@ -1149,7 +1170,7 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   time in Pencil Grey label type, the kind as a word at 650, the item's name a Ballpoint link
   that opens the record in the `.detail-slot` beneath, the kid and class in the pencil meta, the
   detail in Ink. A day's lines sit under a Day row head carrying the day's tally.
-- **Report card page (Trends):** the sheet page's box holding the year (`.trends-page >
+- **The year so far page (Trends):** the sheet page's box holding the year (`.trends-page >
   .report-card`): the label along the top edge, the parts as Day row heads, the record line, the
   charts flat on the page, the numbers fold, the longest-open lines. One box on the page.
 - **Sheet page (Open work):** the day box holding a kid's whole sheet (`.open-sheets > .sec.kid`):
