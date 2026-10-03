@@ -209,6 +209,8 @@ def test_a_v8_database_gains_seen_with_an_empty_list_on_old_rows(tmp_path):
     conn.execute("INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, summary, plan, request_key) "
                  "VALUES (1, ?, '2026-09-20', 30, 's', '[]', 'k1')", (NOW.isoformat(),))
     conn.commit()
+    conn.execute("DROP TABLE category_observations")                 # back to the v9 shape
+    conn.execute("DROP TABLE item_categories")
     conn.execute("ALTER TABLE checkins DROP COLUMN seen")            # back to the v8 shape
     conn.execute("UPDATE schema_version SET version = 8")
     conn.commit()

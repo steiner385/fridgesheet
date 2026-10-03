@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -233,6 +233,36 @@ ALTER TABLE checkins ADD COLUMN seen TEXT NOT NULL DEFAULT '[]';
 """
 
 
+_SCHEMA_V10 = """
+-- HAC's category subtotal rows for one class, as the gradebook showed them at a refresh: what
+-- the marking-period average is built from (spec 2026-10-03 §5). A set is written only when it
+-- differs from the class's latest set, the way grade_observations is written only when the
+-- number moves, so the table is the history of the breakdown and the latest set per course is
+-- its state.
+CREATE TABLE category_observations (
+    id INTEGER PRIMARY KEY,
+    refresh_id INTEGER NOT NULL REFERENCES refreshes(id),
+    course_id INTEGER NOT NULL REFERENCES courses(id),
+    category TEXT NOT NULL,
+    earned REAL,
+    possible REAL,
+    percent TEXT,                    -- as printed ("91.354%"), for diagnostics
+    UNIQUE (refresh_id, course_id, category)
+);
+CREATE INDEX category_observations_course ON category_observations(course_id, refresh_id);
+-- Which category (HAC) or assignment group (Canvas) each gradebook files an item under. One
+-- row per item and source, overwritten each refresh: a label, not a history. Not a column on
+-- item_observations, where a new field rewrites every row on the first refresh after the
+-- upgrade and Changes reads the rewrite as the school moving.
+CREATE TABLE item_categories (
+    item_id INTEGER NOT NULL REFERENCES items(id),
+    source TEXT NOT NULL CHECK (source IN ('canvas', 'hac')),
+    category TEXT NOT NULL,
+    PRIMARY KEY (item_id, source)
+);
+"""
+
+
 def _migrate_v5(conn: sqlite3.Connection) -> None:
     """When the observation's missing mark, and its score, first appeared: the refresh that
     began the current run of each, carried forward across rewrites for other fields. An
@@ -329,6 +359,9 @@ def _fold_item(conn: sqlite3.Connection, src: int, into: int) -> None:
     conn.execute("UPDATE flags SET item_id = ? WHERE item_id = ?", (into, src))
     conn.execute("UPDATE notes SET target_id = ? WHERE target_type = 'item' AND target_id = ?", (into, src))
     conn.execute("UPDATE plan_steps SET item_id = ? WHERE item_id = ?", (into, src))
+    # The twin is the later sighting, so its category label wins where both have one.
+    conn.execute("DELETE FROM item_categories WHERE item_id = ? AND source IN (SELECT source FROM item_categories WHERE item_id = ?)", (into, src))
+    conn.execute("UPDATE item_categories SET item_id = ? WHERE item_id = ?", (into, src))
     # The twin is the later sighting of the row: its attributes, and the span of both.
     t = conn.execute("SELECT * FROM items WHERE id = ?", (src,)).fetchone()
     conn.execute(
@@ -435,6 +468,9 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 9:
         conn.executescript("BEGIN;\n" + _SCHEMA_V9 + "\nUPDATE schema_version SET version = 9;\nCOMMIT;")
         v = 9
+    if v < 10:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V10 + "\nUPDATE schema_version SET version = 10;\nCOMMIT;")
+        v = 10
     return v
 
 

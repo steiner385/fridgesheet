@@ -250,3 +250,39 @@ def test_the_check_in_tables_enforce_their_rules(tmp_path):
     with pytest.raises(sqlite3.IntegrityError):
         with conn:
             conn.execute("INSERT INTO checkins(student_id, finished_at, next_check, available_minutes, plan, request_key) VALUES (1, 't', '2026-09-17', 0, '[]', 'c2')")
+
+
+def test_schema_10_carries_the_category_tables(tmp_path):
+    conn = db.open_db(tmp_path)
+    assert db.SCHEMA_VERSION == 10
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(category_observations)")}
+    assert cols == {"id", "refresh_id", "course_id", "category", "earned", "possible", "percent"}
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(item_categories)")}
+    assert cols == {"item_id", "source", "category"}
+    assert conn.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name='category_observations_course'").fetchone()
+
+
+def test_a_version_9_file_migrates_to_10(tmp_path):
+    conn = db.open_db(tmp_path)
+    conn.execute("DROP TABLE category_observations")
+    conn.execute("DROP TABLE item_categories")
+    conn.execute("UPDATE schema_version SET version = 9")
+    assert db.migrate(conn) == 10
+    assert conn.execute("SELECT count(*) FROM item_categories").fetchone()[0] == 0
+
+
+def test_fold_item_carries_categories_and_prefers_the_twins(tmp_path):
+    conn = db.open_db(tmp_path)
+    with conn:
+        conn.execute("INSERT INTO refreshes(id, started_at, sources, ok) VALUES (1, 't', '{}', 1)")
+        conn.execute("INSERT INTO students(id, key, name) VALUES (1, 'Alex', 'Alex')")
+        conn.execute("INSERT INTO courses(id, student_id, source, name, short_name) VALUES (1, 1, 'hac', 'Bio', 'Bio')")
+        for iid, key in ((1, "hac:bio:lab"), (2, "hac:bio:lab:2026-09-10")):
+            conn.execute("INSERT INTO items(id, student_id, course_id, key, name, first_seen, last_seen) VALUES (?, 1, 1, ?, 'Lab', 1, 1)", (iid, key))
+        conn.execute("INSERT INTO item_categories(item_id, source, category) VALUES (1, 'hac', 'Old')")
+        conn.execute("INSERT INTO item_categories(item_id, source, category) VALUES (2, 'hac', 'Labs')")
+        conn.execute("INSERT INTO item_categories(item_id, source, category) VALUES (2, 'canvas', 'LABS')")
+        db._fold_item(conn, 2, into=1)
+    rows = conn.execute("SELECT source, category FROM item_categories WHERE item_id = 1 ORDER BY source").fetchall()
+    assert [(r["source"], r["category"]) for r in rows] == [("canvas", "LABS"), ("hac", "Labs")]   # the twin's later sighting wins
+    assert conn.execute("SELECT count(*) FROM item_categories WHERE item_id = 2").fetchone()[0] == 0
