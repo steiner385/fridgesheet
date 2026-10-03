@@ -45,7 +45,7 @@ def test_real_probes_run_on_this_machine(tmp_path):
     no keyring) but each must produce a Check."""
     out = doctor.checks(Settings(home=tmp_path), tmp_path)
     names = [c.name for c in out]
-    assert names == ["python", "home", "database", "timezone", "no-print days", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server", "old names"]
+    assert names == ["python", "home", "database", "averages", "timezone", "no-print days", "pdf", "chromium", "credential store", "printers", "print engine", "scheduler", "web server", "old names"]
     assert all(isinstance(c.detail, str) and c.detail for c in out)
     by = {c.name: c for c in out}
     assert by["python"].ok and by["home"].ok and by["database"].ok and by["timezone"].ok and by["pdf"].ok
@@ -245,3 +245,14 @@ def test_no_print_days_probe_reports_the_lines_it_cannot_read(tmp_path):
     (tmp_path / "no-print-days.txt").write_text("2026-09-07 Labor Day\n2026-12-21..2026-12-23 Break\n", encoding="utf-8")
     c = doctor.checks(s, tmp_path, probes=probe)[0]
     assert c.ok and c.detail == "2 entries covering 4 days"
+
+
+def test_averages_probe_counts_the_classes_that_add_up(tmp_path):
+    """Whether each HAC class's average rebuilds from its subtotals (spec 2026-10-03 §7.3): the
+    fixture's English adds up; Algebra I and Sam's Science show no breakdown at all."""
+    from tests.web_fixtures import seed
+    seed(tmp_path).close()
+    out = {c.name: c for c in doctor.checks(Settings(home=tmp_path), tmp_path, probes=[p for p in doctor.PROBES if p[0] == "averages"])}
+    assert out["averages"].ok
+    assert out["averages"].detail.startswith("1 of 1 HAC classes with a breakdown add up")
+    assert "no breakdown: Alex's Algebra I" in out["averages"].detail

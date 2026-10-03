@@ -14,7 +14,9 @@ try:  # mcp >= 2.0 renamed FastMCP to MCPServer; the tool/run API is otherwise i
 except ModuleNotFoundError:  # mcp 1.x
     from mcp.server.fastmcp import FastMCP as _McpServer
 
-from . import collector, late_rules, open_items
+from dataclasses import asdict
+
+from . import collector, grading, late_rules, open_items
 from .config import load_settings
 from .matching import match_course as _match
 from .reports.open_work import wanted as _wanted
@@ -98,7 +100,14 @@ def grades(student: str) -> dict:
     """Class averages per class: HAC's marking-period average and Canvas's current/final score
     side by side, plus `official` -- the one the family has chosen as authoritative for this kid
     and class ([sources] in config.toml; HAC unless changed), falling back to the other source
-    when that one has no average. Canvas can be hidden or partial."""
+    when that one has no average. Canvas can be hidden or partial.
+
+    `account` is how HAC's number is built (grading.Account): its category lines (earned,
+    possible, share of the grade), the rebuilt total, and `match`: "exact" when the rebuild
+    equals HAC's number, "off" when it does not (HAC may weight categories, or count work the
+    scraper cannot see), "unknown" when there is no number to check. Never present an "off"
+    rebuild as the grade. `canvas_account` is the same for Canvas (graded work only; `final`
+    counts missing work as zero; `hidden` when the teacher hides it)."""
     key, e = _kid(_snap(), student)
     out = {"student": e["name"], "classes": []}
     hac_classes = {c["name"]: c for c in (e.get("hac") or {}).get("classes", [])}
@@ -111,23 +120,34 @@ def grades(student: str) -> dict:
         hac_official = h.get("marking_period_avg", w.get("current_average"))
         pick = _settings().sources.resolve(key, c["name"], h.get("name")).grades
         official, official_source = pick_value(pick, c["grade"]["current_score"], hac_official)
+        canvas_rows = [{"group": a.get("group"), "score": a.get("score"), "points": a.get("points_possible"), "excused": a.get("excused"),
+                        "missing": a.get("missing"), "state": a.get("state")} for a in (c.get("assignments") or [])]
         out["classes"].append({
             "course": c["name"],
             "official": official, "official_source": official_source,
             "hac_official": hac_official,
             "hac_last_updated": h.get("last_updated"),
             "hac_categories": h.get("categories"),
+            "account": _hac_account(h) if h else None,
             "canvas_current": c["grade"]["current_score"],
             "canvas_final_if_unsubmitted_zero": c["grade"]["final_score"],
             "canvas_hidden": c["grade"]["hidden"],
+            "canvas_account": asdict(grading.account_canvas(c["grade"]["current_score"], c["grade"]["final_score"], c["grade"]["hidden"], canvas_rows)),
             "staff": c.get("staff"),
         })
     for name, h in hac_classes.items():  # HAC-only classes (e.g. Hawk Time)
         if name not in seen:
             pick = _settings().sources.resolve(key, name).grades
             official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
-            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None})
+            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "account": _hac_account(h), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None, "canvas_account": None})
     return out
+
+
+def _hac_account(h: dict) -> dict:
+    """grading.account_hac over one HAC class as the snapshot holds it, as a plain dict."""
+    rows = [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
+            for r in (h.get("assignments") or [])]
+    return asdict(grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [], rows))
 
 
 @mcp.tool()
