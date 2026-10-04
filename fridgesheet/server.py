@@ -16,7 +16,7 @@ except ModuleNotFoundError:  # mcp 1.x
 
 from dataclasses import asdict
 
-from . import collector, config, grading, guidance, late_rules, open_items
+from . import collector, config, grading, guidance, late_rules, open_items, work_types
 from .config import load_settings
 from .matching import match_course as _match, pair_titles
 from .reports.open_work import OpenWorkReport, wanted as _wanted
@@ -255,10 +255,11 @@ def missing_work(student: str) -> dict:
     `credit` from ~/.fridgesheet/late-rules.toml; items past that deadline or more than two
     weeks overdue are only counted under `not_shown`. The same rules as the printed sheet,
     except that flags set in the app (done, excused, ignore) are not applied here, so an item
-    the sheet drops as handled still appears. Sorted with assessments first, then by points."""
+    the sheet drops as handled still appears. Sorted tests and quizzes first, then labs and projects,
+    everyday work and participation (`family`, from the gradebooks' names); then by points."""
     e, work = _open_work(student, days_ahead=0)
     rows = [i.to_dict() for i in work.items if i.overdue]
-    rows.sort(key=lambda r: (not r["is_assessment"], -(r["points"] or 0)))
+    rows.sort(key=lambda r: (work_types.RANK.get(r["family"], len(work_types.RANK)), -(r["points"] or 0)))
     return {
         "student": e["name"], "as_of": work.as_of.isoformat(), "count": len(rows),
         "points_at_stake": sum((r["points"] or 0) for r in rows), "items": rows,

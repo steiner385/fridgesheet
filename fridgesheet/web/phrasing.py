@@ -30,6 +30,26 @@ PHRASES: dict[str, dict[str, str]] = {
     # The printed sheet's HAC-only row with no grade (sheet.py `status_word`); the web says this
     # with a verdict sentence instead, so only the sheet reads this key.
     "HAC, no grade":       {"early": "HAC lists it, no grade yet - ask", "middle": "HAC lists it, no grade yet", "older": "HAC, no grade"},
+    # --- what kind of work it is (spec 2026-10-04 assignment types §6) ------------------
+    # The word on a row; everyday work has none, as a row says "paper" but never "online".
+    "type.assessment":     {"early": "test or quiz", "middle": "test/quiz", "older": "test/quiz"},
+    "type.lab_project":    {"early": "lab or project", "middle": "lab/project", "older": "lab/project"},
+    "type.participation":  {"early": "taking part", "middle": "participation", "older": "participation"},
+    # The filter's labels, plural.
+    "copy.type_all":            {"early": "All", "middle": "All", "older": "All"},
+    "copy.type_assessment":     {"early": "Tests and quizzes", "middle": "Tests & quizzes", "older": "Tests & quizzes"},
+    "copy.type_practice":       {"early": "Everyday work", "middle": "Everyday work", "older": "Everyday work"},
+    "copy.type_lab_project":    {"early": "Labs and projects", "middle": "Labs & projects", "older": "Labs & projects"},
+    "copy.type_participation":  {"early": "Taking part", "middle": "Participation", "older": "Participation"},
+    # Why the app gave the type it did (the detail card's type line, grown-ups).
+    "type.why.correction":  {"early": "you set it", "middle": "you set it", "older": "you set it"},
+    "type.why.rule_group":  {"early": "your rule: filed under “{value}”", "middle": "your rule: filed under “{value}”", "older": "your rule: filed under “{value}”"},
+    "type.why.rule_prefix": {"early": "your rule: name starts with “{value}”", "middle": "your rule: name starts with “{value}”", "older": "your rule: name starts with “{value}”"},
+    "type.why.online_quiz": {"early": "Canvas calls it a quiz", "middle": "Canvas calls it a quiz", "older": "a Canvas quiz"},
+    "type.why.hac":         {"early": "HAC files it under “{name}”", "middle": "HAC category “{name}”", "older": "HAC category “{name}”"},
+    "type.why.canvas":      {"early": "Canvas files it under “{name}”", "middle": "Canvas group “{name}”", "older": "Canvas group “{name}”"},
+    "type.why.name":        {"early": "from its name", "middle": "from its name", "older": "from its name"},
+    "type.why.default":     {"early": "nothing says, so everyday work", "middle": "no type named; read as everyday work", "older": "no type named; read as everyday work"},
     # --- the two "Handed in" cells that are neither yes nor no -------------------------
     # Neither may imply the work was done. "On paper" says only that the assignment is not
     # an online one; "Done on paper" would assert a fact no source gave us.
