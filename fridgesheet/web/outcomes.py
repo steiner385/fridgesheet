@@ -8,7 +8,7 @@ not done and 8 unknown, and the app could not say which number it believed.
 
 The disagreement has a single root: Canvas's `missing` is a *flag*, not a fact. Canvas
 sets it when a teacher clicks "missing" or when a course's late policy auto-marks past-due
-**online** work; it never sets it for paper or in-class work, and many teachers enter a 0
+**online** work; it never sets it for paper or outside-Canvas work, and many teachers enter a 0
 instead of clicking it. So "missing" undercounts, "past due and not submitted" overcounts
 (paper work handed in and graded looks unsubmitted forever), and neither is what a parent
 means by "missed".
@@ -37,10 +37,10 @@ LATE = "late"
 #: deadline, with nothing handed in, is not this: it is `NOT_DUE` until the deadline passes.
 NOT_DONE = "not_done"
 #: Done, but not through Canvas: a grade above zero with no online submission. Paper and
-#: in-class work handed in and marked by hand, or online work the teacher graded from a
+#: outside-Canvas work handed in and marked by hand, or online work the teacher graded from a
 #: physical copy. Timing is unknowable, so it is neither on time nor late.
 DONE_OFFLINE = "done_offline"
-#: Past due, nothing handed in online, and no grade anywhere yet -- paper or in-class work
+#: Past due, nothing handed in online, and no grade anywhere yet -- paper or outside-Canvas work
 #: whose fate only the teacher knows. This is the list to ask about.
 UNKNOWN = "unknown"
 #: Not due yet (or no due date) and not handed in. Nothing has happened -- a zero or a
@@ -66,7 +66,7 @@ LABELS = {
 #: on the record; `UNKNOWN` is on it as the open question it is.
 PAST_DUE = (ON_TIME, LATE, NOT_DONE, DONE_OFFLINE, UNKNOWN)
 
-_NOTHING_TO_SUBMIT = ("paper", "in class")
+_NOTHING_TO_SUBMIT = ("paper", "outside Canvas")
 
 
 def _refresh_id(o) -> int | None:

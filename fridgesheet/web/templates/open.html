@@ -63,7 +63,7 @@
 {% endfor %}
 </div>
 {# The sheet's legend, once, in the sheet's own capitals on their highlighters. #}
-<p class="legend sheet-legend muted"><span class="key"><span class="word red">MISSING / ZERO</span> past due or scored 0</span> <span class="key"><span class="word late">LATE</span> turned in late, not graded</span> <span class="key"><span class="word check">PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE</span> no grade yet: ask</span> <span class="key"><span class="word due">DUE TODAY / TOMORROW</span> and later due dates in ink</span> <span class="key"><em>until</em> a date: the last day the teacher still takes it</span></p>
+<p class="legend sheet-legend muted"><span class="key"><span class="word red">MISSING / ZERO</span> past due or scored 0</span> <span class="key"><span class="word late">LATE</span> turned in late, not graded</span> <span class="key"><span class="word check">PAPER — CHECK / OUTSIDE CANVAS — CHECK / HAC — NO GRADE</span> no grade yet: ask</span> <span class="key"><span class="word due">DUE TODAY / TOMORROW</span> and later due dates in ink</span> <span class="key"><em>until</em> a date: the last day the teacher still takes it</span></p>
 {% else %}
 <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% else %}No refresh yet. Run <code>fridgesheet refresh</code> and this page fills in.{% endif %}</p></div>
 {% endif %}

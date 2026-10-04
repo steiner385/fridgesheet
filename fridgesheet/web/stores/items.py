@@ -50,7 +50,7 @@ class ItemView:
     flag_set_at: str = ""           # when the active flag was set (ISO), "" when unflagged
     # `status` above is one word -- the sheet's word -- and it was the whole Status column.
     # It folds three facts into one label: when it is due, whether it was handed in, and
-    # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "In class, check", "Due Sun" and
+    # whether (and how) it was graded. "Missing", "Zero", "3/5", "Paper, check", "Outside Canvas, check", "Due Sun" and
     # "HAC, no grade" are answers to three different questions. These are the three facts
     # kept apart, for a table with a column each; `status` stays for the sort, the detail
     # card's "Says" and everything that already reads it.
@@ -62,7 +62,7 @@ class ItemView:
     #: "morning" | "afternoon" | "evening" | "" -- `due_time`'s hour as a word, for the
     #: youngest readers (`dates.day_part`).
     due_part: str = ""
-    handed_in: str = ""             # "Yes", "Late", "No", "Excused", "On paper", "Unknown"
+    handed_in: str = ""             # "Yes", "Late", "No", "Excused", "On paper", "Outside Canvas", "Unknown"
     handed_in_at: datetime | None = None
     grade: str = ""                 # "12.5/50", "0/50", "Missing", "Not yet", "Unpublished"
     grade_zero: bool = False        # a real zero, styled as the warning it is
@@ -153,12 +153,12 @@ def status_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row], now: datetime, p
         if past:
             # Nothing handed in online, but HAC holds a grade: that is the word, online work
             # included -- "Missing" for work HAC has marked 9/10 was the sheet's mistake as
-            # well as this column's (#137). Without one, paper and in-class work have nothing
+            # well as this column's (#137). Without one, paper and outside-Canvas work have nothing
             # to submit, so "not submitted" says nothing about them: the honest word is "check".
             if h is not None and h["score"] is not None:
                 return _score(h, item["points"])
             if item["kind"] in _NOTHING_TO_SUBMIT:
-                return "Paper, check" if item["kind"] == "paper" else "In class, check"
+                return "Paper, check" if item["kind"] == "paper" else "Outside Canvas, check"
             return "Missing"
         return _due_word(due, now)
     if h is not None:
@@ -202,8 +202,8 @@ def due_relative(due: datetime | None, now: datetime) -> str:
 
 
 #: Kinds with nothing to hand in online. Canvas still lists them, unsubmitted forever, and
-#: "No" there would read as the kid skipping work that was done on paper in class.
-_NOTHING_TO_SUBMIT = ("paper", "in class")
+#: "No" there would read as the kid skipping work that was done on paper, in class or in another app.
+_NOTHING_TO_SUBMIT = ("paper", "outside Canvas")
 
 
 def handed_in_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str, datetime | None]:
@@ -224,6 +224,8 @@ def handed_in_text(item: sqlite3.Row, obs: dict[str, sqlite3.Row]) -> tuple[str,
     if c["submitted_at"]:
         at = datetime.fromisoformat(c["submitted_at"])
         return ("Late" if c["late"] else "Yes"), at
+    if item["kind"] == "outside Canvas":
+        return "Outside Canvas", None
     if item["kind"] in _NOTHING_TO_SUBMIT:
         return "On paper", None
     return "No", None

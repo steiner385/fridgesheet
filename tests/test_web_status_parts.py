@@ -60,7 +60,7 @@ def test_handed_in_reads_the_submission_not_the_grade():
 def test_paper_and_in_class_work_is_not_a_no():
     """Canvas lists paper work as unsubmitted forever. That is not the kid skipping it."""
     assert items.handed_in_text(PAPER, {"canvas": _canvas()}) == ("On paper", None)
-    assert items.handed_in_text({"kind": "in class", "points": 5}, {"canvas": _canvas()}) == ("On paper", None)
+    assert items.handed_in_text({"kind": "outside Canvas", "points": 5}, {"canvas": _canvas()}) == ("Outside Canvas", None)
 
 
 def test_hac_alone_cannot_say_whether_it_was_handed_in():

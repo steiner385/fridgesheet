@@ -40,7 +40,7 @@ RED, AMBER, BLUE, GREEN, PURPLE, GREY, INK, RULE = (
     colors.HexColor(_P[k]) for k in ("warn", "late", "accent", "ok", "check", "muted", "ink", "rule"))
 STATUS_COLOR = {
     "MISSING": RED, "ZERO": RED, "LATE": AMBER,
-    "PAPER — CHECK": PURPLE, "IN CLASS — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
+    "PAPER — CHECK": PURPLE, "OUTSIDE CANVAS — CHECK": PURPLE, "HAC — NO GRADE": PURPLE,
     "DUE TODAY": BLUE, "DUE TONIGHT": BLUE, "DUE TOMORROW": BLUE,
 }
 
@@ -212,10 +212,10 @@ def _legend(data_as_of: datetime, stale_note: str | None) -> list:
     lines = [
         Spacer(1, 4),
         Paragraph(sw("MISSING / ZERO", "warn") + " past due or scored 0 &nbsp; " + sw("LATE", "late") + " turned in late, not graded &nbsp; "
-                  + sw("PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE", "check") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "accent")
+                  + sw("PAPER — CHECK / OUTSIDE CANVAS — CHECK / HAC — NO GRADE", "check") + " no grade yet: ask &nbsp; " + sw("DUE TODAY / TOMORROW", "accent")
                   + " &nbsp; later due dates in black &nbsp; <i>credit until date</i> = last day the teacher still takes it", SM),
         Spacer(1, 2),
-        Paragraph("<b>Via</b> where it was read (Canvas, HAC, Both) · how it is turned in (online, paper, in class) &nbsp; "
+        Paragraph("<b>Via</b> where it was read (Canvas, HAC, Both) · how it is turned in (online, paper, outside Canvas) &nbsp; "
                   + sw("NEW", "ok") + " not on the last sheet &nbsp; <i>was …</i> status changed since the last sheet &nbsp; "
                   f"Data as of {wd_md_time(data_as_of)}", SM),
     ]
@@ -257,8 +257,8 @@ def pdf_text(path: Path, *, raw: bool = False) -> str:
     if not shutil.which("pdftotext"):
         raise RuntimeError("pdftotext (poppler-utils) is not installed")
     # `-enc UTF-8` is understood by poppler's pdftotext and xpdf's (the one the Windows CI
-    # runner has, which writes Latin-1 by default and so lost the em dash in "IN CLASS —
-    # CHECK"); the bytes are decoded here rather than by `text=True`, which would pick the
+    # runner has, which writes Latin-1 by default and so lost the em dash in "OUTSIDE
+    # CANVAS — CHECK"); the bytes are decoded here rather than by `text=True`, which would pick the
     # console code page on Windows. An empty answer is reported with the whole result, since a
     # test reads the text and would otherwise fail three lines later on a bare None.
     args = ["pdftotext", "-enc", "UTF-8", *([] if raw else ["-layout"]), str(path), "-"]

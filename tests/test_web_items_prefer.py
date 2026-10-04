@@ -83,13 +83,13 @@ def test_status_never_says_missing_for_in_class_work_hac_graded():
     """Issue #32: "Missing" for in-class work was the app's guess, printed as Canvas's word.
     HAC holds the grade for work with nothing to submit online, so its score is the status."""
     obs = {"canvas": canvas(), "hac": hac(18.0)}
-    assert items.status_text(item(points=25, kind="in class"), obs, NOW) == "18/25"
+    assert items.status_text(item(points=25, kind="outside Canvas"), obs, NOW) == "18/25"
     assert items.status_text(item(points=25, kind="paper"), obs, NOW) == "18/25"
 
 
 def test_status_for_ungraded_in_class_work_asks_rather_than_accuses():
     obs = {"canvas": canvas(), "hac": hac(None)}
-    assert items.status_text(item(kind="in class"), obs, NOW) == "In class, check"
+    assert items.status_text(item(kind="outside Canvas"), obs, NOW) == "Outside Canvas, check"
     assert items.status_text(item(kind="paper"), obs, NOW) == "Paper, check"
 
 

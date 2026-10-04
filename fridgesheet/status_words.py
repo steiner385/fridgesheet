@@ -12,7 +12,7 @@ from .web import phrasing
 #: other way to say a word in a kid's tier (`status_word`), so the two surfaces cannot name one
 #: fact differently (#137).
 STATUS_WORD = {"Missing": "MISSING", "Zero": "ZERO", "Late, ungraded": "LATE", "Paper, check": "PAPER — CHECK",
-               "In class, check": "IN CLASS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
+               "Outside Canvas, check": "OUTSIDE CANVAS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
 
 #: The sheet's status word -> the web page's, so the phrase table can say it for the kid's tier.
 #: Older and no-tier sections keep the capitals the parent knows from the legend.
@@ -25,7 +25,7 @@ _STATUS_KEY = {word: phrase for phrase, word in STATUS_WORD.items()}
 #: same table in reportlab colours, so a row cannot be red on screen and blue on the fridge
 #: (critique 2026-09-29: DUE TODAY was red on the Plan because every word was).
 STATUS_TONE = {"MISSING": "red", "ZERO": "red", "LATE": "late",
-               "PAPER — CHECK": "check", "IN CLASS — CHECK": "check", "HAC — NO GRADE": "check"}
+               "PAPER — CHECK": "check", "OUTSIDE CANVAS — CHECK": "check", "HAC — NO GRADE": "check"}
 
 
 def status_tone(status: str) -> str:

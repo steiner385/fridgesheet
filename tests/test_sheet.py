@@ -98,14 +98,14 @@ def test_an_undated_row_prints_with_no_due_date_and_no_credit_line(tmp_path):
 
 
 @needs_pdftotext
-def test_in_class_check_has_its_own_word_colour_and_legend_entry(tmp_path):
-    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "IN CLASS — CHECK", True, -2, kind="in class")]))])
-    # The row and the legend. The row's status cell wraps ("IN CLASS — / CHECK") and xpdf's
-    # pdftotext (the Windows CI runner's) interleaves the neighbouring Via cell's second line
-    # between the halves -- "IN CLASS — class CHECK" -- where poppler keeps a cell's words
-    # together, so one stray word is allowed between the dash and CHECK.
-    assert len(re.findall(r"IN\s*CLASS\s*—\s*(?:\w+\s+)?CHECK", text)) == 2, text
-    assert sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
+def test_outside_canvas_check_has_its_own_word_colour_and_legend_entry(tmp_path):
+    text = _text(tmp_path, [sheet.KidSheet("Al", _work("Al", [_item("canvas:1", "OUTSIDE CANVAS — CHECK", True, -2, kind="outside Canvas")]))])
+    # The row and the legend. The row's status cell can wrap ("OUTSIDE CANVAS — / CHECK") and
+    # xpdf's pdftotext (the Windows CI runner's) interleaves the neighbouring Via cell's next
+    # line between the halves -- "OUTSIDE CANVAS — Canvas CHECK" -- where poppler keeps a cell's
+    # words together, so a stray word or two is allowed at either break.
+    assert len(re.findall(r"OUTSIDE\s*(?:\S+\s+){0,2}?CANVAS\s*—\s*(?:\S+\s+){0,2}?CHECK", text)) == 2, text
+    assert sheet.STATUS_COLOR["OUTSIDE CANVAS — CHECK"] == sheet.PURPLE
 
 
 @needs_pdftotext

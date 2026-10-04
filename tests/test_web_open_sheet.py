@@ -80,7 +80,7 @@ def test_the_legend_is_printed_once_under_the_pages(tmp_path):
     body = app_for(tmp_path).get("/open").text
     assert body.count('<p class="legend sheet-legend muted">') == 1
     legend = re.search(r'<p class="legend sheet-legend muted">(.*?)</p>', body, re.S).group(1)
-    for word, tone in (("MISSING / ZERO", "red"), ("LATE", "late"), ("PAPER — CHECK / IN CLASS — CHECK / HAC — NO GRADE", "check"), ("DUE TODAY / TOMORROW", "due")):
+    for word, tone in (("MISSING / ZERO", "red"), ("LATE", "late"), ("PAPER — CHECK / OUTSIDE CANVAS — CHECK / HAC — NO GRADE", "check"), ("DUE TODAY / TOMORROW", "due")):
         assert f'<span class="word {tone}">{word}</span>' in legend, word
     assert body.index("sheet-legend") > body.index('id="Sam"')
 
