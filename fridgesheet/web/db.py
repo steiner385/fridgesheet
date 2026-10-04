@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -386,6 +386,13 @@ def _fold_item(conn: sqlite3.Connection, src: int, into: int) -> None:
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_categories'").fetchone():
         conn.execute("DELETE FROM item_categories WHERE item_id = ? AND source IN (SELECT source FROM item_categories WHERE item_id = ?)", (into, src))
         conn.execute("UPDATE item_categories SET item_id = ? WHERE item_id = ?", (into, src))
+    # A grown-up's type correction: the surviving item keeps its own, else takes the twin's.
+    # The table arrives in v14; the v7 migration folds on an older file, so it may not exist.
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_types'").fetchone():
+        if conn.execute("SELECT 1 FROM item_types WHERE item_id = ?", (into,)).fetchone():
+            conn.execute("DELETE FROM item_types WHERE item_id = ?", (src,))
+        else:
+            conn.execute("UPDATE item_types SET item_id = ? WHERE item_id = ?", (into, src))
     # The twin is the later sighting of the row: its attributes, and the span of both.
     t = conn.execute("SELECT * FROM items WHERE id = ?", (src,)).fetchone()
     conn.execute(
@@ -393,6 +400,8 @@ def _fold_item(conn: sqlite3.Connection, src: int, into: int) -> None:
            unlock_at = ?, lock_at = ?, first_seen = MIN(first_seen, ?), last_seen = MAX(last_seen, ?) WHERE id = ?""",
         (t["name"], t["kind"], t["points"], t["due"], t["assigned"], t["is_assessment"], t["unlock_at"], t["lock_at"],
          t["first_seen"], t["last_seen"], into))
+    if "online_quiz" in t.keys():
+        conn.execute("UPDATE items SET online_quiz = MAX(online_quiz, ?) WHERE id = ?", (t["online_quiz"], into))
     conn.execute("DELETE FROM items WHERE id = ?", (src,))
 
 
@@ -507,6 +516,12 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 13:
         conn.executescript("BEGIN;\n" + _SCHEMA_V13 + "\nUPDATE schema_version SET version = 13;\nCOMMIT;")
         v = 13
+    if v < 14:
+        with conn:
+            conn.execute("BEGIN")
+            _migrate_v14(conn)
+            conn.execute("UPDATE schema_version SET version = 14")
+        v = 14
     return v
 
 
@@ -517,6 +532,28 @@ def _migrate_v12(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(category_observations)")}
     if "weight" not in cols:
         conn.execute("ALTER TABLE category_observations ADD COLUMN weight REAL")
+
+
+def _migrate_v14(conn: sqlite3.Connection) -> None:
+    """Assignment types (spec 2026-10-04 assignment types §5): Canvas's own `online_quiz` on the
+    item, a grown-up's correction per item, and class rules. The family itself is never stored
+    (`work_types.family_of` reads these on every view). Each step checks first, so a file rolled
+    back to an older version number migrates again."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(items)")}
+    if "online_quiz" not in cols:
+        conn.execute("ALTER TABLE items ADD COLUMN online_quiz INTEGER NOT NULL DEFAULT 0")
+    conn.execute("""CREATE TABLE IF NOT EXISTS item_types (
+        item_id INTEGER PRIMARY KEY REFERENCES items(id),
+        family TEXT NOT NULL CHECK (family IN ('assessment','practice','lab_project','participation')),
+        set_at TEXT NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS type_rules (
+        id INTEGER PRIMARY KEY,
+        course_id INTEGER NOT NULL REFERENCES courses(id),
+        field TEXT NOT NULL CHECK (field IN ('group','name_prefix')),
+        value TEXT NOT NULL,
+        family TEXT NOT NULL CHECK (family IN ('assessment','practice','lab_project','participation')),
+        created_at TEXT NOT NULL,
+        UNIQUE (course_id, field, value))""")
 
 
 def open_db(home: Path) -> sqlite3.Connection:

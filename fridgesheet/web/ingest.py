@@ -97,7 +97,8 @@ def _upsert_course(conn, student_id: int, source: str, external_id, name: str, t
 
 def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kind: str, points, due: str | None,
                  assigned: str | None, is_assessment: bool, refresh_id: int,
-                 present: frozenset[str] = frozenset(), *, unlock_at: str | None = None, lock_at: str | None = None) -> tuple[int, bool]:
+                 present: frozenset[str] = frozenset(), *, unlock_at: str | None = None, lock_at: str | None = None,
+                 online_quiz: bool = False) -> tuple[int, bool]:
     """Find or create one item; returns its id and whether this call created it.
 
     An item is identified by student, course and key together, never by key alone: two kids
@@ -129,13 +130,13 @@ def _upsert_item(conn, student_id: int, course_id: int, key: str, name: str, kin
             (student_id, key, refresh_id)) if r["course"] not in present), None)
     if row:
         conn.execute("UPDATE items SET course_id = ?, name = ?, kind = ?, points = ?, due = ?, assigned = COALESCE(?, assigned), is_assessment = ?, "
-                     "unlock_at = ?, lock_at = ?, last_seen = ? WHERE id = ?",
-                     (course_id, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, refresh_id, row[0]))
+                     "unlock_at = ?, lock_at = ?, online_quiz = ?, last_seen = ? WHERE id = ?",
+                     (course_id, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, int(online_quiz), refresh_id, row[0]))
         return row[0], False
     cur = conn.execute(
-        "INSERT INTO items(student_id, course_id, key, name, kind, points, due, assigned, is_assessment, unlock_at, lock_at, first_seen, last_seen) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (student_id, course_id, key, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, refresh_id, refresh_id))
+        "INSERT INTO items(student_id, course_id, key, name, kind, points, due, assigned, is_assessment, unlock_at, lock_at, online_quiz, first_seen, last_seen) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (student_id, course_id, key, name, kind, points, due, assigned, int(is_assessment), unlock_at, lock_at, int(online_quiz), refresh_id, refresh_id))
     return cur.lastrowid, True
 
 
@@ -274,7 +275,8 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     item_id, created = _upsert_item(conn, student_id, cid, item_key_canvas(a["id"]), a.get("name") or "", kind_of(a.get("submission_types")),
                                                     a.get("points_possible"), a.get("due_at"), assigned,
                                                     bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)), refresh_id,
-                                                    present, unlock_at=a.get("unlock_at"), lock_at=a.get("lock_at"))
+                                                    present, unlock_at=a.get("unlock_at"), lock_at=a.get("lock_at"),
+                                                    online_quiz="online_quiz" in (a.get("submission_types") or []))
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "canvas", _canvas_values(a))
                     _file_category(conn, item_id, "canvas", a.get("group"))
