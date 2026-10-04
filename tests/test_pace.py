@@ -28,7 +28,7 @@ def test_zeros_are_not_samples():
 
 def test_kind_group():
     assert P.kind_group("online") == "online"
-    for kind in ("paper", "in class", ""):
+    for kind in ("paper", "outside Canvas", ""):
         assert P.kind_group(kind) == "offline", kind
 
 

@@ -77,7 +77,7 @@ def test_past_due_online_with_nothing_is_not_done_even_without_the_flag():
 
 def test_past_due_paper_with_nothing_is_unknown_not_not_done():
     assert oc.classify(item("paper"), {"canvas": canvas()}, NOW) == oc.UNKNOWN
-    assert oc.classify(item("in class"), {"canvas": canvas()}, NOW) == oc.UNKNOWN
+    assert oc.classify(item("outside Canvas"), {"canvas": canvas()}, NOW) == oc.UNKNOWN
     assert oc.classify(item("paper"), {"hac": hac()}, NOW) == oc.UNKNOWN
 
 

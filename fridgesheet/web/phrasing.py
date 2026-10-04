@@ -23,7 +23,7 @@ PHRASES: dict[str, dict[str, str]] = {
     "Missing":             {"early": "Teacher hasn't got it", "middle": "Marked missing", "older": "Missing"},
     "Zero":                {"early": "Marked zero - ask about it", "middle": "Scored zero", "older": "Zero"},
     "Paper, check":        {"early": "On paper - check if it's handed in", "middle": "Paper - check whether it was handed in", "older": "Paper, check"},
-    "In class, check":     {"early": "In class - check if it's handed in", "middle": "In class - check whether it was handed in", "older": "In class, check"},
+    "Outside Canvas, check": {"early": "Not on Canvas - check if it's handed in", "middle": "Outside Canvas - check whether it was handed in", "older": "Outside Canvas, check"},
     "Late, ungraded":      {"early": "Handed in late, no grade yet", "middle": "Late, not graded", "older": "Late, ungraded"},
     "Submitted, ungraded": {"early": "Handed in - waiting", "middle": "Submitted, not graded", "older": "Submitted, ungraded"},
     "Unpublished":         {"early": "Not open yet", "middle": "Not published", "older": "Unpublished"},
@@ -34,6 +34,7 @@ PHRASES: dict[str, dict[str, str]] = {
     # Neither may imply the work was done. "On paper" says only that the assignment is not
     # an online one; "Done on paper" would assert a fact no source gave us.
     "On paper":            {"early": "This one is on paper", "middle": "On paper, not online", "older": "On paper"},
+    "Outside Canvas":      {"early": "This one is not on Canvas", "middle": "Outside Canvas", "older": "Outside Canvas"},
     "Unknown":             {"early": "We can't tell", "middle": "Not recorded", "older": "Unknown"},
     # --- the badge that means "you can still do something about this" -----------------
     "actionable":          {"early": "Can still fix", "middle": "Still fixable", "older": "actionable"},

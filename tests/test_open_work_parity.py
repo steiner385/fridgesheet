@@ -134,7 +134,7 @@ def test_the_sheets_words_for_the_pages_rows():
     reads the other way, so a kid's tier says the same thing on both surfaces."""
     from fridgesheet import sheet
     assert sheet.STATUS_WORD == {"Missing": "MISSING", "Zero": "ZERO", "Late, ungraded": "LATE", "Paper, check": "PAPER — CHECK",
-                                 "In class, check": "IN CLASS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
+                                 "Outside Canvas, check": "OUTSIDE CANVAS — CHECK", "HAC, no grade": "HAC — NO GRADE"}
     for phrase, word in sheet.STATUS_WORD.items():
         assert sheet.status_word(word, "older") == word
         assert sheet.status_word(word, "early") == sheet.phrasing.phrase(phrase, "early")

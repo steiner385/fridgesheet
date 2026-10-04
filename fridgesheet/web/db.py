@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -52,7 +52,7 @@ CREATE TABLE items (
     course_id INTEGER NOT NULL REFERENCES courses(id),
     key TEXT NOT NULL,               -- canvas:<id> | hac:<short course>:<norm name>
     name TEXT NOT NULL,
-    kind TEXT NOT NULL DEFAULT '',   -- online | paper | in class | ''
+    kind TEXT NOT NULL DEFAULT '',   -- online | paper | outside Canvas | ''
     points REAL,
     due TEXT,
     assigned TEXT,
@@ -260,6 +260,14 @@ CREATE TABLE item_categories (
     category TEXT NOT NULL,
     PRIMARY KEY (item_id, source)
 );
+"""
+
+_SCHEMA_V11 = """
+-- Canvas's "No Submission" work was called "in class"; it is "outside Canvas" now, because
+-- teachers pick it for work done in another app (MakeMusic) as often as in the room. Ingest
+-- rewrites the kind on every refresh, but the rows already here are renamed at once so no page
+-- reads an old kind as online work before the next refresh.
+UPDATE items SET kind = 'outside Canvas' WHERE kind = 'in class';
 """
 
 
@@ -473,6 +481,9 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 10:
         conn.executescript("BEGIN;\n" + _SCHEMA_V10 + "\nUPDATE schema_version SET version = 10;\nCOMMIT;")
         v = 10
+    if v < 11:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V11 + "\nUPDATE schema_version SET version = 11;\nCOMMIT;")
+        v = 11
     return v
 
 

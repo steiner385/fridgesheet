@@ -176,7 +176,7 @@ def test_a_stale_answer_comes_before_any_other_verdict(conn):
     assert _verdicts(conn)["canvas:1"] == ("question", "stale_answer")     # the family's answer is what changed
 
 
-@pytest.mark.parametrize("kind", ["paper", "in class"])
+@pytest.mark.parametrize("kind", ["paper", "outside Canvas"])
 def test_paper_work_hac_graded_is_done_not_a_question(conn, kind):
     """Issue #33: work with nothing to submit online, past due, no Canvas grade -- but HAC
     graded it. "No grade: ask" beside an 18/25 is the app contradicting its own evidence."""
@@ -187,14 +187,14 @@ def test_paper_work_hac_graded_is_done_not_a_question(conn, kind):
 
 
 def test_paper_work_hac_lists_ungraded_waits_for_a_grade(conn):
-    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="outside Canvas")
     _obs(conn, 1, "canvas", state="unsubmitted")
     _obs(conn, 1, "hac", state="ungraded", score=None)
     assert _verdicts(conn)["canvas:1"] == ("waiting", "awaiting_grade")
 
 
 def test_in_class_work_hac_graded_is_not_actionable(conn):
-    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="outside Canvas")
     _obs(conn, 1, "canvas", state="unsubmitted")
     _obs(conn, 1, "hac", state="graded", score=18.0)
     assert reconcile.actionable_items(conn, 1, rules=RULES, now=NOW) == []
@@ -203,7 +203,7 @@ def test_in_class_work_hac_graded_is_not_actionable(conn):
 def test_a_hac_grade_posted_after_ask_teacher_makes_the_flag_stale(conn):
     """Issue #36: for in-class and paper work the teacher fixes HAC, not Canvas. Canvas has
     nothing newer than the flag here; HAC does."""
-    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="in class")
+    _item(conn, 1, "canvas:1", "MakeMusic #3", -3, kind="outside Canvas")
     _obs(conn, 1, "canvas", refresh_id=1, state="unsubmitted")
     _obs(conn, 1, "hac", refresh_id=1, state="ungraded")
     flagstore.set_flag(conn, 1, "ask_teacher", now="2026-09-12T08:00:00-04:00")

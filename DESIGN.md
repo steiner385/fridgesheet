@@ -561,7 +561,7 @@ a word is the same red, amber, blue or purple on the fridge as on the screen.
   the early tier, middle #915600). The re-critique of 2026-09-30 found the earlier #9a5b00 at
   4.40:1 on the highlighter, under AA for a 16px bold word.
 - **Purple Stamp** (#6b3fa0; `--check`, early #5f3594, middle #653a9a): "check on paper". The
-  PAPER — CHECK, IN CLASS — CHECK and HAC — NO GRADE words on Highlighter Purple, the checkbox
+  PAPER — CHECK, OUTSIDE CANVAS — CHECK and HAC — NO GRADE words on Highlighter Purple, the checkbox
   rule under them, the fourth chart series. Work the school cannot see, so neither red nor green.
 - **Teal Pencil** (#00707f) and **Brown Pencil** (#8a6d3b): chart-only strokes, in
   `tokens.COLORS` but not in this frontmatter because no page role wears them. Teal Pencil is the

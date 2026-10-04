@@ -81,7 +81,7 @@ def test_the_table_covers_the_words_a_child_actually_meets():
     """The status words and verdict sentences that render on a child's pages."""
     from fridgesheet.web import verdicts
     # Status words
-    for word in ("Missing", "Zero", "Paper, check", "In class, check", "Late, ungraded", "Submitted, ungraded", "Unpublished"):
+    for word in ("Missing", "Zero", "Paper, check", "Outside Canvas, check", "Late, ungraded", "Submitted, ungraded", "Unpublished"):
         assert word in phrasing.PHRASES, word
     # Every verdict kind that says something has its facts sentence, and every answer its label
     for kind, answers in verdicts.ANSWERS.items():

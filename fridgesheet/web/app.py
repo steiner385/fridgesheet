@@ -233,7 +233,7 @@ def _filters(state: AppState) -> dict:
             elif c["submitted_at"]:
                 said = verdicts.words("record.handed_in_late" if c["late"] else "record.handed_in", "", {"when": wd_md_time(c["submitted_at"])})
             else:
-                said = verdicts.words("record.offline" if item.kind in ("paper", "in class") else "record.nothing", "")
+                said = verdicts.words("record.offline" if item.kind in ("paper", "outside Canvas") else "record.nothing", "")
             lines.append("Canvas: " + ", ".join(x for x in (said, score(c)) if x))
         if h is not None:
             lines.append("HAC: " + (score(h) or verdicts.words("record.no_grade", "")))

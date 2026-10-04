@@ -11,7 +11,7 @@
 #137  The screens and the printed sheet decided "open work" separately and disagreed four
       ways: a HAC-only row opened on paper a day late; undated Canvas work marked missing never
       printed; a pair the title matcher misses was done on screen, PAPER — CHECK on paper; and
-      in-class work with no grade was MISSING on paper, "In class, check" on screen.
+      in-class work with no grade was MISSING on paper, "In class, check" (now "Outside Canvas, check") on screen.
 #138  "of N due so far" counted work handed in early, before it was due.
 #139  Work due at 00:00 said "Due tomorrow" the evening it had to be finished.
 
@@ -542,16 +542,16 @@ def test_a_pair_the_title_matcher_misses_is_done_on_paper_on_the_sheet_too(tmp_p
 
 
 def test_in_class_work_with_no_grade_says_check_on_paper_as_it_does_on_screen():
-    """Canvas cannot see in-class work handed in any more than paper work; "unknown" on the
-    screen ("In class, check") was MISSING on the sheet, the word for online work never done."""
+    """Canvas cannot see outside-Canvas work handed in any more than paper work; "unknown" on the
+    screen ("Outside Canvas, check") was MISSING on the sheet, the word for online work never done."""
     ca = [_a(4, "Warm-up", "09-10", submission_types=["none"])]
     entry = snap(ca, [])["students"]["Alex"]
     now = _at(9, 15, 14)
-    assert [(i.name, i.status, i.kind) for i in open_items.open_items(entry, "Alex", now).items] == [("Warm-up", "IN CLASS — CHECK", "in class")]
-    item = {"kind": "in class", "due": "2026-09-10T23:59:00-04:00", "points": 10}
+    assert [(i.name, i.status, i.kind) for i in open_items.open_items(entry, "Alex", now).items] == [("Warm-up", "OUTSIDE CANVAS — CHECK", "outside Canvas")]
+    item = {"kind": "outside Canvas", "due": "2026-09-10T23:59:00-04:00", "points": 10}
     obs = {"canvas": _canvas(1)}
     assert outcomes.classify(item, obs, now) == outcomes.UNKNOWN
-    assert items_store.status_text(item, obs, now) == "In class, check"
-    assert "IN CLASS — CHECK" in open_items.OVERDUE_STATUSES and sheet.STATUS_COLOR["IN CLASS — CHECK"] == sheet.PURPLE
-    assert sheet.status_word("IN CLASS — CHECK", "early") == phrasing.phrase("In class, check", "early")
-    assert sheet.status_word("IN CLASS — CHECK", "older") == "IN CLASS — CHECK"
+    assert items_store.status_text(item, obs, now) == "Outside Canvas, check"
+    assert "OUTSIDE CANVAS — CHECK" in open_items.OVERDUE_STATUSES and sheet.STATUS_COLOR["OUTSIDE CANVAS — CHECK"] == sheet.PURPLE
+    assert sheet.status_word("OUTSIDE CANVAS — CHECK", "early") == phrasing.phrase("Outside Canvas, check", "early")
+    assert sheet.status_word("OUTSIDE CANVAS — CHECK", "older") == "OUTSIDE CANVAS — CHECK"

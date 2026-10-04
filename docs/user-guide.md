@@ -451,7 +451,7 @@ Everything the school lists for this child, with what needs your answer at the t
      coming due, and not handled.
    - **Class**.
    - **More filters**: **Which gradebook** (either / in Canvas / in HAC / in both),
-     **Kind of work** (online / paper / in class), **Your answer**, **What the app says**
+     **Kind of work** (online / paper / outside Canvas), **Your answer**, **What the app says**
      (needs your answer / decided for you / waiting), **Outcome** ([§14](#the-outcomes)).
      Choosing an answer, verdict or outcome shows *every* matching row, not just open ones.
 6. **The work table** — **Due · Assignment · Where it stands**. Click a heading to sort,
@@ -550,7 +550,7 @@ takes to grade, and **Email with these facts** — a pre-written email to the te
 | **Tell the teacher?** | Handed in on Canvas, but HAC counts a zero. | *Ask the teacher* · *The zero is right* |
 | **Ask to have it excused in HAC?** | Excused in Canvas, but HAC counts a zero. | *Ask the teacher* · *Leave it* |
 | **Ask the teacher to enter it?** | Graded in Canvas, still blank in HAC longer than HAC usually takes. | *Ask the teacher* · *It's fine* |
-| **Was it handed in?** | Paper, in-class or HAC-only work with no grade for longer than this class usually takes. | *Yes, handed in* · *Today* · *Tomorrow* · *Ask the teacher* |
+| **Was it handed in?** | Paper, outside-Canvas or HAC-only work with no grade for longer than this class usually takes. | *Yes, handed in* · *Today* · *Tomorrow* · *Ask the teacher* |
 | **Still done?** | You said it was done, and the school now says missing or zero. | *Yes, still done* · *No, reopen it* · *Ask the teacher* |
 | **Is it settled?** | You asked the teacher (or were following up) and a grade has since appeared. | *Yes, it's done* · *Not settled, keep asking* |
 
@@ -613,7 +613,7 @@ within 14"), and counts of open, new and cleared since the last sheet.
 
 **Each row:** ☐ · **NEW** or *was …* (compared with the last sheet) · due date and when it
 was given · class · assignment · points · where it was read (Canvas / HAC / Both) and how it
-is handed in (online / paper / in class) · status.
+is handed in (online / paper / outside Canvas) · status.
 
 **Status words**
 
@@ -623,7 +623,7 @@ is handed in (online / paper / in class) · status.
 | ZERO | red | A 0 was entered in either gradebook. |
 | LATE | amber | Handed in late, not yet graded. |
 | PAPER — CHECK | purple | Paper work, past due, no grade anywhere yet — ask. |
-| IN CLASS — CHECK | purple | In-class work, past due, no grade anywhere yet — ask. |
+| OUTSIDE CANVAS — CHECK | purple | Work Canvas takes no submission for (done in class, in another app such as MakeMusic, or only in the gradebook), past due, no grade anywhere yet — ask. |
 | HAC — NO GRADE | purple | Listed only in HAC, past due, no grade. |
 | DUE TODAY / DUE TOMORROW | blue | |
 | DUE *Mon* … | black | Due later in the window. |
@@ -871,7 +871,7 @@ Every assignment gets exactly one. The first that applies wins.
 | **late** | Handed in on Canvas after the deadline. |
 | **on time** | Handed in on Canvas by the deadline. |
 | **done on paper** | A grade above zero with no online hand-in. Its timing can't be known, so it is neither on time nor late. |
-| **unknown** | Past due, paper or in-class work, no grade anywhere yet. *The list to ask teachers about.* |
+| **unknown** | Past due, paper or outside-Canvas work, no grade anywhere yet. *The list to ask teachers about.* |
 | **not due yet** | Due later, not handed in. |
 
 Two things that surprise people: **a teacher's 0 counts as not done** (it is how many

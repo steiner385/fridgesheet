@@ -5,7 +5,7 @@ shows (`reports.open_work.decided_work`, #137); this module is what a household 
 never recorded a refresh gets, and what the MCP tools read, so it must say the same thing
 from the snapshot. The rules are the web's (docs/outcomes.md), in the sheet's words:
 
-* Canvas items not submitted -- past due (MISSING, ZERO, PAPER — CHECK, IN CLASS — CHECK) or
+* Canvas items not submitted -- past due (MISSING, ZERO, PAPER — CHECK, OUTSIDE CANVAS — CHECK) or
   due within the next `days_ahead` days (DUE TODAY / DUE TOMORROW / DUE <weekday>) -- plus
   submissions turned in late and not yet graded (LATE). A graded late submission is finished
   business, and so is anything HAC has graded above zero: done on paper is done. A HAC zero
@@ -32,9 +32,9 @@ from . import sources as _sources
 from .dates import deadline_date
 from .matching import hac_item_key, hac_only_key, match_course, pair_titles, same_item, short_course, twin_by_date_and_points
 
-OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "IN CLASS — CHECK", "HAC — NO GRADE")
+OVERDUE_STATUSES = ("MISSING", "ZERO", "LATE", "PAPER — CHECK", "OUTSIDE CANVAS — CHECK", "HAC — NO GRADE")
 #: The words for work nothing has been handed in for, which a HAC grade settles (docs/outcomes.md).
-_NOTHING_HANDED_IN = ("MISSING", "PAPER — CHECK", "IN CLASS — CHECK")
+_NOTHING_HANDED_IN = ("MISSING", "PAPER — CHECK", "OUTSIDE CANVAS — CHECK")
 _FAR = datetime.max.replace(tzinfo=None)         # sorts an undated row after every dated one
 HANDLED_FLAGS = ("done", "excused", "ignore", "too_late")     # these remove the item from the open list
 MARKED_FLAGS = ("follow_up", "ask_teacher")       # these print a marker in the status column
@@ -51,7 +51,7 @@ class Item:
     status: str
     overdue: bool
     source: str                      # canvas | hac | both
-    kind: str                        # online | paper | in class | "" (HAC-only)
+    kind: str                        # online | paper | outside Canvas | "" (HAC-only)
     points: float | None = None
     score: float | None = None
     assigned: datetime | None = None
@@ -93,12 +93,16 @@ class Diff:
 
 
 def kind_of(submission_types: list | None) -> str:
-    """How the work is handed in: online, on paper, or in class. Shared with `web.ingest`."""
+    """How the work is handed in: online, on paper, or outside Canvas. Shared with `web.ingest`.
+
+    "outside Canvas" is Canvas's "No Submission" (`["none"]`, or no types at all). Teachers pick
+    it for work done in class, in another app (MakeMusic, IXL) or kept only in the gradebook;
+    Canvas does not say which, so the word claims only what it knows: not handed in through it."""
     st = list(submission_types or [])
     if "on_paper" in st:
         return "paper"
     if not st or st == ["none"]:
-        return "in class"
+        return "outside Canvas"
     return "online"
 
 
@@ -130,9 +134,9 @@ def _status(a: dict, due: datetime | None, now: datetime) -> str | None:
         return None
     if due < now:
         if unsubmitted:
-            # Canvas cannot see paper or in-class work handed in, so "not submitted" says
+            # Canvas cannot see paper or outside-Canvas work handed in, so "not submitted" says
             # nothing about it: the honest word is "check", as the screen's is (#137).
-            return {"paper": "PAPER — CHECK", "in class": "IN CLASS — CHECK"}.get(kind_of(a.get("submission_types")), "MISSING")
+            return {"paper": "PAPER — CHECK", "outside Canvas": "OUTSIDE CANVAS — CHECK"}.get(kind_of(a.get("submission_types")), "MISSING")
         return None
     if not unsubmitted and not placeholder:
         return None
@@ -303,7 +307,7 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 status = _status(a, due, now)
             if status is None:
                 continue
-            # Canvas shows paper and in-class work as unsubmitted forever; a grade in HAC is the
+            # Canvas shows paper and outside-Canvas work as unsubmitted forever; a grade in HAC is the
             # proof it was handed in. The web app's outcome definition calls that *done on
             # paper* (docs/outcomes.md), and the sheet must not print PAPER — CHECK -- or
             # MISSING, or DUE -- for work the gradebook has already marked. That includes
@@ -397,6 +401,11 @@ def _due_key(i: Item) -> datetime:
     return (i.due or _FAR).replace(tzinfo=None)
 
 
+#: Status words since renamed -> today's word, so a sheet printed before the rename does not
+#: make the next one say "was IN CLASS — CHECK" beside every such row.
+_RENAMED = {"IN CLASS — CHECK": "OUTSIDE CANVAS — CHECK"}
+
+
 def compare(prev_rows: Iterable[dict], items: list[Item], handled: Iterable[Item] = ()) -> Diff:
     """What changed since the last sheet: keys not seen before, keys whose status word
     changed (with the old word), and previous rows that are no longer open.
@@ -405,7 +414,7 @@ def compare(prev_rows: Iterable[dict], items: list[Item], handled: Iterable[Item
     the kid did not finish it, someone struck it off -- and the sheet already reports it in
     the handled trailer, so it is left out of both lists.
     """
-    prev = {r["key"]: r for r in prev_rows}
+    prev = {r["key"]: {**r, "status": _RENAMED.get(r["status"], r["status"])} for r in prev_rows}
     cur = {i.key for i in items} | {i.key for i in handled}
     return Diff(
         new={i.key for i in items if i.key not in prev},

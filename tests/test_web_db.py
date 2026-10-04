@@ -254,7 +254,7 @@ def test_the_check_in_tables_enforce_their_rules(tmp_path):
 
 def test_schema_10_carries_the_category_tables(tmp_path):
     conn = db.open_db(tmp_path)
-    assert db.SCHEMA_VERSION == 10
+    assert db.SCHEMA_VERSION >= 10
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(category_observations)")}
     assert cols == {"id", "refresh_id", "course_id", "category", "earned", "possible", "percent"}
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(item_categories)")}
@@ -267,7 +267,7 @@ def test_a_version_9_file_migrates_to_10(tmp_path):
     conn.execute("DROP TABLE category_observations")
     conn.execute("DROP TABLE item_categories")
     conn.execute("UPDATE schema_version SET version = 9")
-    assert db.migrate(conn) == 10
+    assert db.migrate(conn) == db.SCHEMA_VERSION >= 10
     assert conn.execute("SELECT count(*) FROM item_categories").fetchone()[0] == 0
 
 

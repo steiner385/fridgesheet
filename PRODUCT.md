@@ -80,7 +80,7 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
   chose, honouring no-print days and quarter ends. Built as a PDF by `fridgesheet/sheet.py`
   (reportlab, not HTML or CSS), printed through SumatraPDF on Windows, archived, and reprintable
   from the Runs page. Overdue first, then coming due; a legend; the sheet's own status words
-  (MISSING, ZERO, LATE, PAPER — CHECK, IN CLASS — CHECK, HAC — NO GRADE, DUE TODAY / TONIGHT /
+  (MISSING, ZERO, LATE, PAPER — CHECK, OUTSIDE CANVAS — CHECK, HAC — NO GRADE, DUE TODAY / TONIGHT /
   TOMORROW / *day*), tiered by vocabulary only per child section.
 - **Refresh.** Signing in and reading both systems takes one to three minutes in a real Chromium;
   the computer must be on and signed in. Schedules run from the app's own clock, once a minute,

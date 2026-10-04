@@ -38,7 +38,7 @@
           {% for v, _ in FLAG_CHOICES %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ v | flag_label('state', student.key | tier_of) }}</option>{% endfor %}</select></label>
         <details class="rare-filters"{{ ' open' if f.source or f.kind or f.verdict }}><summary>Rarely needed</summary>
           <label>Which gradebook <select name="source"><option value="">either</option><option value="canvas" {{ 'selected' if f.source == 'canvas' }}>in Canvas</option><option value="hac" {{ 'selected' if f.source == 'hac' }}>in HAC</option><option value="both" {{ 'selected' if f.source == 'both' }}>in both</option></select></label>
-          <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "in class") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
+          <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "outside Canvas") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
           <label>What the app says <select name="verdict"><option value="">anything</option>{% for v, label in (("question", "needs your answer"), ("decided", "decided for you"), ("waiting", "waiting")) %}<option value="{{ v }}" {{ 'selected' if f.verdict == v }}>{{ label }}</option>{% endfor %}</select></label>
         </details>
       </details>
