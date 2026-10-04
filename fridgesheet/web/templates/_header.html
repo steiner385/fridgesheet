@@ -18,10 +18,17 @@
   {% if job %}<span class="badge"><a href="{{ '/kids/' ~ (who_student.key | urlencode) ~ '/plan#must-finish' if who_student else '/' }}">{{ job.label }}…</a></span>{% endif %}
   {# Two texts, one shown per width: the whole sentence beside a sidebar, two words under the
      strip, where the sentence wrapped the bar back to two lines (#195). Settings has the rest. #}
-  {% if update and update.available and not who_student %}<span class="badge"><a href="/settings"><span class="long">Fridge Sheet {{ update.latest }} is available</span><span class="short">Update</span></a></span>{% endif %}
+  {# Not beside the bar that asks to install it (`update_prompt`, below): said once. #}
+  {% if update and update.available and not who_student and not update_prompt %}<span class="badge"><a href="/settings"><span class="long">Fridge Sheet {{ update.latest }} is available</span><span class="short">Update</span></a></span>{% endif %}
   {% for w in warnings %}<span class="bad">{{ w }}</span>{% endfor %}
   <span class="muted quiet">{{ now | wd_md_time }}</span>
 </header>
+{# `[web] update_mode = "prompt"` (or an automatic install that did not take): a grown-up is
+   asked, on every page they open, to install it; the PIN and the progress live on Settings,
+   in the update card the link opens. A kid's own phone is never asked. #}
+{% if update_prompt and not who_student %}
+<p class="update-prompt">Fridge Sheet {{ update.latest }} is available. <a href="/settings#update-action">Install it</a></p>
+{% endif %}
 {% if staleness %}
 {# One bar on the page that says something is wrong, beside `warnings` rather than competing
    with them. "Refresh now" is a link to the Dashboard, where that control already lives --

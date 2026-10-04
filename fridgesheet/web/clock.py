@@ -4,7 +4,9 @@ Once a minute: read the settings fresh, ask `schedule_plan` which schedule is du
 to the one jobs worker, and record the slot in `schedule_fires` once the worker took it. A
 busy worker takes nothing and nothing is recorded, so the next minute tries again. At most
 one job per tick, refresh first: the worker runs one at a time anyway, and a refresh due in
-the same minute as a print should finish before the print reads the snapshot.
+the same minute as a print should finish before the print reads the snapshot. Then the
+update check (`_tick_updates`): GitHub asked every `[web] update_check_hours`, and in install
+mode the update job started once a release is found.
 
 This replaced the OS scheduler. Task Scheduler ran every task "only when the user is logged
 on", and on the household's kiosk the app's account never is -- not one schedule ever fired.
@@ -56,6 +58,28 @@ class Clock:
         self._thread: threading.Thread | None = None
 
     def tick(self, now: datetime) -> str | None:
+        submitted = self._tick_schedules(now)
+        self._tick_updates(now, busy=submitted is not None)
+        self.last_tick = now
+        return submitted
+
+    def _tick_updates(self, now: datetime, *, busy: bool) -> None:
+        """Ask GitHub when `[web] update_check_hours` have passed (`updates.check` keeps the
+        answer that long), so every page's header has it without anyone opening Settings; and
+        in `[web] update_mode = "install"`, start the update the minute one is found. A
+        scheduled job submitted this minute goes first; a busy worker takes nothing, and the
+        next tick tries again from the cached answer."""
+        from . import updates
+        from .actions import _settings_for
+        settings = _settings_for(self.state.home)
+        update = updates.check(self.state, now=now, settings=settings)
+        if busy or not updates.auto_install_due(self.state, settings, update):
+            return
+        if self._submit("update") is not None:
+            self.state.extra[updates.TRIED_KEY] = update.latest
+            log.info("installing Fridge Sheet %s by itself ([web] update_mode = install)", update.latest)
+
+    def _tick_schedules(self, now: datetime) -> str | None:
         schedules, self.problems = configured(self.state.home)
         conn = db.open_db(self.state.home)
         try:
@@ -83,7 +107,6 @@ class Clock:
                 submitted = s.key
         finally:
             conn.close()
-        self.last_tick = now
         return submitted
 
     def safe_tick(self, now: datetime) -> None:

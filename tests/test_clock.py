@@ -34,7 +34,7 @@ class FakeWorker:
 
 def _clock(home, worker):
     db.open_db(home).close()
-    state = SimpleNamespace(home=home)
+    state = SimpleNamespace(home=home, extra={})       # extra: the update check's cache (conftest keeps it offline)
     return clockmod.Clock(state, submit=worker.submit)
 
 

@@ -361,7 +361,8 @@ def test_save_writes_web_section_and_flags_a_restart(tmp_path):
     r = actions.save(form, home=tmp_path, log=lambda s: None, credstore=_Cred())
     assert r.ok and r.restart_needed
     doc = config.load_config_doc(tmp_path / "config.toml")
-    assert doc["web"] == {"port": 9000, "allow_lan": True, "check_updates": True}
+    assert doc["web"] == {"port": 9000, "allow_lan": True, "check_updates": True,
+                          "update_check_hours": 1, "update_mode": "notify"}
     r = actions.save(form, home=tmp_path, log=lambda s: None, credstore=_Cred())
     assert r.ok and not r.restart_needed
 
