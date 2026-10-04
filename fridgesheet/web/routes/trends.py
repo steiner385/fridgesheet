@@ -20,7 +20,7 @@ DEFAULT_WEEKS = 8
 MAX_WEEKS = 52
 #: The weekly chart's series, in the table's column order; the labels are the table's headers.
 WEEKLY_SERIES = (("on_time", "On time"), ("late", "Late"), ("not_done", "Not done"),
-                 ("done_offline", "On paper"), ("unknown", "Unknown"))
+                 ("done_offline", "Outside Canvas"), ("unknown", "Unknown"))
 
 
 def weekly_chart(rows: list[trends.WeekOutcomes], now: datetime) -> charts.ChartData:

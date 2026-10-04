@@ -56,7 +56,7 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
 
 - **One definition of done, everywhere.** Canvas's *missing* is a flag, not a fact; "past due and
   unsubmitted" is not what a parent means by missed either. Fridge Sheet reads both gradebooks
-  and one table decides: a teacher's 0 is *not done*; paper work with a grade is *done on paper*;
+  and one table decides: a teacher's 0 is *not done*; paper or outside-Canvas work with a grade is *done outside Canvas*;
   a HAC grade beats Canvas's automatic missing flag. Today, each child's pages, Trends, the
   printed sheet and the MCP tools all show the same numbers, and the code is wrong if the docs
   and the code ever disagree.
@@ -125,7 +125,7 @@ computer, and a check-in that ends with a plan. The named failure (persona revie
   phone gets one column under the strip breakpoint. Nothing is conveyed by colour alone: what
   is red is red *and* a word.
 - **Terminology** (use these words, not synonyms): *outcome* (excused, unpublished, not done,
-  late, on time, done on paper, unknown, not due yet); *verdict* (decides, waits, asks);
+  late, on time, done outside Canvas, unknown, not due yet); *verdict* (decides, waits, asks);
   *still fixable* (not done or unknown, inside its late-work window, not flagged handled);
   *open*; *Questions*; *Must finish*; *check-in*, *plan*, *step*, *agreement*.
 - **Explicitly open product questions** (persona review 2026-09-25, not yet decided; do not

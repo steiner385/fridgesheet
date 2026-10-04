@@ -89,7 +89,7 @@
       <a href="/kids/{{ s.key | urlencode }}?outcome=on_time">{{ c.record.on_time }} on time</a> ·
       <a href="/kids/{{ s.key | urlencode }}?outcome=late">{{ c.record.late }} late</a> ·
       <a href="/kids/{{ s.key | urlencode }}?outcome=not_done" class="{{ 'warn' if c.record.not_done }}">{{ c.record.not_done }} not done</a> ·
-      <a href="/kids/{{ s.key | urlencode }}?outcome=done_offline">{{ c.record.done_offline }} on paper</a> ·
+      <a href="/kids/{{ s.key | urlencode }}?outcome=done_offline">{{ c.record.done_offline }} outside Canvas</a> ·
       <a href="/kids/{{ s.key | urlencode }}?outcome=unknown" class="{{ 'warn' if c.record.unknown }}">{{ c.record.unknown }} unknown</a>
       <span class="muted">· of {{ c.record.total }} due so far</span>
     </p></details>
