@@ -35,6 +35,7 @@ class Line:
     from_rows: bool           # True when the gradebook gave no subtotal and this was summed from the rows
     share: float              # possible / the account's total possible; a category's weight in a straight-points class
     zero_points: float = 0.0  # HAC: blank points this category already counts as zero (spec 2026-10-04 §3)
+    weight: float | None = None  # HAC: the category weight a weighted class averages its percents by
 
     @property
     def percent(self) -> float | None:
@@ -49,7 +50,7 @@ class Account:
     earned: float
     possible: float
     rebuilt: float | None     # 100 * earned / possible; None when nothing is possible
-    basis: str                # "subtotals" | "rows" | "none"
+    basis: str                # "subtotals" (total points) | "weighted" (category average) | "rows" | "none"
     match: str                # "exact" | "off" | "unknown"
     zero_points: float        # HAC: points of blank work already counted as zero inside the subtotals
     excused: int              # rows the gradebook excused; they never count
@@ -112,8 +113,28 @@ def account_hac(reported: float | None, subtotals: list[dict], rows: list[dict])
     possible = round(sum(l.possible for l in lines), 2)
     rebuilt = (100.0 * earned / possible) if possible else None
     basis = "subtotals" if subtotals else ("rows" if lines else "none")
+    weights = {(s.get("category") or ""): s.get("weight") for s in subtotals}
+    if subtotals and all(w is not None for w in weights.values()):
+        # A weighted class (HAC's six-column table): each category's percent, averaged by its
+        # weight over the categories that have anything possible yet. A category HAC's table
+        # leaves out carries no weight and does not count.
+        lines, rebuilt = weighted_lines(lines, weights)
+        basis = "weighted"
     return Account("hac", reported, lines, earned, possible, rebuilt, basis, _match(rebuilt, reported),
                    round(zero_points, 2), excused, None, False, 0)
+
+
+def weighted_lines(lines: tuple[Line, ...], weights: dict[str, float]) -> tuple[tuple[Line, ...], float | None]:
+    """Lines re-shared by weight, and the weighted average of their percents (None when no
+    weighted category has anything possible)."""
+    live = {l.category: float(weights[l.category]) for l in lines
+            if not l.from_rows and l.possible and weights.get(l.category) is not None}
+    total = sum(live.values())
+    out = tuple(Line(l.category, l.earned, l.possible, l.rows, l.from_rows, (live[l.category] / total) if total and l.category in live else 0.0,
+                     l.zero_points, weights.get(l.category)) for l in lines)
+    rebuilt = (100.0 * sum(w * next(x for x in lines if x.category == c).earned / next(x for x in lines if x.category == c).possible
+                           for c, w in live.items()) / total) if total else None
+    return out, rebuilt
 
 
 def account_canvas(current: float | None, final: float | None, hidden: bool, rows: list[dict]) -> Account:

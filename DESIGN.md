@@ -951,7 +951,9 @@ the grade strip: the official gradebook's account first, the other's under an `h
 HAC's as `table.categories` flat on the page (Category, Earned, Possible, Percent, Share of the
 grade, numbers right, a Total row at 650), its check line with a ✓ in ink or, when the rebuild
 and HAC's number disagree, in Red Pen (`.check.off`); a category HAC's table leaves out but whose
-rows it lists is a pencil line marked "from the rows"; Canvas's part is a sentence. Then
+rows it lists is a pencil line marked "from the rows"; Canvas's part is a sentence. A weighted
+class (HAC's six-column table, 2026-10-04) keeps the same table, its share column now the
+category's weight share, under a lead that says it averages its category percents. Then
 `section.sec.what-moves-it` ("What moves it", 2026-10-04): the reach or slack line as `.lead`,
 the levers as read-only planner lines (`_item.html`, line density, which gained the card head's
 badge loop) each with its worth as a badge ("+2.0") and its note as the line's sentence ("Not

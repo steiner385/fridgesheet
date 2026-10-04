@@ -165,3 +165,41 @@ def test_a_cut_at_one_hundred_is_never_a_reach():
     acc = grading.account_hac(95.0, [_sub("A", 95.0, 100.0)], [])
     g = guidance.guide(acc, [_row("Next", 10.0, category="A", due_days=2, overdue=False, upcoming=True)], scale)
     assert g.reach is None and g.slack.letter == "A"
+
+
+# --- weighted classes ---------------------------------------------------------------------------------
+
+def _wsub(category, earned, possible, weight=1.0):
+    return {"category": category, "earned": earned, "possible": possible, "percent": "", "weight": weight}
+
+
+MATH = grading.account_hac(86.57, [_wsub("Assignments", 38.0, 40.0), _wsub("Daily", 25.0, 25.0), _wsub("Quiz", 11.0, 17.0)], [])
+
+
+def test_in_a_weighted_class_ten_points_of_quiz_move_it_more_than_ten_of_assignments():
+    rows = [_row("Quiz 2", 10.0, category="Quiz", due_days=3, overdue=False, upcoming=True),
+            _row("Worksheet", 10.0, category="Assignments", due_days=2, overdue=False, upcoming=True)]
+    g = guidance.guide(MATH, rows, grading.TEN_POINT)
+    assert g.sound and [l.name for l in g.levers] == ["Quiz 2", "Worksheet"]
+    quiz, ws = g.levers
+    assert round(quiz.worth, 2) == round((95 + 100 + 100 * 21 / 27) / 3 - MATH.rebuilt, 2)    # +4.36
+    assert round(ws.worth, 2) == round((96 + 100 + 100 * 11 / 17) / 3 - MATH.rebuilt, 2)      # +0.33
+
+
+def test_a_weighted_reach_is_the_ceiling_of_the_posted_work_not_a_point_count():
+    rows = [_row("Quiz 2", 10.0, category="Quiz", due_days=3, overdue=False, upcoming=True)]
+    g = guidance.guide(MATH, rows, grading.TEN_POINT)
+    assert g.reach.letter == "A" and g.reach.needed is None and g.reach.posted == 10.0
+    assert round(g.reach.ceiling, 2) == round((95 + 100 + 100 * 21 / 27) / 3, 2) and g.reach.reachable      # 90.93
+    assert g.slack is None
+
+
+def test_a_weighted_missing_lever_says_what_its_zero_would_cost_in_its_category():
+    g = guidance.guide(MATH, [_row("Late quiz", 10.0, category="Quiz")], grading.TEN_POINT)
+    (l,) = g.levers
+    assert round(l.cost, 2) == round(MATH.rebuilt - (95 + 100 + 100 * 11 / 27) / 3, 2)
+
+
+def test_a_lever_in_a_category_the_weighted_table_does_not_list_has_no_worth():
+    g = guidance.guide(MATH, [_row("Project", 20.0, category="Project", due_days=3, overdue=False, upcoming=True)], grading.TEN_POINT)
+    assert g.levers[0].worth is None

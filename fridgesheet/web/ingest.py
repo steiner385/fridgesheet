@@ -164,12 +164,12 @@ def _observe_grade(conn, refresh_id: int, course_id: int, average, letter, curre
 def _observe_categories(conn, refresh_id: int, course_id: int, subtotals: list[dict]) -> int:
     """Write a HAC class's category subtotal rows under this refresh when the set differs from
     the class's latest set (spec 2026-10-03 §5). Returns the rows written."""
-    new = [((s.get("category") or ""), s.get("earned"), s.get("possible")) for s in subtotals or []]
+    new = [((s.get("category") or ""), s.get("earned"), s.get("possible"), s.get("weight")) for s in subtotals or []]
     latest_refresh = conn.execute("SELECT MAX(refresh_id) AS r FROM category_observations WHERE course_id = ?", (course_id,)).fetchone()["r"]
     last: list | None = None
     if latest_refresh is not None:
-        last = [(r["category"], r["earned"], r["possible"]) for r in conn.execute(
-            "SELECT category, earned, possible FROM category_observations WHERE course_id = ? AND refresh_id = ? AND category <> '' ORDER BY id",
+        last = [(r["category"], r["earned"], r["possible"], r["weight"]) for r in conn.execute(
+            "SELECT category, earned, possible, weight FROM category_observations WHERE course_id = ? AND refresh_id = ? AND category <> '' ORDER BY id",
             (course_id, latest_refresh))]
     if last == new or (last is None and not new):
         return 0
@@ -180,8 +180,8 @@ def _observe_categories(conn, refresh_id: int, course_id: int, subtotals: list[d
                      (refresh_id, course_id))
         return 0
     for s in subtotals:
-        conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?,?,?,?,?,?)",
-                     (refresh_id, course_id, s.get("category") or "", s.get("earned"), s.get("possible"), s.get("percent")))
+        conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent, weight) VALUES (?,?,?,?,?,?,?)",
+                     (refresh_id, course_id, s.get("category") or "", s.get("earned"), s.get("possible"), s.get("percent"), s.get("weight")))
     return len(new)
 
 

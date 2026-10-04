@@ -233,3 +233,15 @@ def test_a_lever_worth_nothing_on_the_average_shows_no_plus_zero_badge(tmp_path)
     conn.close()
     sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
     assert "+0.0" not in sec
+
+
+def test_a_weighted_class_says_it_averages_its_category_percents(tmp_path):
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac' AND short_name = 'Honors English 9'").fetchone()["id"]
+    with conn:
+        conn.execute("UPDATE category_observations SET weight = CASE category WHEN 'Assignments' THEN 3 ELSE 2 END WHERE course_id = ?", (cid,))
+    conn.close()
+    sec = _account_section(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert "average of its category percents" in sec and "average is total points" not in sec   # not the total-points lead
+    assert re.search(r"<td>Assignments</td>\s*<td>28</td><td>30</td><td>93\.33%</td><td>60%</td>", sec)
+    assert re.search(r'<p class="check ok">✓ Adds up: the average of 2 category percents, as HAC weights them\. HAC says 88\.00\.</p>', sec)

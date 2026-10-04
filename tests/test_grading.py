@@ -138,3 +138,30 @@ def test_each_subtotal_line_carries_its_own_zero_points():
     assert a.zero_points == 25.0
     rows_line = grading.account_hac(86.57, [], [_row("Quiz", 11.0, 17.0)])
     assert rows_line.lines[0].zero_points == 0.0
+
+
+# --- weighted classes (HAC's six-column category table, 2026-10-04) --------------------------------
+
+def _wsub(category, earned, possible, weight):
+    return {"category": category, "earned": earned, "possible": possible, "percent": "", "weight": weight}
+
+
+def test_a_weighted_class_is_the_weighted_average_of_its_category_percents():
+    # Math Plus 5th: Assignments 38/40, Daily 25/25, Quiz 11/17, each weight 1: HAC says 86.57.
+    a = grading.account_hac(86.57, [_wsub("Assignments", 38.0, 40.0, 1.0), _wsub("Daily", 25.0, 25.0, 1.0), _wsub("Quiz", 11.0, 17.0, 1.0)], [])
+    assert a.basis == "weighted" and a.match == "exact" and round(a.rebuilt, 2) == 86.57
+    assert [round(l.share, 3) for l in a.lines] == [0.333, 0.333, 0.333] and [l.weight for l in a.lines] == [1.0, 1.0, 1.0]
+
+
+def test_a_weighted_class_counts_the_incomplete_row_hac_zeroed():
+    # Adv Math 7: Homework 77.5/90 includes an "I - Incomplete" row HAC counts as zero.
+    a = grading.account_hac(92.51, [_wsub("Assignments", 40.0, 40.0, 1.0), _wsub("Homework", 77.5, 90.0, 1.0), _wsub("Test", 32.0, 35.0, 1.0)],
+                            [_row("Homework", 77.5, 80.0), _row("Homework", None, 10.0)])
+    assert a.match == "exact" and a.lines[1].zero_points == 10.0
+
+
+def test_unequal_weights_and_an_empty_category_are_weighed_correctly():
+    # Tests 28/30 (93.33) and Daily 16/20 (80) at 1:3 is 83.33; as total points it would read 88.
+    a = grading.account_hac(83.33, [_wsub("Tests", 28.0, 30.0, 1.0), _wsub("Daily", 16.0, 20.0, 3.0), _wsub("Project", 0.0, 0.0, 5.0)], [])
+    assert a.basis == "weighted" and a.match == "exact" and round(a.rebuilt, 2) == 83.33   # the empty Project weighs nothing yet
+    assert [round(l.share, 2) for l in a.lines] == [0.25, 0.75, 0.0]

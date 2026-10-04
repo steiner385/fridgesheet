@@ -567,3 +567,15 @@ def test_an_emptied_category_table_is_recorded_so_stale_subtotals_are_not_shown_
     assert [len(s) for s in grades.subtotal_history(conn, cid)] == [2, 0]
     r = ingest.record(conn, snapshot(T2), tz=TZ, now=T2)                 # still empty: nothing new to record
     assert r.categories == 0 and conn.execute("SELECT count(*) FROM category_observations WHERE course_id = ?", (cid,)).fetchone()[0] == 3
+
+
+def test_a_weighted_classs_category_weights_are_stored_and_a_weight_change_is_a_new_set(tmp_path):
+    conn = db.open_db(tmp_path)
+    snap = _with_categories(snapshot(T1))
+    for c in snap["students"]["Alex"]["hac"]["classes"][0]["categories"]:
+        c["weight"] = 1.0
+    ingest.record(conn, snap, tz=TZ, now=T1)
+    assert [r["weight"] for r in conn.execute("SELECT weight FROM category_observations ORDER BY id")] == [1.0, 1.0]
+    moved = copy.deepcopy(snap)
+    moved["students"]["Alex"]["hac"]["classes"][0]["categories"][0]["weight"] = 2.0
+    assert ingest.record(conn, moved, tz=TZ, now=T2).categories == 2

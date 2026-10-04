@@ -58,7 +58,7 @@ def canvas_rows(conn: sqlite3.Connection, course: sqlite3.Row) -> list[dict]:
 def account_for(conn: sqlite3.Connection, course: sqlite3.Row, grade_row: sqlite3.Row | None) -> grading.Account:
     """This course's own account: HAC's from its subtotals and rows, Canvas's from its rows."""
     if course["source"] == "hac":
-        subs = [{"category": s["category"], "earned": s["earned"], "possible": s["possible"], "percent": s["percent"]}
+        subs = [{"category": s["category"], "earned": s["earned"], "possible": s["possible"], "percent": s["percent"], "weight": s["weight"]}
                 for s in latest_subtotals(conn, course["id"])]
         return grading.account_hac(grade_row["average"] if grade_row else None, subs, hac_rows(conn, course))
     current = grade_row["current"] if grade_row else None
@@ -87,6 +87,8 @@ def how_for(account: grading.Account | None) -> tuple[str, dict]:
     if a.basis == "none":
         return "rc.no_breakdown", {"reported": grading.fmt_avg(a.reported)}
     if a.match == "exact":
+        if a.basis == "weighted":
+            return "rc.adds_up_weighted", {"n": str(sum(1 for l in a.lines if l.share > 0))}
         if a.source == "hac" and a.basis == "subtotals" and a.zero_points > 0:
             return "rc.adds_up_zeros", {"earned": grading.fmt_points(a.earned), "possible": grading.fmt_points(a.possible),
                                         "zero_points": grading.fmt_points(a.zero_points)}

@@ -156,17 +156,31 @@ class HAC:
                 "categories": [],
             }
             for tr in block.locator("table.sg-asp-table tr.sg-asp-table-data-row").all():
-                cells = [" ".join(td.inner_text().split()) for td in tr.locator("td").all()]
-                if len(cells) >= 6 and re.match(r"\d{2}/\d{2}/\d{4}", cells[0] or ""):
-                    cls["assignments"].append({
-                        "due": cells[0], "assigned": cells[1], "name": cells[2], "category": cells[3],
-                        "score": _num(cells[4]), "score_raw": cells[4], "points": _num(cells[5]),
-                        "percent": cells[10] if len(cells) > 10 else None,
-                    })
-                elif len(cells) == 4:  # category subtotal row: Category | points | total | percent
-                    cls["categories"].append({"category": cells[0], "earned": _num(cells[1]), "possible": _num(cells[2]), "percent": cells[3]})
+                kind, row = parse_row([" ".join(td.inner_text().split()) for td in tr.locator("td").all()])
+                if kind == "assignment":
+                    cls["assignments"].append(row)
+                elif kind == "category":
+                    cls["categories"].append(row)
             classes.append(cls)
         return classes
+
+
+def parse_row(cells: list[str]) -> tuple[str | None, dict | None]:
+    """One Classwork table row, as its cells' text: an assignment row (dated, eleven columns),
+    a category subtotal row, or neither. A total-points class's category table has four columns
+    (Category | Student's Points | Maximum Points | Percent); a weighted class's has six, adding
+    Category Weight and Category Points, and its weight is what HAC averages the percents by
+    (2026-10-04: the scraper used to keep only four-column rows and dropped every weighted table)."""
+    if len(cells) >= 6 and re.match(r"\d{2}/\d{2}/\d{4}", cells[0] or ""):
+        return "assignment", {
+            "due": cells[0], "assigned": cells[1], "name": cells[2], "category": cells[3],
+            "score": _num(cells[4]), "score_raw": cells[4], "points": _num(cells[5]),
+            "percent": cells[10] if len(cells) > 10 else None,
+        }
+    if len(cells) in (4, 6) and cells[0]:
+        return "category", {"category": cells[0], "earned": _num(cells[1]), "possible": _num(cells[2]), "percent": cells[3],
+                            "weight": _num(cells[4]) if len(cells) == 6 else None}
+    return None, None
 
 
 def _same_student(target: str, current: str) -> bool:

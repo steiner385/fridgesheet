@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -484,7 +484,22 @@ def migrate(conn: sqlite3.Connection) -> int:
     if v < 11:
         conn.executescript("BEGIN;\n" + _SCHEMA_V11 + "\nUPDATE schema_version SET version = 11;\nCOMMIT;")
         v = 11
+    if v < 12:
+        with conn:
+            conn.execute("BEGIN")
+            _migrate_v12(conn)
+            conn.execute("UPDATE schema_version SET version = 12")
+        v = 12
     return v
+
+
+def _migrate_v12(conn: sqlite3.Connection) -> None:
+    """A weighted class's category weight (HAC's six-column category table, 2026-10-04): NULL
+    for a total-points class and for every set stored before the scraper read the column. Checks
+    for the column first, so a file rolled back to an older version number migrates again."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(category_observations)")}
+    if "weight" not in cols:
+        conn.execute("ALTER TABLE category_observations ADD COLUMN weight REAL")
 
 
 def open_db(home: Path) -> sqlite3.Connection:

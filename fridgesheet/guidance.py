@@ -57,9 +57,11 @@ class Lever:
 class Reach:
     letter: str
     floor: float
-    needed: float             # perfect points of not-yet-counted work, zeros filled first (<= 0: zeros alone)
+    needed: float | None      # perfect points of not-yet-counted work, zeros filled first (<= 0: zeros alone);
+                              # None in a weighted class, where points in one category are not points in another
     posted: float             # points of missing + upcoming levers
     reachable: bool
+    ceiling: float | None = None  # weighted classes: the average if every posted lever is earned at its credit
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,9 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
     sound = account.match == "exact" and account.reported is not None and account.possible > 0
     letter = scale.letter(account.reported)
     budget = {l.category: float(l.zero_points) for l in account.lines}
+    weighted = account.basis == "weighted"
+    # A weighted class: category -> [earned, possible, weight], for the categories HAC weighs.
+    cats = {l.category: [l.earned, l.possible, l.weight] for l in account.lines if weighted and l.weight is not None}
     levers: list[Lever] = []
     for r in sorted(rows, key=lambda r: _sort_deadline(r.get("due"))):
         pts = float(r.get("points") or 0.0)
@@ -120,7 +125,9 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
         else:
             continue
         worth = cost = None
-        if sound:
+        if sound and weighted:
+            worth, cost = _weighted_worth(cats, account.rebuilt or 0.0, cat, kind, pts, credit)
+        elif sound:
             if kind == "zero":
                 worth = 100.0 * credit * pts / account.possible
             else:
@@ -131,7 +138,9 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
     levers.sort(key=lambda l: (-(l.stake if sound else l.points), _sort_deadline(l.deadline), l.name))
     zero_points = round(sum(l.points for l in levers if l.kind == "zero"), 2)
     reach = slack = None
-    if sound:
+    if sound and weighted:
+        reach = _weighted_reach(cats, account, levers, scale)
+    elif sound:
         earned2 = account.earned + sum(l.credit * l.points for l in levers if l.kind == "zero")
         posted = round(sum(l.points for l in levers if l.kind != "zero"), 2)
         above = [(ltr, f) for ltr, f in scale.cuts if account.reported < f < 100.0]   # a cut at 100 or above is no one's reach
@@ -144,6 +153,60 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
             can_miss = earned2 + posted - current / 100 * (account.possible + posted)
             slack = Slack(letter, current, posted, round(can_miss, 1))
     return Guidance(sound, letter, tuple(levers), levers[0] if levers else None, reach, slack, zero_points)
+
+
+def _weighted_avg(cats: dict[str, list]) -> float | None:
+    live = [(e, p, w) for e, p, w in cats.values() if p]
+    total = sum(w for _e, _p, w in live)
+    return (100.0 * sum(w * e / p for e, p, w in live) / total) if total else None
+
+
+def _with(cats: dict[str, list], cat: str, de: float, dp: float) -> dict[str, list]:
+    out = {k: list(v) for k, v in cats.items()}
+    out[cat][0] += de
+    out[cat][1] += dp
+    return out
+
+
+def _weighted_worth(cats: dict[str, list], now: float, cat: str, kind: str, pts: float, credit: float) -> tuple[float | None, float | None]:
+    """A lever's worth and cost in a weighted class: it moves only its own category's percent,
+    which moves the average by that category's weight. A category HAC's table does not list
+    carries no known weight, so the lever has no worth."""
+    if cat not in cats:
+        return None, None
+    if kind == "zero":
+        after = _weighted_avg(_with(cats, cat, credit * pts, 0.0))
+        return (max(0.0, after - now) if after is not None else None), None
+    after = _weighted_avg(_with(cats, cat, credit * pts, pts))
+    worth = max(0.0, after - now) if after is not None else None
+    cost = None
+    if kind == "missing":
+        blank = _weighted_avg(_with(cats, cat, 0.0, pts))
+        cost = (now - blank) if blank is not None else None
+    return worth, cost
+
+
+def _weighted_reach(cats: dict[str, list], account: grading.Account, levers: list[Lever], scale: grading.GradeScale) -> Reach | None:
+    """The next letter in a weighted class, as the ceiling the posted work allows: the average if
+    every zero is filled and every posted lever earned at its credit. No point count: ten points
+    of Quiz are not ten points of Assignments."""
+    above = [(ltr, f) for ltr, f in scale.cuts if account.reported < f < 100.0]
+    if not above:
+        return None
+    ltr, f = min(above, key=lambda c: c[1])
+    state = {k: list(v) for k, v in cats.items()}
+    for l in levers:
+        if l.kind == "zero" and l.category in state:
+            state[l.category][0] += l.credit * l.points
+    zeros_only = _weighted_avg(state)
+    for l in levers:
+        if l.kind != "zero" and l.category in state:
+            state[l.category][0] += l.credit * l.points
+            state[l.category][1] += l.points
+    ceiling = _weighted_avg(state)
+    posted = round(sum(l.points for l in levers if l.kind != "zero"), 2)
+    needed = 0.0 if zeros_only is not None and zeros_only >= f else None
+    return Reach(ltr, f, needed, posted, ceiling is not None and ceiling >= f, round(ceiling, 2) if ceiling is not None else None)
 
 
 def fmt_worth(x) -> str:

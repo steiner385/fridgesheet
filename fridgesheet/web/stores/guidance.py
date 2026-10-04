@@ -108,7 +108,7 @@ def sentence_for(g: guidance.Guidance) -> list[tuple[str, dict]]:
         return []
     out: list[tuple[str, dict]] = []
     art = guidance.with_article
-    if g.reach is not None and g.reach.needed <= 0 and g.zero_points > 0:
+    if g.reach is not None and g.reach.needed is not None and g.reach.needed <= 0 and g.zero_points > 0:
         return [("gd.zeros_reach", {"zero_points": grading.fmt_points(g.zero_points), "letter": art(g.reach.letter)})]
     best = g.best if g.best is not None and g.best.stake >= 0.05 else None   # "+0.0" is no best move
     if best is not None:
@@ -121,7 +121,11 @@ def sentence_for(g: guidance.Guidance) -> list[tuple[str, dict]]:
         else:
             out.append(("gd.best", common))
     # Then the honest reach, or at the top letter the slack: every sentence the engine can stand behind.
-    if g.reach is not None and g.reach.posted > 0:
+    if g.reach is not None and g.reach.posted > 0 and g.reach.needed is None:
+        # A weighted class: the ceiling the posted work allows, not a point count.
+        out.append(("gd.ceiling" if g.reach.reachable else "gd.ceiling_far",
+                    {"posted": grading.fmt_points(g.reach.posted), "ceiling": grading.fmt_avg(g.reach.ceiling), "letter": art(g.reach.letter)}))
+    elif g.reach is not None and g.reach.posted > 0:
         key = "gd.reach" if g.reach.reachable else "gd.reach_far"
         out.append((key, {"letter": art(g.reach.letter), "needed": grading.fmt_points(g.reach.needed), "posted": grading.fmt_points(g.reach.posted)}))
     if g.slack is not None and g.slack.posted > 0:

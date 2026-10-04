@@ -525,6 +525,13 @@ page, **What moves it** lists every lever as a line with its worth and when it i
 until. Where HAC's number does not add up from what the app can see, these are points, not
 average points.
 
+**Weighted classes.** Some teachers' classes are figured by **category average**: each
+category's percent, counted by its weight, not total points. HAC shows a Category Weight column
+for these; the class page then says so, its *Share of the grade* is each category's weight, and
+the guidance knows that ten points in a small category move the grade more than ten in a large
+one. The reach there reads as a ceiling: *Full marks on the 10 points posted would take it to
+90.93: an A.*
+
 On a class page, **How it's figured** sits under the grade strip: HAC's categories with points
 earned, points possible, the percent, and each category's share of the grade (its possible
 points over all possible points, which in a total-points class is its weight); the total; and

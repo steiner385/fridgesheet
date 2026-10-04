@@ -131,3 +131,10 @@ def test_missing_work_that_cannot_raise_the_number_is_said_as_what_a_zero_would_
     L = guidance.Lever(1, "Essay", "missing", 10.0, 1.0, True, 0.0, None, "A", 16.7)
     g = guidance.Guidance(True, "A", (L,), L, None, guidance.Slack("A", 90.0, 10.0, 5.0), 0.0)
     assert gstore.sentence_for(g)[0] == ("gd.protect", {"name": "Essay", "points": "10", "cost": "16.7"})
+
+
+def test_a_weighted_class_says_the_ceiling_of_the_posted_work():
+    g = guidance.Guidance(True, "B", (), None, guidance.Reach("A", 90.0, None, 10.0, True, 90.93), None, 0.0)
+    assert gstore.sentence_for(g) == [("gd.ceiling", {"posted": "10", "ceiling": "90.93", "letter": "an A"})]
+    far = guidance.Guidance(True, "B", (), None, guidance.Reach("A", 90.0, None, 10.0, False, 88.1), None, 0.0)
+    assert gstore.sentence_for(far) == [("gd.ceiling_far", {"posted": "10", "ceiling": "88.10", "letter": "an A"})]
