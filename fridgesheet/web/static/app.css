@@ -377,9 +377,9 @@ pre.log { background: #111; color: #eee; padding: 8px; max-height: 320px; overfl
 .child-nav a:hover { text-decoration: underline; }
 .child-nav a[aria-current] { background: var(--paper); border-color: var(--box); font-weight: 650; box-shadow: 0 1.5px 0 var(--paper); }
 .button-link { display: inline-block; padding: 8px 12px; border: 1px solid var(--control); border-radius: 6px; background: var(--paper); color: var(--ink); text-decoration: none; }
-.checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: 960px; gap: 24px; align-items: start; }
+.checkin-layout { display: grid; grid-template-columns: minmax(0, 1fr); max-width: var(--page-max); gap: 24px; align-items: start; }
 /* The plan is a planner spread, two day boxes side by side, so it takes more than the measure. */
-.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: 1100px; }
+.checkin-layout.plan-only { grid-template-columns: minmax(0, 1fr); max-width: var(--page-max); }
 .checkin-layout h3 { margin-top: 0; }
 /* The plan and the wrap-up form stick beside the review queue while it scrolls, so "Choose a
    next step" on the last card and "Finish check-in" are both still in view. It scrolls on its
@@ -492,9 +492,9 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* The setup page (the Student Planner, Settings; the surface brief for settings.html,
    2026-10-01): the planner's blocks in order, no cards; the three forms parted by the printed
    rule, each closing on its own Save. */
-.settings-form { display: grid; gap: var(--s5); margin-bottom: var(--s4); max-width: 1100px; }
+.settings-form { display: grid; gap: var(--s5); margin-bottom: var(--s4); max-width: var(--page-max); }
 .settings-form > .sec, .settings-below > .sec, .settings-below > form.sec { margin: 0; }
-.settings-below { margin-top: var(--s5); padding-top: var(--s5); border-top: 1.5px solid var(--box); max-width: 1100px; }
+.settings-below { margin-top: var(--s5); padding-top: var(--s5); border-top: 1.5px solid var(--box); max-width: var(--page-max); }
 .settings-below > * + * { margin-top: var(--s5); }
 /* The three forms are parted by the printed rule: late-rules from no-print-days, and About after (finish review 2026-10-01). */
 .settings-below > form.sec + form.sec, .settings-below > form.sec + section.sec { border-top: 1.5px solid var(--box); padding-top: var(--s5); }
@@ -513,7 +513,7 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
    rows, the charts flat on the page with no box of their own, the numbers behind a pencil fold,
    the longest open as pencil lines. The Kid and Weeks words are the sort line. */
 .trend-words .sep { margin: 0 var(--s2); }
-.trends-page { max-width: 1100px; padding-bottom: var(--s4); }
+.trends-page { max-width: var(--page-max); padding-bottom: var(--s4); }
 .trends-page > .report-card { margin: 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s2); }
 .trends-page > .report-card > h3 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .trends-page > .report-card > h3 .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
@@ -536,10 +536,10 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
    Runs is the same log turned to the sheet (the surface brief for runs.html, 2026-10-01):
    `.run-log` and `.run` share the day row and the line; a run's line adds the outcome word on
    its highlighter at the right and the PDF and Reprint as foot links. */
-.change-words { max-width: 1100px; }                 /* the log's own width */
+.change-words { max-width: var(--page-max); }                 /* the log's own width */
 .change-words a, .trend-words a { white-space: nowrap; }   /* a word of the sort line never breaks mid-phrase */
 .change-words .sep { margin: 0 var(--s2); }
-.change-log, .run-log, .report-shelf, .checkup { max-width: 1100px; padding-bottom: var(--s2); }
+.change-log, .run-log, .report-shelf, .checkup { max-width: var(--page-max); padding-bottom: var(--s2); }
 .change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day, .checkup > h3.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .change-log > h3.day:first-child, .run-log > h3.day:first-child, .report-shelf > h3.day:first-child, .checkup > h3.day:first-child { margin-top: var(--s2); }
 .change-log > h3.day .tally, .run-log > h3.day .tally, .checkup > h3.day .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
@@ -588,7 +588,7 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 .builder-form .settings-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }   /* a lone Group by or Page keeps one column, not the whole measure */
 #preview > .report-page { margin-top: var(--s5); }
 .builder-form .form-save button { margin: 0 var(--s2) 0 0; }
-.report-page { margin: var(--s4) 0 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s2); max-width: 1100px; }
+.report-page { margin: var(--s4) 0 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s2); max-width: var(--page-max); }
 .report-page > h3.report-title { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .report-page > h3.report-title .tally { font-weight: 400; letter-spacing: 0; text-transform: none; }
 .report-page > h4.day { margin: var(--s4) 0 0; font-size: var(--type-small); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
@@ -605,7 +605,7 @@ td.grade .src, .src { color: var(--muted); font-size: var(--type-small); }
 /* The household's timetable (the surface brief for schedules.html, 2026-10-01): the refresh and
    each report as ruled sections parted by the printed rule, the time at Display size at the
    head's right, one pencil line for the days, the next run and the last with the Runs word. */
-.timetable { max-width: 1100px; }
+.timetable { max-width: var(--page-max); }
 .timetable > form.sec { margin: 0; }
 .timetable > form.sec + form.sec { margin-top: var(--s5); padding-top: var(--s5); border-top: 1.5px solid var(--box); }
 .schedule { max-width: var(--measure); }
@@ -993,7 +993,7 @@ details.mf-fold > .mf-section { margin-top: var(--s2); }
 .all-work .seg.words label:has(input:focus-visible) { outline-offset: 2px; }
 /* The pages sit on the ruling with room between them for it to show (finish review 2026-09-30). */
 .pages { padding-bottom: var(--s4); }
-.weeks { display: grid; gap: var(--s5); max-width: 1100px; }              /* the planner's measure */
+.weeks { display: grid; gap: var(--s5); max-width: var(--page-max); }              /* the pages fill the content column */
 .week > .empty-week { margin: var(--s2) 0; }
 /* A line's prose keeps to the reading measure inside a wide box on every planner page (the
    Measure Rule; the Plan's facts ran to 1,070px at 1440, re-critique 2026-09-30); the word stays
@@ -1019,12 +1019,12 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
    each name), the chosen kid's sheet beneath as one paper page in the day-box rule, its label
    along the top edge the way the sheet's heading reads. "Every kid" is one more tab, in pencil,
    at the tabs' right. The pages the tabs hide keep their markup ([hidden]). */
-.kid-tabs { margin-bottom: var(--s5); flex-wrap: wrap; max-width: 1100px; }              /* the pages' own width */
+.kid-tabs { margin-bottom: var(--s5); flex-wrap: wrap; max-width: var(--page-max); }              /* the pages' own width */
 /* The open count beside a name is the page's tally, in pencil: Ballpoint Blue 600 beside a name
    is the question count and nothing else (finish review 2026-09-30). */
 .kid-tabs .tally { color: var(--muted); font-weight: 400; font-size: var(--type-small); }
 .kid-tabs .every { margin-left: auto; color: var(--muted); }
-.open-sheets { display: grid; gap: var(--s5); max-width: 1100px; padding-bottom: var(--s4); }
+.open-sheets { display: grid; gap: var(--s5); max-width: var(--page-max); padding-bottom: var(--s4); }
 .open-sheets > .sec.kid { margin: 0; background: var(--paper); border: 1.5px solid var(--box); border-radius: 2px; padding: 0 var(--s3) var(--s1); }
 .open-sheets > .sec.kid > h3 { margin: 0 calc(-1 * var(--s3)) var(--s1); padding: var(--s1) var(--s3); border-bottom: 1.5px solid var(--box); font-size: var(--type-small); font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .open-sheets > .sec.kid > h3 a { color: inherit; text-decoration: none; }
@@ -1042,7 +1042,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .open-sheets > .sec.kid > .empty-half, .open-sheets > .sec.kid > .trailer, .open-sheets > .sec.kid > .nothing-open { margin: var(--s2) 0; max-width: var(--measure); }
 .open-sheets > .sec.kid > .trailer { font-size: var(--type-small); }
 /* The sheet's legend once under the page: its capitals on their highlighters, in pencil. */
-.sheet-legend { font-size: var(--type-small); max-width: 1100px; margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); line-height: 1.7; }
+.sheet-legend { font-size: var(--type-small); max-width: var(--page-max); margin: var(--s3) 0 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); line-height: 1.7; }
 .sheet-legend .word { font-weight: 700; padding: 0 .35em; border-radius: 2px; }
 .sheet-legend .word.red { color: var(--warn); background: var(--hl-red); }
 .sheet-legend .word.late { color: var(--late); background: var(--hl-late); }
@@ -1053,7 +1053,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
    moved it, the value at Display size in ink, the newest cell's date on the highlighter, the
    official number from the twin first (or the other source's last, in pencil). Beneath it the
    teacher and the sources fold as pencil lines, then two quiet folds, then the weekly pages. */
-.class-record { max-width: 1100px; padding-bottom: var(--s4); }
+.class-record { max-width: var(--page-max); padding-bottom: var(--s4); }
 .grade-strip { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-bottom: var(--s3); }
 .grade-strip > li > p { color: var(--ink); font-size: inherit; margin-top: var(--s1); }
 .grade-strip > li > p.whose { margin: 0; font-size: var(--type-small); color: var(--muted); }   /* whose number, in pencil */
@@ -1088,7 +1088,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 /* The report card (spec 2026-10-03 §7.1): every class one ruled line under a hairline, the
    name at the left, the number at Display size with its letter at the right, whose number and
    the one-line how in pencil beneath. The fold is the page's only prose. */
-.report-card-page { max-width: 1100px; padding-bottom: var(--s4); }
+.report-card-page { max-width: var(--page-max); padding-bottom: var(--s4); }
 .report-card-page .report-lines { list-style: none; margin: 0; padding: 0; }
 .report-card-page .report-line { padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }
 .report-card-page .report-line .head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s1) var(--s3); margin: 0; }
@@ -1106,15 +1106,15 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
    list, per kid, the let-go sentence as a pencil line with its button at the end, and the
    waiting lines under hairlines inside a quiet fold. No box around any of it. */
 .quiet-kid { margin: 0 0 var(--s2); font-size: var(--type-small); max-width: var(--measure); }
-.to-answer { max-width: 1100px; padding-bottom: var(--s2); }
+.to-answer { max-width: var(--page-max); padding-bottom: var(--s2); }
 .to-answer > .item:first-child { border-top: 1px solid var(--rule); }
 .to-answer > .nothing-to-answer { margin: var(--s2) 0; }
 .item-head .meta .kid { font-weight: 650; }
-.let-go { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline; margin: var(--s4) 0 0; max-width: 1100px; font-size: var(--type-small); color: var(--muted); }
+.let-go { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: baseline; margin: var(--s4) 0 0; max-width: var(--page-max); font-size: var(--type-small); color: var(--muted); }
 .let-go > span { flex: 1 1 auto; min-width: 0; max-width: var(--measure); }
 .let-go b { color: var(--ink); font-weight: 650; }
 .let-go button { font-size: var(--type-small); }
-.waiting-fold, .twins-fold { max-width: 1100px; }                          /* the list's own width */
+.waiting-fold, .twins-fold { max-width: var(--page-max); }                          /* the list's own width */
 /* The line's mark is a drawn stroke in the line's own colour: the tick, or the small clock. */
 .glyph svg { width: .8em; height: .8em; display: inline-block; vertical-align: -.08em; }
 .waiting > .line { display: flex; gap: var(--s3); align-items: baseline; padding: var(--s2) 0; border-bottom: 1px solid var(--rule); }

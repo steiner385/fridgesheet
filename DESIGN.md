@@ -706,10 +706,9 @@ so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.12
 
 ### Named Rules
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
-characters at body size); tables, cards and charts fill the 1600px content column, and the planner
-spread takes 1100px because two day boxes need more than a measure, and Assignments' weekly pages
-take the same 1100px. Today's week strip and kids' spread are cards and fill the content column
-(at 1100px a 1920px screen left a third of Today blank, 2026-10-04). Inside any wide box on a planner page
+characters at body size); every page's sections, tables, cards, charts and planner spreads fill
+the 1600px content column (`--page-max`). Pages used to stop at 1100px, which left a third of a
+1920px screen blank; Today widened first and every other page followed (2026-10-04). Inside any wide box on a planner page
 (`.planner-main`) the prose keeps to the measure while the sheet's word stays at the right: a
 line's facts and ask line, an inset, a section's lead, the "asked the school" line, the review
 line and an empty day's line (the re-critique of 2026-09-30 measured the Plan's facts at 1,070px
@@ -815,11 +814,11 @@ sections (Settled by the records, Waiting) follow under the pages. On a phone th
 controls wrap and the sheet's word drops to its own line as on the Plan.
 
 **The sheet on a screen** (Open work): under the page head the kids as tabs (`.child-nav.kid-tabs`,
-the child tabs capped at 1100px like the pages beneath), each name followed by its open count as a
+the child tabs capped at the content column's width like the pages beneath), each name followed by its open count as a
 Pencil Grey tally ("Alex · 6"), "Every kid" as one more tab in pencil at the right (`margin-left:
 auto`); the first kid's tab is pulled forward by default, `?kid=<key>` turns the page and `?kid=all`
 makes "Every kid" current. Then, on the ruled page, `.planner-main.open-sheets`: a one-column grid
-with 24px gaps at 1100px holding one `section.sec.kid` per kid, every kid's page in the markup and
+with 24px gaps at the content column's width holding one `section.sec.kid` per kid, every kid's page in the markup and
 the ones not chosen `hidden`, so a tier never hides a row. A page is the day box holding a kid's
 sheet: Paper White, 1.5px Day-box rule, 2px corners, 0 12px 4px inside, its label along the top
 edge in Day label type ("ALEX — OPEN WORK · 6 open", the name a link in the label's grey, the
@@ -837,7 +836,7 @@ link without script. The lines are read-only (see The planner line): the name op
 place, and that is the page's one interaction.
 
 **The class's record** (a class's page): under the crumb and the class's name (the long name in
-pencil after it), `.planner-main.class-record` at 1100px holds the grade strip: Today's week
+pencil after it), `.planner-main.class-record` at the content column's width holds the grade strip: Today's week
 strip turned to the grade (`.week-strip.grade-strip`, `repeat(auto-fill, minmax(150px, 1fr))`
 with 8px gaps), one small day box per observation of this course's own number (Canvas' current
 score or HAC's average), oldest first, the label along the top edge the refresh date, the value
@@ -859,7 +858,7 @@ line is this class, and the sources legend beneath.
 **The household's list** (Questions): under the title and intro, one Pencil Grey label-size
 line per kid with nothing to ask ("Nothing to ask about Sam's work.", drawn only while someone
 has a question); then one section, "To answer" with the house's count, and on the ruled page
-(`.planner-main.to-answer`, 1100px) the questions as planner lines under hairlines (the first
+(`.planner-main.to-answer`, the content column) the questions as planner lines under hairlines (the first
 ruled above), in the order the school's deadlines close (the late-work window's last day, else
 the due date), each line's pencil meta opening with the kid's name at 650 ("Alex · Honors
 English 9 · 10 pts"), the facts, the ask line and the answers; an answered line becomes the
@@ -875,7 +874,7 @@ its `q-` slots.
 
 **The setup page** (Settings): under the title and its one intro line ("Set up once; each part
 saves to the file it names."), the first form (`form.settings-form`, a grid of sections 24px
-apart at 1100px): School login, Printing and the report window, Where you are, Gradebook
+apart at the content column's width): School login, Printing and the report window, Where you are, Gradebook
 sources, Network and Updates, each a `section.sec` with its `.sec-head` h3 at Title size, its
 fields label over control on the ruling (`.settings-grid`, 220px tracks, the label at 550, the
 control 1px Stroke Grey with 6px corners), its help as Pencil Grey label-size lines bounded to the
@@ -897,7 +896,7 @@ seam sentence are gone.
 **The year so far page** (Trends): under the title and intro, one run-in line in the sort line's
 grammar (`p.sort.trend-words`: "Kid all · Alex · Sam — Weeks 4 · 8 · 16", the chosen words Ink
 at 650 with no underline, the others Ballpoint links, the groups parted by an em dash; in kid
-mode the Kid words are not drawn). Then `.planner-main.trends-page` at 1100px holding one
+mode the Kid words are not drawn). Then `.planner-main.trends-page` at the content column's width holding one
 `section.sec.report-card`, the sheet page's box (Paper White, 1.5px Day-box rule, 2px corners,
 0 12px 8px inside) labelled along its top edge in Day label type ("THE YEAR SO FAR · last 8
 weeks · Alex", the tally at 400 in sentence case). Inside, the parts as Day row heads 16px
@@ -917,7 +916,7 @@ grammar (`p.sort.change-words`: "Since yesterday · Last 3 days · Last week · 
 · Alex · Sam — Kind all · New · Grade posted · …", the chosen words Ink at 650, the others
 Ballpoint links, the groups parted by em dashes; in kid mode the Kid words are not drawn; every
 word a plain link, since the words sit outside the swapped log). Then `.planner-main.change-log`
-at 1100px: the page's events grouped by the household's day, newest first, each day a Day row
+at the content column's width: the page's events grouped by the household's day, newest first, each day a Day row
 head ("WED 9/30") with its tally after it at 400 in sentence case (the total, then each kind that
 happened in the kinds' order: "· 12 changes · 1 grade posted · 1 now missing · 4 answers"), the
 first line ruled above; each `.change` one ruled line under a hairline: the time in Pencil Grey
@@ -933,7 +932,7 @@ of 1,204 changes · Older ›" as a pencil line under the log.
 **The report card** (`/kids/{key}/report-card`, 2026-10-03, spec
 docs/superpowers/specs/2026-10-03-report-card-and-grade-account-design.md): under the crumb and
 the title ("Report card", the kid's nickname and "marking period so far" in the subtitle, Print the
-page's one action) and the child's tabs, `.planner-main.report-card-page` at 1100px holding one
+page's one action) and the child's tabs, `.planner-main.report-card-page` at the content column's width holding one
 `section.sec.report-lines` ("Classes" with its count) whose `ol.report-lines` is one ruled line per
 class under a hairline: the class's short name a Ballpoint link at 650 at the left, the official
 number at 1.75× root in ink with the scale's letter at 400 beside it at the right, whose number
@@ -1316,7 +1315,7 @@ targets, nothing filled until it matters, and on the planner nothing filled at a
   name with its open count as a Pencil Grey 400 label-size tally ("Alex · 6"), never the blue
   question count; "Every kid" in Pencil Grey at the right (`margin-left: auto`), one more tab.
   The current one is pulled forward as any child tab; on `?kid=all` "Every kid" is current.
-  Capped at 1100px so the row is the pages' own width. 44px on a coarse pointer.
+  Capped at the content column so the row is the pages' own width. 44px on a coarse pointer.
 
 ### Status line (signature, the shell)
 The page's ruled "as of" line (`header.status`): one wrapping line of Pencil Grey `--type-small`
@@ -1401,8 +1400,8 @@ this sheet's spread.
   from `--type-small` and `--type-tiny` so they move with the tier.
 - **Do** render a fold with nothing in it as one quiet Pencil Grey line at body size, marker gone,
   not a heading over nothing.
-- **Do** bound prose and forms to `--measure` (760px), the planner spread to 1100px, and let
-  tables, cards and charts fill the column.
+- **Do** bound prose and forms to `--measure` (760px), and let planner spreads,
+  tables, cards and charts fill the content column.
 - **Do** build a new page from the same blocks: status bar, page head, notices, sections of
   `.sec` with `.sec-head`, and assignments as `_item.html` at card, detail or line density; a
   page that is a planner wraps its spread in `.planner-main` for the ruling and deals its boxes

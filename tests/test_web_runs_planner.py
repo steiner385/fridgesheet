@@ -78,7 +78,7 @@ def test_no_runs_is_one_pencil_line(tmp_path):
 
 
 def test_the_log_is_drawn_in_the_planners_rules_and_the_outcome_wears_its_colour():
-    assert "max-width: 1100px" in _rule(".change-log, .run-log, .report-shelf, .checkup")
+    assert "max-width: var(--page-max)" in _rule(".change-log, .run-log, .report-shelf, .checkup")
     day = _rule(".change-log > h3.day, .run-log > h3.day, .report-shelf > h3.day, .checkup > h3.day")
     assert "text-transform: uppercase" in day and "color: var(--muted)" in day
     line = _rule(".change, .run")

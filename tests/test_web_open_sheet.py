@@ -99,7 +99,7 @@ def test_the_page_box_and_the_tabs_are_drawn_in_the_planners_rules():
     label = _rule(".open-sheets > .sec.kid > h3")
     assert "border-bottom: 1.5px solid var(--box)" in label and "text-transform: uppercase" in label and "letter-spacing: .08em" in label
     assert "border-top: 1.5px solid var(--box)" in _rule(".open-sheets > .sec.kid > h4.day.coming")      # the printed rule between the halves
-    assert "max-width: 1100px" in _rule(".open-sheets")                                                   # the planner's measure
+    assert "max-width: var(--page-max)" in _rule(".open-sheets")                                                   # the content column
     assert "margin-left: auto" in _rule(".kid-tabs .every")
     assert "color: var(--muted)" in _rule(".kid-tabs .tally") and ".kid-tabs .count" not in CSS
     assert "open-list" not in CSS and "kid-head" not in CSS

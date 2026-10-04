@@ -96,7 +96,7 @@ def test_the_report_is_one_paper_page_with_its_title_along_the_top_edge(tmp_path
 
 
 def test_the_shelf_and_the_page_are_drawn_in_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".change-log, .run-log, .report-shelf, .checkup")
+    assert "max-width: var(--page-max)" in _rule(".change-log, .run-log, .report-shelf, .checkup")
     line = _rule(".report")
     assert "border-bottom: 1px solid var(--rule)" in line and "background" not in line
     assert "font-weight: 650" in _rule(".report .name")

@@ -130,7 +130,7 @@ def test_a_child_with_one_class_keeps_the_class_picker_behind_more_filters(tmp_p
 
 
 def test_the_pages_share_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".weeks")
+    assert "max-width: var(--page-max)" in _rule(".weeks")
     assert "text-transform: uppercase" in _rule("details.week > summary > h4")
     assert "font-weight: 650" in _rule(".sort a[aria-current]")
     coarse = re.search(r"@media \(pointer: coarse\)\s*\{\s*\.sort a[^{]*\{([^}]*)\}", CSS).group(1)
