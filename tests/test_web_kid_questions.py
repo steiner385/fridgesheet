@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from tests.web_fixtures import app_for, items_block, seed, week_line
+from tests.web_fixtures import app_for, items_block, needs_row, seed
 
 
 def _page(tmp_path, q=""):
@@ -24,7 +24,7 @@ def test_alex_has_one_question_one_decided_and_two_waiting(tmp_path):
     pid = _id(tmp_path, "Participation")
     body = _page(tmp_path)
     assert "1 question about" in body
-    assert '<p class="ask-line">' in week_line(body, pid)                    # asked on its own line
+    assert '<p class="ask-line">' in needs_row(body, pid)                    # asked in Needs you now, at the top
     decided = body[body.index("Settled by the records"):body.index("Waiting, nothing to do yet")]
     assert "Quiz 1" in decided and "Not right?" in decided
     waiting = body[body.index("Waiting, nothing to do yet"):]

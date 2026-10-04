@@ -26,7 +26,10 @@
 {# An agreed step means the question is being handled: it is not asked again (`ItemView.asks`);
    the step is written beneath the line instead. #}
 {% set is_q = (vd.state == 'question' and not item.step) or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}
-{% set ro = read_only is defined and read_only %}{% set show_ask = is_q and not ro %}
+{# `above` (a week's line already in Needs you now at the top of Assignments): asked and answered
+   up there, so the line here offers no second ask line or answers. #}
+{% set above = above is defined and above %}
+{% set ro = read_only is defined and read_only %}{% set show_ask = is_q and not ro and not above %}
 {% set tone = tone if tone is defined and tone else ('ask' if is_q else 'grey' if vd.state == 'waiting' else '') %}
 {% set has_word = word is defined and word %}
 {% set at = (item | due_at(tier)) if item.due else '' %}
@@ -69,7 +72,7 @@
      (waiting) offers no plan answers and gets no prompt. #}
   {# `only_asked` (a week's line on Assignments): a line that is not a question offers nothing
      here; its foot's "Plan a step" is the way to plan it, so the school's list is not a form. #}
-  {% set offers = vd.answers and not ro and not (only_asked is defined and only_asked and not is_q) %}
+  {% set offers = vd.answers and not ro and not above and not (only_asked is defined and only_asked and not is_q) %}
   {% set plan_ask = (not is_q) and has_word and tone != 'grey' and offers and not item.step %}
   {% if box == qid %}{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
   {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }}{% if not ro %} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a>{% endif %}</p>{% endif %}

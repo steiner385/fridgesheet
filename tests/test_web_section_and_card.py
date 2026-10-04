@@ -138,15 +138,18 @@ def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_gloss
 # --- §4 the five slots, at card and detail density ------------------------------------------------
 
 def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_path):
-    """The question is asked on its own line on the kid page's weekly pages (2026-09-30):
-    the same five slots, the sheet's word at the head's right, the day in the row above."""
-    from tests.web_fixtures import week_line
+    """The question is asked in Needs you now at the top of Assignments (2026-10-04), and its
+    line on the weekly pages keeps the rest (2026-09-30): the same five slots, the sheet's word
+    at the head's right, the day in the row above."""
+    from tests.web_fixtures import needs_row, week_line
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
+    asked = needs_row(body, pid)
+    order = [asked.index(s) for s in ('class="item-head"', 'class="facts"', 'class="ask-line"', 'class="answers"', 'class="item-foot"')]
+    assert order == sorted(order)
     card = week_line(body, pid)
     assert card.startswith('<div class="item check" id="row-%d"' % pid)
-    order = [card.index(s) for s in ('class="item-head"', 'class="facts"', 'class="ask-line"', 'class="answers"', 'class="item-foot"')]
-    assert order == sorted(order)
+    assert card.index('class="facts"') < card.index('class="item-foot"') and 'class="answers"' not in card
     assert 'class="ours"' not in card                                          # no step, no note, no answer yet
     head = _element(card, '<div class="item-head">')
     assert re.search(r'<span class="name"><a href="#row-%d"[^>]*data-focus-target>Participation</a></span>' % pid, head)

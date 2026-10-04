@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tests.web_fixtures import app_for, items_block, seed, week_line
+from tests.web_fixtures import app_for, items_block, needs_row, seed, week_line
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 CSS = (WEB / "static" / "app.css").read_text(encoding="utf-8")
@@ -55,10 +55,11 @@ def test_a_week_sorted_by_due_date_reads_as_day_rows(tmp_path):
     assert '<h5 class="day">' not in by_name and "due Tue 9/15 11:59pm" in by_name    # any other sort: the date on the line
 
 
-def test_a_line_keeps_the_rows_id_and_only_an_asked_line_offers_answers(tmp_path):
+def test_a_line_keeps_the_rows_id_and_the_answers_are_up_top(tmp_path):
     """Re-critique 2026-09-30: every open line carried the plan prompt and three answers, so the
-    lead's "1 question" stood over 24 buttons. Now only a line the app asks about offers its
-    answers, in its own slot; the rest plan from "Plan a step" in the foot."""
+    lead's "1 question" stood over 24 buttons. Then only a line the app asked about offered its
+    answers; now (2026-10-04) those are asked in Needs you now above the pages, and no line
+    below offers answers a second time; the rest plan from "Plan a step" in the foot."""
     vid, pid = _id(tmp_path, "Vocabulary"), _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
     line = week_line(body, vid)
@@ -66,18 +67,18 @@ def test_a_line_keeps_the_rows_id_and_only_an_asked_line_offers_answers(tmp_path
     assert '<span class="when word due">DUE TODAY</span>' in line
     assert 'class="answers"' not in line and "ask-line" not in line and 'id="q-%d"' % vid not in line
     assert ">Plan a step</a>" in line
-    asked = week_line(body, pid)
+    asked = needs_row(body, pid)
     assert '<p class="ask-line">Was it handed in?</p>' in asked
-    assert 'hx-post="/items/%d/answer"' % pid in asked and 'name="slot" value="qw-%d"' % pid in asked and 'hx-target="#qw-%d"' % pid in asked
-    assert body.count('class="answers"') == 1                                          # one question, one answer row
+    assert 'hx-post="/items/%d/answer"' % pid in asked and 'name="slot" value="qn-%d"' % pid in asked and 'hx-target="#qn-%d"' % pid in asked
+    assert 'class="answers"' not in items_block(body)                                  # nothing asked twice
 
 
-def test_a_question_is_asked_on_its_line_and_counted_in_the_lead(tmp_path):
+def test_a_question_is_asked_up_top_and_counted_in_the_lead(tmp_path):
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
     assert '<p id="q-lead" class="lead">1 question about your work</p>' in body
-    line = week_line(body, pid)
-    assert '<p class="ask-line">Was it handed in?</p>' in line and 'value="done"' in line
+    asked = needs_row(body, pid)
+    assert '<p class="ask-line">Was it handed in?</p>' in asked and 'value="done"' in asked
     assert 'id="q-%d"' % pid not in body                                                # no second card for the same question
 
 

@@ -59,8 +59,8 @@ def test_a_completed_step_does_not_hide_the_question(tmp_path):
     r = c.post(f"/kids/Alex/check-in/step?step_id={conn_step}", data=_form("Participation", state="done", revision="1"),
                follow_redirects=False)
     assert r.status_code == 303
-    from tests.web_fixtures import week_line
-    assert '<p class="ask-line">' in week_line(c.get("/kids/Alex").text, iid)      # asked again, on its line
+    from tests.web_fixtures import needs_row
+    assert '<p class="ask-line">' in needs_row(c.get("/kids/Alex").text, iid)      # asked again, in Needs you now
 
 
 # --- #48: planning a step returns to where you were -------------------------------------------
