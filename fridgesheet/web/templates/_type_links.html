@@ -1,0 +1,6 @@
+{# The type filter (spec 2026-10-04 assignment types §6.3): All, then each family with work,
+   counts beside; the one in force is marked for screen readers and drawn as current. All and
+   one family is no choice at all, so the row needs two families to show. #}
+{% if type_links is defined and type_links | length > 2 %}
+<p class="type-links">{% for l in type_links %}{% if not loop.first %} · {% endif %}<a href="{{ l.href }}"{% if l.current %} aria-current="true" class="current"{% endif %}>{{ l.key | say(tier) }} {{ l.n }}</a>{% endfor %}</p>
+{% endif %}

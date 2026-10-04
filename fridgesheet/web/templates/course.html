@@ -146,6 +146,7 @@
    Assignments; the sort keys and the pages swap together in #items. #}
 <section class="sec class-work">
   <div class="sec-head"><h3>Assignments</h3><span class="count">{{ rows | length }} listed</span></div>
+  {% set tier = student.key | tier_of %}{% include "_type_links.html" %}
   <div id="items">
   {% block partial %}
   {# Every line here is this class: its name in the meta stays a word, not a link to this page. #}

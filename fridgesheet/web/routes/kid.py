@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections import Counter
 from datetime import timedelta
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from ... import grading, guidance, sources
+from ... import grading, guidance, sources, work_types
 from ...dates import deadline_date, wd_md, week_start
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
@@ -26,6 +27,7 @@ def _filters(request: Request) -> dict:
         "show": q.get("show", "open"), "source": q.get("source") or None,
         "course_id": int(course) if course and course.isdigit() else None,
         "kind": q.get("kind") or None, "flagged": q.get("flagged") or None, "outcome": q.get("outcome") or None, "verdict": q.get("verdict") or None, "sort": q.get("sort", "due"),
+        "family": q.get("type") if q.get("type") in items.FAMILY_FILTER else None,
         "direction": _direction(q.get("dir")),
     }
 
@@ -36,13 +38,34 @@ def _direction(raw: str | None) -> str:
     return "desc" if raw == "desc" else "asc"
 
 
-def _sort_base(key: str, f: dict) -> str:
-    """The URL the column headers sort: this page with its filters, ready for `sort=<x>`."""
+def _filter_params(f: dict) -> list[tuple[str, object]]:
+    """This page's filters as query pairs, the ones in force only."""
     q = [("show", f["show"])]
     q += [(name, v) for name, v in (("source", f["source"]), ("course", f["course_id"]),
                                     ("kind", f["kind"]), ("flagged", f["flagged"]),
-                                    ("outcome", f["outcome"]), ("verdict", f["verdict"])) if v]
-    return f"/kids/{quote(key)}?{urlencode(q)}&"
+                                    ("outcome", f["outcome"]), ("verdict", f["verdict"]),
+                                    ("type", f.get("family"))) if v]
+    return q
+
+
+def _sort_base(key: str, f: dict) -> str:
+    """The URL the column headers sort: this page with its filters, ready for `sort=<x>`."""
+    return f"/kids/{quote(key)}?{urlencode(_filter_params(f))}&"
+
+
+def type_links(base: str, params: list[tuple[str, object]], counts: dict[str, int], current: str | None) -> list[dict]:
+    """The type filter as a row of links with counts (spec 2026-10-04 assignment types §6.3),
+    in the dashboard's outcome-link style: All, then each family that has work, keeping every
+    other filter in force."""
+    keep = [(k, v) for k, v in params if k != "type" and v not in (None, "")]
+
+    def href(family: str | None) -> str:
+        q = keep + ([("type", family)] if family else [])
+        return f"{base}?{urlencode(q)}" if q else base
+    out = [{"key": "copy.type_all", "n": sum(counts.values()), "href": href(None), "current": current is None}]
+    out += [{"key": f"copy.type_{fam}", "n": counts[fam], "href": href(fam), "current": current == fam}
+            for fam in sorted(counts, key=work_types.RANK.__getitem__) if counts[fam]]
+    return out
 
 
 def _is_open(v) -> bool:
@@ -112,6 +135,9 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     listed = rows if f["show"] == "all" else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
     # The sections under the pages cover all of the kid's work, whatever the pages show.
     everything = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), show="all", **state.window())
+    # The type links count every row the other filters allow, whichever type is in force.
+    unfiltered = listed if not f["family"] else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all", "family": None})
+    counts = Counter(v.family for v in unfiltered)
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
     # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
     week_ago = now - timedelta(days=7)
@@ -136,6 +162,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
                   questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
+                  type_links=type_links(f"/kids/{quote(key)}", _filter_params(f), counts, f["family"]),
                   SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,
                   OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
 
@@ -189,7 +216,9 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     # This course and its twin in the other source are one list to a parent: `list_items`
     # widens a course id to its pair itself and sorts the merged list, so it is asked once.
     # Asking again for the peer doubled every row of a paired class (#183).
-    rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
+    every = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
+    family = request.query_params.get("type") if request.query_params.get("type") in items.FAMILY_FILTER else None
+    rows = [v for v in every if not family or v.family == family]
     # The class's assignments as the weekly pages (the class's record, 2026-09-30): every row
     # from both gradebooks printed on the week it was due, settled ones checked off in place;
     # a record hides nothing behind a fold.
@@ -230,7 +259,9 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
                   own_label="Canvas current" if c["source"] == "canvas" else "HAC average", own_official=pick == c["source"],
                   rows=rows, sort=sort, direction=direction, by_day=sort == "due",
                   weeks=weeks_of(rows, rows, now, by_day=sort == "due"), here=f"/kids/{quote(key)}/courses/{course_id}",
-                  sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
+                  sort_base=f"/kids/{quote(key)}/courses/{course_id}?" + (f"type={family}&" if family else ""),
+                  type_links=type_links(f"/kids/{quote(key)}/courses/{course_id}", [("sort", sort), ("dir", direction)],
+                                        Counter(v.family for v in every), family),
                   grade_chart_json=chart_json(chart) if chart else None,
                   notes=notes.for_target(conn, "course", course_id), **source_ctx)
 

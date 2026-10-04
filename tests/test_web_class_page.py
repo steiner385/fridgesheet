@@ -86,7 +86,7 @@ def test_how_it_moved_and_notes_are_quiet_folds(tmp_path):
 def test_the_assignments_are_the_weekly_pages_with_every_row_from_both_gradebooks(tmp_path):
     cid = _course(tmp_path)
     body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert re.search(r'<section class="sec class-work"[^>]*>\s*<div class="sec-head"><h3>Assignments</h3><span class="count">7 listed</span></div>\s*<div id="items">', body)
+    assert re.search(r'<section class="sec class-work"[^>]*>\s*<div class="sec-head"><h3>Assignments</h3><span class="count">7 listed</span></div>\s*(?:<p class="type-links">.*?</p>\s*)?<div id="items">', body, re.S)   # the type filter's links may sit between (assignment types §6.3)
     assert re.search(r'<p class="sort" role="group" aria-label="Sort by">', body)
     assert body.count('class="mf-section week') >= 2 and "_item_rows" not in body
     rows = re.findall(r'id="row-(\d+)"', body)
