@@ -92,7 +92,9 @@ Neither, for everything — each is authoritative for something the other does n
 - **HAC is the gradebook of record.** It is what the report card is computed from, and its
   *marking-period average* is the kid's actual grade in the class. Since 2026-10-03 the app
   rebuilds that average from HAC's own category subtotals (total points, in every class
-  checked) and says on the report card when it cannot. It also lists work that
+  checked) and says on the report card when it cannot, and says what would move it: which
+  open rows are worth the most and what the next scores must be to reach or keep a letter,
+  from posted work only. It also lists work that
   Canvas never has: weekly participation and effort grades, labs, in-class quizzes,
   worksheets graded by hand. On one real day it held **36 assignments Canvas did not** for
   one kid, **16** and **31** for the other two — nearly all of them graded.

@@ -420,6 +420,9 @@ grade yet, work handed in and waiting for a grade, and what's coming due later (
 a count). A row leaves the moment the school record settles it — Canvas records a hand-in, a
 grade above zero lands, the teacher excuses or unpublishes it — or the moment you answer
 "It's handed in" yourself, or once a step has been planned for it.
+Every row also carries what it is worth on that class's average (*+2.0 on the average*), from
+the report card's account of the class ([§6.5](#65-report-card)); the list and its order do not
+change for it.
 
 A step in **Our next steps** greys out once the school shows its assignment as in — Canvas
 handed in, a grade posted, or your own earlier "It's handed in" answer — with that fact named
@@ -508,6 +511,19 @@ number it is and when the gradebook last changed it, and one sentence on how it 
 The letter is from the ten-point scale (A 90, B 80, C 70, D 60, F below) unless `[grading]`
 in `config.toml` says otherwise ([§13](#what-settings-doesnt-show)). **Print** prints the page.
 The fold at the foot says how each gradebook figures an average, in the child's words.
+
+**What moves it.** Under each class's sentence, a second one names the best move and the
+distance to the next letter: *Best move: Vocabulary (10 pts), worth up to +2.0. An A needs 10
+of the next 50 points.* Three kinds of lever count: blank work HAC already counts as zero (turn
+it in and the average rises with nothing added to the total), overdue work still inside the
+late window that HAC has not counted yet, and posted work not yet due. A lever is worth its
+full points unless your late rule names a percentage ([§13](#late-work-rules)), in which case
+the credited worth is shown; work past its late deadline, or answered Too late or Let it go, is
+not a lever. "The next N points" means work the school has posted: nothing is guessed about
+work not posted yet. When a letter would take more than that, the page says so. On the class
+page, **What moves it** lists every lever as a line with its worth and when it is accepted
+until. Where HAC's number does not add up from what the app can see, these are points, not
+average points.
 
 On a class page, **How it's figured** sits under the grade strip: HAC's categories with points
 earned, points possible, the percent, and each category's share of the grade (its possible
