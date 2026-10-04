@@ -121,23 +121,26 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     s = student_or_404(conn, key)
     now, rules = state.now(), state.rules()
     f = _filters(request)
-    rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
-    # A question is open to the family whatever the record says, and on this page it is asked
-    # on its own line (the weekly pages): Open shows every asked row the other filters allow.
-    if f["show"] == "open":
-        shown = {v.id for v in rows}
-        asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
-                 if v.asks and v.id not in shown]
-        if asked:
-            rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
+
+    def page_rows(f: dict) -> list:
+        rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
+        # A question is open to the family whatever the record says, and on this page it is asked
+        # on its own line (the weekly pages): Open shows every asked row the other filters allow.
+        if f["show"] == "open":
+            shown = {v.id for v in rows}
+            asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
+                     if v.asks and v.id not in shown]
+            if asked:
+                rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
+        return rows
+    rows = page_rows(f)
+    # The type links count what each link would show: this page's rows with only the type lifted.
+    counts = Counter(v.family for v in (page_rows({**f, "family": None}) if f["family"] else rows))
     # The weeks are turned back through every row the other filters allow: a week with nothing
     # in the shown set still prints, folded, with its tally.
     listed = rows if f["show"] == "all" else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
     # The sections under the pages cover all of the kid's work, whatever the pages show.
     everything = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), show="all", **state.window())
-    # The type links count every row the other filters allow, whichever type is in force.
-    unfiltered = listed if not f["family"] else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all", "family": None})
-    counts = Counter(v.family for v in unfiltered)
     by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
     # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
     week_ago = now - timedelta(days=7)

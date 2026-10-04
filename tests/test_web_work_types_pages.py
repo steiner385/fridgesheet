@@ -162,3 +162,16 @@ def test_diagnostics_shows_how_each_class_was_typed(tmp_path):
     assert row, sec
     nums = [int(n) for n in re.findall(r'<td class="num">(\d+)</td>', row.group(1))]
     assert nums[0] == sum(nums[1:]) and nums[4] >= 6        # every item counted once; 6 by gradebook name
+
+
+def test_the_type_counts_are_what_each_link_shows(tmp_path):
+    """The links count the rows this page shows, not every row the kid has: a handled row is
+    off the open list, so it is off the counts too, and All is the page's own count."""
+    conn = seed(tmp_path, _quiz_snapshot())
+    c = app_for(tmp_path)
+    c.post(f"/items/{_item_ids(conn)['Participation']}/answer", data={"answer": "too_late", "prev": ""})
+    page = c.get("/kids/Alex").text
+    links = re.search(r'<p class="type-links">(.*?)</p>', page, re.S)
+    assert links and "Participation" not in links.group(1)
+    shown = int(re.search(r'id="all-count" class="count">(\d+)', page).group(1))
+    assert re.search(rf">All {shown}<", links.group(1))

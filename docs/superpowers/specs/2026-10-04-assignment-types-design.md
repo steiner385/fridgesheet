@@ -36,7 +36,9 @@ throwaway keyword classifier:
   (`open_items.py`) folds `online_quiz` into `online`, so today the app loses it at ingest.
 - **The weights are points.** Spec 2026-10-03 §1: HAC's average is straight total points in
   every class with a category table (13 of 13), and Canvas uses no group weights. A type's
-  share of the possible points is its weight in the grade.
+  share of the possible points is its weight in the grade. Since #254 the scraper also reads
+  HAC's six-column category table, so a weighted class's categories carry their weight
+  (`grading.Line.weight`, basis `weighted`); §7.2's share formula covers both.
 
 ## 2. Decisions taken in discussion
 
@@ -76,7 +78,9 @@ throwaway keyword classifier:
   `imported assignments`, `total points`, and the empty string. Compared case-folded.
 - **Correction**: an `item_types` row. **Rule**: a `type_rules` row.
 
-## 4. The classifier (`fridgesheet/types.py`)
+## 4. The classifier (`fridgesheet/work_types.py`)
+
+Not `types.py`: that would shadow the standard library's `types`, which the tests import.
 
 Pure, like `grading.py` and `guidance.py`: no database, no clock.
 
@@ -116,7 +120,9 @@ read as assessment); a family that disagrees corrects them once with a name-pref
 
 `coverage(typed: list[Typed]) -> dict[int, int]`: count per rung, for Diagnostics (§6.5).
 
-## 5. Storage (schema 12)
+## 5. Storage (schema 14)
+
+12 is HAC's category weights (#254) and 13 is Reset (#258), both landed while this was designed.
 
 ### 5.1 Migration
 
@@ -171,9 +177,11 @@ In `_item.html`'s meta line, where `paper` and `outside Canvas` already sit (the
 "test/quiz", "lab/project", "participation". The child tier may word it differently later; the
 key per tier is what the parity tests need.
 
-The printed sheet (`reports/open_work.py`, `server.py`'s sort) prints the same word where it
-prints the assessment mark today, and sorts by family rank (§7.1) in place of
-`not is_assessment`. Words only, no colour, per the tiered-sheet decision.
+The printed sheet adds the word to the row's Via cell ("Canvas · paper · test/quiz",
+`sheet.via_text`); it had no assessment mark before. Words only, no colour, per the
+tiered-sheet decision. The MCP server's `missing_work` sorts by family rank
+(`work_types.RANK`) where it sorted by `is_assessment`, and its rows carry `family`; that path
+reads the snapshot alone, so it applies no corrections or rules, as it applies no flags.
 
 ### 6.3 The filter
 
@@ -195,8 +203,8 @@ Grown-up tiers only, on the item detail card (`_item_detail.html`): one line, "T
 - **"Also every item in {class} whose name starts with '{prefix}'"**, where `prefix` is the
   name's text before its first digit, trimmed, offered when it is at least two characters and
   matches at least two other items in the class;
-- each checkbox shows "changes N items", computed by running `family_of` over the class's items
-  with the draft rule added and counting the ones whose family moves.
+- each checkbox shows "applies to N items": how many of the class's items (both courses of
+  the pair) the rule would match (`stores/work_types.rule_reach`).
 
 Saving writes the correction and any checked rule, then re-renders the card (htmx, as the flag
 menu does). Choosing the family the ladder would give anyway, with no rule, deletes the
@@ -239,7 +247,7 @@ attached), grouped by family:
 | Column | Value |
 |---|---|
 | Type | the family word; practice reads "Everyday work" here |
-| Share of the grade | family `possible` / account `possible`, whole percent |
+| Share of the grade | Σ over the family's rows of (row possible ÷ its category's possible) × that category's line share, whole percent: in a straight-points class this is family possible ÷ total possible; in a weighted class it carries each category's weight |
 | Earned | `earned / possible`, counting HAC's blank-zero rows as the account does |
 | Percent | `earned / possible` |
 | Still open | points of the family's open levers (missing + upcoming), or "—" |
@@ -297,7 +305,7 @@ by it, with the same link row as §6.3.
   and sort.
 - `?type=` counts and combination with `?outcome=`; unknown value ignored.
 - Correction endpoint: write, redundant-correction delete, rule creation, prefix suggestion
-  (two-character minimum, two-other-items minimum), "changes N items", rule removal; child
+  (two-character minimum, two-other-items minimum), "applies to N items", rule removal; child
   tiers get no form.
 - Must-finish order within a deadline (worth, then family rank, then points) and never across
   dates; parity ids unchanged.

@@ -83,8 +83,10 @@
   {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
   {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}
   {% if item.latest_note %}<p class="ours">{{ 'copy.note_on' | say(tier, {'when': item.latest_note.at | wd_md}) }}: {{ item.latest_note.body }}</p>{% endif %}
-  {% if is_detail and type_offer is defined and type_offer is not none %}{% include "_type_form.html" %}{% endif %}
   {% if is_detail %}{% include "_record.html" %}{% endif %}
+  {# What kind of work it is, and a grown-up's way to correct it (assignment types §6.4): a fact
+     about the item, so it follows the record and never sits inside the answers. #}
+  {% if is_detail and type_offer is defined and type_offer is not none %}{% include "_type_form.html" %}{% endif %}
   {# A read-only line (Open work) has no foot: the name is the one way into the record. #}
   {% if not ro %}<div class="item-foot">{% if not is_detail %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_record.html" %}</details>{% endif %}
     {% if is_detail %}{% if item_history is defined and item_history %}<details class="history"><summary>{{ 'copy.history' | say(tier, {'n': item_history | length}) }}</summary><ul>{% for e in item_history %}<li><span class="muted">{{ e.at | wd_md_time }}</span> · {{ e.label }}{% if e.source %} <span class="muted">({{ 'HAC' if e.source == 'hac' else 'Canvas' }})</span>{% endif %}{% if e.detail %}: {{ e.detail }}{% endif %}</li>{% endfor %}</ul></details>{% endif %}
