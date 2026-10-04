@@ -2,7 +2,7 @@
    school record every time, never stored; a row leaves when the record says the work is in or
    the family answers "It's handed in". Its own section, outside #plan, so the out-of-band swap
    after an answer cannot replace the row a done-line and its Undo sit in (§12). Each row is the
-   item surface (spec 2026-09-28 §4) with the row's own id `mf-<id>` and the answers in `qc-<id>`. #}
+   item surface (spec 2026-09-28 §4) with the row's own id `mf-<id>` and the answers in `qm-<id>`. #}
 {% set tier = student.key | tier_of %}
 <section id="must-finish" class="sec must-finish" aria-labelledby="mf-heading">
   <div class="sec-head"><h3 id="mf-heading">{{ 'copy.must_finish' | say(tier) }}</h3><span class="count">{{ must_finish | length }}</span>{% if jobs %}<span class="controls"><button type="button" hx-post="/jobs/refresh" hx-vals='{"reload_page": "1"}' hx-target="#job" hx-swap="outerHTML">{{ 'copy.check_again' | say(tier) }}</button></span>{% endif %}
@@ -42,7 +42,7 @@
   <div class="mf-section" data-section="{{ key }}">{% if not fold %}<h4>{{ label | say(tier) }}</h4>{% endif %}
     {% for view in rows %}
     {% if key == 'paper' %}{% set pk = view.verdict | pace_key %}{% if pk and loop.changed(view.course_id) %}<p class="inset">{{ pk | say(tier, view.verdict.pace) }}</p>{% endif %}{% endif %}
-    {% set item = view %}{% set density = 'card' %}{% set slot = 'qc-' ~ view.id %}{% set box_id = 'mf-' ~ view.id %}
+    {% set item = view %}{% set density = 'card' %}{% set slot = 'qm-' ~ view.id %}{% set box_id = 'mf-' ~ view.id %}
     {% set word_tone = view | sheet_tone %}{% set tone = 'grey' if grey else word_tone %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}
     {% set badges = [] %}
     {% if view.verdict.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}{% set badges = badges + [('badge.zero_to_check' | say(tier))] %}{% elif view.verdict.kind == 'stale_answer' %}{% set badges = badges + [('badge.changed_since_answer' | say(tier))] %}{% endif %}

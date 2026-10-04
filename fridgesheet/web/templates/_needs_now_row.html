@@ -1,0 +1,13 @@
+{# One row of Needs you now (`_needs_now.html`): the item surface at card density with the line's
+   own word (`line_tone`, as on the pages below) and the Plan's one-tap answers. The includer sets
+   `view`. The row keeps `nn-<id>`, its answers swap `qn-<id>`, and its name opens the item's
+   record in place of the row; the record's Close puts the row back (`_question.html`). #}
+{% set tier = student.key | tier_of %}
+{% set item = view %}{% set density = 'card' %}{% set slot = 'qn-' ~ view.id %}{% set box_id = 'nn-' ~ view.id %}
+{% set opens_detail = true %}{% set late_line = true %}
+{% set lt = view | line_tone(tier) %}
+{% set word = lt.word %}{% set word_tone = lt.word_tone %}{% set tone = lt.tone %}
+{# As on Must finish, a red row drops "Let it go": it would wave off work the school still
+   counts. A question keeps every answer it asks with ("HAC is right" is the `ignore` action). #}
+{% set exclude = [] if view.asks else ['ignore'] %}
+{% include "_item.html" %}

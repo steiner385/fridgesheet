@@ -401,7 +401,8 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         # The bar asking a grown-up to install it: `[web] update_mode = "prompt"`, or an
         # automatic install of this release that did not take.
         "update_prompt": bool(update and update.available) and (
-            state.settings.web_update_mode == "prompt" or updates.auto_install_failed(state, state.settings, update)),
+            state.settings.web_update_mode == "prompt" or updates.auto_install_failed(
+                state, state.settings, update, current_job=state.jobs.current if state.jobs else None)),
         "staleness": staleness.check(conn, state.now()),
         "question_counts": question_counts(conn, state),
         "here": here(request),

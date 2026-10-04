@@ -66,12 +66,13 @@ def test_the_rail_count_is_the_check_ins_questions(tmp_path):
 def test_a_check_in_question_card_can_be_answered_and_opens_the_item(tmp_path):
     """Participation (HAC-only, a week with no grade) asks, and it is a Must-finish row now
     (paper, no grade) -- not a review card, but the same one-tap answer pattern (spec
-    2026-09-27 §4: Must-finish rows use `qc-<id>` too, so the answer route swaps either)."""
+    2026-09-27 §4). A Must-finish row's answers have their own slot, `qm-<id>`, so an Undo puts
+    back the answers and not a second card inside the row."""
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex/check-in").text
     card = re.search(r'<div class="item[^"]*" id="mf-%d".*?</div><!-- /paper -->' % pid, body, re.S).group(0)
     assert "Was it handed in?" in card
-    assert f'hx-post="/items/{pid}/answer"' in card and 'name="slot" value="qc-%d"' % pid in card
+    assert f'hx-post="/items/{pid}/answer"' in card and 'name="slot" value="qm-%d"' % pid in card
     assert f'href="/kids/Alex?show=all#row-{pid}"' in card
 
 

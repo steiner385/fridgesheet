@@ -281,3 +281,19 @@ def test_automatic_install_is_not_offered_off_windows(tmp_path, monkeypatch):
     assert "Automatic install is only for the Windows install." in r.text and _web(tmp_path).get("update_mode") != "install"
     page = c.get("/settings", headers=LOCAL_HOST_HEADERS).text
     assert 'name="update_mode" value="install"' in page and "disabled" in page[page.index('value="install"') - 80:page.index('value="install"') + 80]
+
+
+def test_the_bar_waits_while_an_automatic_install_is_running(tmp_path):
+    """Between the clock starting the install and the installer closing the app, the try is
+    not a failure: the header says nothing more than the job's own badge."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    state = c.app.state.fridgesheet
+    state.settings.web_update_mode = "install"
+    u = updates.check(state, now=NOW, fetch=release())
+    state.extra[updates.TRIED_KEY] = u.latest
+    running = SimpleNamespace(kind="update", done=False)
+    assert not updates.auto_install_failed(state, state.settings, u, current_job=running)
+    finished = SimpleNamespace(kind="update", done=True)
+    assert updates.auto_install_failed(state, state.settings, u, current_job=finished)
+    assert updates.auto_install_failed(state, state.settings, u, current_job=None)

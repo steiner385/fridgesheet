@@ -2,7 +2,8 @@
    density   'card' (default), 'detail', 'line', or 'answers' (just the `qid` wrapper: the ask
              line and the answers, for `_question.html` to put back inside a detail or a
              Must-finish row without drawing a second card around it)
-   slot      the id the answers swap ('q-<id>' by default; 'qd-<id>' in a detail; 'qc-<id>' on the check-in)
+   slot      the id the answers swap ('q-<id>' by default; 'qd-<id>' in a detail; 'qc-<id>' on the check-in;
+             'qm-<id>' / 'qn-<id>' a Must-finish / Needs you now row's answers)
    box_id    the element's own id ('' for none). Must finish gives the row 'mf-<id>' and keeps the
              answers in a div with the slot id, so an answer swaps the answers, not the row.
    tone      'ask' | 'red' | 'late' | 'check' | 'due' | 'ok' | 'grey' | ''
@@ -49,7 +50,9 @@
    done-line's are. #}
 <div class="line{{ ' ' ~ tone if tone }}"{% if box %} id="{{ box }}"{% endif %}>{% if tone == 'ok' %}<span class="glyph" aria-hidden="true"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 6.5l2.5 2.5L10 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{% else %}<span class="glyph" aria-hidden="true"><svg viewBox="0 0 12 12" width="12" height="12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4V6l1.9 1.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>{% endif %}<span><b>{{ item.name }}</b>{% if line_meta %} · <span class="meta">{{ line_meta }}</span>{% endif %}{% if badges is defined %}{% for b in badges %} <span class="badge">{{ b }}</span>{% endfor %}{% endif %} · <span class="muted">{% if says is defined and says %}{{ says }}{% elif ('facts.' ~ vd.kind) | has_phrase %}{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if vd.asks_on %} Asks you on {{ vd.asks_on | wd_md }}.{% endif %}</span>{% if vd.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>{{ line_action if line_action is defined else '' }}</div>
 {% elif density == 'answers' %}
-<div id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>
+{# `plan_prompt` (a Must-finish or Needs you now row's answers): the plan's own prompt over a
+   red row's plan answers, as the card drew it (`plan_ask` below). #}
+<div id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_prompt is defined and plan_prompt and vd.answers and vd.state != 'waiting' and not item.step %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>
 {% else %}
 <div class="item{{ ' ' ~ tone if tone }}"{% if box %} id="{{ box }}"{% endif %} data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>
   {# `opens_detail`: the name opens the item's record in place of this element (a week's line on

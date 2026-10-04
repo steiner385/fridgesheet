@@ -163,10 +163,13 @@ def auto_install_due(state, settings, update: Update | None) -> bool:
     return not (pending is not None and pending.to_version == update.latest)
 
 
-def auto_install_failed(state, settings, update: Update | None) -> bool:
+def auto_install_failed(state, settings, update: Update | None, *, current_job=None) -> bool:
     """An automatic install of this release was tried and it is still available: the header
-    asks a grown-up instead of saying nothing."""
+    asks a grown-up instead of saying nothing. Not while the try is still running
+    (`current_job`, the worker's): until the installer closes the app, it has not failed."""
     if settings.web_update_mode != "install" or update is None or not update.available:
+        return False
+    if current_job is not None and current_job.kind == "update" and not current_job.done:
         return False
     from ..host import selfupdate
     pending = selfupdate.read_pending(state.home)
