@@ -129,6 +129,9 @@ PHRASES: dict[str, dict[str, str]] = {
                             "older": "Canvas is where teachers post and collect work; HAC (Home Access Center) is the official gradebook."},
     # --- the plan page that fills itself (spec 2026-09-27 §4-§9, §11) ------------------------
     "copy.must_finish":      {"early": "Must finish", "middle": "Must finish", "older": "Must finish"},
+    # The triage at the top of Assignments (2026-10-04), and its one line when there is none.
+    "copy.needs_you_now":    {"early": "Needs you now", "middle": "Needs you now", "older": "Needs you now"},
+    "copy.nothing_needs_you": {"early": "Nothing needs you now.", "middle": "Nothing needs you now.", "older": "Nothing needs you now."},
     # One sentence: with the second ("They leave when it says they are, or when you say so.")
     # the lead was three lines on a phone above the first row (critique 2026-09-29).
     "copy.must_finish_hint": {"early": "The school says these aren't in yet.",

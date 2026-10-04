@@ -44,6 +44,14 @@ def week_line(body: str, item_id: int) -> str:
     return m.group(0)
 
 
+def needs_row(body: str, item_id: int) -> str:
+    """One row of Needs you now at the top of Assignments: from its `nn-<id>` box to the next
+    row or the end of the section."""
+    m = re.search(rf'<div class="item[^"]*" id="nn-{item_id}".*?(?=<div class="item[ "]|</section>)', body, re.S)
+    assert m, f"no Needs you now row for item {item_id}"
+    return m.group(0)
+
+
 def items_block(body: str) -> str:
     """The kid page's weekly pages: from #items to the sources legend under them (the
     verdict sections that follow are not the list)."""

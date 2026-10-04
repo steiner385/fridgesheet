@@ -7,6 +7,8 @@
    together in #items. #}
 {% set page_title = student.key | nickname %}{% include "_page_head.html" %}
 {% include "_child_nav.html" %}
+{# The triage first, above the list and its filters (2026-10-04). #}
+{% include "_needs_now.html" %}
 <section class="sec all-work" aria-labelledby="all-head">
   <div class="sec-head"><h3 id="all-head">All assignments</h3><span id="all-count" class="count">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span>
     {# The list's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole

@@ -440,7 +440,14 @@ now.
 Everything the school lists for this child, with what needs your answer at the top.
 
 1. **Done so far: X of Y due · Z on time.**
-2. **Questions** — the same question cards as the Questions page ([§7](#questions)).
+2. **Needs you now**: the triage, above the filters, most urgent first: **Due tonight**,
+   **Due tomorrow**, then overdue work that can still earn credit (closest to losing it
+   first), then the questions ([§7](#questions)). Every row has the Plan's one-tap answers
+   (**Do it today**, **Do it tomorrow**, **It's handed in**, **Too late to submit** …), and
+   a row leaves once it is answered. Work with a step planned for today or later is left to
+   the Plan; once that step's day has passed, the row comes back here. With nothing to
+   triage, the section is one line: *Nothing needs you now.* The same work further down the
+   page offers no second set of answers.
 3. **Settled by the records** — what the app decided for you, each with a reason and a
    **Not right?** button. Older than a week folds under **Earlier**.
 4. **Waiting, nothing to do yet** (folded) — waiting on a teacher or on HAC, plus things

@@ -1,0 +1,21 @@
+{# Needs you now (2026-10-04): the triage at the top of Assignments, above the list's filters, for
+   a parent at a desk and a child on a phone alike. The rows are `items.needs_you_now`: the Plan's
+   red rows (tonight, tomorrow, overdue closest to losing credit first), then the questions. Each
+   is the item surface at card density with the line's own word (`line_tone`, as on the pages
+   below) and the Plan's one-tap answers; the row keeps `nn-<id>` and its answers swap `qn-<id>`,
+   so an answer leaves a done-line with its Undo in the row. With nothing to triage the section
+   is one quiet line. #}
+{% set tier = student.key | tier_of %}
+<section id="needs-now" class="sec needs-now" aria-labelledby="nn-heading">
+  <div class="sec-head"><h3 id="nn-heading">{{ 'copy.needs_you_now' | say(tier) }}</h3>{% if needs_now %}<span class="count">{{ needs_now | length }}</span>{% endif %}</div>
+  {% for view in needs_now %}
+  {% set item = view %}{% set density = 'card' %}{% set slot = 'qn-' ~ view.id %}{% set box_id = 'nn-' ~ view.id %}
+  {% set lt = view | line_tone(tier) %}
+  {% set word = lt.word %}{% set word_tone = lt.word_tone %}{% set tone = lt.tone %}{% set late_line = true %}
+  {# As on Must finish: "Let it go" would wave off a row the school still counts. #}
+  {% set exclude = ['ignore'] %}
+  {% include "_item.html" %}
+  {% else %}
+  <p class="muted">{{ 'copy.nothing_needs_you' | say(tier) }}</p>
+  {% endfor %}
+</section>

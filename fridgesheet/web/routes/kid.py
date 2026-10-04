@@ -121,6 +121,10 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     # Asked the teacher, or following up: waiting too, with the date and the email (#73).
     by_state["waiting"] += [v for v in everything if v.verdict.kind in ("asked", "following_up")]
     by_state["question"] = [v for v in everything if v.asks]          # an agreed step already covers the rest
+    # Needs you now: the triage above the pages, the Plan's red rows and then the questions,
+    # answered in place; a line on the pages that is up there offers nothing a second time.
+    work = items.open_work(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window())
+    needs_now = items.needs_you_now(work, by_state["question"], now.date())
     # What got done, in the dashboard's five outcomes (docs/outcomes.md): on time, late and done
     # on paper are done; not done and unknown are not, or not yet. One line above the questions.
     record = items.record_for(everything)
@@ -128,6 +132,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
                   weeks=weeks_of(rows, listed, now, by_day=f["sort"] == "due"), by_day=f["sort"] == "due", here=f"/kids/{quote(key)}",
                   done_so_far={"done": record.on_time + record.late + record.done_offline, "total": record.total, "on_time": record.on_time},
                   widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
+                  needs_now=needs_now, up_top={v.id for v in needs_now},
                   questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
