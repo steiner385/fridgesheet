@@ -131,3 +131,16 @@ def test_as_of_reads_the_same_shape_for_either_gradebook(tmp_path):
     s = students.by_key(conn, "Alex")
     eng = next(l for l in grades.report_card(conn, s, sources.DEFAULT.with_default("canvas", "canvas"), grading.TEN_POINT, TZ) if l.short_name == "Honors English 9")
     assert eng.official_source == "canvas" and eng.as_of == "9/15"                  # like HAC's "9/11": no weekday
+
+
+def test_a_stale_hac_score_without_a_hac_label_does_not_feed_the_account(tmp_path):
+    conn = seed(tmp_path)
+    eng = _course(conn, "Honors English 9", "hac")
+    s = students.by_key(conn, "Alex")
+    with conn:
+        rid = conn.execute("SELECT MAX(id) FROM refreshes").fetchone()[0]
+        iid = conn.execute("INSERT INTO items(student_id, course_id, key, name, points, first_seen, last_seen) VALUES (?, ?, 'hac:old', 'Old quiz', 10, 1, 1)",
+                           (s["id"], eng["id"])).lastrowid
+        conn.execute("INSERT INTO item_observations(refresh_id, item_id, source, state, score) VALUES (?, ?, 'hac', 'graded', 10)", (rid, iid))
+    a = grades.account_for(conn, eng, students.latest_grades(conn, s["id"]).get(eng["id"]))
+    assert a.match == "exact" and [l.category for l in a.lines] == ["Assignments", "Daily"]

@@ -292,6 +292,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                 n_grades += _observe_grade(conn, refresh_id, hid, h.get("marking_period_avg"), None, None, None, h.get("last_updated"))
                 n_categories += _observe_categories(conn, refresh_id, hid, h.get("categories") or [])
                 twins = canvas_items_by_course.get(peer_cid, []) if peer_cid is not None else []
+                hac_labeled: set[int] = set()     # the items this refresh attached a HAC row to
                 rows = h.get("assignments") or []
                 # Each row's Canvas twin by title, one to one and best first (`matching.pair_titles`,
                 # the rule the sheet reads too): "Unit 3 Test Retake" gets the retake's row and
@@ -318,6 +319,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     if twin is not None:
                         n_obs += _observe(conn, refresh_id, twin, "hac", _hac_values(row))
                         _file_category(conn, twin, "hac", row.get("category"))
+                        hac_labeled.add(twin)
                     else:
                         # No free twin: the row is its own item, never dropped. A second
                         # same-titled row whose twin is taken is a second piece of work.
@@ -335,5 +337,14 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "hac", _hac_values(row))
                     _file_category(conn, item_id, "hac", row.get("category"))
+                    hac_labeled.add(item_id)
+                # A HAC row that moved to another twin, or that HAC stopped listing, loses its HAC
+                # label: the label is what says "HAC lists this row now", and the class's account
+                # reads only labelled rows (prod 2026-10-04: two classes read "off" from stale ones).
+                ids = [hid] + ([peer_cid] if peer_cid is not None else [])
+                marks = ",".join("?" * len(ids))
+                keep = f" AND item_id NOT IN ({','.join('?' * len(hac_labeled))})" if hac_labeled else ""   # NOT IN (NULL) would match nothing
+                conn.execute(f"DELETE FROM item_categories WHERE source = 'hac' AND item_id IN (SELECT id FROM items WHERE course_id IN ({marks})){keep}",
+                             (*ids, *hac_labeled))
     return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades,
                         tuple(course_label(c) for c in carried), tuple(course_label(m) for m in missing), categories=n_categories)
