@@ -579,3 +579,9 @@ def test_a_weighted_classs_category_weights_are_stored_and_a_weight_change_is_a_
     moved = copy.deepcopy(snap)
     moved["students"]["Alex"]["hac"]["classes"][0]["categories"][0]["weight"] = 2.0
     assert ingest.record(conn, moved, tz=TZ, now=T2).categories == 2
+
+
+def test_the_refresh_summary_names_the_category_rows_it_wrote():
+    r = ingest.IngestResult(7, 2, 4, 1, 2, 0, categories=2)
+    assert r.summary() == "refresh 7: 1 new items, 2 changes, 0 grade changes, 2 category subtotals"
+    assert ingest.IngestResult(8, 2, 4, 0, 0, 0).summary() == "refresh 8: 0 new items, 0 changes, 0 grade changes"

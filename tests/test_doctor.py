@@ -256,3 +256,14 @@ def test_averages_probe_counts_the_classes_that_add_up(tmp_path):
     assert out["averages"].ok
     assert out["averages"].detail.startswith("1 of 1 HAC classes with a breakdown add up")
     assert "no breakdown: Alex's Algebra I" in out["averages"].detail
+
+
+def test_averages_probe_tells_no_average_yet_from_no_breakdown(tmp_path):
+    from tests.web_fixtures import seed
+    conn = seed(tmp_path)
+    with conn:
+        conn.execute("UPDATE grade_observations SET average = NULL WHERE course_id IN (SELECT id FROM courses WHERE source = 'hac' AND short_name = 'Algebra I')")
+    conn.close()
+    out = {c.name: c for c in doctor.checks(Settings(home=tmp_path), tmp_path, probes=[p for p in doctor.PROBES if p[0] == "averages"])}
+    assert "no average yet: Alex's Algebra I" in out["averages"].detail
+    assert "Alex's Algebra I" not in out["averages"].detail.split("no average yet")[0]

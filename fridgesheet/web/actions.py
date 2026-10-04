@@ -886,7 +886,7 @@ def refresh(*, home: Path, log: Callable[[str], None], settings: config.Settings
         try:
             r = ingest.record(conn, snap, tz=tz, now=now)
             refresh_id = r.refresh_id
-            message = f"refresh {r.refresh_id}: {r.items} new items, {r.observations} changes, {r.grades} grade changes"
+            message = r.summary()
             if r.note():
                 message += "; " + r.note()      # a class carried from an older pull, or not fetched (#140)
             if bad:

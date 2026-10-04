@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 try:  # mcp >= 2.0 renamed FastMCP to MCPServer; the tool/run API is otherwise identical
@@ -16,10 +16,10 @@ except ModuleNotFoundError:  # mcp 1.x
 
 from dataclasses import asdict
 
-from . import collector, grading, guidance, late_rules, open_items
+from . import collector, config, grading, guidance, late_rules, open_items
 from .config import load_settings
-from .matching import match_course as _match, norm_name as _norm_name
-from .reports.open_work import wanted as _wanted
+from .matching import match_course as _match, pair_titles
+from .reports.open_work import OpenWorkReport, wanted as _wanted
 from .sources import pick_value
 
 log = logging.getLogger("fridgesheet.server")
@@ -131,7 +131,7 @@ def grades(student: str) -> dict:
             "hac_last_updated": h.get("last_updated"),
             "hac_categories": h.get("categories"),
             "account": _hac_account(h) if h else None,
-            "guidance": _guidance(h or None, c, now, rules, key, c["name"], h.get("name")),
+            "guidance": _guidance(h or None, c, now, rules, key, c["name"], h.get("name"), pick),
             "canvas_current": c["grade"]["current_score"],
             "canvas_final_if_unsubmitted_zero": c["grade"]["final_score"],
             "canvas_hidden": c["grade"]["hidden"],
@@ -142,7 +142,7 @@ def grades(student: str) -> dict:
         if name not in seen:
             pick = _settings().sources.resolve(key, name).grades
             official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
-            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "account": _hac_account(h), "guidance": _guidance(h, None, now, rules, key, name, None), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None, "canvas_account": None})
+            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "account": _hac_account(h), "guidance": _guidance(h, None, now, rules, key, name, None, pick), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None, "canvas_account": None})
     return out
 
 
@@ -150,43 +150,72 @@ def _hac_account(h: dict) -> dict:
     """grading.account_hac over one HAC class as the snapshot holds it, as a plain dict."""
     rows = [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
             for r in (h.get("assignments") or [])]
-    return asdict(grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [], rows))
+    return _account_dict(grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [], rows))
 
 
-def _guidance(h: dict | None, c: dict | None, now: datetime, rules, kid: str, course_name: str, peer: str | None) -> dict | None:
-    """guidance.guide over the snapshot (spec 2026-10-04 §7.4): the class's HAC blank rows and
-    Canvas open rows, the late rules as the sheet reads them. Flags set in the app are not
+def _account_dict(account: grading.Account) -> dict:
+    """asdict, plus each line's percent (a property `asdict` leaves out) as HAC prints it."""
+    out = asdict(account)
+    for line, d in zip(account.lines, out["lines"]):
+        d["percent"] = round(line.percent, 2) if line.percent is not None else None
+    return out
+
+
+def _guidance(h: dict | None, c: dict | None, now: datetime, rules, kid: str, course_name: str, peer: str | None,
+              pick: str = "hac") -> dict | None:
+    """guidance.guide over the snapshot (spec 2026-10-04 §7.4), on the family's official
+    gradebook for the class (`pick`), with upcoming work inside the sheet's days-ahead window as
+    the web reads it, handed-in work never a lever, and a Canvas assignment paired to its HAC row
+    by `matching.pair_titles` (the rule ingest uses) counted once. Flags set in the app are not
     applied here (as `missing_work`), so a row the family answered may still be a lever."""
-    if h is None:
+    if h is None and c is None:
         return None
-    account = grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [],
-                                  [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
-                                   for r in (h.get("assignments") or [])])
+    hac_rows_ = (h or {}).get("assignments") or []
+    canvas_rows_ = (c or {}).get("assignments") or []
+    if pick == "canvas" and c is not None:
+        g = c.get("grade") or {}
+        account = grading.account_canvas(g.get("current_score"), g.get("final_score"), g.get("hidden"),
+                                         [{"group": a.get("group"), "score": a.get("score"), "points": a.get("points_possible"), "excused": a.get("excused"),
+                                           "missing": a.get("missing"), "state": a.get("state")} for a in canvas_rows_])
+    elif h is not None:
+        account = grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [],
+                                      [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
+                                       for r in hac_rows_])
+    else:
+        return None
     credit = rules.resolve(kid, course_name, peer).credit
+    horizon = now + timedelta(days=config.day_option(_settings().report_config(OpenWorkReport.key).options, "days_ahead"))
     rows = []
-    for r in h.get("assignments") or []:
+    for r in hac_rows_:
         due = open_items.parse_hac_date(r.get("due"), now.tzinfo)
         score = r.get("score")
         if (score is not None and score != 0) or open_items.hac_excused(r) or due is None:
             continue
         due = due.replace(hour=23, minute=59)
+        if due > horizon:
+            continue
         late_until = rules.deadline(kid, course_name, due, peer)
         # Past its window it is no lever, but a blank one still used HAC's zero budget (final review, 2026-10-04).
         gone = due < now and now > late_until
         rows.append({"item_id": None, "name": r.get("name"), "category": r.get("category"), "points": r.get("points"), "due": due,
                      "late_until": late_until, "credit_text": credit, "overdue": due < now, "upcoming": due >= now,
                      "hac_blank": score is None, "hac_scored": score is not None, "hac_zero": score == 0, "counted_only": gone})
-    hac_names = {_norm_name(r.get("name") or "") for r in (h.get("assignments") or [])}
-    for a in (c or {}).get("assignments") or []:
-        if (a.get("score") is not None and a.get("score") != 0) or a.get("excused") or not a.get("due_at") or _norm_name(a.get("name") or "") in hac_names:
+    twins = set(pair_titles([a.get("name") or "" for a in canvas_rows_], [r.get("name") or "" for r in hac_rows_]))
+    for i, a in enumerate(canvas_rows_):
+        if i in twins or (a.get("score") is not None and a.get("score") != 0) or a.get("excused") or not a.get("due_at"):
             continue
+        if a.get("state") in ("submitted", "pending_review", "graded"):
+            continue                                    # handed in: waiting for a grade, not a lever
         due = datetime.fromisoformat(a["due_at"])
-        late_until = rules.deadline(kid, course_name, due, peer)
-        if due < now and (now > late_until or a.get("state") == "submitted"):
+        if due > horizon:
             continue
+        late_until = rules.deadline(kid, course_name, due, peer)
+        if due < now and now > late_until:
+            continue
+        zero = a.get("score") == 0
         rows.append({"item_id": a.get("id"), "name": a.get("name"), "category": a.get("group"), "points": a.get("points_possible"), "due": due,
                      "late_until": late_until, "credit_text": credit, "overdue": due < now, "upcoming": due >= now,
-                     "hac_blank": False, "hac_scored": False})
+                     "hac_blank": False, "hac_scored": zero, "hac_zero": zero and pick == "canvas"})
     return asdict(guidance.guide(account, rows, _settings().grading))
 
 

@@ -124,3 +124,10 @@ def test_the_account_reads_stored_weights_and_says_so(tmp_path):
     a = grades.account_for(conn, eng, students.latest_grades(conn, s["id"]).get(eng["id"]))
     assert a.basis == "weighted" and a.match == "exact" and round(a.rebuilt, 2) == 88.0     # (93.33*3 + 80*2)/5
     assert grades.how_for(a) == ("rc.adds_up_weighted", {"n": "2"})
+
+
+def test_as_of_reads_the_same_shape_for_either_gradebook(tmp_path):
+    conn = seed(tmp_path)
+    s = students.by_key(conn, "Alex")
+    eng = next(l for l in grades.report_card(conn, s, sources.DEFAULT.with_default("canvas", "canvas"), grading.TEN_POINT, TZ) if l.short_name == "Honors English 9")
+    assert eng.official_source == "canvas" and eng.as_of == "9/15"                  # like HAC's "9/11": no weekday

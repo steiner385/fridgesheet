@@ -65,6 +65,7 @@ def _averages(s: Settings, home: Path) -> str:
         exact = checked = 0
         off: list[str] = []
         none: list[str] = []
+        no_avg: list[str] = []
         for st in students.visible(conn):
             latest = students.latest_grades(conn, st["id"])
             for c in students.courses(conn, st["id"]):
@@ -72,6 +73,9 @@ def _averages(s: Settings, home: Path) -> str:
                     continue
                 a = grades.account_for(conn, c, latest.get(c["id"]))
                 label = f"{st['key']}'s {c['short_name']}"
+                if a.reported is None:
+                    no_avg.append(label)            # HAC has not posted a number: nothing to check yet
+                    continue
                 if a.basis == "none" or a.match == "unknown":
                     none.append(label)
                     continue
@@ -87,6 +91,8 @@ def _averages(s: Settings, home: Path) -> str:
         parts.append("off: " + ", ".join(off))
     if none:
         parts.append("no breakdown: " + ", ".join(none))
+    if no_avg:
+        parts.append("no average yet: " + ", ".join(no_avg))
     return "; ".join(parts)
 
 

@@ -420,7 +420,8 @@ grade yet, work handed in and waiting for a grade, and what's coming due later (
 a count). A row leaves the moment the school record settles it — Canvas records a hand-in, a
 grade above zero lands, the teacher excuses or unpublishes it — or the moment you answer
 "It's handed in" yourself, or once a step has been planned for it.
-Every row also carries what it is worth on that class's average (*+2.0 on the average*), from
+A row in a class whose average adds up also carries what it is worth on that average (*+2.0 on
+the average*; nothing when it would add less than a tenth), from
 the report card's account of the class ([§6.5](#65-report-card)); the list and its order do not
 change for it.
 

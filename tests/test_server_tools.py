@@ -246,3 +246,27 @@ def test_grades_guidance_spends_the_zero_budget_on_old_blank_rows_and_keeps_expl
     g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]["guidance"]
     kinds = {l["name"]: l["kind"] for l in g["levers"]}
     assert kinds == {"Zeroed quiz": "zero", "New sheet": "missing"}
+
+
+def test_grades_guidance_follows_the_official_source_window_and_twins(graded, monkeypatch, tmp_path):
+    """Review leftovers (2026-10-04): the MCP guidance reads the family's official gradebook,
+    only the days-ahead window of upcoming work, no handed-in future work, and no fuzzy twin twice."""
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    bio = graded["students"]["Alex"]["hac"]["classes"][0]
+    bio["categories"] = [{"category": "Labs", "earned": 44.0, "possible": 50.0, "percent": "88.000%"}]
+    bio["assignments"] = [{"name": "Lab #1", "due": "09/10/2026", "assigned": "09/01/2026", "category": "Labs", "score": 44.0, "score_raw": "44.00", "points": 50.0, "percent": "88.00%"}]
+    def a(i, name, days, **kw):
+        base = {"id": i, "name": name, "due_at": _iso(days), "unlock_at": None, "created_at": _iso(-1), "points_possible": 20.0,
+                "submission_types": ["online_upload"], "group": "Labs", "published": True, "score": None, "grade": None,
+                "state": "unsubmitted", "late": False, "missing": False, "excused": False}
+        base.update(kw)
+        return base
+    graded["students"]["Alex"]["canvas"]["courses"][0]["assignments"] = [
+        a(1, "Lab 1", -3), a(2, "Lab 2", 3), a(3, "Lab 3", 60), a(4, "Lab 4", 4, state="submitted")]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    assert [l["name"] for l in g["guidance"]["levers"]] == ["Lab 2"]       # Lab 1 is Lab #1's twin; Lab 3 is past the window; Lab 4 is handed in
+    assert g["account"]["lines"][0]["percent"] == 88.0
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT.with_default("canvas", "canvas"))
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    assert g["guidance"]["sound"] is False                                   # Canvas's own groups do not rebuild its 91.2

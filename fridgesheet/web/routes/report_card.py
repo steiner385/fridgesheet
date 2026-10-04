@@ -24,9 +24,7 @@ def page(key: str, request: Request, conn: sqlite3.Connection = Db, state=State)
     for line in lines:
         if line.account is None:
             continue
-        course = students.course(conn, line.course_id)
-        if course["source"] != line.official_source and course["peer_course_id"]:
-            course = students.course(conn, course["peer_course_id"]) or course
+        course = students.course(conn, line.course_id)          # either half: for_class reads the class's two course ids
         g = guidance_store.for_class(conn, course, line.account, work, state.settings.grading)
         levers[line.course_id] = guidance_store.sentence_for(g)
     return render(request, conn, "report_card.html", current=f"kid:{key}", workspace="report", student=s, lines=lines,
