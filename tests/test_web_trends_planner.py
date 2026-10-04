@@ -66,5 +66,5 @@ def test_the_page_and_its_figures_are_drawn_in_the_planners_rules():
     assert "text-transform: uppercase" in label and "border-bottom: 1.5px solid var(--box)" in label
     chart = _rule(".report-card .chart-holder")
     assert "border: 0" in chart and "background: none" in chart                                    # a figure on the page, not a box in a box
-    assert "max-width: 1100px" in _rule(".trends-page")
+    assert "max-width: var(--page-max)" in _rule(".trends-page")
     assert "border-bottom: 1px solid var(--rule)" in _rule(".report-card .longest li")

@@ -81,7 +81,7 @@ def test_before_the_first_run_one_pencil_line(tmp_path):
 
 
 def test_the_checkup_is_drawn_in_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".change-log, .run-log, .report-shelf, .checkup")
+    assert "max-width: var(--page-max)" in _rule(".change-log, .run-log, .report-shelf, .checkup")
     line = _rule(".check")
     assert "border-bottom: 1px solid var(--rule)" in line and "background" not in line
     assert "color: var(--ok)" in _rule(".check .glyph") and "color: var(--warn)" in _rule(".check.failed .glyph")

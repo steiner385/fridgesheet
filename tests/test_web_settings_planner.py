@@ -61,11 +61,11 @@ def test_the_editors_fold_closed_and_their_rows_are_ruled_lines(tmp_path):
 
 def test_the_seam_is_the_printed_rule_and_the_folds_are_pencil_lines():
     below = _rule(".settings-below")
-    assert "border-top: 1.5px solid var(--box)" in below and "max-width: 1100px" in below
+    assert "border-top: 1.5px solid var(--box)" in below and "max-width: var(--page-max)" in below
     assert "border-top: 1.5px solid var(--box)" in _rule(".settings-below > form.sec + form.sec, .settings-below > form.sec + section.sec")
     assert "max-width: var(--measure)" in _rule(".settings-grid .field-help, .settings-grid .env-note")
     assert "white-space: nowrap" in _rule("#late-rules fieldset > label")
-    assert "max-width: 1100px" in _rule(".settings-form")
+    assert "max-width: var(--page-max)" in _rule(".settings-form")
     fold = _rule("details.skip-days > summary, details.fold > summary")
     assert "color: var(--muted)" in fold and "list-style: none" in fold and "font-weight: 400" in fold
     assert re.search(r"details\.skip-days > summary::before, details\.fold > summary::before\s*\{[^}]*content: \"▸ \"", CSS)

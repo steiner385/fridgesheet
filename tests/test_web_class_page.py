@@ -99,7 +99,7 @@ def test_the_assignments_are_the_weekly_pages_with_every_row_from_both_gradebook
 
 
 def test_the_strip_and_the_folds_are_drawn_in_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".class-record")
+    assert "max-width: var(--page-max)" in _rule(".class-record")
     assert "repeat(auto-fill, minmax(150px, 1fr))" in _rule(".grade-strip")
     narrow = "\n".join(re.findall(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S))
     assert re.search(r"\.class-record \.grade-strip\s*\{[^}]*grid-auto-flow: column", narrow)        # one row on a phone

@@ -111,7 +111,7 @@ def test_waiting_and_unpaired_fold_per_kid_beneath_the_list(tmp_path):
 
 
 def test_the_list_and_its_lines_are_drawn_in_the_planners_rules():
-    assert "max-width: 1100px" in _rule(".to-answer")
+    assert "max-width: var(--page-max)" in _rule(".to-answer")
     assert "border-top: 1px solid var(--rule)" in _rule(".to-answer > .item:first-child")
     assert "font-weight: 650" in _rule(".item-head .meta .kid")
     let_go = _rule(".let-go")
