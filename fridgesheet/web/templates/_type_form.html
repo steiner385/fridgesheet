@@ -1,0 +1,18 @@
+{# A grown-up's type for this item (spec 2026-10-04 assignment types §6.4): the family, why the
+   app gave it, and Change; the class-wide checkboxes say how many items each would reach. #}
+<div class="type-line">
+  <p>Type: {{ ('copy.type_' ~ item.family) | say('') }} · <span class="muted">{{ item.family_why | say('', item.family_values) }}</span></p>
+  <details><summary>Change</summary>
+    <form class="type-form" hx-post="/items/{{ item.id }}/type" hx-target="closest .item" hx-swap="outerHTML">
+      {% if card is defined and card %}<input type="hidden" name="card" value="{{ card }}">{% endif %}
+      <fieldset><legend>This is</legend>
+        {% for fam in ('assessment', 'practice', 'lab_project', 'participation') %}
+        <label><input type="radio" name="family" value="{{ fam }}" {{ 'checked' if item.family == fam }}> {{ ('copy.type_' ~ fam) | say('') }}</label>
+        {% endfor %}
+      </fieldset>
+      {% if type_offer.group %}<label><input type="checkbox" name="also_group" value="1"> Also every item in {{ item.course_short }} filed under “{{ type_offer.group }}”{% if type_offer.group_generic %} (everyday work only){% endif %} <span class="muted">· applies to {{ type_offer.group_n }} item{{ 's' if type_offer.group_n != 1 }}</span></label>{% endif %}
+      {% if type_offer.prefix %}<label><input type="checkbox" name="also_prefix" value="1"> Also every item in {{ item.course_short }} whose name starts with “{{ type_offer.prefix }}” <span class="muted">· applies to {{ type_offer.prefix_n }} items</span></label>{% endif %}
+      <button>Save</button>
+    </form>
+  </details>
+</div>

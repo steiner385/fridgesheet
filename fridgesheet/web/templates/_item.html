@@ -83,6 +83,7 @@
   {% if earlier is defined and earlier %}<p class="ours">{{ earlier | length }} completed step{{ 's' if earlier | length != 1 }} on this already{% if earlier[-1].family_account %} · last account: {{ earlier[-1].family_account }}{% endif %}</p>{% endif %}
   {% if item.flag and item.flag_text %}<p class="ours">{{ item.flag_text }}</p>{% endif %}
   {% if item.latest_note %}<p class="ours">{{ 'copy.note_on' | say(tier, {'when': item.latest_note.at | wd_md}) }}: {{ item.latest_note.body }}</p>{% endif %}
+  {% if is_detail and type_offer is defined and type_offer is not none %}{% include "_type_form.html" %}{% endif %}
   {% if is_detail %}{% include "_record.html" %}{% endif %}
   {# A read-only line (Open work) has no foot: the name is the one way into the record. #}
   {% if not ro %}<div class="item-foot">{% if not is_detail %}<details><summary>{{ 'copy.record' | say(tier) }}</summary>{% include "_record.html" %}</details>{% endif %}

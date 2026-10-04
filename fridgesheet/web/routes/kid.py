@@ -12,9 +12,9 @@ from fastapi.responses import RedirectResponse
 
 from ... import grading, guidance, sources, work_types
 from ...dates import deadline_date, wd_md, week_start
-from .. import actions, outcomes
-from ..app import Db, State, render, render_partial, student_or_404
-from ..stores import changes, grades as grade_accounts, guidance as guidance_store, items, notes, students, trends
+from .. import actions, db, outcomes
+from ..app import FAMILY, Db, State, render, render_partial, student_or_404, who_of
+from ..stores import changes, grades as grade_accounts, guidance as guidance_store, items, notes, students, trends, work_types as type_store
 from .trends import chart_json, grade_chart
 
 router = APIRouter()
@@ -176,6 +176,24 @@ def card_for(raw: str | None, item_id: int) -> str | None:
     return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}", f"nn-{item_id}") else None
 
 
+def type_offer(conn: sqlite3.Connection, s, v) -> dict:
+    """What the correction form can offer beyond this item (spec 2026-10-04 assignment types
+    §6.4): pin the gradebook name, or the name's prefix, for the whole class, each with how many
+    items it applies to. A prefix is offered only when it reaches two items besides this one."""
+    facts = type_store.facts_for(conn, v.id)
+    group = work_types.gradebook_name(facts)
+    prefix = work_types.prefix_suggestion(v.name)
+    prefix_n = type_store.rule_reach(conn, s["id"], v.course_id, "name_prefix", prefix) if prefix else 0
+    return {"group": group, "group_generic": work_types.is_generic(group),
+            "group_n": type_store.rule_reach(conn, s["id"], v.course_id, "group", group) if group else 0,
+            "prefix": prefix if prefix_n >= 3 else None, "prefix_n": prefix_n}
+
+
+def _grown_up(request: Request, conn: sqlite3.Connection) -> bool:
+    """Types are a grown-up's to set (§6.4): the chooser said "family" in this browser."""
+    return who_of(request, conn)[0] == FAMILY
+
+
 @router.get("/items/{item_id}")
 def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, state=State):
     now, rules = state.now(), state.rules()
@@ -188,7 +206,65 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
                           notes=notes.for_target(conn, "item", item_id), card=card_for(request.query_params.get("card"), item_id),
                           # `?tone=line`: a record opened under a log line (Changes) keeps the sheet's word at its
                           # head like one opened from a week's line, without a card for Close to put back.
-                          with_tone=request.query_params.get("tone") == "line")
+                          with_tone=request.query_params.get("tone") == "line",
+                          type_offer=type_offer(conn, s, v) if _grown_up(request, conn) else None)
+
+
+@router.post("/items/{item_id}/type")
+def set_item_type(item_id: int, request: Request, family: str = Form(...), also_group: str = Form(""),
+                  also_prefix: str = Form(""), card: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+    """A grown-up's type for one item, and optionally a class rule made from it. A rule on a
+    generic bucket ("Assignments") is only for everyday work: pinning a whole class's catch-all
+    to tests would relabel every worksheet. The item's own correction is dropped whenever the
+    ladder (rules included) already gives the chosen family, so nothing redundant is stored."""
+    if not _grown_up(request, conn):
+        raise HTTPException(403, "a grown-up sets types")
+    s = students.owner_of_item(conn, item_id)
+    if s is None:
+        raise HTTPException(404, "no such item")
+    if family not in work_types.FAMILIES:
+        raise HTTPException(400, f"unknown type {family!r}")
+    now_s, now, rules = db.now_iso(state.tz), state.now(), state.rules()
+
+    def view():
+        return items.one(conn, s, item_id, now=now, rules=rules, prefs=state.sources(), **state.window())
+    v = view()
+    if v is None:
+        raise HTTPException(404, "no such item")
+    offer = type_offer(conn, s, v)
+    message = "Type saved"
+    with conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if also_group and offer["group"]:
+            if offer["group_generic"] and family != "practice":
+                message = f"Saved for this item only: a rule on “{offer['group']}” is only for everyday work."
+            else:
+                type_store.add_rule(conn, v.course_id, "group", offer["group"], family, now_s)
+        if also_prefix and offer["prefix"]:
+            type_store.add_rule(conn, v.course_id, "name_prefix", offer["prefix"], family, now_s)
+        type_store.clear_correction(conn, item_id)
+        if view().family != family:
+            type_store.set_correction(conn, item_id, family, now_s)
+    v = view()
+    return render_partial(request, conn, "_item_detail.html", student=s, item=v,
+                          item_history=changes.for_item(conn, s["id"], item_id, now=now, prefs=state.sources()), message=message,
+                          notes=notes.for_target(conn, "item", item_id), card=card_for(card, item_id),
+                          type_offer=type_offer(conn, s, v))
+
+
+@router.post("/kids/{key}/courses/{course_id}/type-rules/{rule_id}/remove")
+def remove_type_rule(key: str, course_id: int, rule_id: int, request: Request, conn: sqlite3.Connection = Db):
+    if not _grown_up(request, conn):
+        raise HTTPException(403, "a grown-up sets types")
+    s = student_or_404(conn, key)
+    c = students.course(conn, course_id)
+    if c is None or c["student_id"] != s["id"]:
+        raise HTTPException(404, "no such course")
+    rule = conn.execute("SELECT course_id FROM type_rules WHERE id = ?", (rule_id,)).fetchone()
+    if rule is None or rule["course_id"] not in type_store.pair(conn, course_id):
+        raise HTTPException(404, "no such rule")
+    type_store.remove_rule(conn, rule_id)
+    return RedirectResponse(f"/kids/{quote(key)}/courses/{course_id}", status_code=303)
 
 
 @router.get("/kids/{key}/courses/{course_id}")
@@ -263,7 +339,9 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
                   type_links=type_links(f"/kids/{quote(key)}/courses/{course_id}", [("sort", sort), ("dir", direction)],
                                         Counter(v.family for v in every), family),
                   grade_chart_json=chart_json(chart) if chart else None,
-                  notes=notes.for_target(conn, "course", course_id), **source_ctx)
+                  notes=notes.for_target(conn, "course", course_id),
+                  type_rules=type_store.rules_for(conn, type_store.pair(conn, course_id)), grown_up=_grown_up(request, conn),
+                  **source_ctx)
 
 
 @router.post("/kids/{key}/courses/{course_id}/sources")
