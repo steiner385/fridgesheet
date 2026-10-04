@@ -1174,3 +1174,25 @@ def test_a_family_added_step_has_no_due_date_to_name(tmp_path):
     _post_step(c, "Alex", _form(title="Pack the bag", next_step="Tonight", planned_for="2026-09-15"))
     panel = c.get("/kids/Alex/plan").text.split('id="plan"')[1]
     assert "Family-added step" in panel and "due " not in panel.split("Completed steps")[0]
+
+
+# --- the worth badge on a Must-finish row (spec 2026-10-04 §7.3) ------------------------------------
+
+def test_a_must_finish_row_carries_its_worth_on_the_average(tmp_path):
+    from tests.web_fixtures import client_with_grades
+    seed(tmp_path).close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    tonight = _section(body, "tonight")
+    assert "Vocabulary" in tonight and '<span class="badge">+2.0 on the average</span>' in tonight
+    early = client_with_grades(tmp_path, Alex=5).get("/kids/Alex/plan").text
+    assert '<span class="badge">Worth +2.0</span>' in _section(early, "tonight")       # `say` capitalises a badge's first character
+
+
+def test_a_kid_with_nothing_open_gets_no_badges(tmp_path):
+    conn = seed(tmp_path)
+    with conn:
+        conn.execute("UPDATE item_observations SET state = 'graded', score = 10, missing = 0 WHERE source = 'canvas'")
+        conn.execute("UPDATE item_observations SET state = 'graded', score = 10 WHERE source = 'hac'")
+    conn.close()
+    body = app_for(tmp_path).get("/kids/Alex/plan").text
+    assert "on the average" not in body and body.count('id="must-finish"') == 1

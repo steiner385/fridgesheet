@@ -21,6 +21,10 @@
         <span class="avg"><span class="big">{% if l.official is none %}—{% else %}{{ fmt_avg(l.official) }}{% endif %}</span>{% if l.letter %} <span class="letter">{{ l.letter }}</span>{% endif %}</span></p>
       {% if l.official_source %}<p class="whose">{{ 'HAC average' if l.official_source == 'hac' else 'Canvas current' }}{% if l.as_of %} · as of {{ l.as_of }}{% endif %}</p>{% endif %}
       <p class="how">{{ l.how[0] | say(tier, l.how[1]) }}</p>
+      {# What would move it (spec 2026-10-04 §7.1): the best move and the reach, in ink; absent
+         when the account does not add up. #}
+      {% set said = levers.get(l.course_id) or [] %}
+      {% if said %}<p class="lever">{% for key, values in said %}{{ key | say(tier, values) }}{% if not loop.last %} {% endif %}{% endfor %}</p>{% endif %}
     </li>
   {% else %}
     <li class="report-line empty"><p class="muted">No classes yet.</p></li>

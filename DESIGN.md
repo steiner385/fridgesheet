@@ -938,7 +938,10 @@ page's one action) and the child's tabs, `.planner-main.report-card-page` at 110
 class under a hairline: the class's short name a Ballpoint link at 650 at the left, the official
 number at 1.75× root in ink with the scale's letter at 400 beside it at the right, whose number
 and "as of" in pencil beneath (`.whose`), then one sentence in the kid's tier on how it is
-figured (`.how`; `rc.*` in phrasing.py, the numbers formatted before they reach a phrase). A
+figured (`.how`; `rc.*` in phrasing.py, the numbers formatted before they reach a phrase), then,
+when the account is exact, `.lever` in Ink (2026-10-04, spec
+docs/superpowers/specs/2026-10-04-what-moves-the-grade-design.md): the best move and the reach
+to the next letter (`gd.*`; the early tier never says what cannot be done; posted work only). A
 class with no number shows an em dash and "No average yet." The one fold beneath,
 `details.sec.quiet.how-figured`, says how HAC (total points) and Canvas (graded work only)
 figure an average; it is the page's only prose. A fourth tab, "Report card", stands after
@@ -948,8 +951,15 @@ the grade strip: the official gradebook's account first, the other's under an `h
 HAC's as `table.categories` flat on the page (Category, Earned, Possible, Percent, Share of the
 grade, numbers right, a Total row at 650), its check line with a ✓ in ink or, when the rebuild
 and HAC's number disagree, in Red Pen (`.check.off`); a category HAC's table leaves out but whose
-rows it lists is a pencil line marked "from the rows"; Canvas's part is a sentence. Nothing on
-either page asserts the straight-points rule: the account checks it and says when it cannot.
+rows it lists is a pencil line marked "from the rows"; Canvas's part is a sentence. Then
+`section.sec.what-moves-it` ("What moves it", 2026-10-04): the reach or slack line as `.lead`,
+the levers as read-only planner lines (`_item.html`, line density, which gained the card head's
+badge loop) each with its worth as a badge ("+2.0") and its note as the line's sentence ("Not
+counted yet · accepted until 9/22 · late credit unknown, ask"); points only, and no badge, when
+the account is not exact. On the Plan, every Must-finish row carries `badge.worth` ("+2.0 on the
+average"; the early tier "Worth +2.0") in the planner's badge style, annotated only: the list,
+its groups and its order are the school's. Nothing on any of these pages asserts the
+straight-points rule: the account checks it and says when it cannot.
 
 **The sheet's own log** (Runs): the same device turned to the sheet, with no words line (the page
 has no filters) and the job card above it when one runs. `.planner-main.run-log` shares the log's

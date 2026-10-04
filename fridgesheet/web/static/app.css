@@ -1081,6 +1081,10 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .grade-account .check { margin: var(--s2) 0 0; max-width: var(--measure); }
 .grade-account .check.off { color: var(--warn); }
 .grade-account .check-detail { margin: 0; font-size: var(--type-small); max-width: var(--measure); }
+/* What moves it (spec 2026-10-04 §7.2): the reach line, then the levers as planner lines. */
+.what-moves-it .lead { margin: 0 0 var(--s2); max-width: var(--measure); }
+.what-moves-it .levers { list-style: none; margin: 0; padding: 0; }
+.what-moves-it .levers > li { border-bottom: 1px solid var(--rule); }
 /* The report card (spec 2026-10-03 §7.1): every class one ruled line under a hairline, the
    name at the left, the number at Display size with its letter at the right, whose number and
    the one-line how in pencil beneath. The fold is the page's only prose. */
@@ -1093,6 +1097,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .report-card-page .report-line .letter { font-weight: 400; margin-left: var(--s1); }
 .report-card-page .report-line .whose { margin: 0; font-size: var(--type-small); color: var(--muted); }
 .report-card-page .report-line .how { margin: var(--s1) 0 0; max-width: var(--measure); }
+.report-card-page .report-line .lever { margin: var(--s1) 0 0; max-width: var(--measure); }   /* the one thing to do, in ink */
 .report-card-page > details.sec.quiet { margin: var(--s4) 0 0; }
 .report-card-page .how-figured p { max-width: var(--measure); }
 /* The parent's answering page (the Student Planner, Questions; the surface brief for

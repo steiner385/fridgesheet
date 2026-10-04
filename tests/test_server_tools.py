@@ -211,3 +211,38 @@ def test_a_student_is_found_by_key_nickname_or_a_start_of_either(hac_only, monke
         assert server.hac_classwork(asked)["student"] == "RIVERA, MAYA", asked
     with pytest.raises(ValueError, match="Maya"):
         server.hac_classwork("Rivera")
+
+
+def test_grades_carries_what_moves_it(graded, monkeypatch, tmp_path):
+    """spec 2026-10-04 §7.4: the same engine over the snapshot's rows."""
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
+    graded["students"]["Alex"]["canvas"]["courses"][0]["assignments"] = [
+        {"id": 9, "name": "Lab 3", "due_at": _iso(3), "unlock_at": None, "created_at": _iso(-1), "points_possible": 20.0,
+         "submission_types": ["online_upload"], "group": "Labs", "published": True, "score": None, "grade": None,
+         "state": "unsubmitted", "late": False, "missing": False, "excused": False}]
+    classes = {c["course"]: c for c in server.grades("Alex")["classes"]}
+    g = classes["Honors Biology S1-2027-Nance"]["guidance"]
+    assert g["sound"] and g["letter"] == "B" and g["reach"]["letter"] == "A"
+    assert g["levers"][0]["kind"] == "upcoming" and g["best"]["points"] == 20.0 and g["best"]["worth"] > 0
+    assert classes["Hawk Time"]["guidance"]["sound"] is False                    # no breakdown: points, never average points
+
+
+def test_grades_guidance_spends_the_zero_budget_on_old_blank_rows_and_keeps_explicit_zeros(graded, monkeypatch, tmp_path):
+    """Final review 2026-10-04: an old blank row past its window still used HAC's zero budget,
+    and a HAC zero inside the window is a zero lever, not skipped."""
+    from datetime import datetime, timedelta
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
+    day = lambda n: (datetime.now() + timedelta(days=n)).strftime("%m/%d/%Y")
+    bio = graded["students"]["Alex"]["hac"]["classes"][0]
+    bio["marking_period_avg"] = 80.0
+    bio["categories"] = [{"category": "Labs", "earned": 80.0, "possible": 110.0, "percent": ""}]
+    bio["assignments"] = [
+        {"name": "Lab 1", "due": day(-40), "assigned": day(-45), "category": "Labs", "score": 80.0, "score_raw": "80.00", "points": 90.0, "percent": ""},
+        {"name": "Old sheet", "due": day(-30), "assigned": day(-35), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""},
+        {"name": "Zeroed quiz", "due": day(-3), "assigned": day(-6), "category": "Labs", "score": 0.0, "score_raw": "0.00", "points": 10.0, "percent": ""},
+        {"name": "New sheet", "due": day(-2), "assigned": day(-5), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""}]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]["guidance"]
+    kinds = {l["name"]: l["kind"] for l in g["levers"]}
+    assert kinds == {"Zeroed quiz": "zero", "New sheet": "missing"}

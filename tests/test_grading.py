@@ -129,3 +129,12 @@ def test_number_formatting_for_phrases():
 def test_a_float_sum_just_under_a_whole_number_prints_as_the_whole_number():
     # Line.earned for a from-rows or Canvas group line is a raw float sum: 24.999999999999996 is 25.
     assert grading.fmt_points(24.999999999999996) == "25" and grading.fmt_points(0.1 + 0.2) == "0.3"
+
+
+def test_each_subtotal_line_carries_its_own_zero_points():
+    # Algebra II: the 25 blank points sit in Assignments, none in Assessments.
+    a = grading.account_hac(70.88, ALGEBRA_SUBS, ALGEBRA_ROWS)
+    assert [(l.category, l.zero_points) for l in a.lines] == [("Assessments", 0.0), ("Assignments", 25.0)]
+    assert a.zero_points == 25.0
+    rows_line = grading.account_hac(86.57, [], [_row("Quiz", 11.0, 17.0)])
+    assert rows_line.lines[0].zero_points == 0.0

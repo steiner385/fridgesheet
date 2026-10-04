@@ -9,11 +9,11 @@ from urllib.parse import quote, urlencode
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from ... import grading, sources
+from ... import grading, guidance, sources
 from ...dates import deadline_date, wd_md, week_start
 from .. import actions, outcomes
 from ..app import Db, State, render, render_partial, student_or_404
-from ..stores import changes, grades as grade_accounts, items, notes, students, trends
+from ..stores import changes, grades as grade_accounts, guidance as guidance_store, items, notes, students, trends
 from .trends import chart_json, grade_chart
 
 router = APIRouter()
@@ -214,8 +214,16 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     account = grade_accounts.account_for(conn, c, grades.get(course_id))
     other_account = grade_accounts.account_for(conn, peer, grades.get(peer["id"])) if peer else None
     accounts = sorted([a for a in (account, other_account) if a is not None], key=lambda a: a.source != pick)
+    # What moves it (spec 2026-10-04 §7.2): the official source's levers from the kid's open
+    # work; the rows are the same views the Plan lists, so the two never disagree.
+    work = items.open_work(conn, s, now=now, rules=rules, prefs=prefs, **state.window())
+    official_course = c if c["source"] == pick else (peer or c)
+    moves = guidance_store.for_class(conn, official_course, accounts[0], work, state.settings.grading) if accounts else None
+    moves_said = guidance_store.sentence_for(moves) if moves else []
+    lever_views = {v.id: v for v in list(work.fixable) + list(work.upcoming)}
     return render(request, conn, "course.html", current=f"kid:{key}", student=s, course=c, peer=peer,
                   accounts=accounts, how_for=grade_accounts.how_for, fmt_points=grading.fmt_points, fmt_avg=grading.fmt_avg,
+                  moves=moves, moves_said=moves_said, lever_views=lever_views, lever_note=guidance_store.lever_note, fmt_worth=guidance.fmt_worth,
                   grade=grades.get(course_id), peer_grade=grades.get(peer["id"]) if peer else None, grade_lines=grade_lines,
                   history=history, history_cells=history_cells, other_grade=other_grade, other_letter=other_letter, other_asof=other_asof,
                   own_label="Canvas current" if c["source"] == "canvas" else "HAC average", own_official=pick == c["source"],

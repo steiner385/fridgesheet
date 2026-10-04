@@ -164,3 +164,11 @@ def test_default_until_quarter_end_is_rejected_not_silently_replaced(tmp_path):
     p.write_text('[default]\nuntil = "quarter_end"\n\n[quarters]\nq1 = 2026-10-15\n')
     with pytest.raises(late_rules.LateRulesError, match="default"):
         late_rules.load(p)
+
+
+def test_credit_fraction_reads_a_percentage_and_nothing_else():
+    from fridgesheet import late_rules as lr
+    assert lr.credit_fraction("50%") == 0.5
+    assert lr.credit_fraction(" 75 % from the syllabus") == 0.75
+    assert lr.credit_fraction("?") is None and lr.credit_fraction("") is None and lr.credit_fraction(None) is None
+    assert lr.credit_fraction("half") is None

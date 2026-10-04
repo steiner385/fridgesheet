@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from .. import late_rules
 from ..open_items import HANDLED_FLAGS, MARKED_FLAGS
 from . import outcomes, pace as _pace, phrasing, reconcile
 
@@ -97,8 +98,7 @@ def _md_time(ts: str) -> str:
 
 
 def _credit_fraction(credit: str) -> float | None:
-    m = re.match(r"\s*(\d+(?:\.\d+)?)\s*%", credit or "")
-    return float(m.group(1)) / 100 if m else None
+    return late_rules.credit_fraction(credit)
 
 
 def _observed_at(o, refresh_times: dict[int, str]) -> datetime | None:

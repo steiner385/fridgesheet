@@ -15,7 +15,9 @@ one sentence how the gradebook arrived at it (maintainer, 2026-10-03: "a report 
 "a better understanding of the current class average and how it is calculated"). Proof: HAC's
 own category subtotals, stored per refresh, and the check of their total against HAC's number
 (`grading.Account.match`); the class page's "How it's figured" section holds the table. Constraints:
-the same lines in every tier (`tests/test_web_tier_parity.py`); the title is the rail word
+the same lines in every tier (`tests/test_web_tier_parity.py`); since 2026-10-04 each line may
+carry a second sentence, `.lever`, naming the best move and the reach to the next letter (spec
+2026-10-04 §7.1, sound accounts only); the title is the rail word
 ("Report card"); no `<h2>` but the page head's; numbers formatted before they reach a phrase;
 Red Pen only where the school's number and ours disagree; prints as it stands. The world is
 settled (DESIGN.md, The Student Planner); this brief records composition only. Unresolved:

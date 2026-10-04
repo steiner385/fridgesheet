@@ -34,6 +34,7 @@ class Line:
     rows: int                 # scored rows seen in this category (0 when only the subtotal is known)
     from_rows: bool           # True when the gradebook gave no subtotal and this was summed from the rows
     share: float              # possible / the account's total possible; a category's weight in a straight-points class
+    zero_points: float = 0.0  # HAC: blank points this category already counts as zero (spec 2026-10-04 §3)
 
     @property
     def percent(self) -> float | None:
@@ -63,9 +64,9 @@ def _match(rebuilt: float | None, reported: float | None) -> str:
     return "exact" if abs(rebuilt - reported) <= TOLERANCE else "off"
 
 
-def _lines(ordered: list[tuple[str, float, float, int, bool]]) -> tuple[Line, ...]:
-    total = sum(p for _c, _e, p, _n, _f in ordered)
-    return tuple(Line(c, e, p, n, f, (p / total) if total else 0.0) for c, e, p, n, f in ordered)
+def _lines(ordered: list[tuple[str, float, float, int, bool, float]]) -> tuple[Line, ...]:
+    total = sum(p for _c, _e, p, _n, _f, _z in ordered)
+    return tuple(Line(c, e, p, n, f, (p / total) if total else 0.0, z) for c, e, p, n, f, z in ordered)
 
 
 def account_hac(reported: float | None, subtotals: list[dict], rows: list[dict]) -> Account:
@@ -90,21 +91,22 @@ def account_hac(reported: float | None, subtotals: list[dict], rows: list[dict])
             s[0] += float(r["score"])
             s[1] += float(pts)
             s[2] += 1
-    ordered: list[tuple[str, float, float, int, bool]] = []
+    ordered: list[tuple[str, float, float, int, bool, float]] = []
     seen: set[str] = set()
     zero_points = 0.0
     for sub in subtotals:
         cat = sub.get("category") or ""
         earned, possible = float(sub.get("earned") or 0.0), float(sub.get("possible") or 0.0)
         n = scored.get(cat, [0.0, 0.0, 0])
-        ordered.append((cat, earned, possible, int(n[2]), False))
-        seen.add(cat)
         # How much of HAC's denominator the scored rows do not explain, capped at the blank work
         # that could explain it: a category whose rows the scraper never saw is not blank work.
-        zero_points += min(max(0.0, possible - n[1]), blank.get(cat, 0.0))
+        z = round(min(max(0.0, possible - n[1]), blank.get(cat, 0.0)), 2)
+        ordered.append((cat, earned, possible, int(n[2]), False, z))
+        seen.add(cat)
+        zero_points += z
     for cat, (e, p, n) in scored.items():
         if cat not in seen:
-            ordered.append((cat, e, p, int(n), True))
+            ordered.append((cat, e, p, int(n), True, 0.0))
     lines = _lines(ordered)
     earned = round(sum(l.earned for l in lines), 2)
     possible = round(sum(l.possible for l in lines), 2)
@@ -136,7 +138,7 @@ def account_canvas(current: float | None, final: float | None, hidden: bool, row
         groups[g][0] += float(r["score"])
         groups[g][1] += float(pts)
         groups[g][2] += 1
-    lines = _lines([(g, groups[g][0], groups[g][1], int(groups[g][2]), True) for g in order])
+    lines = _lines([(g, groups[g][0], groups[g][1], int(groups[g][2]), True, 0.0) for g in order])
     earned = round(sum(l.earned for l in lines), 2)
     possible = round(sum(l.possible for l in lines), 2)
     rebuilt = (100.0 * earned / possible) if possible else None

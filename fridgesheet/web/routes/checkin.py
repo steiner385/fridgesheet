@@ -14,10 +14,10 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from ... import dates
+from ... import dates, guidance
 from .. import outcomes
 from ..app import Db, State, render, safe_return, student_or_404
-from ..stores import items, plans, refreshes
+from ..stores import guidance as guidance_store, items, plans, refreshes
 
 router = APIRouter()
 
@@ -186,6 +186,9 @@ def _context(conn, student, state):
             completed_for.setdefault(s["item_id"], []).append(s)
     work = items.open_work(conn, student, now=now, rules=rules, prefs=state.sources(), **state.window())
     must = items.must_finish(work, now.date(), covered)
+    # Each row's worth on its class average (spec 2026-10-04 §7.3): a badge, never a reorder.
+    worth_by_item = {iid: lever for iid, lever in guidance_store.by_item(conn, student, work, state.sources(), state.settings.grading).items()
+                     if lever.worth is not None and lever.worth >= 0.05}
     # Every red row, covered or not: what "Nothing due by tomorrow" must be false against, even
     # when a family step already covers every one of them (review finding 1).
     red_total = len(items.must_finish(work, now.date()).red)
@@ -229,7 +232,8 @@ def _context(conn, student, state):
                 school_has_n=school_has_n, asked=asked,
                 finish_token=str(uuid4()), rules=rules, saved=False, error=None, waiting_group=WAITING,
                 worth_group=WORTH_CHECKING, must_finish=must, red_total=red_total, seen=seen, seen_day=seen_day,
-                worth_open=worth_open, data_as_of=data_as_of, queue_keys=QUEUE_KEYS)
+                worth_open=worth_open, data_as_of=data_as_of, queue_keys=QUEUE_KEYS,
+                worth_by_item=worth_by_item, fmt_worth=guidance.fmt_worth)
 
 
 @router.get("/kids/{key}/check-in")
