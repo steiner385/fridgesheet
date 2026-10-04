@@ -250,7 +250,7 @@ def _no_background_clock(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_github(monkeypatch):
-    """`web.updates` asks GitHub for the latest release once a day. No test may make that call:
+    """`web.updates` asks GitHub for the latest release every `[web] update_check_hours`. No test may make that call:
     it is slow, it is flaky, and a suite that passes only with a network is not a suite. The
     default fetch is replaced with one that fails the way a machine with no network fails; a
     test that wants an answer injects its own through `state.extra["update_fetch"]`."""

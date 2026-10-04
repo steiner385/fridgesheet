@@ -86,6 +86,32 @@ def _update_gate(state, update) -> tuple[bool, str]:
     return bool(update and update.available and not reason), reason
 
 
+def _install_gate(state, form, install_pin: str) -> str:
+    """Why `[web] update_mode = "install"` may not be turned on by this save, or "" (2026-10-04).
+    Once on, the clock downloads and runs an installer with nobody at the keyboard, so turning
+    it on asks for what the Update button asks for: the update PIN, with the same lockout. With
+    no PIN stored, the one being set in this same save will do. Already on, a save of anything
+    else does not ask again; turning it off never asks."""
+    if form.update_mode != "install" or state.settings.web_update_mode == "install":
+        return ""
+    if not host.IS_WINDOWS:
+        return ("Automatic install is only for the Windows install. Here, update the checkout "
+                "(git pull, then pip install -e .) and restart the service.")
+    stored = state.settings.web_update_pin_hash
+    if not stored:
+        return "" if form.update_pin.strip() else "Set an update PIN to turn on automatic install."
+    if not install_pin.strip():
+        return "Enter the update PIN to turn on automatic install."
+    attempts = state.extra.setdefault("update_attempts", updatepin.Attempts())
+    if attempts.locked_until(state.now()) is not None:
+        return "Too many wrong PINs. Try again in 15 minutes."
+    if not updatepin.verify(install_pin.strip(), stored):
+        attempts.record_failure(state.now())
+        return "That PIN is not right."
+    attempts.clear()
+    return ""
+
+
 def _page(request, conn, state, form, messages=(), errors=()):
     # The port this process answers on, not the one config.toml holds for the next start (#9).
     port = state.settings.web_port
@@ -93,7 +119,8 @@ def _page(request, conn, state, form, messages=(), errors=()):
     # error, and without a form whose placeholders a Save would write over the parent's file.
     allow_lan = form.allow_lan if form is not None else state.settings.web_allow_lan
     lan_url = actions.lan_url(port) if allow_lan else None
-    # The one network call the page makes that is not to a school system: once a day, cached
+    # The one network call the page makes that is not to a school system: every [web]
+    # update_check_hours (the clock asks on the same interval), cached
     # on the app, off with the checkbox. Other pages only ever read the cache (app.page_context).
     update = updates.check(state, now=state.now())
     tailnet_url = _tailnet_url(port) if allow_lan else None
@@ -132,6 +159,7 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
          days_ahead: str = Form("14"), overdue_days: str = Form("14"), nicknames: str = Form(""), archive: str = Form(""),
          port: str = Form("8433"), allow_lan: str | None = Form(None), check_updates: str | None = Form(None),
          update_pin: str = Form(""), clear_update_pin: str | None = Form(None),
+         update_check_hours: str = Form("1"), update_mode: str = Form("notify"), install_pin: str = Form(""),
          sources_assignments: str = Form("canvas"), sources_grades: str = Form("hac"),
          timezone: str = Form(""), conn: sqlite3.Connection = Db, state=State):
     # The password used to be refusable unless the request came from loopback. That was
@@ -157,8 +185,12 @@ def save(request: Request, username: str = Form(""), password: str = Form(""), p
                               port=port, allow_lan=bool(allow_lan), check_updates=bool(check_updates),
                               update_pin=update_pin, clear_update_pin=bool(clear_update_pin),
                               has_update_pin=bool(state.settings.web_update_pin_hash),
+                              update_check_hours=update_check_hours, update_mode=update_mode,
                               sources_assignments=sources_assignments, sources_grades=sources_grades,
                               timezone=timezone)
+    refused = _install_gate(state, form, install_pin)
+    if refused:
+        return _page(request, conn, state, form, errors=[refused])
     lines: list[str] = []
     try:
         result = actions.save(form, home=state.home, log=lines.append, credstore=state.extra.get("credstore"))

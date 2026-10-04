@@ -100,8 +100,22 @@
     <div class="sec-head"><h3>Updates</h3></div>
     <p class="field-help">{{ about.split('\n')[0] }}</p>
     {% include "_update_status.html" %}
-    <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub once a day for a newer version</label><br>
+    <p><label><input type="checkbox" name="check_updates" {{ 'checked' if form.check_updates }}> Check GitHub for a newer version</label>
+       <label>every <input type="number" name="update_check_hours" min="1" max="24" step="1" value="{{ form.update_check_hours }}" size="3"> hours</label><br>
        <span class="field-help">The only thing this app talks to besides the school systems; it sends nothing.</span></p>
+    {# What a new version does ([web] update_mode, 2026-10-04). Automatic install runs an
+       installer with nobody at the keyboard, so turning it on asks for the update PIN
+       (`routes/settings.py: _install_gate`); a Linux checkout cannot be updated from here. #}
+    <fieldset class="update-mode"><legend>When there is a new version</legend>
+      <label><input type="radio" name="update_mode" value="notify" {{ 'checked' if form.update_mode == 'notify' }}> Show it in the header</label><br>
+      <label><input type="radio" name="update_mode" value="prompt" {{ 'checked' if form.update_mode == 'prompt' }}> Ask us to install it, on every page a grown-up opens</label><br>
+      <label><input type="radio" name="update_mode" value="install" {{ 'checked' if form.update_mode == 'install' }}{{ ' disabled' if not is_windows }}> Install it automatically, as soon as it is found</label>
+      {% if not is_windows %}<br><span class="field-help">Automatic install is only for the Windows install.</span>{% endif %}
+      {% if is_windows and form.update_mode != 'install' %}
+      <div class="settings-grid"><label>Update PIN, to turn on automatic install <input type="password" name="install_pin" autocomplete="off"></label></div>
+      {% endif %}
+      <p class="field-help">Installing closes Fridge Sheet for about a minute; it waits for a refresh or a print that is running to finish. Each new version is tried once by itself; if it does not take, you are asked instead.</p>
+    </fieldset>
     {# Why there is no update button, said here beside the PIN field it may be about -- not
        under the card, where "Set an update PIN below" pointed the wrong way (#145). #}
     {# Said once: when the status line above already carries the Linux note, the reason is not repeated. #}

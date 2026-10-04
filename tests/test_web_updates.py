@@ -1,4 +1,4 @@
-"""`web.updates`: notice a newer release, once a day, and only ever say so (never fetch it)."""
+"""`web.updates`: notice a newer release and say so (never fetch it; installing is `host.selfupdate`'s)."""
 from __future__ import annotations
 
 import json
@@ -58,6 +58,7 @@ def _state(tmp_path):
 
 def test_check_caches_for_a_day_and_a_failure_for_an_hour(tmp_path):
     c, state = _state(tmp_path)
+    state.settings.web_update_check_hours = 24        # the longest interval Settings offers; the default is 1
     calls = []
     def fetch(url):
         calls.append(url); return release()(url)

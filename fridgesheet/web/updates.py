@@ -1,5 +1,6 @@
-"""Is there a newer Fridge Sheet? Asked of GitHub's releases, at most once a day, and only
-ever *told* to the parent -- nothing here downloads or installs anything.
+"""Is there a newer Fridge Sheet? Asked of GitHub's releases by the clock every `[web]
+update_check_hours` -- and, unless the parent chose `[web] update_mode = "install"`, only ever
+*told* to the parent: nothing here downloads or installs anything.
 
 The installer already knows how to upgrade over a running copy (`packaging/windows/
 installer.iss`, `PrepareToInstall`). What was missing was the noticing: a parent who
@@ -28,11 +29,10 @@ REPO = "steiner385/fridgesheet"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases"
 CACHE_KEY = "updates"
-#: A good answer is worth a day; a failed one is worth an hour, so a GitHub blip does not
-#: pin "could not check" to the page until tomorrow.
-TTL_OK = timedelta(hours=24)
+#: A good answer is worth `[web] update_check_hours` (default 1); a failed one is worth an
+#: hour at most, so a GitHub blip does not pin "could not check" to the page until tomorrow.
 TTL_ERROR = timedelta(hours=1)
-TIMEOUT = 4          # seconds; the Settings page waits on this once a day, no more
+TIMEOUT = 4          # seconds; the clock (or Settings) waits on this once an interval, no more
 
 
 @dataclass(frozen=True)
@@ -106,17 +106,20 @@ def latest_release(fetch: Callable[[str], bytes] | None = None) -> tuple[str, st
     return tag.lstrip("v"), str(data.get("html_url") or RELEASES_PAGE), "", 0
 
 
-def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None, force: bool = False) -> Update | None:
+def check(state, *, now: datetime, fetch: Callable[[str], bytes] | None = None, force: bool = False,
+          settings=None) -> Update | None:
     """The cached answer if it is fresh, else a new one. None when the parent turned it off.
     `force` skips the freshness check -- for a parent's own "check now" click -- but still
     honours the checkbox: a click cannot re-enable the one outbound call the parent turned
-    off."""
-    if not state.settings.web_check_updates:
+    off. `settings`: the clock's own fresh read of config.toml, else the app's."""
+    settings = settings or state.settings
+    if not settings.web_check_updates:
         return None
     cached: Update | None = state.extra.get(CACHE_KEY)
     if not force and cached is not None and cached.checked_at is not None:
         age = now - cached.checked_at
-        if age < (TTL_ERROR if cached.error else TTL_OK):
+        ttl = timedelta(hours=settings.web_update_check_hours)
+        if age < (min(TTL_ERROR, ttl) if cached.error else ttl):
             return cached
     current = current_version()
     try:
@@ -134,3 +137,37 @@ def cached(state) -> Update | None:
     if not state.settings.web_check_updates:
         return None
     return state.extra.get(CACHE_KEY)
+
+
+#: Where the clock remembers the release it last started installing by itself, so a failed
+#: install is tried once, not every hour (the breadcrumb covers a restart: `auto_install_due`).
+TRIED_KEY = "update_auto_tried"
+
+
+def auto_install_due(state, settings, update: Update | None) -> bool:
+    """Whether the clock should start the "update" job now, unasked (`[web] update_mode =
+    "install"`, 2026-10-04). Only on Windows (a Linux install is a checkout), only for a
+    release with an installer to verify, and once per version: neither after this process
+    already started it, nor when the breadcrumb of an earlier try (`update-pending.json`,
+    kept when an install did not take) names the same version. A failed one falls back to
+    the bar asking a grown-up (`_header.html`)."""
+    import fridgesheet.host as host
+    from ..host import selfupdate
+    if settings.web_update_mode != "install" or not host.IS_WINDOWS:
+        return False
+    if update is None or not update.available or not update.digest:
+        return False
+    if state.extra.get(TRIED_KEY) == update.latest:
+        return False
+    pending = selfupdate.read_pending(state.home)
+    return not (pending is not None and pending.to_version == update.latest)
+
+
+def auto_install_failed(state, settings, update: Update | None) -> bool:
+    """An automatic install of this release was tried and it is still available: the header
+    asks a grown-up instead of saying nothing."""
+    if settings.web_update_mode != "install" or update is None or not update.available:
+        return False
+    from ..host import selfupdate
+    pending = selfupdate.read_pending(state.home)
+    return state.extra.get(TRIED_KEY) == update.latest or (pending is not None and pending.to_version == update.latest)

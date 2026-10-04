@@ -272,7 +272,8 @@ class Settings:
     #: a name is exactly what a DNS-rebinding attacker controls: Tailscale MagicDNS
     #: ("graphy.tailnet-1234.ts.net"), an mDNS ".local", or a hosts-file alias.
     web_extra_hosts: list[str] = field(default_factory=list)
-    #: [web] check_updates: ask GitHub once a day whether a newer release exists (web/updates.py).
+    #: [web] check_updates: ask GitHub whether a newer release exists (web/updates.py), every
+    #: `web_update_check_hours`.
     #: The one call the app makes to anything but OneLogin, Canvas and HAC; a checkbox on Settings.
     web_check_updates: bool = True
     #: [web] update_pin_hash: a PBKDF2 hash of the update PIN (web.updatepin.hash_pin) -- never
@@ -281,6 +282,12 @@ class Settings:
     #: means no PIN has been set, which means Settings offers no Update button at all: a button
     #: gated by nothing would be worse than no button.
     web_update_pin_hash: str = ""
+    #: [web] update_check_hours: how often the clock asks GitHub, 1 to 24 (web/clock.py).
+    web_update_check_hours: int = 1
+    #: [web] update_mode: what a newer release does -- "notify" (a badge in the header),
+    #: "prompt" (a bar asking a grown-up to install it) or "install" (installed by the clock at
+    #: once; Windows only, and turned on in Settings only with the update PIN).
+    web_update_mode: str = "notify"
     onelogin_user_selector: str = "input#username, input[name='username'], input[type='email']"
     onelogin_pass_selector: str = "input#password, input[name='password'], input[type='password']"
     onelogin_submit_selector: str = "button[type='submit'], input[type='submit']"
@@ -387,6 +394,22 @@ def _as_bool(raw, default: bool, where: str) -> bool:
     return default
 
 
+#: `[web] update_mode`'s values, in the order Settings offers them.
+UPDATE_MODES = ("notify", "prompt", "install")
+#: `[web] update_check_hours`' bounds: hourly at most, daily at least.
+UPDATE_HOURS_MIN, UPDATE_HOURS_MAX = 1, 24
+
+
+def _update_hours(raw, default: int) -> int:
+    """`[web] update_check_hours` as a whole number of hours in bounds; anything else keeps the
+    default with a warning, as `_as_bool` does for the switch beside it."""
+    if isinstance(raw, int) and not isinstance(raw, bool) and UPDATE_HOURS_MIN <= raw <= UPDATE_HOURS_MAX:
+        return raw
+    log.warning("[web] update_check_hours must be a whole number from %d to %d, got %r; using %d",
+                UPDATE_HOURS_MIN, UPDATE_HOURS_MAX, raw, default)
+    return default
+
+
 def _day_list(raw, default, where: str) -> list[str]:
     """A `days` value as a list of day names. A list is taken as written. A string names its days
     -- `days = "Mon"` meant Mondays, and falling back to every weekday printed five days a week
@@ -429,6 +452,12 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     s.web_allow_lan = _as_bool(web.get("allow_lan", s.web_allow_lan), s.web_allow_lan, "[web] allow_lan")
     s.web_check_updates = _as_bool(web.get("check_updates", s.web_check_updates), s.web_check_updates, "[web] check_updates")
     s.web_update_pin_hash = str(web.get("update_pin_hash", s.web_update_pin_hash) or "")
+    s.web_update_check_hours = _update_hours(web.get("update_check_hours", s.web_update_check_hours), s.web_update_check_hours)
+    mode = web.get("update_mode", s.web_update_mode)
+    if mode in UPDATE_MODES:
+        s.web_update_mode = mode
+    else:
+        log.warning("[web] update_mode must be one of %s, got %r; using %s", ", ".join(UPDATE_MODES), mode, s.web_update_mode)
     raw_extra = web.get("extra_hosts")
     if isinstance(raw_extra, list):
         # Lowercased on the way in: `urlsplit` lowercases an incoming Host, so a name typed

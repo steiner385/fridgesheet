@@ -802,7 +802,7 @@ over control with their help in grey beneath.
 | **Where you are** | **Time zone** — blank means this computer's zone, which the page names; pick a US zone from the list or type any name such as `America/Chicago`. Due times, "today", the print window and schedules follow it. On Windows a scheduled task fires on the PC's clock, so the app writes it converted from this zone when the two differ (the Schedules page's next run is then in the PC's time). |
 | **Gradebook sources** | **Assignment scores come from** (default Canvas) and **Class averages come from** (default HAC). |
 | **Network** | **Port** (default 8433), **Allow other devices on this network** ([§16](#16-using-it-on-a-phone-or-tablet)). |
-| **Updates** | Version and update status, **Check for updates now**, **Check GitHub once a day for a newer version**, **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
+| **Updates** | Version and update status, **Check for updates now**, **Check GitHub for a newer version every N hours**, **When there is a new version** (show it / ask us to install it / install it automatically, Windows only, turned on with the update PIN), **Update PIN** (at least 4 characters; **Remove the update PIN** appears once one is stored). On Linux the card says how to update the checkout instead of offering the Windows button. |
 
 Buttons: **Save config.toml**, **Test login**.
 
@@ -1078,8 +1078,20 @@ file** folds open the text to paste into an issue. Any `FAIL` line is where to l
 
 ## 21. Updating and uninstalling
 
-**Updating (Windows).** Once a day the app checks GitHub; *Fridge Sheet X is available*
-appears in the header and on Settings. Either download and run the new installer over the
+**Updating (Windows).** Every hour (Settings: **Check GitHub for a newer version every N
+hours**, 1 to 24) the app checks GitHub, and **When there is a new version** says what
+happens:
+
+- **Show it in the header** (the default): *Fridge Sheet X is available* in the header and
+  on Settings.
+- **Ask us to install it**: a bar on every page a grown-up opens, *Fridge Sheet X is
+  available. Install it*, which goes to the update button on Settings.
+- **Install it automatically**: installed as soon as it is found, after any refresh or print
+  that is running. Fridge Sheet closes for about a minute. Turning this on asks for the
+  update PIN. Each version is tried once by itself; if it does not take, the bar asks you
+  instead, and Diagnostics says what happened.
+
+A kid's own phone never shows any of these. To install by hand, either download and run the new installer over the
 old one, or set an **Update PIN** on Settings (at least 4 characters; a **Remove the
 update PIN** box appears once one is stored) and use **Update to X** (shown when the
 background task is installed). The PIN only guards the button — it crosses the network

@@ -74,6 +74,8 @@ class FormValues:
     update_pin: str = ""        # write-only, like `password`: blank = keep the stored hash
     clear_update_pin: bool = False        # the "Remove the update PIN" box: drop the stored hash
     has_update_pin: bool = False          # read-only, for the page: whether a hash is stored
+    update_check_hours: int = 1           # [web] update_check_hours: how often the clock asks GitHub
+    update_mode: str = "notify"           # [web] update_mode: notify / prompt / install
     sources_assignments: str = "canvas"   # [sources] assignments: household default
     sources_grades: str = "hac"           # [sources] grades: household default
     timezone: str = ""          # [general] timezone as config.toml has it; blank = this computer's zone (#122)
@@ -112,6 +114,8 @@ def load_form(home: Path) -> FormValues:
         allow_lan=s.web_allow_lan,
         check_updates=s.web_check_updates,
         has_update_pin=bool(s.web_update_pin_hash),
+        update_check_hours=s.web_update_check_hours,
+        update_mode=s.web_update_mode,
         sources_assignments=s.sources.default.assignments,
         sources_grades=s.sources.default.grades,
         # What the file says, not `s.timezone`: that is the computer's own when the key is
@@ -245,6 +249,11 @@ def validate(form: FormValues, stored: str, *, environ: dict | None = None) -> l
         errors.append(f"The update PIN must be at least {MIN_PIN_LENGTH} characters.")
     if pin and form.clear_update_pin:
         errors.append("Type a new update PIN or tick Remove the update PIN, not both.")
+    n = _whole_number(form.update_check_hours)
+    if n is None or not config.UPDATE_HOURS_MIN <= n <= config.UPDATE_HOURS_MAX:
+        errors.append(f"Check for updates every 1 to {config.UPDATE_HOURS_MAX} hours (a whole number).")
+    if form.update_mode not in config.UPDATE_MODES:
+        errors.append("Choose what a new version does: show it, ask to install it, or install it.")
     for label, value in (("Assignment scores", form.sources_assignments), ("Class averages", form.sources_grades)):
         if value not in sources.SOURCES:
             errors.append(f"{label} must come from Canvas or HAC.")
@@ -307,6 +316,7 @@ def save(form: FormValues, *, home: Path, log: Callable[[str], None], credstore=
     web = _table(doc, "web")
     web["port"], web["allow_lan"] = int(form.port), bool(form.allow_lan)
     web["check_updates"] = bool(form.check_updates)
+    web["update_check_hours"], web["update_mode"] = int(form.update_check_hours), form.update_mode
     # Write-only, like the password below: a typed PIN is hashed and only the hash is ever
     # written to config.toml; a blank field leaves whatever hash is already stored alone, so
     # saving any other setting can never silently erase the household's update PIN.
@@ -746,8 +756,8 @@ def about_text() -> str:
         "Bundled components: Chromium via Playwright (BSD-3-Clause), SumatraPDF 3.5.2 for printing (GPL-3.0; source at "
         "https://github.com/sumatrapdfreader/sumatrapdf/tree/3.5.2rel), segno for the LAN QR code (BSD-3-Clause), "
         "Python (PSF licence).\n"
-        "Everything runs on this computer; the app talks only to OneLogin, Canvas and HAC -- and, once a day, "
-        "asks GitHub whether a newer Fridge Sheet exists (nothing is sent; turn it off on this page)."
+        "Everything runs on this computer; the app talks only to OneLogin, Canvas and HAC -- and, every hour or as "
+        "often as this page says, asks GitHub whether a newer Fridge Sheet exists (nothing is sent; turn it off on this page)."
     )
 
 
