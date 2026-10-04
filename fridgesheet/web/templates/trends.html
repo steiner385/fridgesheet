@@ -28,7 +28,7 @@
   {% if record.on_time_rate is not none %}
   {# Red Pen for "not done" alone: the school's word. "Unknown" is the app's own inference and
      stays in ink (finish review 2026-10-01). Each count is one span so none breaks mid-phrase. #}
-  <p class="hand-ins-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · <span>{{ record.on_time }} on time</span> · <span>{{ record.late }} late</span> · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · <span>{{ record.done_offline }} on paper</span> · <span>{{ record.unknown }} unknown</span></p>
+  <p class="hand-ins-line"><b>{{ (record.on_time_rate * 100) | round | int }}% on time</b> so far · <span>{{ record.on_time }} on time</span> · <span>{{ record.late }} late</span> · <span class="{{ 'warn' if record.not_done }}">{{ record.not_done }} not done</span> · <span>{{ record.done_offline }} outside Canvas</span> · <span>{{ record.unknown }} unknown</span></p>
   <p class="figure-note muted">Of the work due so far this year: handed in on time, late, or not at all.</p>
   {% else %}<p class="hand-ins-line muted">Nothing has come due yet.</p>{% endif %}
   <h4 class="day">Grades</h4>
@@ -45,7 +45,7 @@
   <details class="fold numbers"><summary>The numbers</summary>
   <div class="table-wrap">
   <table class="items">
-    <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>On paper</th><th>Unknown</th></tr></thead>
+    <thead><tr><th>Week of</th><th>On time</th><th>Late</th><th>Not done</th><th>Outside Canvas</th><th>Unknown</th></tr></thead>
     <tbody>
     {% for w in week_rows %}<tr><td>{{ w.week_start | md }}</td><td>{{ w.on_time }}</td><td>{{ w.late }}</td><td class="{{ 'warn' if w.not_done }}">{{ w.not_done }}</td><td>{{ w.done_offline }}</td><td>{{ w.unknown }}</td></tr>{% endfor %}
     </tbody>

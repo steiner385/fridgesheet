@@ -89,7 +89,7 @@ def test_a_week_with_nothing_shown_folds_and_this_week_is_always_printed(tmp_pat
     planner's silhouette on the page the child opens: the open page over folded pages."""
     seed(tmp_path).close()
     body = items_block(app_for(tmp_path).get("/kids/Alex?show=past_window").text)
-    assert re.search(r'<details class="mf-section week folded" data-week="2026-09-07">\s*<summary><h4[^>]*>.*?<span class="tally">· [^<]*on paper[^<]*</span></h4></summary>', body, re.S)
+    assert re.search(r'<details class="mf-section week folded" data-week="2026-09-07">\s*<summary><h4[^>]*>.*?<span class="tally">· [^<]*outside Canvas[^<]*</span></h4></summary>', body, re.S)
     folded = body[body.index('data-week="2026-09-07"'):body.index('data-week="2026-08-17"')]
     assert "Quiz 1" in folded and "Participation" in folded                            # behind the fold, not dropped
     assert '<section class="mf-section week" data-week="2026-08-17"' in body and "Homework 4" in body

@@ -48,7 +48,7 @@ use every page.
 1. **Refreshes.** Signs in to OneLogin with your parent login, reads every child on the
    account from Canvas and HAC, and saves what it found. A refresh takes 1–3 minutes.
 2. **Decides.** Pairs each Canvas assignment with its HAC twin, and gives every assignment
-   one *outcome* (on time, late, not done, done on paper, unknown, not due yet…) from one
+   one *outcome* (on time, late, not done, done outside Canvas, unknown, not due yet…) from one
    written set of rules ([§14](#14-how-fridge-sheet-decides)).
 3. **Shows.** The web app: a Today page, each child's pages, the Open work list, the few
    Questions only you can answer, trends and history.
@@ -301,7 +301,7 @@ The app and this guide use a few words that overlap. They mean:
 - **N not done, due by tomorrow** → that child's plan, or *Nothing due by tomorrow*.
 - **N questions to answer** → the Questions page for that child, or *Nothing to answer*.
 - *N new since yesterday.*
-- **School record so far** (folded): *N on time · N late · N not done · N on paper · N
+- **School record so far** (folded): *N on time · N late · N not done · N outside Canvas · N
   unknown · of N due so far.* Each number opens the Assignments tab filtered to those rows.
   What the words mean is in [§14](#the-outcomes).
 
@@ -341,7 +341,7 @@ three things apart and never lets one overwrite another:
 
 **Step 1 — Must finish.** What the school record itself puts in front of you, computed fresh
 every time, not something anyone fills in: **Due tonight**, **Due tomorrow**, **Overdue, still
-fixable**, **On paper, no grade yet**, **Handed in, waiting for a grade** (folded) and **Due
+fixable**, **Outside Canvas, no grade yet**, **Handed in, waiting for a grade** (folded) and **Due
 later** (folded), each with its own count. Each card shows the class, the assignment (links to
 its row), its **School record**, any answer you gave before, how long late work is accepted
 ("Late work is usually accepted until … (from your late-work rules)"), and its answer buttons.
@@ -893,7 +893,7 @@ Every assignment gets exactly one. The first that applies wins.
 | **not done** | Canvas marked it missing; *or* a 0 was entered in either gradebook; *or* it is online work, past due, with no submission and no grade. |
 | **late** | Handed in on Canvas after the deadline. |
 | **on time** | Handed in on Canvas by the deadline. |
-| **done on paper** | A grade above zero with no online hand-in. Its timing can't be known, so it is neither on time nor late. |
+| **done outside Canvas** | A grade above zero with no online hand-in. Its timing can't be known, so it is neither on time nor late. |
 | **unknown** | Past due, paper or outside-Canvas work, no grade anywhere yet. *The list to ask teachers about.* |
 | **not due yet** | Due later, not handed in. |
 
@@ -1136,7 +1136,7 @@ runs, sheets and schedules carry over. The details are in
 | **Canvas** | Where teachers post and collect online work. Knows whether and when something was handed in. |
 | **HAC** | Home Access Center, the official gradebook. Its class average is the report-card grade. |
 | **Refresh** | One pull of both gradebooks for every child. |
-| **Outcome** | What happened to an assignment: on time, late, not done, done on paper, unknown, not due yet, excused, unpublished. |
+| **Outcome** | What happened to an assignment: on time, late, not done, done outside Canvas, unknown, not due yet, excused, unpublished. |
 | **Open** | Not done or unknown, or late and not yet graded. |
 | **Still fixable** | Open, inside its late-work window, and not answered as handled. |
 | **Handled** | Answered *It's done*, *Excused*, *Let it go* or *Too late to submit*. |

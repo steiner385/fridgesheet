@@ -57,7 +57,7 @@ NO_DATA = ""
 ORDER = (NOT_DONE, UNKNOWN, LATE, ON_TIME, DONE_OFFLINE, NOT_DUE, EXCUSED, UNPUBLISHED)
 
 LABELS = {
-    ON_TIME: "on time", LATE: "late", NOT_DONE: "not done", DONE_OFFLINE: "done on paper",
+    ON_TIME: "on time", LATE: "late", NOT_DONE: "not done", DONE_OFFLINE: "done outside Canvas",
     UNKNOWN: "unknown", NOT_DUE: "not due yet", EXCUSED: "excused", UNPUBLISHED: "unpublished", NO_DATA: "",
 }
 

@@ -10,7 +10,7 @@ from tests.web_fixtures import NOW, app_for, chart_configs, history, seed, snaps
 
 WEB = Path(__file__).resolve().parents[1] / "fridgesheet" / "web"
 TEMPLATES, STATIC = WEB / "templates", WEB / "static"
-WEEKLY_LABELS = ["On time", "Late", "Not done", "On paper", "Unknown"]      # the table's column order
+WEEKLY_LABELS = ["On time", "Late", "Not done", "Outside Canvas", "Unknown"]      # the table's column order
 
 
 def weekly_config(body: str) -> dict:

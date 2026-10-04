@@ -55,7 +55,7 @@ def _tally(views) -> list[tuple[str, int]]:
     their counts, for the template to say in the child's tier."""
     t = items.record_for(views)
     parts = [("copy.tally_on_time", t.on_time), ("copy.tally_late", t.late), ("copy.tally_not_done", t.not_done),
-             ("copy.tally_on_paper", t.done_offline), ("copy.tally_unknown", t.unknown)]
+             ("copy.tally_outside_canvas", t.done_offline), ("copy.tally_unknown", t.unknown)]
     return [(key, n) for key, n in parts if n] or [("copy.tally_listed", len(views))]
 
 
@@ -126,7 +126,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     work = items.open_work(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window())
     needs_now = items.needs_you_now(work, by_state["question"], now.date())
     # What got done, in the dashboard's five outcomes (docs/outcomes.md): on time, late and done
-    # on paper are done; not done and unknown are not, or not yet. One line above the questions.
+    # outside Canvas are done; not done and unknown are not, or not yet. One line above the questions.
     record = items.record_for(everything)
     return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f, workspace="all",
                   weeks=weeks_of(rows, listed, now, by_day=f["sort"] == "due"), by_day=f["sort"] == "due", here=f"/kids/{quote(key)}",
