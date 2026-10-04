@@ -211,3 +211,18 @@ def test_a_student_is_found_by_key_nickname_or_a_start_of_either(hac_only, monke
         assert server.hac_classwork(asked)["student"] == "RIVERA, MAYA", asked
     with pytest.raises(ValueError, match="Maya"):
         server.hac_classwork("Rivera")
+
+
+def test_grades_carries_what_moves_it(graded, monkeypatch, tmp_path):
+    """spec 2026-10-04 §7.4: the same engine over the snapshot's rows."""
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
+    graded["students"]["Alex"]["canvas"]["courses"][0]["assignments"] = [
+        {"id": 9, "name": "Lab 3", "due_at": _iso(3), "unlock_at": None, "created_at": _iso(-1), "points_possible": 20.0,
+         "submission_types": ["online_upload"], "group": "Labs", "published": True, "score": None, "grade": None,
+         "state": "unsubmitted", "late": False, "missing": False, "excused": False}]
+    classes = {c["course"]: c for c in server.grades("Alex")["classes"]}
+    g = classes["Honors Biology S1-2027-Nance"]["guidance"]
+    assert g["sound"] and g["letter"] == "B" and g["reach"]["letter"] == "A"
+    assert g["levers"][0]["kind"] == "upcoming" and g["best"]["points"] == 20.0 and g["best"]["worth"] > 0
+    assert classes["Hawk Time"]["guidance"]["sound"] is False                    # no breakdown: points, never average points

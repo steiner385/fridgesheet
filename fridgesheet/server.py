@@ -16,9 +16,9 @@ except ModuleNotFoundError:  # mcp 1.x
 
 from dataclasses import asdict
 
-from . import collector, grading, late_rules, open_items
+from . import collector, grading, guidance, late_rules, open_items
 from .config import load_settings
-from .matching import match_course as _match
+from .matching import match_course as _match, norm_name as _norm_name
 from .reports.open_work import wanted as _wanted
 from .sources import pick_value
 
@@ -110,6 +110,8 @@ def grades(student: str) -> dict:
     counts missing work as zero; `hidden` when the teacher hides it)."""
     key, e = _kid(_snap(), student)
     out = {"student": e["name"], "classes": []}
+    now = datetime.now(ZoneInfo(_settings().timezone))
+    rules = late_rules.load(_settings().home / "late-rules.toml", household=_snap()["students"])
     hac_classes = {c["name"]: c for c in (e.get("hac") or {}).get("classes", [])}
     hac_week = {w["class"]: w for w in (e.get("hac") or {}).get("week_view", [])}
     seen = set()
@@ -129,6 +131,7 @@ def grades(student: str) -> dict:
             "hac_last_updated": h.get("last_updated"),
             "hac_categories": h.get("categories"),
             "account": _hac_account(h) if h else None,
+            "guidance": _guidance(h or None, c, now, rules, key, c["name"], h.get("name")),
             "canvas_current": c["grade"]["current_score"],
             "canvas_final_if_unsubmitted_zero": c["grade"]["final_score"],
             "canvas_hidden": c["grade"]["hidden"],
@@ -139,7 +142,7 @@ def grades(student: str) -> dict:
         if name not in seen:
             pick = _settings().sources.resolve(key, name).grades
             official, official_source = pick_value(pick, None, h.get("marking_period_avg"))
-            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "account": _hac_account(h), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None, "canvas_account": None})
+            out["classes"].append({"course": name, "official": official, "official_source": official_source, "hac_official": h.get("marking_period_avg"), "hac_last_updated": h.get("last_updated"), "hac_categories": h.get("categories"), "account": _hac_account(h), "guidance": _guidance(h, None, now, rules, key, name, None), "canvas_current": None, "canvas_final_if_unsubmitted_zero": None, "canvas_hidden": None, "canvas_account": None})
     return out
 
 
@@ -148,6 +151,42 @@ def _hac_account(h: dict) -> dict:
     rows = [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
             for r in (h.get("assignments") or [])]
     return asdict(grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [], rows))
+
+
+def _guidance(h: dict | None, c: dict | None, now: datetime, rules, kid: str, course_name: str, peer: str | None) -> dict | None:
+    """guidance.guide over the snapshot (spec 2026-10-04 §7.4): the class's HAC blank rows and
+    Canvas open rows, the late rules as the sheet reads them. Flags set in the app are not
+    applied here (as `missing_work`), so a row the family answered may still be a lever."""
+    if h is None:
+        return None
+    account = grading.account_hac(h.get("marking_period_avg"), h.get("categories") or [],
+                                  [{"category": r.get("category"), "score": r.get("score"), "points": r.get("points"), "excused": open_items.hac_excused(r)}
+                                   for r in (h.get("assignments") or [])])
+    credit = rules.resolve(kid, course_name, peer).credit
+    rows = []
+    for r in h.get("assignments") or []:
+        due = open_items.parse_hac_date(r.get("due"), now.tzinfo)
+        if r.get("score") is not None or open_items.hac_excused(r) or due is None:
+            continue
+        due = due.replace(hour=23, minute=59)
+        late_until = rules.deadline(kid, course_name, due, peer)
+        if due < now and now > late_until:
+            continue
+        rows.append({"item_id": None, "name": r.get("name"), "category": r.get("category"), "points": r.get("points"), "due": due,
+                     "late_until": late_until, "credit_text": credit, "overdue": due < now, "upcoming": due >= now,
+                     "hac_blank": True, "hac_scored": False})
+    hac_names = {_norm_name(r.get("name") or "") for r in (h.get("assignments") or [])}
+    for a in (c or {}).get("assignments") or []:
+        if a.get("score") is not None or a.get("excused") or not a.get("due_at") or _norm_name(a.get("name") or "") in hac_names:
+            continue
+        due = datetime.fromisoformat(a["due_at"])
+        late_until = rules.deadline(kid, course_name, due, peer)
+        if due < now and (now > late_until or a.get("state") == "submitted"):
+            continue
+        rows.append({"item_id": a.get("id"), "name": a.get("name"), "category": a.get("group"), "points": a.get("points_possible"), "due": due,
+                     "late_until": late_until, "credit_text": credit, "overdue": due < now, "upcoming": due >= now,
+                     "hac_blank": False, "hac_scored": False})
+    return asdict(guidance.guide(account, rows, _settings().grading))
 
 
 @mcp.tool()
