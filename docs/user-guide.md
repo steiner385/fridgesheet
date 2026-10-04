@@ -1114,7 +1114,9 @@ happens:
   update PIN. Each version is tried once by itself; if it does not take, the bar asks you
   instead, and Diagnostics says what happened.
 
-A kid's own phone never shows any of these. To install by hand, either download and run the new installer over the
+A kid's own phone never shows any of these. Downloaded installers are kept in
+`updates\` only until the next start: then every version but the one running is deleted, except
+the files of an update that did not take. To install by hand, either download and run the new installer over the
 old one, or set an **Update PIN** on Settings (at least 4 characters; a **Remove the
 update PIN** box appears once one is stored) and use **Update to X** (shown when the
 background task is installed). The PIN only guards the button — it crosses the network

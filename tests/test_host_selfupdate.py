@@ -229,3 +229,52 @@ def test_the_dispatcher_forwards_an_injected_popen_and_omits_it_otherwise(monkey
     selfupdate.spawn_installer(Path(r"C:\u\S.exe"), Path(r"C:\u\i.log"),
                                popen=lambda cmd, **kw: calls.append("injected"))
     assert calls == ["injected"]
+
+
+# --- old installers are cleared (2026-10-04: graphy had 70 files, ~10 GB, in updates/) -------
+
+def _updates_folder(home, versions, extra=()):
+    folder = home / "updates"
+    folder.mkdir(parents=True)
+    for v in versions:
+        (folder / f"FridgeSheet-Setup-{v}.exe").write_bytes(b"x")
+        (folder / f"install-{v}.log").write_text("log")
+    for name in extra:
+        (folder / name).write_text("x")
+    return folder
+
+
+def test_old_installers_and_logs_go_and_the_running_versions_stay(tmp_path):
+    folder = _updates_folder(tmp_path, ["0.5.3", "0.5.100", "0.5.107"],
+                             extra=["FridgeSheet-Setup-0.5.104.exe.part", "notes.txt"])
+    removed = selfupdate.prune_updates(tmp_path, "0.5.107")
+    assert sorted(p.name for p in folder.iterdir()) == ["FridgeSheet-Setup-0.5.107.exe", "install-0.5.107.log", "notes.txt"]
+    assert removed == 5          # two installers, two logs and a leftover partial download; nothing it did not name
+
+
+def test_a_failed_updates_files_are_kept_for_diagnostics(tmp_path):
+    folder = _updates_folder(tmp_path, ["0.5.100", "0.5.107"])
+    failed = selfupdate.Pending("0.5.100", "0.5.107", "2026-10-04T11:55:00-04:00",
+                                str(folder / "FridgeSheet-Setup-0.5.107.exe"), str(folder / "install-0.5.107.log"))
+    selfupdate.prune_updates(tmp_path, "0.5.100", keep=failed)
+    assert sorted(p.name for p in folder.iterdir()) == sorted(
+        ["FridgeSheet-Setup-0.5.100.exe", "install-0.5.100.log", "FridgeSheet-Setup-0.5.107.exe", "install-0.5.107.log"])
+
+
+def test_pruning_never_raises(tmp_path, monkeypatch):
+    assert selfupdate.prune_updates(tmp_path, "0.5.107") == 0            # no updates/ folder at all
+    _updates_folder(tmp_path, ["0.5.100", "0.5.107"])
+    def locked(self, missing_ok=False):
+        raise PermissionError("in use by the antivirus")
+    monkeypatch.setattr(Path, "unlink", locked)
+    assert selfupdate.prune_updates(tmp_path, "0.5.107") == 0            # a file that will not go stays
+
+
+def test_the_app_clears_old_installers_when_it_starts(tmp_path, monkeypatch):
+    from fridgesheet.web import updates
+    from tests.web_fixtures import app_for, seed
+    monkeypatch.setattr(updates, "current_version", lambda: "0.5.107")
+    seed(tmp_path).close()
+    folder = _updates_folder(tmp_path, ["0.5.100", "0.5.107"])
+    app_for(tmp_path)
+    assert sorted(p.name for p in folder.iterdir()) == ["FridgeSheet-Setup-0.5.107.exe", "install-0.5.107.log"]
