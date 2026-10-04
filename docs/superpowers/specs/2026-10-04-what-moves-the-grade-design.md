@@ -291,3 +291,27 @@ the late rules file and the scale.
   letter and posted work; `gd.hold` whenever the current letter is at risk; `gd.keep` at the top
   letter. (§5's "no levers" branch made `reach_far`, `keep` and `hold` unreachable.)
 - **A cut at 100 or above is never a reach** (a family scale with "A+ = 100" divided by zero).
+
+## 14. Weighted classes (2026-10-04, approved in discussion)
+
+A read-only capture of the household's HAC Classwork pages found why four classes (Math Plus
+5th, Adv Math 7, ELA Plus 5th, Adv Language Arts 7) showed no category table: HAC weights them,
+and a weighted class's category table has six columns (Category, Student's Points, Maximum
+Points, Percent, Category Weight, Category Points). The scraper kept only four-column rows.
+With the weights read, all four rebuild to HAC's number exactly as the weighted average of their
+category percents (each weight 1.00 here); the two total-points classes checked alongside are
+unchanged.
+
+- `hac.parse_row` reads both tables; a category row carries `weight` (None for total points).
+- Schema 12 adds `category_observations.weight`; a change of weight is a new set.
+- `grading`: a class whose every subtotal has a weight has basis `weighted`; `rebuilt` is
+  `100 × Σ(weight × earned ÷ possible) ÷ Σ weight` over categories with anything possible, and a
+  line's `share` is its weight's share. The class page says "the average of its category
+  percents, each counted by its weight, not total points", and the check line "Adds up: the
+  average of N category percents, as HAC weights them" (`rc.adds_up_weighted`).
+- `guidance`: in a weighted class a lever moves only its own category's percent, so its worth
+  and cost come from that category (ten points of a 17-point Quiz are worth +4.36 in Math Plus;
+  ten of a 40-point Assignments +0.33). A lever in a category the table does not list has no
+  worth. The reach is the **ceiling** the posted work allows (every posted lever earned at its
+  credit, every zero filled), never a point count: `gd.ceiling` ("Full marks on the 10 points
+  posted would take it to 90.93: an A") or `gd.ceiling_far` ("…short of an A"). No slack line.

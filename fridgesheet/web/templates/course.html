@@ -78,7 +78,7 @@
   {% if a.lines | length == 0 %}
   <p class="check">{% if a.source == 'hac' %}{{ ('rc.no_breakdown' | say(acct_tier, {'reported': fmt_avg(a.reported)})) if a.reported is not none else ('copy.rc_hac_no_avg' | say(acct_tier)) }}{% else %}{{ key | say(acct_tier, values) }}{% endif %}</p>
   {% elif loop.first %}
-  <p class="lead">{% if a.source == 'hac' %}{{ ('copy.rc_lead_hac_rows' if a.basis == 'rows' else 'copy.rc_lead_hac') | say(acct_tier) }}{% if a.basis == 'subtotals' and a.lines | selectattr('from_rows') | list %} {{ 'copy.rc_lead_from_rows' | say(acct_tier) }}{% endif %}{% else %}{{ 'copy.rc_lead_canvas' | say(acct_tier) }}{% endif %}</p>
+  <p class="lead">{% if a.source == 'hac' %}{{ ('copy.rc_lead_hac_rows' if a.basis == 'rows' else ('copy.rc_lead_hac_weighted' if a.basis == 'weighted' else 'copy.rc_lead_hac')) | say(acct_tier) }}{% if a.basis == 'subtotals' and a.lines | selectattr('from_rows') | list %} {{ 'copy.rc_lead_from_rows' | say(acct_tier) }}{% endif %}{% else %}{{ 'copy.rc_lead_canvas' | say(acct_tier) }}{% endif %}</p>
   <div class="table-wrap"><table class="categories">
     <thead><tr><th>Category</th><th>Earned</th><th>Possible</th><th>Percent</th><th>{{ 'copy.rc_share' | say(acct_tier) }}</th></tr></thead>
     <tbody>
@@ -92,7 +92,7 @@
   {% if a.reported is none %}
   <p class="check">{{ ('copy.rc_hac_no_avg' if a.source == 'hac' else 'rc.canvas_hidden') | say(acct_tier) }}</p>
   {% elif a.match == 'exact' %}
-  <p class="check ok">✓ {{ 'rc.adds_up' | say(acct_tier, {'earned': fmt_points(a.earned), 'possible': fmt_points(a.possible)}) }}{% if a.source == 'hac' %} {{ 'copy.rc_hac_says' | say(acct_tier, {'reported': fmt_avg(a.reported)}) }}{% endif %}</p>
+  <p class="check ok">✓ {% if a.basis == 'weighted' %}{{ 'rc.adds_up_weighted' | say(acct_tier, {'n': a.lines | selectattr('share') | list | length}) }}{% else %}{{ 'rc.adds_up' | say(acct_tier, {'earned': fmt_points(a.earned), 'possible': fmt_points(a.possible)}) }}{% endif %}{% if a.source == 'hac' %} {{ 'copy.rc_hac_says' | say(acct_tier, {'reported': fmt_avg(a.reported)}) }}{% endif %}</p>
   {% else %}
   <p class="check off">{{ (key | say(acct_tier, values)) if a.source == 'hac' else ('rc.canvas_dont_add_up' | say(acct_tier, {'rebuilt': fmt_avg(a.rebuilt), 'reported': fmt_avg(a.reported)})) }}</p>
   {% endif %}

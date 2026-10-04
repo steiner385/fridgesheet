@@ -256,7 +256,7 @@ def test_schema_10_carries_the_category_tables(tmp_path):
     conn = db.open_db(tmp_path)
     assert db.SCHEMA_VERSION >= 10
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(category_observations)")}
-    assert cols == {"id", "refresh_id", "course_id", "category", "earned", "possible", "percent"}
+    assert cols == {"id", "refresh_id", "course_id", "category", "earned", "possible", "percent", "weight"}   # weight since v12
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(item_categories)")}
     assert cols == {"item_id", "source", "category"}
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE type='index' AND name='category_observations_course'").fetchone()
@@ -286,3 +286,18 @@ def test_fold_item_carries_categories_and_prefers_the_twins(tmp_path):
     rows = conn.execute("SELECT source, category FROM item_categories WHERE item_id = 1 ORDER BY source").fetchall()
     assert [(r["source"], r["category"]) for r in rows] == [("canvas", "LABS"), ("hac", "Labs")]   # the twin's later sighting wins
     assert conn.execute("SELECT count(*) FROM item_categories WHERE item_id = 2").fetchone()[0] == 0
+
+
+def test_schema_12_category_observations_carry_a_weight(tmp_path):
+    conn = db.open_db(tmp_path)
+    assert db.SCHEMA_VERSION >= 12
+    assert "weight" in {r["name"] for r in conn.execute("PRAGMA table_info(category_observations)")}
+
+
+def test_a_version_11_file_gains_the_weight_column_and_migrating_twice_is_harmless(tmp_path):
+    conn = db.open_db(tmp_path)
+    conn.execute("ALTER TABLE category_observations DROP COLUMN weight")
+    conn.execute("UPDATE schema_version SET version = 11")
+    assert db.migrate(conn) == db.SCHEMA_VERSION
+    conn.execute("UPDATE schema_version SET version = 11")                    # a rolled-back file that already has it
+    assert db.migrate(conn) == db.SCHEMA_VERSION

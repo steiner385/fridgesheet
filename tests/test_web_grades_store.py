@@ -113,3 +113,14 @@ def test_how_for_picks_the_sentence_in_the_specs_order():
 def test_canvas_with_a_lower_final_but_nothing_marked_missing_says_unsubmitted_not_zero_missing():
     a = grading.account_canvas(84.42, 68.94, False, [{"group": "A", "score": 84.42, "points": 100.0, "excused": False, "missing": False, "state": "graded"}])
     assert grades.how_for(a) == ("rc.canvas_partial_unsubmitted", {"current": "84.42", "final": "68.94"})
+
+
+def test_the_account_reads_stored_weights_and_says_so(tmp_path):
+    conn = seed(tmp_path)
+    eng = _course(conn, "Honors English 9", "hac")
+    with conn:
+        conn.execute("UPDATE category_observations SET weight = CASE category WHEN 'Assignments' THEN 3 ELSE 2 END WHERE course_id = ?", (eng["id"],))
+    s = students.by_key(conn, "Alex")
+    a = grades.account_for(conn, eng, students.latest_grades(conn, s["id"]).get(eng["id"]))
+    assert a.basis == "weighted" and a.match == "exact" and round(a.rebuilt, 2) == 88.0     # (93.33*3 + 80*2)/5
+    assert grades.how_for(a) == ("rc.adds_up_weighted", {"n": "2"})
