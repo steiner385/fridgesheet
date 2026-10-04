@@ -166,18 +166,19 @@ def _guidance(h: dict | None, c: dict | None, now: datetime, rules, kid: str, co
     rows = []
     for r in h.get("assignments") or []:
         due = open_items.parse_hac_date(r.get("due"), now.tzinfo)
-        if r.get("score") is not None or open_items.hac_excused(r) or due is None:
+        score = r.get("score")
+        if (score is not None and score != 0) or open_items.hac_excused(r) or due is None:
             continue
         due = due.replace(hour=23, minute=59)
         late_until = rules.deadline(kid, course_name, due, peer)
-        if due < now and now > late_until:
-            continue
+        # Past its window it is no lever, but a blank one still used HAC's zero budget (final review, 2026-10-04).
+        gone = due < now and now > late_until
         rows.append({"item_id": None, "name": r.get("name"), "category": r.get("category"), "points": r.get("points"), "due": due,
                      "late_until": late_until, "credit_text": credit, "overdue": due < now, "upcoming": due >= now,
-                     "hac_blank": True, "hac_scored": False})
+                     "hac_blank": score is None, "hac_scored": score is not None, "hac_zero": score == 0, "counted_only": gone})
     hac_names = {_norm_name(r.get("name") or "") for r in (h.get("assignments") or [])}
     for a in (c or {}).get("assignments") or []:
-        if a.get("score") is not None or a.get("excused") or not a.get("due_at") or _norm_name(a.get("name") or "") in hac_names:
+        if (a.get("score") is not None and a.get("score") != 0) or a.get("excused") or not a.get("due_at") or _norm_name(a.get("name") or "") in hac_names:
             continue
         due = datetime.fromisoformat(a["due_at"])
         late_until = rules.deadline(kid, course_name, due, peer)

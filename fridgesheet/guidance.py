@@ -42,9 +42,15 @@ class Lever:
     points: float
     credit: float             # 1.0 unless the late rule names a percentage
     credit_known: bool        # False when the rule's credit text names none ("?")
-    worth: float | None       # average points if earned at `credit`; None when not sound
+    worth: float | None       # change in the average shown, if earned at `credit` (never below 0); None when not sound
     deadline: datetime | None # late_until for zero/missing, due for upcoming
     category: str
+    cost: float | None = None # missing work only: what the zero it becomes would take off the average shown
+
+    @property
+    def stake(self) -> float:
+        """The difference between earning it and leaving it: what ranks the levers."""
+        return (self.worth or 0.0) + (self.cost or 0.0)
 
 
 @dataclass(frozen=True)
@@ -86,12 +92,23 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
     levers: list[Lever] = []
     for r in sorted(rows, key=lambda r: _sort_deadline(r.get("due"))):
         pts = float(r.get("points") or 0.0)
-        if pts <= 0 or r.get("hac_scored"):
+        cat = r.get("category") or ""
+        if r.get("counted_only"):
+            # Past its window or answered: not a lever, but a blank past-due row HAC has zeroed
+            # uses the category's budget first, oldest-due first, like any other.
+            if r.get("hac_blank") and r.get("overdue") and pts > 0:
+                budget[cat] = max(0.0, budget.get(cat, 0.0) - pts)
+            continue
+        if pts <= 0 or (r.get("hac_scored") and not r.get("hac_zero")):
             continue
         frac = credit_fraction(r.get("credit_text"))
         credit, known = (1.0, False) if frac is None else (frac, True)
-        if r.get("overdue"):
-            cat = r.get("category") or ""
+        if r.get("hac_zero") and (r.get("overdue") or r.get("upcoming")):
+            # An explicit zero is already inside `possible`: a zero lever, no budget needed.
+            kind, deadline = "zero", (r.get("late_until") if r.get("overdue") else r.get("due"))
+            if not r.get("overdue"):
+                credit, known = 1.0, True
+        elif r.get("overdue"):
             if r.get("hac_blank") and budget.get(cat, 0.0) >= pts - 1e-9:
                 budget[cat] -= pts
                 kind = "zero"
@@ -102,20 +119,22 @@ def guide(account: grading.Account, rows: list[dict], scale: grading.GradeScale)
             kind, credit, known, deadline = "upcoming", 1.0, True, r.get("due")
         else:
             continue
-        worth = None
+        worth = cost = None
         if sound:
             if kind == "zero":
                 worth = 100.0 * credit * pts / account.possible
             else:
-                worth = 100.0 * (account.earned + credit * pts) / (account.possible + pts) - (account.rebuilt or 0.0)
-        levers.append(Lever(r.get("item_id"), r.get("name") or "", kind, pts, credit, known, worth, deadline, r.get("category") or ""))
-    levers.sort(key=lambda l: (-(l.worth if l.worth is not None else l.points), _sort_deadline(l.deadline), l.name))
+                worth = max(0.0, 100.0 * (account.earned + credit * pts) / (account.possible + pts) - (account.rebuilt or 0.0))
+                if kind == "missing":
+                    cost = (account.rebuilt or 0.0) - 100.0 * account.earned / (account.possible + pts)
+        levers.append(Lever(r.get("item_id"), r.get("name") or "", kind, pts, credit, known, worth, deadline, cat, cost))
+    levers.sort(key=lambda l: (-(l.stake if sound else l.points), _sort_deadline(l.deadline), l.name))
     zero_points = round(sum(l.points for l in levers if l.kind == "zero"), 2)
     reach = slack = None
     if sound:
         earned2 = account.earned + sum(l.credit * l.points for l in levers if l.kind == "zero")
         posted = round(sum(l.points for l in levers if l.kind != "zero"), 2)
-        above = [(ltr, f) for ltr, f in scale.cuts if f > account.reported]
+        above = [(ltr, f) for ltr, f in scale.cuts if account.reported < f < 100.0]   # a cut at 100 or above is no one's reach
         if above:
             ltr, f = min(above, key=lambda c: c[1])
             needed = (f / 100 * account.possible - earned2) / (1 - f / 100)

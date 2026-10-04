@@ -270,3 +270,24 @@ the late rules file and the scale.
   letters, and reach sentences in that tier never say what cannot be done.
 - **A sentence that ages.** "A B needs 3.4 of the next 40 points" is true at the last refresh;
   the page's "as of" line already dates every number on it.
+
+## 13. Amendments from the final review (2026-10-04)
+
+- **The zero budget is spent by every blank past-due row first**, not only the open ones: rows
+  past their late window or answered (Let it go, Too late, Done) ride along as `counted_only`,
+  use their category's budget oldest-due first, and are never levers. Without this a newer
+  blank row inherited budget HAC spent on an older one, and `gd.zeros_reach` could promise a
+  letter the kid would not get.
+- **An explicit zero is a `zero` lever** (HAC's 0, or Canvas's where HAC has no row): its
+  points are already in `possible`, and it needs no budget.
+- **Worth never goes below zero**, and a `missing` lever also carries `cost`: what the zero it
+  becomes would take off the average shown (`rebuilt − 100·earned ÷ (possible + points)`).
+  Levers rank by `stake = worth + cost`, so work about to become a zero comes first.
+  Sentences: `gd.best_missing` ("…worth up to +2.0 now, and left blank it would cost 14.7"),
+  `gd.protect` when it cannot raise the number ("Don't leave Essay (10 pts) blank: … a zero would
+  cost 16.7"), and the lever note's `copy.gd_cost`. A best move worth less than 0.05 in stake is
+  not said; neither is a "+0.0" badge.
+- **Sentence order** after the best move: `gd.reach` or `gd.reach_far` whenever there is a next
+  letter and posted work; `gd.hold` whenever the current letter is at risk; `gd.keep` at the top
+  letter. (§5's "no levers" branch made `reach_far`, `keep` and `hold` unreachable.)
+- **A cut at 100 or above is never a reach** (a family scale with "A+ = 100" divided by zero).

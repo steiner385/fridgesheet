@@ -19,11 +19,11 @@ def _hrow(category, score, points, excused=False):
 
 
 def _row(name, points, *, category="Assignments", due_days=-5, overdue=True, upcoming=False, hac_blank=False,
-         hac_scored=False, credit="?", late_days=14, item_id=None):
+         hac_scored=False, hac_zero=False, credit="?", late_days=14, item_id=None):
     due = NOW + timedelta(days=due_days)
     return {"item_id": item_id, "name": name, "category": category, "points": points, "due": due,
             "late_until": due + timedelta(days=late_days), "credit_text": credit, "overdue": overdue,
-            "upcoming": upcoming, "hac_blank": hac_blank, "hac_scored": hac_scored}
+            "upcoming": upcoming, "hac_blank": hac_blank, "hac_scored": hac_scored, "hac_zero": hac_zero}
 
 
 # Concert Band: Daily 175/175, Playing 92/130; 25 blank points in Playing already counted as zero.
@@ -127,3 +127,41 @@ def test_fmt_worth():
 def test_with_article():
     assert guidance.with_article("A") == "an A" and guidance.with_article("B") == "a B" and guidance.with_article("F") == "an F"
     assert guidance.with_article("A-") == "an A-" and guidance.with_article("") == ""
+
+
+# --- final review fixes (2026-10-04) ------------------------------------------------------------------
+
+def test_blank_rows_outside_open_work_use_the_zero_budget_first():
+    # 80/90 scored, an old blank 10 HAC already zeroed (possible 100), a new blank 10 not counted yet.
+    acc = grading.account_hac(80.0, [_sub("A", 80.0, 100.0)], [_hrow("A", 80.0, 90.0), _hrow("A", None, 10.0), _hrow("A", None, 10.0)])
+    assert acc.lines[0].zero_points == 10.0
+    old = _row("Old sheet", 10.0, category="A", hac_blank=True, due_days=-30)
+    old["counted_only"] = True                                   # past its window or answered: not a lever, but HAC zeroed it
+    g = guidance.guide(acc, [old, _row("New sheet", 10.0, category="A", hac_blank=True, due_days=-2)], grading.TEN_POINT)
+    assert [(l.name, l.kind) for l in g.levers] == [("New sheet", "missing")]
+    assert g.zero_points == 0.0 and g.reach.needed > 0          # no "turn it in and it's a B" from a row HAC never counted
+
+
+def test_worth_is_never_negative_and_missing_work_says_what_a_zero_would_cost():
+    acc = grading.account_hac(92.0, [_sub("A", 92.0, 100.0)], [])
+    g = guidance.guide(acc, [_row("Essay", 10.0, category="A", credit="50%")], grading.TEN_POINT)
+    (lever,) = g.levers
+    assert lever.kind == "missing" and lever.worth == 0.0                     # at half credit it cannot raise a 92
+    assert round(lever.cost, 1) == round(92 - 100 * 92 / 110, 1)              # but left blank, the zero costs 8.4
+
+
+def test_an_explicit_zero_is_a_zero_lever_without_touching_the_budget():
+    rows = [_row("Zeroed quiz", 10.0, category="Playing/Written Work", hac_zero=True),
+            _row("Scale test", 25.0, category="Playing/Written Work", hac_blank=True)]
+    g = guidance.guide(BAND, rows, grading.TEN_POINT)
+    kinds = {l.name: l.kind for l in g.levers}
+    assert kinds == {"Zeroed quiz": "zero", "Scale test": "zero"}            # the blank still finds its 25-point budget
+    zq = next(l for l in g.levers if l.name == "Zeroed quiz")
+    assert round(zq.worth, 2) == round(100 * 10 / 305, 2)
+
+
+def test_a_cut_at_one_hundred_is_never_a_reach():
+    scale = grading.GradeScale((("A+", 100.0), ("A", 90.0), ("B", 80.0)), "C")
+    acc = grading.account_hac(95.0, [_sub("A", 95.0, 100.0)], [])
+    g = guidance.guide(acc, [_row("Next", 10.0, category="A", due_days=2, overdue=False, upcoming=True)], scale)
+    assert g.reach is None and g.slack.letter == "A"

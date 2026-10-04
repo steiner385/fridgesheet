@@ -200,10 +200,10 @@ def test_what_moves_it_lists_levers_with_worth_badges_under_the_reach_line(tmp_p
     cid = _course(tmp_path, source="hac")
     sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
     assert ">What moves it</h3>" in sec and '<span class="count">5 levers</span>' in sec
-    assert '<p class="lead">Best move: Vocabulary (10 pts), worth up to +2.0. An A needs 10 of the next 50 points.</p>' in sec
-    assert sec.index("Vocabulary") < sec.index("Participation")                        # worth ties: soonest deadline first
+    assert '<p class="lead">Best move: Participation (10 pts), still accepted: worth up to +2.0 now, and left blank it would cost 14.7. An A needs 10 of the next 50 points.</p>' in sec
+    assert sec.index("Participation") < sec.index("Lab notebook") < sec.index("Vocabulary")   # missing work first: its zero is at stake
     assert sec.count('<span class="badge">+2.0</span>') == 5
-    assert "Not counted yet · accepted until 9/22 · late credit unknown, ask" in sec    # Participation: due 9/08, 14 days, credit "?"
+    assert "Not counted yet · accepted until 9/22 · late credit unknown, ask · left blank it would cost 14.7" in sec    # Participation: due 9/08, 14 days, credit "?"
     assert "Due Sun 9/20 · not counted yet" in sec                                        # Reading log (2026-09-20 is a Sunday)
 
 
@@ -221,3 +221,15 @@ def test_a_class_with_nothing_open_is_one_sentence(tmp_path):
     cid = _course(tmp_path, short="Algebra I", source="hac")
     sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
     assert "<ol" not in sec and "decides it" in sec
+
+
+def test_a_lever_worth_nothing_on_the_average_shows_no_plus_zero_badge(tmp_path):
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac' AND short_name = 'Honors English 9'").fetchone()["id"]
+    with conn:
+        conn.execute("UPDATE grade_observations SET average = 100.0 WHERE course_id = ?", (cid,))
+        conn.execute("UPDATE category_observations SET earned = possible WHERE course_id = ?", (cid,))   # 50/50: at the top
+        conn.execute("UPDATE item_observations SET score = points FROM items WHERE items.id = item_observations.item_id AND item_observations.source = 'hac' AND item_observations.score IS NOT NULL")
+    conn.close()
+    sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert "+0.0" not in sec

@@ -122,7 +122,7 @@
   <ol class="levers">
   {% for lever in moves.levers if lever.item_id in lever_views %}
     {% set item = lever_views[lever.item_id] %}{% set density = 'line' %}{% set read_only = true %}{% set on_class_page = true %}
-    {% set badges = ['+' ~ fmt_worth(lever.worth)] if lever.worth is not none else [] %}
+    {% set badges = ['+' ~ fmt_worth(lever.worth)] if lever.worth is not none and lever.worth >= 0.05 else [] %}
     {% set nk, nv = lever_note(lever, acct_tier) %}{% set says = nk | say(acct_tier, nv) %}
     <li>{% include "_item.html" %}</li>
   {% endfor %}

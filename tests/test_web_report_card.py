@@ -110,7 +110,7 @@ def test_the_line_says_what_would_move_it_when_the_account_is_sound(tmp_path):
     seed(tmp_path).close()
     lines = _lines(app_for(tmp_path).get("/kids/Alex/report-card").text)
     eng = next(l for l in lines if "Honors English 9" in l)
-    assert '<p class="lever">Best move: Vocabulary (10 pts), worth up to +2.0. An A needs 10 of the next 50 points.</p>' in eng
+    assert '<p class="lever">Best move: Participation (10 pts), still accepted: worth up to +2.0 now, and left blank it would cost 14.7. An A needs 10 of the next 50 points.</p>' in eng
     alg = next(l for l in lines if "Algebra I" in l)
     assert 'class="lever"' not in alg                                                  # no breakdown: no second sentence
 
@@ -119,7 +119,7 @@ def test_the_early_tier_says_it_without_cant(tmp_path):
     seed(tmp_path).close()
     body = client_with_grades(tmp_path, Alex=5).get("/kids/Alex/report-card").text
     lever = body.split('class="lever">', 1)[1].split("</p>", 1)[0]
-    assert lever.startswith("Best move: Vocabulary (10 pts), worth up to +2.0.") and "can" not in lever.lower()
+    assert lever.startswith("Best move: Participation (10 pts). Turning it in is worth up to +2.0;") and "can't" not in lever.lower()
 
 
 def test_the_lever_line_is_drawn_in_ink_under_the_how():

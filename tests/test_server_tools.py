@@ -226,3 +226,23 @@ def test_grades_carries_what_moves_it(graded, monkeypatch, tmp_path):
     assert g["sound"] and g["letter"] == "B" and g["reach"]["letter"] == "A"
     assert g["levers"][0]["kind"] == "upcoming" and g["best"]["points"] == 20.0 and g["best"]["worth"] > 0
     assert classes["Hawk Time"]["guidance"]["sound"] is False                    # no breakdown: points, never average points
+
+
+def test_grades_guidance_spends_the_zero_budget_on_old_blank_rows_and_keeps_explicit_zeros(graded, monkeypatch, tmp_path):
+    """Final review 2026-10-04: an old blank row past its window still used HAC's zero budget,
+    and a HAC zero inside the window is a zero lever, not skipped."""
+    from datetime import datetime, timedelta
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    monkeypatch.setattr(server._settings(), "home", tmp_path)
+    day = lambda n: (datetime.now() + timedelta(days=n)).strftime("%m/%d/%Y")
+    bio = graded["students"]["Alex"]["hac"]["classes"][0]
+    bio["marking_period_avg"] = 80.0
+    bio["categories"] = [{"category": "Labs", "earned": 80.0, "possible": 110.0, "percent": ""}]
+    bio["assignments"] = [
+        {"name": "Lab 1", "due": day(-40), "assigned": day(-45), "category": "Labs", "score": 80.0, "score_raw": "80.00", "points": 90.0, "percent": ""},
+        {"name": "Old sheet", "due": day(-30), "assigned": day(-35), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""},
+        {"name": "Zeroed quiz", "due": day(-3), "assigned": day(-6), "category": "Labs", "score": 0.0, "score_raw": "0.00", "points": 10.0, "percent": ""},
+        {"name": "New sheet", "due": day(-2), "assigned": day(-5), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""}]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]["guidance"]
+    kinds = {l["name"]: l["kind"] for l in g["levers"]}
+    assert kinds == {"Zeroed quiz": "zero", "New sheet": "missing"}
