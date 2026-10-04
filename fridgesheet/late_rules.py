@@ -20,6 +20,7 @@ into a to-do.
 """
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -30,6 +31,14 @@ import tomli_w
 from .matching import kid_matches, rule_course_matches
 
 DEFAULT_LATE_DAYS = 14
+
+
+def credit_fraction(credit: str | None) -> float | None:
+    """The fraction a rule's free-text credit names ("50%" -> 0.5), or None when it names none
+    (the seeded "?", blank, or words). The one place credit text becomes a number: the
+    verdicts' lower-HAC-score explanation and the grade guidance both read it."""
+    m = re.match(r"\s*(\d+(?:\.\d+)?)\s*%", credit or "")
+    return float(m.group(1)) / 100 if m else None
 
 SEED = '''# Late-work rules for the printed sheet. Edit freely; re-read on every run.
 #
