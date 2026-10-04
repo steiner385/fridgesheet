@@ -111,6 +111,6 @@ def test_the_kid_box_and_the_week_cells_share_the_day_box_rule():
     assert "text-transform: uppercase" in label and "border-bottom: 1.5px solid var(--box)" in label
     phone = re.search(r"@media \(max-width: 1023px\)\s*\{\s*/\* Five cells fit a phone(.*?)\n\}", CSS, re.S).group(1)
     assert "font-size: var(--type-tiny)" in phone and "overflow-x" not in phone     # five cells, no scrolling
-    assert "max-width: 1100px" in _rule(".week-strip, .today-spread")
+    assert "max-width: var(--page-max)" in _rule(".week-strip, .today-spread")   # cards fill the column
     assert "color: var(--muted)" in _rule(".day-box > .family-plan")
     assert "min-height: 44px" in re.search(r"\.day-box > \.links a\s*\{([^}]*)\}", CSS).group(1)

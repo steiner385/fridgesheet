@@ -707,8 +707,9 @@ so a heading is never smaller than the body it heads: Headline 1.5×, Title 1.12
 ### Named Rules
 **The Measure Rule.** Prose, intros and forms are bounded to 760px (`--measure`, about 75
 characters at body size); tables, cards and charts fill the 1600px content column, and the planner
-spread takes 1100px because two day boxes need more than a measure; Today's week strip and kids'
-spread and Assignments' weekly pages take the same 1100px. Inside any wide box on a planner page
+spread takes 1100px because two day boxes need more than a measure, and Assignments' weekly pages
+take the same 1100px. Today's week strip and kids' spread are cards and fill the content column
+(at 1100px a 1920px screen left a third of Today blank, 2026-10-04). Inside any wide box on a planner page
 (`.planner-main`) the prose keeps to the measure while the sheet's word stays at the right: a
 line's facts and ask line, an inset, a section's lead, the "asked the school" line, the review
 line and an empty day's line (the re-critique of 2026-09-30 measured the Plan's facts at 1,070px
