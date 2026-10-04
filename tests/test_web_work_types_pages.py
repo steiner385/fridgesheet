@@ -147,3 +147,18 @@ def test_a_child_cannot_correct_a_type(tmp_path):
     assert 'name="family"' not in c.get(f"/items/{iid}").text
     assert _post_type(c, iid, family="assessment").status_code == 403
     assert conn.execute("SELECT COUNT(*) FROM item_types").fetchone()[0] == 0
+
+
+# --- Diagnostics (assignment types §6.5) ------------------------------------------------------
+def test_diagnostics_shows_how_each_class_was_typed(tmp_path):
+    seed(tmp_path, _quiz_snapshot()).close()
+    page = app_for(tmp_path).get("/diagnostics").text
+    m = re.search(r'<section class="sec type-coverage">(.*?)</section>', page, re.S)
+    assert m, "a Types section"
+    sec = m.group(1)
+    assert "Types" in sec and "Everyday by default" in sec
+    # Honors English 9: Quiz 1 and Lab notebook typed by their Canvas group, the rest too ("Homework").
+    row = re.search(r"<tr><td>[^<]*</td><td>Honors English 9</td>(.*?)</tr>", sec, re.S)
+    assert row, sec
+    nums = [int(n) for n in re.findall(r'<td class="num">(\d+)</td>', row.group(1))]
+    assert nums[0] == sum(nums[1:]) and nums[4] >= 6        # every item counted once; 6 by gradebook name

@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections import defaultdict
 from datetime import datetime
 
 from fastapi import APIRouter, Request
 
 from ..app import Db, State, render
+from ..stores import items, students
 from ... import doctor
 
 router = APIRouter()
@@ -34,6 +36,24 @@ def parse_report(text: str) -> tuple[list[dict], int, int]:
     return lines, len(checks), sum(1 for c in checks if not c["ok"])
 
 
+def type_coverage(conn: sqlite3.Connection, state) -> list[dict]:
+    """Per kid and class, which ladder rung typed each item (spec 2026-10-04 assignment types
+    §6.5). A class typed wholly "by default" is one whose names defeat the classifier: the cue
+    for a grown-up to add a rule."""
+    out = []
+    for s in students.visible(conn):
+        views = items.list_items(conn, s, now=state.now(), rules=state.rules(), prefs=state.sources(), show="all", **state.window())
+        by_class = defaultdict(list)
+        for v in views:
+            by_class[v.course_short].append(v)
+        for course, vs in sorted(by_class.items()):
+            rungs = {r: 0 for r in range(1, 7)}
+            for v in vs:
+                rungs[v.family_rung] += 1
+            out.append({"kid": s["key"], "course": course, "n": len(vs), "rungs": rungs})
+    return out
+
+
 @router.get("/diagnostics")
 def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     path = state.home / doctor.REPORT_NAME
@@ -52,4 +72,5 @@ def page(request: Request, conn: sqlite3.Connection = Db, state=State):
     # would then belong to whoever loaded this page first, not to the household.
     verdict = state.extra.get("last_update")
     return render(request, conn, "diagnostics.html", current="diagnostics", report=report, verdict=verdict,
-                  lines=lines, n_checks=n_checks, n_failed=n_failed, checked_at=checked_at)
+                  lines=lines, n_checks=n_checks, n_failed=n_failed, checked_at=checked_at,
+                  types=type_coverage(conn, state))
