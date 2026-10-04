@@ -105,6 +105,31 @@
   {% endfor %}
   {% endif %}
 </section>
+{# What moves it (spec 2026-10-04 §7.2): the reach or slack line, then the levers as read-only
+   planner lines ranked by worth, each with its worth badge and its note. Points only when the
+   account is not exact; one sentence when nothing is open. #}
+{% if moves is defined and moves is not none %}
+<section class="sec what-moves-it" aria-labelledby="moves-head">
+  <div class="sec-head"><h3 id="moves-head">{{ 'copy.gd_what_moves_it' | say(acct_tier) }}</h3><span class="count">{% if moves.levers %}{{ moves.levers | length }} lever{{ 's' if moves.levers | length != 1 }}{% endif %}</span></div>
+  {% if not moves.sound and moves.levers %}
+  <p class="lead">{{ 'gd.not_sound' | say(acct_tier, {'n': moves.levers | length, 'points': fmt_points(moves.levers | sum(attribute='points'))}) }}</p>
+  {% elif moves_said %}
+  <p class="lead">{% for key, values in moves_said %}{{ key | say(acct_tier, values) }}{% if not loop.last %} {% endif %}{% endfor %}</p>
+  {% elif not moves.levers %}
+  <p class="lead">{{ 'gd.nothing_posted' | say(acct_tier) }}</p>
+  {% endif %}
+  {% if moves.levers %}
+  <ol class="levers">
+  {% for lever in moves.levers if lever.item_id in lever_views %}
+    {% set item = lever_views[lever.item_id] %}{% set density = 'line' %}{% set read_only = true %}{% set on_class_page = true %}
+    {% set badges = ['+' ~ fmt_worth(lever.worth)] if lever.worth is not none else [] %}
+    {% set nk, nv = lever_note(lever, acct_tier) %}{% set says = nk | say(acct_tier, nv) %}
+    <li>{% include "_item.html" %}</li>
+  {% endfor %}
+  </ol>
+  {% endif %}
+</section>
+{% endif %}
 {% include "_chart_scripts.html" %}
 {% if grade_chart_json %}
 <details class="sec quiet grade-moves"><summary><h3>How it moved</h3><span class="count">{{ history_cells | length }} refresh{{ 'es' if history_cells | length != 1 }}</span></summary>

@@ -187,3 +187,37 @@ def test_a_hidden_canvas_only_class_is_one_sentence_naming_canvas(tmp_path):
     conn.close()
     sec = _account_section(app_for(tmp_path).get(f"/kids/Sam/courses/{cid}").text)
     assert "Canvas hides this class" in sec and "either gradebook" not in sec and "<table" not in sec
+
+
+# --- What moves it (spec 2026-10-04 §7.2) ----------------------------------------------------------
+
+def _moves(body: str) -> str:
+    assert 'class="sec what-moves-it"' in body, "no What moves it section"
+    return body.split('class="sec what-moves-it"', 1)[1].split("</section>", 1)[0]
+
+
+def test_what_moves_it_lists_levers_with_worth_badges_under_the_reach_line(tmp_path):
+    cid = _course(tmp_path, source="hac")
+    sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert ">What moves it</h3>" in sec and '<span class="count">5 levers</span>' in sec
+    assert '<p class="lead">Best move: Vocabulary (10 pts), worth up to +2.0. An A needs 10 of the next 50 points.</p>' in sec
+    assert sec.index("Vocabulary") < sec.index("Participation")                        # worth ties: soonest deadline first
+    assert sec.count('<span class="badge">+2.0</span>') == 5
+    assert "Not counted yet · accepted until 9/22 · late credit unknown, ask" in sec    # Participation: due 9/08, 14 days, credit "?"
+    assert "Due Sun 9/20 · not counted yet" in sec                                        # Reading log (2026-09-20 is a Sunday)
+
+
+def test_an_unsound_class_lists_points_not_average_points(tmp_path):
+    conn = seed(tmp_path)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac' AND short_name = 'Honors English 9'").fetchone()["id"]
+    with conn:
+        conn.execute("UPDATE grade_observations SET average = 70.0 WHERE course_id = ?", (cid,))     # 44/50 no longer rebuilds it
+    conn.close()
+    sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert "5 rows still open, 50 points." in sec and 'class="badge">+' not in sec
+
+
+def test_a_class_with_nothing_open_is_one_sentence(tmp_path):
+    cid = _course(tmp_path, short="Algebra I", source="hac")
+    sec = _moves(app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text)
+    assert "<ol" not in sec and "decides it" in sec
