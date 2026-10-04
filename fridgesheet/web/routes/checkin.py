@@ -17,7 +17,7 @@ from fastapi.responses import RedirectResponse
 from ... import dates, guidance
 from .. import outcomes
 from ..app import Db, State, render, safe_return, student_or_404
-from ..stores import guidance as guidance_store, items, plans, refreshes
+from ..stores import guidance as guidance_store, items, plans, refreshes, resets
 
 router = APIRouter()
 
@@ -242,8 +242,9 @@ def page(key: str, request: Request, conn=Db, state=State):
     student = student_or_404(conn, key)
     ctx = _context(conn, student, state)
     plan_only = request.url.path.endswith("/plan")
+    views = items.list_items(conn, student, now=state.now(), rules=state.rules(), show="all", prefs=state.sources(), **state.window())
     ctx.update(plan_only=plan_only, saved=request.query_params.get("saved") == "1",
-               workspace="plan" if plan_only else "checkin")
+               workspace="plan" if plan_only else "checkin", triaged_n=len(resets.triaged(views)))
     return render(request, conn, "checkin.html", **ctx)
 
 

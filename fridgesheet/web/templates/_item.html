@@ -89,6 +89,9 @@
     <details class="notes-fold"{{ ' open' if notes is defined and notes }}><summary>{{ 'copy.notes' | say(tier, {'n': (notes | length) if notes is defined else item.notes}) }}</summary>{% set target_type = "item" %}{% set target_id = item.id %}{% include "_notes.html" %}</details>
     {% elif box == qid %}<a href="#detail-{{ item.id }}" hx-get="/items/{{ item.id }}?card={{ box }}" hx-target="#{{ box }}" hx-swap="outerHTML">{{ 'copy.notes' | say(tier, {'n': item.notes}) }}</a>{% endif %}
     <a href="/kids/{{ student.key | urlencode }}/check-in/step?item_id={{ item.id }}{% if plan_state is defined and plan_state %}&amp;state={{ plan_state }}{% endif %}&amp;return_to={{ here | urlencode }}">{{ 'Plan another step' if item.step else 'Plan a step' }}</a>
+    {# Reset (2026-10-04): a triage made the wrong way, taken back -- the step and the answer go,
+       the row asks again, and the page it comes back to offers the one Undo. #}
+    {% if item.step or item.flag %}<form class="reset" method="post" action="/items/{{ item.id }}/reset"><input type="hidden" name="return_to" value="{{ here }}"><button class="link">{{ 'copy.reset' | say(tier) }}</button></form>{% endif %}
     {% if is_detail %}<details><summary>More</summary>{% include "_flag_menu.html" %}</details>{% endif %}
     {% if stamp is defined and stamp %}<span class="stamp">{{ stamp }}</span>{% endif %}
     {# A record is tall on a phone; Close is at its foot as well as its head (re-critique 2026-09-30). #}

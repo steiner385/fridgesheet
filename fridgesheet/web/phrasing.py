@@ -242,6 +242,14 @@ PHRASES: dict[str, dict[str, str]] = {
     # The triage at the top of Assignments (2026-10-04), and its one line when there is none.
     "copy.needs_you_now":    {"early": "Needs you now", "middle": "Needs you now", "older": "Needs you now"},
     "copy.nothing_needs_you": {"early": "Nothing needs you now.", "middle": "Nothing needs you now.", "older": "Nothing needs you now."},
+    # Reset (2026-10-04): a triage taken back, one row or the whole plan, and the notice it leaves.
+    "copy.reset":            {"early": "Reset", "middle": "Reset", "older": "Reset"},
+    "copy.reset_plan":       {"early": "Reset plan", "middle": "Reset plan", "older": "Reset plan"},
+    "copy.reset_plan_confirm": {"early": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Done steps stay, and Undo puts it all back.",
+                                "middle": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back.",
+                                "older": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back."},
+    "copy.reset_one":        {"early": "{name} is back on Needs you now.", "middle": "{name} is back on Needs you now.", "older": "{name} is back on Needs you now."},
+    "copy.reset_many":       {"early": "{n} items are back on Needs you now.", "middle": "{n} items are back on Needs you now.", "older": "{n} items are back on Needs you now."},
     # One sentence: with the second ("They leave when it says they are, or when you say so.")
     # the lead was three lines on a phone above the first row (critique 2026-09-29).
     "copy.must_finish_hint": {"early": "The school says these aren't in yet.",

@@ -89,6 +89,7 @@
      on one row (#196) and the page starts sooner. #}
   {% include "_header.html" %}
   <main{% block main_attrs %}{% endblock %}>
+    {% if reset_notice %}{% include "_reset_notice.html" %}{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>
