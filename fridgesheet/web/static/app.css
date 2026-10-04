@@ -1093,6 +1093,7 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
 .report-card-page .report-line .letter { font-weight: 400; margin-left: var(--s1); }
 .report-card-page .report-line .whose { margin: 0; font-size: var(--type-small); color: var(--muted); }
 .report-card-page .report-line .how { margin: var(--s1) 0 0; max-width: var(--measure); }
+.report-card-page .report-line .lever { margin: var(--s1) 0 0; max-width: var(--measure); }   /* the one thing to do, in ink */
 .report-card-page > details.sec.quiet { margin: var(--s4) 0 0; }
 .report-card-page .how-figured p { max-width: var(--measure); }
 /* The parent's answering page (the Student Planner, Questions; the surface brief for
