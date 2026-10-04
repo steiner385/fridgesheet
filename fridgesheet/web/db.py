@@ -15,7 +15,7 @@ from pathlib import Path
 from ..matching import hac_item_key, hac_only_key
 
 DB_NAME = "fridgesheet.db"
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 BUSY_TIMEOUT_MS = 10_000          # how long a writer waits for another process's write lock
 
 _SCHEMA_V1 = """
@@ -270,6 +270,20 @@ _SCHEMA_V11 = """
 UPDATE items SET kind = 'outside Canvas' WHERE kind = 'in class';
 """
 
+_SCHEMA_V13 = """
+-- A reset (2026-10-04): what one tap took back from the triage -- the open plan steps it deleted
+-- and the family answers it cleared, as JSON {"steps": [plan_steps rows], "flags": [{item_id,
+-- flag, set_at, text}]} -- so its one Undo puts them back exactly. `undone_at` is set by that
+-- Undo, which happens once. IF NOT EXISTS: a file rolled back to an older version number migrates again.
+CREATE TABLE IF NOT EXISTS plan_resets (
+    id INTEGER PRIMARY KEY,
+    student_id INTEGER NOT NULL REFERENCES students(id),
+    made_at TEXT NOT NULL,
+    taken TEXT NOT NULL,
+    undone_at TEXT
+);
+"""
+
 
 def _migrate_v5(conn: sqlite3.Connection) -> None:
     """When the observation's missing mark, and its score, first appeared: the refresh that
@@ -490,6 +504,9 @@ def migrate(conn: sqlite3.Connection) -> int:
             _migrate_v12(conn)
             conn.execute("UPDATE schema_version SET version = 12")
         v = 12
+    if v < 13:
+        conn.executescript("BEGIN;\n" + _SCHEMA_V13 + "\nUPDATE schema_version SET version = 13;\nCOMMIT;")
+        v = 13
     return v
 
 

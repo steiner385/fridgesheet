@@ -16,7 +16,7 @@ from html import escape
 from importlib import metadata
 from pathlib import Path
 from typing import Callable, Iterator
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -334,6 +334,32 @@ def here(request: Request) -> str:
     return request.url.path + (f"?{request.url.query}" if request.url.query else "")
 
 
+def with_reset(path: str, reset_id: int | None) -> str:
+    """`path` with its `reset` parameter set to this reset, or dropped when there is none."""
+    u = urlsplit(path)
+    query = [(k, v) for k, v in parse_qsl(u.query, keep_blank_values=True) if k != "reset"]
+    if reset_id is not None:
+        query.append(("reset", str(reset_id)))
+    return u.path + (f"?{urlencode(query)}" if query else "")
+
+
+def reset_notice(request: Request, conn: sqlite3.Connection) -> dict | None:
+    """`?reset=<id>`: what a Reset sent back to Needs you now, for the notice its one Undo sits
+    in (`_reset_notice.html`). Nothing once it is undone, so Back after Undo offers no second."""
+    raw = request.query_params.get("reset", "")
+    if not raw.isdigit():
+        return None
+    from .stores import resets
+    r = resets.one(conn, int(raw))
+    if r is None or r["undone_at"]:
+        return None
+    names = [row["name"] for row in conn.execute(
+        f"SELECT name FROM items WHERE id IN ({', '.join('?' for _ in r['item_ids'])})", r["item_ids"])]
+    kid = conn.execute("SELECT key FROM students WHERE id = ?", (r["student_id"],)).fetchone()
+    return {"id": r["id"], "n": len(names), "name": names[0] if len(names) == 1 else "",
+            "kid": kid["key"], "return_to": with_reset(here(request), None)}
+
+
 _SNEAKY = re.compile(r"[\s\x00-\x1f\x7f\\]")
 
 
@@ -407,6 +433,7 @@ def page_context(request: Request, conn: sqlite3.Connection) -> dict:
         "question_counts": question_counts(conn, state),
         "here": here(request),
         "who": (who := who_of(request, conn))[0], "who_student": who[1],
+        "reset_notice": reset_notice(request, conn),
     }
 
 
@@ -772,8 +799,8 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
             return not_found(request)
         return await request_validation_exception_handler(request, exc)
 
-    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, pwa as pwa_routes, questions as question_routes, reconcile as reconcile_routes, report_card as report_card_routes, reports as report_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes, who as who_routes
-    for r in (dashboard.router, checkin.router, kid.router, report_card_routes.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router, who_routes.router, pwa_routes.router):
+    from .routes import checkin, changes as change_routes, dashboard, diagnostics as diagnostics_routes, flags as flag_routes, jobs as job_routes, kid, notes as note_routes, open as open_routes, pwa as pwa_routes, questions as question_routes, reconcile as reconcile_routes, report_card as report_card_routes, reports as report_routes, resets as reset_routes, runs as run_routes, schedules as schedule_routes, settings as settings_routes, trends as trend_routes, who as who_routes
+    for r in (dashboard.router, checkin.router, kid.router, report_card_routes.router, open_routes.router, note_routes.router, flag_routes.router, question_routes.router, reconcile_routes.router, change_routes.router, trend_routes.router, job_routes.router, run_routes.router, settings_routes.router, diagnostics_routes.router, report_routes.router, schedule_routes.router, who_routes.router, pwa_routes.router, reset_routes.router):
         app.include_router(r)
     return app
 

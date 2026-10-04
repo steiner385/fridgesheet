@@ -1135,3 +1135,8 @@ details.week:not([open]) > summary > h4 { border-bottom: 0; margin-bottom: 0; }
   .item-head .meta a, .ours a, .day-box > h3 a { display: inline-block; padding-block: 3px; min-height: 24px; }
   .change .meta a { display: inline-block; padding-block: 3px; min-height: 24px; }                      /* the kid under a log line (Changes) */
 }
+
+/* Reset (2026-10-04): a one-button form among the item foot's links, read as one of them. */
+.item-foot form.reset { display: inline; }
+.item-foot form.reset button.link { color: var(--accent); padding: 0; font: inherit; }
+@media (pointer: coarse) { .item-foot form.reset button.link { min-height: 44px; } }
