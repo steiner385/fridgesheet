@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -167,6 +168,46 @@ def resolve_pending(home: Path, running_version: str) -> tuple[str, Pending] | N
             pass
         return "ok", pending
     return "failed", pending
+
+
+#: What `actions.self_update` writes into `updates/` -- and so the only names `prune_updates`
+#: will ever delete: an installer, a partial download of one, and the installer's log.
+_OURS = re.compile(r"(?:FridgeSheet-Setup-(?P<a>[0-9][0-9.]*?)\.exe(?:\.part)?|install-(?P<b>[0-9][0-9.]*?)\.log)")
+
+
+def prune_updates(home: Path, running_version: str, *, keep: Pending | None = None) -> int:
+    """Delete the installers and logs of every version but the one running, and return how many
+    files went (2026-10-04: nothing ever deleted them, and graphy's `updates/` had reached 70
+    files, about 10 GB, with hourly automatic installs adding one per release).
+
+    Kept: the running version's installer and log, and -- when the last update did not take --
+    the files `keep` (that update's breadcrumb) names, so Diagnostics can still point at its log.
+    Only files this app writes there are touched (`_OURS`). Called at startup, after
+    `resolve_pending`, when no download can be running, so a `.part` left there is an abandoned
+    one. Never raises: a file the antivirus holds open stays until the next start, and a
+    "dev" version (a checkout) deletes nothing, since no installer in that folder is its own."""
+    folder = home / "updates"
+    if not re.fullmatch(r"[0-9][0-9.]*", running_version or "") or not folder.is_dir():
+        return 0
+    kept = {Path(p).name for p in ((keep.installer, keep.log) if keep is not None else ())}
+    removed = 0
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return 0
+    for path in entries:
+        m = _OURS.fullmatch(path.name)
+        if m is None or path.name in kept:
+            continue
+        version = m.group("a") or m.group("b")
+        if version == running_version and not path.name.endswith(".part"):
+            continue
+        try:
+            path.unlink()
+            removed += 1
+        except OSError:
+            pass
+    return removed
 
 
 def spawn_installer(installer: Path, log_path: Path, *, popen=None) -> None:

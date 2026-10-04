@@ -685,6 +685,10 @@ def create_app(settings: Settings, *, home: Path | None = None, worker: bool = F
     # nothing to see. The spec asks the *next start* to read it, which is exactly this line;
     # the route below only reads what is stashed here.
     state.extra["last_update"] = selfupdate.resolve_pending(home, updates.current_version())
+    # Then the installers of other versions go (2026-10-04: they were never deleted), keeping a
+    # failed update's own files for Diagnostics. Never raises; a start must not wait on it either.
+    last = state.extra["last_update"]
+    selfupdate.prune_updates(home, updates.current_version(), keep=last[1] if last and last[0] == "failed" else None)
     if worker:
         from .jobs import Worker
         state.jobs = Worker(state)
