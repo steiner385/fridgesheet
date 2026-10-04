@@ -17,7 +17,10 @@ from . import checkin
 
 router = APIRouter()
 ANSWERS = set(verdicts.ACTIONS)
-_SLOT = re.compile(r"(?:q[cdntw]?|row)-\d+")   # q- list card, qd- item detail, qc- check-in card, qn- Needs you now, qt- Today's line, qw- / row- a week's line on Assignments
+# q- list card, qd- item detail, qc- check-in card, qm- a Must-finish row's answers, qn- a Needs
+# you now row's answers, qt- Today's line, qw- / row- a week's line on Assignments, nn- a Needs
+# you now row itself
+_SLOT = re.compile(r"(?:q[cdmntw]?|row|nn)-\d+")
 
 
 def _slot(raw: str, item_id: int) -> str:

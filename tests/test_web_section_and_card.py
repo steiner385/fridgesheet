@@ -318,7 +318,7 @@ def test_a_must_finish_row_is_the_item_with_the_sheets_word_at_the_right_and_no_
     assert re.search(r'<span class="when word due">DUE TODAY</span>', head)      # sheet_word's own word for a due-today row
     # Not a question, so no `ask-line` of the verdict's; the plan prompt above the answers is its
     # own line, so the rail's question count (which counts ask-lines) is untouched.
-    assert 'class="ask-line"' not in row and 'class="ask-line plan"' in row and 'id="qc-%d"' % vid in row
+    assert 'class="ask-line"' not in row and 'class="ask-line plan"' in row and 'id="qm-%d"' % vid in row
     foot = _element(row, '<div class="item-foot">')                              # the Record fold nests a </div> of its own
     assert "<summary>Record</summary>" in foot and "Plan a step" in foot and "Add details" not in foot and "Notes (" not in foot
 

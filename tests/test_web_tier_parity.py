@@ -64,7 +64,7 @@ def _ids_and_actions(client, path: str) -> tuple[set[str], int, int]:
     """The rows, questions and plan steps a page names, plus how many forms and buttons it
     offers -- every id and action a reader can act on, not the words around them."""
     body = client.get(path).text
-    ids = set(re.findall(r'id="(?:row|qc|q)-(\d+)"', body))
+    ids = set(re.findall(r'id="(?:row|qc|qm|qn|q)-(\d+)"', body))
     return ids, len(re.findall(r"<form", body)), len(re.findall(r"<button", body))
 
 

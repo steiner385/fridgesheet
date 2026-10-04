@@ -142,10 +142,11 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
 
 def card_for(raw: str | None, item_id: int) -> str | None:
     """The question card an item detail replaced (#126): "q-<id>" from a question list,
-    "qc-<id>" from a check-in or "row-<id>" from a week's page on Assignments, for this item
+    "qc-<id>" from a check-in, "row-<id>" from a week's page on Assignments or "nn-<id>" from
+    Needs you now, for this item
     only. The detail takes over that card's id, and its Close fetches the card back into it;
     anything else is a detail in a table row, which app.js closes by hiding the row."""
-    return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}") else None
+    return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}", f"nn-{item_id}") else None
 
 
 @router.get("/items/{item_id}")

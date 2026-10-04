@@ -360,3 +360,20 @@ def test_the_plan_panel_after_an_answer_says_tonight_in_one_sentence(tmp_path):
     c, vid = _setup(tmp_path, "Vocabulary")
     body = _plan(c, vid).text
     assert "Tonight: 1 step, 0 min" in body and "without an estimate" not in body
+
+
+def test_undo_on_a_must_finish_row_puts_back_the_answers_not_a_second_card(tmp_path):
+    """A Must-finish row keeps its answers in their own slot, `qm-<id>`, inside the row
+    `mf-<id>`: Undo puts back the prompt and the answers, not a whole card nested in the row
+    (the check-in's review cards, whose slot is the whole card, keep `qc-`)."""
+    conn = seed(tmp_path)
+    vid = _id(conn, "Vocabulary")
+    conn.close()
+    c = app_for(tmp_path)
+    plan = c.get("/kids/Alex/plan").text
+    row = plan[plan.index(f'id="mf-{vid}"'):]
+    assert f'<div id="qm-{vid}">' in row[:row.index('class="item-foot"')]
+    c.post(f"/items/{vid}/answer", data={"answer": "too_late", "slot": f"qm-{vid}"})
+    back = c.post(f"/items/{vid}/undo", data={"prev": "", "prev_set_at": "", "slot": f"qm-{vid}"}).text
+    assert back.lstrip().startswith(f'<div id="qm-{vid}"') and 'class="item-head"' not in back
+    assert '<p class="ask-line plan">When will you work on it?</p>' in back and ">Do it today</button>" in back
