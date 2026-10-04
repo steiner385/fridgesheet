@@ -941,7 +941,9 @@ details.mf-fold > .mf-section { margin-top: var(--s2); }
 .day-box > h3 a:hover, .day-box > h3 a:focus-visible { text-decoration: underline; }
 .day-box > .tally, .day-box > .family-plan, .day-box > .links, .day-box > .muted { margin: var(--s2) 0; }
 .day-box > .family-plan { color: var(--muted); }          /* the family's line is pencil */
-.week-strip, .today-spread { max-width: 1100px; }        /* the world's planner spread (the Measure Rule) */
+/* Today's week and kids are cards, so they fill the content column; at 1100px a 1920 screen left a
+   third of it blank (the Measure Rule; the prose inside a box still keeps to the measure). */
+.week-strip, .today-spread { max-width: var(--page-max); }
 .day-box > .item:first-of-type { border-top: 1px solid var(--rule); }
 .day-box > details { margin: var(--s2) 0 var(--s1); }
 @media (max-width: 1023px) {
