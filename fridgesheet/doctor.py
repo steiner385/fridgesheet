@@ -53,6 +53,43 @@ def _database(s: Settings, home: Path) -> str:
     return f"{webdb.db_path(home)} schema {v}: {n} refreshes, {m} items, {k} active flags"
 
 
+def _averages(s: Settings, home: Path) -> str:
+    """Whether each HAC class's marking-period average rebuilds from its category subtotals
+    (grading.Account). "off" on a class is the scraper missing rows or HAC weighting categories;
+    either way the household should know (spec 2026-10-03 §7.3). Never a FAIL: a class that
+    does not add up is a finding about the gradebook, not a broken install."""
+    from .web import db as webdb
+    from .web.stores import grades, students
+    conn = webdb.open_db(home)
+    try:
+        exact = checked = 0
+        off: list[str] = []
+        none: list[str] = []
+        for st in students.visible(conn):
+            latest = students.latest_grades(conn, st["id"])
+            for c in students.courses(conn, st["id"]):
+                if c["source"] != "hac":
+                    continue
+                a = grades.account_for(conn, c, latest.get(c["id"]))
+                label = f"{st['key']}'s {c['short_name']}"
+                if a.basis == "none" or a.match == "unknown":
+                    none.append(label)
+                    continue
+                checked += 1
+                if a.match == "exact":
+                    exact += 1
+                else:
+                    off.append(label)
+    finally:
+        conn.close()
+    parts = [f"{exact} of {checked} HAC classes with a breakdown add up"]
+    if off:
+        parts.append("off: " + ", ".join(off))
+    if none:
+        parts.append("no breakdown: " + ", ".join(none))
+    return "; ".join(parts)
+
+
 def _timezone(s: Settings, home: Path) -> str:
     ZoneInfo(s.timezone)
     # Worth a word when the household's zone is not the computer's (#122): schedules fire from
@@ -219,7 +256,7 @@ def _old_names(s: Settings, home: Path) -> str:
 
 
 PROBES: list[tuple[str, Callable[[Settings, Path], str]]] = [
-    ("python", _python), ("home", _home), ("database", _database), ("timezone", _timezone), ("no-print days", _no_print_days),
+    ("python", _python), ("home", _home), ("database", _database), ("averages", _averages), ("timezone", _timezone), ("no-print days", _no_print_days),
     ("pdf", _pdf), ("chromium", _chromium),
     ("credential store", _credential_store), ("printers", _printers), ("print engine", _print_engine), ("scheduler", _scheduler),
     ("web server", _web_server), ("old names", _old_names),

@@ -43,6 +43,7 @@ class IngestResult:
     grades: int
     carried: tuple[str, ...] = ()    # Canvas classes served from an older pull, "Alex's Algebra I" (#140)
     missing: tuple[str, ...] = ()    # Canvas classes that failed with nothing older to serve
+    categories: int = 0              # HAC category subtotal rows written (a class's set, when it changed)
 
     def note(self) -> str:
         """What the log line and the run message add when a class did not answer, or ""."""
@@ -160,6 +161,36 @@ def _observe_grade(conn, refresh_id: int, course_id: int, average, letter, curre
     return True
 
 
+def _observe_categories(conn, refresh_id: int, course_id: int, subtotals: list[dict]) -> int:
+    """Write a HAC class's category subtotal rows under this refresh when the set differs from
+    the class's latest set (spec 2026-10-03 §5). Returns the rows written."""
+    new = [((s.get("category") or ""), s.get("earned"), s.get("possible")) for s in subtotals or []]
+    latest_refresh = conn.execute("SELECT MAX(refresh_id) AS r FROM category_observations WHERE course_id = ?", (course_id,)).fetchone()["r"]
+    last: list | None = None
+    if latest_refresh is not None:
+        last = [(r["category"], r["earned"], r["possible"]) for r in conn.execute(
+            "SELECT category, earned, possible FROM category_observations WHERE course_id = ? AND refresh_id = ? AND category <> '' ORDER BY id",
+            (course_id, latest_refresh))]
+    if last == new or (last is None and not new):
+        return 0
+    if not new:
+        # The table emptied (a new marking period; a scraper regression): one sentinel row with
+        # no category marks the cleared set, so last period's rows stop reading as current.
+        conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?,?,'',NULL,NULL,NULL)",
+                     (refresh_id, course_id))
+        return 0
+    for s in subtotals:
+        conn.execute("INSERT OR REPLACE INTO category_observations(refresh_id, course_id, category, earned, possible, percent) VALUES (?,?,?,?,?,?)",
+                     (refresh_id, course_id, s.get("category") or "", s.get("earned"), s.get("possible"), s.get("percent")))
+    return len(new)
+
+
+def _file_category(conn, item_id: int, source: str, category) -> None:
+    """Which category this gradebook files the item under; overwritten each refresh, never a history."""
+    if category:
+        conn.execute("INSERT OR REPLACE INTO item_categories(item_id, source, category) VALUES (?, ?, ?)", (item_id, source, str(category)))
+
+
 def _flag(v) -> int | None:
     return None if v is None else int(bool(v))
 
@@ -190,7 +221,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
     now = now or datetime.now(tz)
     sources = snapshot.get("sources") or {}
     carried, missing = collector.course_faults(snapshot)
-    n_students = n_courses = n_items = n_obs = n_grades = 0
+    n_students = n_courses = n_items = n_obs = n_grades = n_categories = 0
     with conn:
         # IMMEDIATE takes the write lock up front: a deferred transaction that reads first and
         # writes later can only fail with SQLITE_BUSY when the web worker got there in between,
@@ -239,6 +270,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                                                     present, unlock_at=a.get("unlock_at"), lock_at=a.get("lock_at"))
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "canvas", _canvas_values(a))
+                    _file_category(conn, item_id, "canvas", a.get("group"))
                     canvas_items_by_course.setdefault(cid, []).append(
                         (item_id, a.get("name") or "", (a.get("due_at") or "")[:10], a.get("points_possible")))
 
@@ -251,6 +283,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (peer_cid, hid))
                     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hid, peer_cid))
                 n_grades += _observe_grade(conn, refresh_id, hid, h.get("marking_period_avg"), None, None, None, h.get("last_updated"))
+                n_categories += _observe_categories(conn, refresh_id, hid, h.get("categories") or [])
                 twins = canvas_items_by_course.get(peer_cid, []) if peer_cid is not None else []
                 rows = h.get("assignments") or []
                 # Each row's Canvas twin by title, one to one and best first (`matching.pair_titles`,
@@ -277,6 +310,7 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                             attached_twins.add(twin)
                     if twin is not None:
                         n_obs += _observe(conn, refresh_id, twin, "hac", _hac_values(row))
+                        _file_category(conn, twin, "hac", row.get("category"))
                     else:
                         # No free twin: the row is its own item, never dropped. A second
                         # same-titled row whose twin is taken is a second piece of work.
@@ -293,5 +327,6 @@ def record(conn: sqlite3.Connection, snapshot: dict, *, tz, now: datetime | None
                                                     present)
                     n_items += created
                     n_obs += _observe(conn, refresh_id, item_id, "hac", _hac_values(row))
+                    _file_category(conn, item_id, "hac", row.get("category"))
     return IngestResult(refresh_id, n_students, n_courses, n_items, n_obs, n_grades,
-                        tuple(course_label(c) for c in carried), tuple(course_label(m) for m in missing))
+                        tuple(course_label(c) for c in carried), tuple(course_label(m) for m in missing), categories=n_categories)

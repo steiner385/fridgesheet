@@ -94,14 +94,19 @@ def snapshot() -> dict:
                 ]},
                 "hac": {"week_view": [], "classes": [
                     {"code": "13001 - 5", "name": "Honors English 9 S1", "marking_period_avg": 88.0, "last_updated": "9/11/2026",
-                     "assignments": [_h("Quiz 1", "09/12/2026", 28.0, points=30.0), _h("Participation", "09/08/2026", None)], "categories": []},
+                     "assignments": [_h("Quiz 1", "09/12/2026", 28.0, points=30.0), _h("Participation", "09/08/2026", None)],
+                     # HAC's category table (spec 2026-10-03): 44 of 50 is exactly the 88.0 above. Daily has no
+                     # rows, so it is a subtotal-only line; Participation is blank in Assignments, whose scored
+                     # rows already explain its 30 points, so nothing reads as counted at zero.
+                     "categories": [{"category": "Assignments", "earned": 28.0, "possible": 30.0, "percent": "93.333%"},
+                                    {"category": "Daily", "earned": 16.0, "possible": 20.0, "percent": "80.000%"}]},
                     {"code": "20010 - 2", "name": "Algebra I - 2", "marking_period_avg": 79.5, "last_updated": "9/12/2026",
                      "assignments": [], "categories": []},
                 ]}},
             "Sam": {"name": "Sam Example", "canvas_id": 2, "hac_name": "Sam Example",
                 "canvas": {"courses": [
                     {"id": 7, "name": "Science 7 S1-2027-Kim", "course_code": "SCI7",
-                     "grade": {"current_score": 85.0, "final_score": None, "current_grade": "B", "hidden": False},
+                     "grade": {"current_score": 85.0, "final_score": 60.0, "current_grade": "B", "hidden": False},
                      "staff": [{"name": "Pat Kim", "email": None, "roles": ["TeacherEnrollment"]}],
                      "assignments": [_a(100, "Cell diagram", "09-13", missing=True),
                                      _a(101, "Safety quiz", "09-11", state="graded", score=0.0, grade="0")]},

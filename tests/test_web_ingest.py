@@ -501,3 +501,69 @@ def test_a_snapshot_from_before_lock_fields_existed_and_a_hac_row_both_say_nothi
         obs = conn.execute("SELECT locked, lock_reason FROM item_observations WHERE item_id=? AND source=?", (quiz, src)).fetchone()
         assert tuple(obs) == (None, None), src
     assert conn.execute("SELECT lock_at FROM items WHERE id=?", (quiz,)).fetchone()[0] is None
+
+
+# --- HAC's category subtotals and each gradebook's category per item (spec 2026-10-03 §5) ---------
+
+def _with_categories(snap: dict) -> dict:
+    """The fixture's HAC class with its category table: Quiz #1 is already filed under
+    Assessments and Reading log under Assignments; this adds the subtotal rows."""
+    snap = copy.deepcopy(snap)
+    hac = snap["students"]["Alex"]["hac"]["classes"][0]
+    hac["categories"] = [{"category": "Assessments", "earned": 28.0, "possible": 30.0, "percent": "93.333%"},
+                         {"category": "Assignments", "earned": 0.0, "possible": 5.0, "percent": "0.000%"}]
+    return snap
+
+
+def test_subtotals_are_written_once_and_again_only_when_one_changes(tmp_path):
+    conn = db.open_db(tmp_path)
+    r1 = ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    assert r1.categories == 2
+    r2 = ingest.record(conn, _with_categories(snapshot(T2)), tz=TZ, now=T2)
+    assert r2.categories == 0                                   # nothing moved: no new set
+    moved = _with_categories(snapshot(T2))
+    moved["students"]["Alex"]["hac"]["classes"][0]["categories"][0]["earned"] = 29.0
+    r3 = ingest.record(conn, moved, tz=TZ, now=T2)
+    assert r3.categories == 2                                   # the whole set is rewritten under the new refresh
+    sets = conn.execute("SELECT refresh_id, category, earned FROM category_observations ORDER BY id").fetchall()
+    assert [(s["refresh_id"], s["category"], s["earned"]) for s in sets] == [
+        (r1.refresh_id, "Assessments", 28.0), (r1.refresh_id, "Assignments", 0.0),
+        (r3.refresh_id, "Assessments", 29.0), (r3.refresh_id, "Assignments", 0.0)]
+
+
+def test_each_gradebook_files_an_item_under_its_own_category_name(tmp_path):
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    rows = conn.execute("SELECT source, category FROM item_categories WHERE item_id = ? ORDER BY source", (quiz,)).fetchall()
+    assert [(r["source"], r["category"]) for r in rows] == [("canvas", "Homework"), ("hac", "Assessments")]
+    only_hac = conn.execute("SELECT id FROM items WHERE name = 'Reading log'").fetchone()["id"]
+    got = conn.execute("SELECT source, category FROM item_categories WHERE item_id = ?", (only_hac,)).fetchall()
+    assert [(r["source"], r["category"]) for r in got] == [("hac", "Assignments")]   # a HAC-only row carries HAC's name only
+
+
+def test_a_category_is_relabelled_in_place_not_appended(tmp_path):
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    renamed = _with_categories(snapshot(T2))
+    for row in renamed["students"]["Alex"]["hac"]["classes"][0]["assignments"]:
+        row["category"] = "Tests"
+    ingest.record(conn, renamed, tz=TZ, now=T2)
+    quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    assert conn.execute("SELECT category FROM item_categories WHERE item_id = ? AND source = 'hac'", (quiz,)).fetchone()["category"] == "Tests"
+    assert conn.execute("SELECT count(*) FROM item_categories WHERE item_id = ?", (quiz,)).fetchone()[0] == 2
+
+
+def test_an_emptied_category_table_is_recorded_so_stale_subtotals_are_not_shown_as_current(tmp_path):
+    """A new marking period (or a scraper regression) empties HAC's category table; the latest
+    set must then be empty, not last period's rows (final review, 2026-10-03)."""
+    from fridgesheet.web.stores import grades
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    cid = conn.execute("SELECT id FROM courses WHERE source = 'hac'").fetchone()["id"]
+    assert len(grades.latest_subtotals(conn, cid)) == 2
+    ingest.record(conn, snapshot(T2), tz=TZ, now=T2)                     # the fixture's own class: categories []
+    assert grades.latest_subtotals(conn, cid) == []
+    assert [len(s) for s in grades.subtotal_history(conn, cid)] == [2, 0]
+    r = ingest.record(conn, snapshot(T2), tz=TZ, now=T2)                 # still empty: nothing new to record
+    assert r.categories == 0 and conn.execute("SELECT count(*) FROM category_observations WHERE course_id = ?", (cid,)).fetchone()[0] == 3

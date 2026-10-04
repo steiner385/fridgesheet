@@ -35,6 +35,7 @@ import tomli_w
 from dotenv import load_dotenv
 
 from . import host, migrate
+from . import grading as _grading
 from . import sources as _sources
 
 log = logging.getLogger("fridgesheet.config")
@@ -258,6 +259,9 @@ class Settings:
     refresh: RefreshConfig = field(default_factory=RefreshConfig)
     #: [sources]: which gradebook is authoritative for assignments and for class averages (sources.py).
     sources: "_sources.SourcePrefs" = field(default_factory=lambda: _sources.DEFAULT)
+    #: [grading]: the letter for an average on the report card (grading.GradeScale); the
+    #: ten-point scale unless config.toml says otherwise.
+    grading: "_grading.GradeScale" = field(default_factory=lambda: _grading.TEN_POINT)
     web_host: str = "127.0.0.1"        # [web] host; bind address when allow_lan is off
     web_port: int = 8433
     web_allow_lan: bool = False        # [web] allow_lan; True binds 0.0.0.0 (spec section 8)
@@ -473,6 +477,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
         s.refresh = RefreshConfig(enabled=_as_bool(raw_refresh.get("enabled", False), False, "[refresh] enabled"),
                                   every_hours=every, start=str(start), end=str(end), days=days)
     s.sources = _sources.from_doc(doc)
+    s.grading = _grading.scale_from_doc(doc)
 
 
 def load_settings() -> Settings:

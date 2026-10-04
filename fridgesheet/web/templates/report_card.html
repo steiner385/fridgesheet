@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Report card · {{ student.key | nickname }} · Fridge Sheet{% endblock %}
+{% block content %}
+{# The report card (the Student Planner; spec 2026-10-03 §7.1): every class one ruled line, the
+   class's name a link to its page, the official number at Display size with the scale's letter,
+   whose number in pencil, and one sentence on how it is figured in the kid's words. The one
+   fold beneath says how the two gradebooks figure an average. It prints as it stands. #}
+{% set tier = student.key | tier_of %}
+{% set page_crumb = student.key | nickname %}{% set page_crumb_href = "/kids/" ~ (student.key | urlencode) %}
+{% set page_title = "Report card" %}{% set page_subtitle = (student.key | nickname) ~ " · marking period so far" %}
+{% set page_actions %}<button type="button" data-print>Print</button>{% endset %}
+{% include "_page_head.html" %}
+{% include "_child_nav.html" %}
+<div class="planner-main report-card-page">
+<section class="sec report-lines" aria-labelledby="classes-head">
+  <div class="sec-head"><h3 id="classes-head">Classes</h3><span class="count">{{ n_lines }} class{{ 'es' if n_lines != 1 }}</span></div>
+  <ol class="report-lines">
+  {% for l in lines %}
+    <li class="report-line" id="row-{{ l.course_id }}">
+      <p class="head"><a class="class" href="/kids/{{ student.key | urlencode }}/courses/{{ l.course_id }}">{{ l.short_name }}</a>
+        <span class="avg"><span class="big">{% if l.official is none %}—{% else %}{{ fmt_avg(l.official) }}{% endif %}</span>{% if l.letter %} <span class="letter">{{ l.letter }}</span>{% endif %}</span></p>
+      {% if l.official_source %}<p class="whose">{{ 'HAC average' if l.official_source == 'hac' else 'Canvas current' }}{% if l.as_of %} · as of {{ l.as_of }}{% endif %}</p>{% endif %}
+      <p class="how">{{ l.how[0] | say(tier, l.how[1]) }}</p>
+    </li>
+  {% else %}
+    <li class="report-line empty"><p class="muted">No classes yet.</p></li>
+  {% endfor %}
+  </ol>
+</section>
+<details class="sec quiet how-figured">
+  <summary><h3>How averages are figured</h3></summary>
+  <p>{{ 'copy.rc_how_hac' | say(tier) }}</p>
+  <p>{{ 'copy.rc_how_canvas' | say(tier) }}</p>
+</details>
+</div>
+{% endblock %}

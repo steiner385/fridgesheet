@@ -51,6 +51,60 @@
     </form>
   </details>
 </section>
+{# How the average is figured (spec 2026-10-03 §7.2): the official gradebook's account first,
+   the other's beneath under its name. HAC's is its category table with each category's share
+   of the grade and the check against HAC's number; Canvas's is a sentence unless Canvas is the
+   official source. Off is the one Red Pen on the page: the school's record and what we see
+   disagree. Nothing here asserts the straight-points rule; the account checks it. #}
+{% set acct_tier = student.key | tier_of %}
+{% set lead_acct = accounts[0] if accounts else none %}
+{% set n_cats = (lead_acct.lines | length) if lead_acct else 0 %}
+<section class="sec grade-account" aria-labelledby="account-head">
+  <div class="sec-head"><h3 id="account-head">How it's figured</h3><span class="count">{% if n_cats %}{{ n_cats }} categor{{ 'y' if n_cats == 1 else 'ies' }}{% endif %}</span></div>
+  {% set with_number = accounts | rejectattr('reported', 'none') | list %}
+  {% if not with_number and n_cats == 0 %}
+  {# Nothing to show: a class only one gradebook knows says that gradebook's own sentence. #}
+  {% if accounts | length == 1 %}
+  {% set only = accounts[0] %}
+  {% set only_key = ('rc.canvas_hidden' if only.hidden else 'rc.no_grade') if only.source == 'canvas' else 'copy.rc_hac_no_avg' %}
+  <p class="check">{{ only_key | say(acct_tier) }}</p>
+  {% else %}
+  <p class="muted">{{ 'copy.rc_no_grade_either' | say(acct_tier) }}</p>
+  {% endif %}
+  {% else %}
+  {% for a in accounts %}
+  {% set key, values = how_for(a) %}
+  {% if accounts | length > 1 %}<h4>{{ SOURCE_LABELS[a.source] }}</h4>{% endif %}
+  {% if a.lines | length == 0 %}
+  <p class="check">{% if a.source == 'hac' %}{{ ('rc.no_breakdown' | say(acct_tier, {'reported': fmt_avg(a.reported)})) if a.reported is not none else ('copy.rc_hac_no_avg' | say(acct_tier)) }}{% else %}{{ key | say(acct_tier, values) }}{% endif %}</p>
+  {% elif loop.first %}
+  <p class="lead">{% if a.source == 'hac' %}{{ ('copy.rc_lead_hac_rows' if a.basis == 'rows' else 'copy.rc_lead_hac') | say(acct_tier) }}{% if a.basis == 'subtotals' and a.lines | selectattr('from_rows') | list %} {{ 'copy.rc_lead_from_rows' | say(acct_tier) }}{% endif %}{% else %}{{ 'copy.rc_lead_canvas' | say(acct_tier) }}{% endif %}</p>
+  <div class="table-wrap"><table class="categories">
+    <thead><tr><th>Category</th><th>Earned</th><th>Possible</th><th>Percent</th><th>{{ 'copy.rc_share' | say(acct_tier) }}</th></tr></thead>
+    <tbody>
+    {% for l in a.lines %}
+    <tr{% if l.from_rows and a.basis == 'subtotals' %} class="from-rows"{% endif %}><td>{{ l.category }}{% if l.from_rows and a.basis == 'subtotals' %} <span class="muted">{{ 'copy.rc_from_rows' | say(acct_tier) }}</span>{% endif %}</td>
+      <td>{{ fmt_points(l.earned) }}</td><td>{{ fmt_points(l.possible) }}</td><td>{% if l.percent is none %}—{% else %}{{ fmt_avg(l.percent) }}%{% endif %}</td><td>{{ (l.share * 100) | round | int }}%</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr><td>Total</td><td>{{ fmt_points(a.earned) }}</td><td>{{ fmt_points(a.possible) }}</td><td>{% if a.rebuilt is none %}—{% else %}{{ fmt_avg(a.rebuilt) }}%{% endif %}</td><td></td></tr></tfoot>
+  </table></div>
+  {% if a.reported is none %}
+  <p class="check">{{ ('copy.rc_hac_no_avg' if a.source == 'hac' else 'rc.canvas_hidden') | say(acct_tier) }}</p>
+  {% elif a.match == 'exact' %}
+  <p class="check ok">✓ {{ 'rc.adds_up' | say(acct_tier, {'earned': fmt_points(a.earned), 'possible': fmt_points(a.possible)}) }}{% if a.source == 'hac' %} {{ 'copy.rc_hac_says' | say(acct_tier, {'reported': fmt_avg(a.reported)}) }}{% endif %}</p>
+  {% else %}
+  <p class="check off">{{ (key | say(acct_tier, values)) if a.source == 'hac' else ('rc.canvas_dont_add_up' | say(acct_tier, {'rebuilt': fmt_avg(a.rebuilt), 'reported': fmt_avg(a.reported)})) }}</p>
+  {% endif %}
+  {% if a.source == 'hac' and (a.zero_points > 0 or a.excused) %}
+  <p class="check-detail muted">{% if a.zero_points > 0 %}{{ 'copy.rc_unscored' | say(acct_tier, {'zero_points': fmt_points(a.zero_points)}) }}{% endif %}{% if a.zero_points > 0 and a.excused %} {% endif %}{% if a.excused %}{{ 'copy.rc_excused' | say(acct_tier, {'excused': a.excused}) }}{% endif %}</p>
+  {% endif %}
+  {% else %}
+  <p class="check">{{ key | say(acct_tier, values) }}</p>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+</section>
 {% include "_chart_scripts.html" %}
 {% if grade_chart_json %}
 <details class="sec quiet grade-moves"><summary><h3>How it moved</h3><span class="count">{{ history_cells | length }} refresh{{ 'es' if history_cells | length != 1 }}</span></summary>

@@ -63,7 +63,10 @@ def graded(monkeypatch, tmp_path):
             "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [], "staff": [],
                                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False}}]},
             "hac": {"week_view": [], "classes": [
-                {"name": "Honors Biology - 3", "marking_period_avg": 88.0, "last_updated": "9/11/2026", "categories": [], "assignments": []},
+                {"name": "Honors Biology - 3", "marking_period_avg": 88.0, "last_updated": "9/11/2026",
+                 "categories": [{"category": "Labs", "earned": 44.0, "possible": 50.0, "percent": "88.000%"}],
+                 "assignments": [{"name": "Lab 1", "due": "09/10/2026", "assigned": "09/01/2026", "category": "Labs",
+                                  "score": 44.0, "score_raw": "44.00", "points": 50.0, "percent": "88.00%"}]},
                 {"name": "Hawk Time", "marking_period_avg": 100.0, "last_updated": None, "categories": [], "assignments": []},
             ]},
         }},
@@ -71,6 +74,16 @@ def graded(monkeypatch, tmp_path):
     monkeypatch.setattr(collector, "load_snapshot", lambda s: snap)
     monkeypatch.setattr(collector, "snapshot_is_fresh", lambda s, snap: True)
     return snap
+
+
+def test_grades_carries_the_account_of_each_number(graded, monkeypatch):
+    monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
+    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    assert bio["account"]["source"] == "hac" and bio["account"]["match"] == "exact"
+    assert bio["account"]["lines"][0]["category"] == "Labs" and bio["account"]["earned"] == 44.0
+    assert bio["canvas_account"]["source"] == "canvas" and bio["canvas_account"]["reported"] == 91.2
+    hawk = {c["course"]: c for c in server.grades("Alex")["classes"]}["Hawk Time"]
+    assert hawk["account"]["basis"] == "none" and hawk["account"]["match"] == "unknown" and hawk["canvas_account"] is None
 
 
 def test_grades_official_follows_the_grades_source(graded, monkeypatch):

@@ -9,7 +9,8 @@ related_targets: ["fridgesheet/web/routes/kid.py","fridgesheet/web/templates/_we
 
 Scope: `/kids/{key}/courses/{id}` (course.html, with `_weeks.html`, `_week_line.html`,
 `_notes.html`, `_chart_canvas.html`), reached from the class link in any line's meta; Operate
-mode. Audience: a parent checking one class, occasionally the child. Job: read the class's
+mode. Since 2026-10-03 also the "How it's figured" section after the strip (spec
+2026-10-03 §7.2: the category table, the check against HAC's number, Canvas's sentence). Audience: a parent checking one class, occasionally the child. Job: read the class's
 grade with the official source first, see how it has moved, find the teacher, keep the
 family's notes on the class, and read every assignment from both gradebooks as the planner's
 weekly pages (maintainer, 2026-09-30: "the class's record", "weekly pages", the sources
