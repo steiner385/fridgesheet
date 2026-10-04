@@ -45,6 +45,13 @@ class IngestResult:
     missing: tuple[str, ...] = ()    # Canvas classes that failed with nothing older to serve
     categories: int = 0              # HAC category subtotal rows written (a class's set, when it changed)
 
+    def summary(self) -> str:
+        """The refresh's log line and run message: what this snapshot wrote."""
+        out = f"refresh {self.refresh_id}: {self.items} new items, {self.observations} changes, {self.grades} grade changes"
+        if self.categories:
+            out += f", {self.categories} category subtotals"
+        return out
+
     def note(self) -> str:
         """What the log line and the run message add when a class did not answer, or ""."""
         parts = []

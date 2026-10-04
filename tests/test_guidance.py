@@ -104,7 +104,8 @@ def test_at_the_top_letter_there_is_no_reach_only_slack():
     assert round(g.slack.can_miss, 1) == round(585 + 115 - 0.9 * 700, 1) and g.slack.posted == 115.0
 
 
-def test_negative_slack_says_how_much_of_the_next_points_the_letter_needs():
+def test_below_the_next_letter_the_slack_and_the_reach_both_hold():
+    # Total points cannot give a negative slack: sitting at a letter means E/P is at its floor.
     low = grading.account_hac(79.9, [_sub("A", 39.95, 50.0)], [])
     g = guidance.guide(low, [_row("Next", 10.0, category="A", due_days=1, overdue=False, upcoming=True)], grading.TEN_POINT)
     assert g.slack.letter == "C" and g.slack.can_miss > 0

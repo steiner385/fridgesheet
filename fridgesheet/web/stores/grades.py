@@ -121,7 +121,7 @@ def _as_of(grade_row: sqlite3.Row | None, source: str, conn, tz) -> str:
     if source == "hac":
         return re.sub(r"/\d{4}$", "", grade_row["last_updated"] or "")
     r = conn.execute("SELECT started_at FROM refreshes WHERE id = ?", (grade_row["refresh_id"],)).fetchone()
-    return dates.wd_md(datetime.fromisoformat(r["started_at"]).astimezone(tz)) if r else ""
+    return dates.md(datetime.fromisoformat(r["started_at"]).astimezone(tz)) if r else ""   # "9/15", like HAC's own date
 
 
 def report_card(conn: sqlite3.Connection, student: sqlite3.Row, prefs, scale: grading.GradeScale, tz) -> list[ReportLine]:
