@@ -46,6 +46,7 @@
     {% set word_tone = view | sheet_tone %}{% set tone = 'grey' if grey else word_tone %}{% set word = view | sheet_word(tier) %}{% set linked = true %}{% set late_line = true %}
     {% set badges = [] %}
     {% if view.verdict.kind in ('submitted_hac_zero', 'excused_hac_zero', 'hac_lower') %}{% set badges = badges + [('badge.zero_to_check' | say(tier))] %}{% elif view.verdict.kind == 'stale_answer' %}{% set badges = badges + [('badge.changed_since_answer' | say(tier))] %}{% endif %}
+    {% if worth_by_item is defined and view.id in worth_by_item %}{% set badges = badges + [('badge.worth' | say(tier, {'worth': fmt_worth(worth_by_item[view.id].worth)}))] %}{% endif %}
     {% set stamp = (('badge.seen_at_checkin' if view.id in seen else 'badge.new_since_checkin') | say(tier, {'day': seen_day})) if seen_day else '' %}
     {% set earlier = completed_for.get(view.id) %}
     {% if grey %}{% set exclude = view.verdict.answers | map(attribute='action') | list %}{% endif %}
