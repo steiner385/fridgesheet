@@ -728,10 +728,13 @@ main.planner-main:has(> .who) { max-width: none; margin: 0; min-height: 100dvh; 
 .sec-head, details.sec > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); }
 .sec-head h3, details.sec > summary h3 { margin: 0; font-size: calc(var(--type-root) * 1.125); font-weight: 650; display: inline; }
 .sec-head .count, details.sec > summary .count { font-size: var(--type-small); color: var(--muted); font-weight: 400; }
-/* Full-width so the lead always wraps under the head; the measure is kept as right padding,
-   because a max-width would let a short lead fit beside the controls instead. */
-.sec-head .lead { flex-basis: 100%; margin: 0; color: var(--muted); padding-right: max(0px, calc(100% - var(--measure))); }
-.sec-head .lead.inline { flex-basis: auto; padding-right: 0; }
+/* Full-width so the lead always wraps under the head; the measure is kept as a right margin,
+   because a max-width alone would let a short lead fit beside the controls instead. A margin,
+   not padding: the planner pages also cap the lead at the measure, and under that cap padding of
+   (100% - measure) ate the box from inside, so at 1600px Check-in's Must-finish lead stood one
+   word to a line beside "Check Canvas again" (2026-10-05). */
+.sec-head .lead { flex-basis: 100%; margin: 0; color: var(--muted); margin-right: max(0px, calc(100% - var(--measure))); }
+.sec-head .lead.inline { flex-basis: auto; margin-right: 0; }
 .sec-head .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
 .sec.quiet h3 { color: var(--muted); font-weight: 600; }
 /* A quiet fold carries more space above its head than below it, so it reads as its own
