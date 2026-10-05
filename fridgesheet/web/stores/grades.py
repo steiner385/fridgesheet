@@ -46,7 +46,8 @@ def hac_rows(conn: sqlite3.Connection, course: sqlite3.Row) -> list[dict]:
     Canvas twin's items (ingest attaches a paired HAC row to the Canvas item)."""
     peer = course["peer_course_id"] if course["peer_course_id"] is not None else -1
     return [{"name": r["name"], "category": r["category"] or "", "score": r["score"], "points": r["points"], "excused": bool(r["excused"])}
-            for r in conn.execute(_ROWS, {"src": "hac", "own": course["id"], "peer": peer})]
+            for r in conn.execute(_ROWS, {"src": "hac", "own": course["id"], "peer": peer})
+            if r["category"] is not None]   # unlabelled: HAC no longer lists it (ingest clears the label)
 
 
 def canvas_rows(conn: sqlite3.Connection, course: sqlite3.Row) -> list[dict]:

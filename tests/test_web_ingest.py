@@ -585,3 +585,27 @@ def test_the_refresh_summary_names_the_category_rows_it_wrote():
     r = ingest.IngestResult(7, 2, 4, 1, 2, 0, categories=2)
     assert r.summary() == "refresh 7: 1 new items, 2 changes, 0 grade changes, 2 category subtotals"
     assert ingest.IngestResult(8, 2, 4, 0, 0, 0).summary() == "refresh 8: 0 new items, 0 changes, 0 grade changes"
+
+
+def test_a_hac_row_no_longer_attached_loses_its_hac_label(tmp_path):
+    """A HAC row that moves to another twin, or that HAC stops listing, must not keep feeding the
+    class's account (prod, 2026-10-04: two classes read "off" from such stale rows)."""
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
+    assert conn.execute("SELECT 1 FROM item_categories WHERE item_id = ? AND source = 'hac'", (quiz,)).fetchone()
+    gone = _with_categories(snapshot(T2))
+    hac = gone["students"]["Alex"]["hac"]["classes"][0]
+    hac["assignments"] = [r for r in hac["assignments"] if r["name"] != "Quiz #1"]
+    ingest.record(conn, gone, tz=TZ, now=T2)
+    assert conn.execute("SELECT 1 FROM item_categories WHERE item_id = ? AND source = 'hac'", (quiz,)).fetchone() is None
+    assert conn.execute("SELECT 1 FROM item_categories WHERE item_id = ? AND source = 'canvas'", (quiz,)).fetchone()   # Canvas's label stays
+
+
+def test_a_class_whose_hac_rows_all_vanish_loses_every_hac_label(tmp_path):
+    conn = db.open_db(tmp_path)
+    ingest.record(conn, _with_categories(snapshot(T1)), tz=TZ, now=T1)
+    empty = _with_categories(snapshot(T2))
+    empty["students"]["Alex"]["hac"]["classes"][0]["assignments"] = []
+    ingest.record(conn, empty, tz=TZ, now=T2)
+    assert conn.execute("SELECT count(*) FROM item_categories WHERE source = 'hac'").fetchone()[0] == 0
