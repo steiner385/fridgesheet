@@ -59,7 +59,7 @@ def from_views(work: items_store.OpenWork, kid: str, now: datetime) -> open_item
             key=v.key, kid=kid, course=v.course_short, name=v.name, due=v.due, status=sheet_status(v), overdue=v.overdue,
             source="both" if len(v.sources) == 2 else (v.sources[0] if v.sources else "canvas"), kind=v.kind,
             points=v.points, score=scored["score"] if scored is not None else None, assigned=v.assigned,
-            late_until=v.late_until, credit=v.credit, is_assessment=v.is_assessment, flag=v.flag or "",
+            late_until=v.late_until, credit=v.credit, is_assessment=v.is_assessment, family=v.family, flag=v.flag or "",
         )
     return open_items.OpenWork(kid=kid, as_of=now, items=[row(v) for v in work.fixable + work.upcoming],
                                dropped=[row(v) for v in work.past_window], handled=[row(v) for v in work.handled]).sort()

@@ -29,6 +29,7 @@ from typing import Iterable
 
 from . import late_rules as _late_rules
 from . import sources as _sources
+from . import work_types
 from .dates import deadline_date
 from .matching import hac_item_key, hac_only_key, match_course, pair_titles, same_item, short_course, twin_by_date_and_points
 
@@ -58,6 +59,7 @@ class Item:
     late_until: datetime | None = None
     credit: str = ""
     is_assessment: bool = False
+    family: str = "practice"         # work_types.FAMILIES; the snapshot path applies no rules or corrections
     submission_types: list = field(default_factory=list)
     flag: str = ""
 
@@ -331,11 +333,13 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
                 raw = a.get("unlock_at") or a.get("created_at")
                 assigned = datetime.fromisoformat(raw) if raw else None
             course = short_course(c["name"])
+            typed = work_types.family_of(work_types.Facts(a["name"], canvas_group=a.get("group"), hac_category=(hac_row or {}).get("category"),
+                                                          online_quiz="online_quiz" in (a.get("submission_types") or [])))
             it = Item(
                 key=f"canvas:{a['id']}", kid=kid, course=course, name=a["name"], due=due, status=status,
                 overdue=overdue, source="both" if hac_row else "canvas", kind=kind_of(a.get("submission_types")),
                 points=a.get("points_possible"), score=hac_score if pick == "hac" and hac_score is not None else a.get("score"), assigned=assigned,
-                is_assessment=bool(a.get("group") and any(w in a["group"].lower() for w in ASSESSMENT_WORDS)),
+                is_assessment=typed.family == "assessment", family=typed.family,
                 submission_types=list(a.get("submission_types") or []),
             )
             canvas_names_by_course.setdefault(c["name"], []).append(a["name"])
@@ -377,11 +381,12 @@ def open_items(entry: dict, kid: str, now: datetime, days_ahead: int = 14, overd
             if due < year_start or hac_excused(a) or due >= now or not (zero or a.get("score") is None):
                 continue
             course = short_course(hname)
+            typed = work_types.family_of(work_types.Facts(a["name"], hac_category=a.get("category")))
             it = Item(
                 key=key, kid=kid, course=course, name=a["name"], due=due, score=a.get("score"),
                 status="ZERO" if zero else "HAC — NO GRADE", overdue=True, source="hac", kind="", points=a.get("points"),
                 assigned=parse_hac_date(a.get("assigned"), tz),
-                is_assessment=any(w in (a.get("category") or "").lower() for w in ("quiz", "assess")),
+                is_assessment=typed.family == "assessment", family=typed.family,
             )
             it.flag = _flag_for(flags, hname, it.key)
             if it.flag in HANDLED_FLAGS:

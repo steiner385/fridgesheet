@@ -144,8 +144,17 @@
 {# The class's assignments as the weekly pages: the open and asked lines on their weeks, the
    settled weeks folded with their tally. A question is asked on its own line here, as on
    Assignments; the sort keys and the pages swap together in #items. #}
+{# Type rules (spec 2026-10-04 assignment types §6.4): made from a correction, listed here,
+   one Remove each. Shown only when the class has any. #}
+{% if type_rules %}
+<section class="sec type-rules">
+  <div class="sec-head"><h3>Type rules</h3><span class="count">{{ type_rules | length }}</span></div>
+  <ul>{% for r in type_rules %}<li>{{ 'Filed under' if r.field == 'group' else 'Name starts with' }} “{{ r.value }}” → {{ ('copy.type_' ~ r.family) | say('') }}{% if grown_up %} <form method="post" action="/kids/{{ student.key | urlencode }}/courses/{{ course.id }}/type-rules/{{ r.id }}/remove" class="inline"><button class="link">Remove</button></form>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
 <section class="sec class-work">
   <div class="sec-head"><h3>Assignments</h3><span class="count">{{ rows | length }} listed</span></div>
+  {% set tier = student.key | tier_of %}{% include "_type_links.html" %}
   <div id="items">
   {% block partial %}
   {# Every line here is this class: its name in the meta stays a word, not a link to this page. #}

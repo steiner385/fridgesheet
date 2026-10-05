@@ -12,17 +12,18 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from ...dates import day_part, deadline_date, due_time
-from ... import config, sources
+from ... import config, sources, work_types
 from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
 from .. import db, outcomes, reconcile, verdicts
-from . import num, plans, pace as pace_store
+from . import num, plans, pace as pace_store, work_types as type_store
 
 SHOW = ("open", "actionable", "all", "past_window", "handled")   # the last two are Open work's "Not shown" sets (#125)
 SORTS = ("due", "course", "name", "status")
 DIRECTIONS = ("asc", "desc")
 FLAGGED = ("any", "marked", "handled", "none") + HANDLED_FLAGS + MARKED_FLAGS   # groups, then each answer (#52)
 VERDICTS = ("question", "decided", "waiting")     # what the app says (web/verdicts.py)
+FAMILY_FILTER = work_types.FAMILIES               # ?type= on the kid and class pages (assignment types §6.3)
 DAYS_AHEAD = OVERDUE_DAYS = config.DEFAULT_DAYS    # the sheet's defaults; routes pass the settings
 
 
@@ -94,6 +95,12 @@ class ItemView:
     #: two facts the printed sheet shows that no page does (`reports.open_work.from_views`).
     assigned: datetime | None = None
     is_assessment: bool = False
+    #: What kind of work this is (spec 2026-10-04 assignment types): the family, the ladder rung
+    #: that decided it, and why, as a phrasing key and its values for the detail card.
+    family: str = "practice"
+    family_rung: int = 6
+    family_why: str = "type.why.default"
+    family_values: dict = field(default_factory=dict)
 
     @property
     def overdue(self) -> bool:
@@ -338,7 +345,10 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
         if s["state"] != "done" and s["item_id"] is not None:
             steps.setdefault(s["item_id"], s)
     out: list[ItemView] = []
-    for r in reconcile.live_items(conn, student["id"], now):
+    live = reconcile.live_items(conn, student["id"], now)
+    typed = type_store.classify(conn, student["id"], live)
+    for r in live:
+        t = typed[r["id"]]
         obs = latest.get(r["id"], {})
         prefer = sources.assignments_for(prefs, r["kid"], r["course_name"], r["peer_course_name"])
         due = reconcile.due_of(r)
@@ -380,7 +390,8 @@ def _views(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime, rul
                          if r["key"].startswith("canvas:") and r["course_source"] == "canvas" and r["course_external_id"] else ""),
             latest_note=latest_notes.get(r["id"]),
             assigned=datetime.fromisoformat(r["assigned"]) if r["assigned"] else None,
-            is_assessment=bool(r["is_assessment"]),
+            is_assessment=t.family == "assessment",
+            family=t.family, family_rung=t.rung, family_why=t.why, family_values=t.values,
         ))
     return out
 
@@ -393,7 +404,9 @@ def widens_to_all(outcome=None, flagged=None, verdict=None) -> bool:
     return bool(outcome or verdict or (flagged and flagged != "none"))
 
 
-def _keep(v: ItemView, show: str, source, course_ids, kind, flagged, outcome=None, verdict=None) -> bool:
+def _keep(v: ItemView, show: str, source, course_ids, kind, flagged, outcome=None, verdict=None, family=None) -> bool:
+    if family in FAMILY_FILTER and v.family != family:
+        return False
     if outcome and v.outcome != outcome:
         return False
     if verdict == "question" and not v.asks:
@@ -463,7 +476,7 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
                source: str | None = None, course_id: int | None = None, kind: str | None = None,
                flagged: str | None = None, sort: str = "due", outcome: str | None = None,
                days_ahead: int = DAYS_AHEAD, direction: str = "asc", prefs=None, verdict: str | None = None,
-               overdue_days: int = OVERDUE_DAYS) -> list[ItemView]:
+               overdue_days: int = OVERDUE_DAYS, family: str | None = None) -> list[ItemView]:
     """`outcome` is a filter on `outcomes.classify`; when one is given, `show` is forced to
     "all", because "not done" work that is past its credit window is exactly what a parent
     filtering on "not done" wants to see and exactly what "open" hides."""
@@ -483,7 +496,7 @@ def list_items(conn: sqlite3.Connection, student: sqlite3.Row, *, now: datetime,
         if peer and peer["peer_course_id"]:
             course_ids.add(peer["peer_course_id"])
     views = [v for v in _views(conn, student, now=now, rules=rules, days_ahead=days_ahead, overdue_days=overdue_days, prefs=prefs)
-             if _keep(v, show, source, course_ids, kind, flagged, outcome, verdict)]
+             if _keep(v, show, source, course_ids, kind, flagged, outcome, verdict, family)]
     return sorted_views(views, sort, direction)
 
 

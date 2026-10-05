@@ -46,12 +46,14 @@
       </details>
       <input type="hidden" name="sort" value="{{ f.sort }}">
       <input type="hidden" name="dir" value="{{ f.direction }}">
+      {% if f.family %}<input type="hidden" name="type" value="{{ f.family }}">{% endif %}
     </form>
     {% if widened %}<p class="lead" role="note">Showing everything that matches, not only open work.</p>{% endif %}
     {# The app's questions, counted over all of the child's work and asked on their own lines
        below; the line follows an answer out of band (_after_answer.html). #}
     {% set tier = student.key | tier_of %}
     <p id="q-lead" class="lead">{% if questions %}{{ 'copy.questions_head' | say(tier, {'n': questions | length, 's': 's' if questions | length != 1 else ''}) }}{% else %}{{ 'copy.no_questions' | say(tier) }}{% endif %}</p>
+    {% include "_type_links.html" %}
   </div>
   <div id="items">
   {% block partial %}
@@ -59,6 +61,7 @@
   {# The count lives in the section head, outside this swap; the partial carries it out of band
      so a filter or sort change doesn't leave it stale. The <template> keeps it inert on a full
      page load (the head above already has the live one). #}
+  <template>{% set tier = student.key | tier_of %}{% with oob = true %}{% include "_type_links.html" %}{% endwith %}</template>
   <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span></template>
   {% endblock %}
   </div>

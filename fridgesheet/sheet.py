@@ -117,6 +117,13 @@ def handled_words() -> str:
     return ", ".join(states[:-1]) + f" or {states[-1]}"
 
 
+def via_text(it: Item, tier: str = "") -> str:
+    """The Via cell: the source, how it is handed in, and what kind of work it is (assignment
+    types §6.2); everyday work names no kind, as the screen's rows do not."""
+    word = phrasing.phrase(f"type.{it.family}", tier) if it.family != "practice" else ""
+    return it.source.capitalize() + (f" · {it.kind}" if it.kind else " · —") + (f" · {word}" if word else "")
+
+
 def _status_cell(it: Item, tier: str = "") -> Paragraph:
     style = ParagraphStyle("st", parent=CELLB, textColor=STATUS_COLOR.get(it.status, INK))
     text = _esc(status_word(it.status, tier))
@@ -161,7 +168,7 @@ def _section(ks: KidSheet, date_line: str, days_ahead: int, overdue_days: int) -
         # `source` is "canvas", "hac" or "both"; only the ones Canvas knows carry a real time.
         due_cell = Paragraph(f'{_esc(fmt_due(it.due, from_canvas=it.source != "hac"))}'
                              f'<br/><font size="8">given {asg}</font>', CELL)
-        via = it.source.capitalize() + (f" · {it.kind}" if it.kind else " · —")
+        via = via_text(it, ks.tier)
         data.append([_checkbox(), _delta_cell(it, diff), due_cell, Paragraph(_esc(it.course), CELL), Paragraph(_esc(it.name), CELL),
                      fmt_pts(it.points), Paragraph(_esc(via), TINY), _status_cell(it, ks.tier)])
     style = [

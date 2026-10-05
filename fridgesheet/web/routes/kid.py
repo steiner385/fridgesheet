@@ -3,17 +3,18 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections import Counter
 from datetime import timedelta
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from ... import grading, guidance, sources
+from ... import grading, guidance, sources, work_types
 from ...dates import deadline_date, wd_md, week_start
-from .. import actions, outcomes
-from ..app import Db, State, render, render_partial, student_or_404
-from ..stores import changes, grades as grade_accounts, guidance as guidance_store, items, notes, students, trends
+from .. import actions, db, outcomes
+from ..app import FAMILY, Db, State, render, render_partial, student_or_404, who_of
+from ..stores import changes, grades as grade_accounts, guidance as guidance_store, items, notes, students, trends, work_types as type_store
 from .trends import chart_json, grade_chart
 
 router = APIRouter()
@@ -26,6 +27,7 @@ def _filters(request: Request) -> dict:
         "show": q.get("show", "open"), "source": q.get("source") or None,
         "course_id": int(course) if course and course.isdigit() else None,
         "kind": q.get("kind") or None, "flagged": q.get("flagged") or None, "outcome": q.get("outcome") or None, "verdict": q.get("verdict") or None, "sort": q.get("sort", "due"),
+        "family": q.get("type") if q.get("type") in items.FAMILY_FILTER else None,
         "direction": _direction(q.get("dir")),
     }
 
@@ -36,13 +38,36 @@ def _direction(raw: str | None) -> str:
     return "desc" if raw == "desc" else "asc"
 
 
-def _sort_base(key: str, f: dict) -> str:
-    """The URL the column headers sort: this page with its filters, ready for `sort=<x>`."""
+def _filter_params(f: dict) -> list[tuple[str, object]]:
+    """This page's filters as query pairs, the ones in force only."""
     q = [("show", f["show"])]
     q += [(name, v) for name, v in (("source", f["source"]), ("course", f["course_id"]),
                                     ("kind", f["kind"]), ("flagged", f["flagged"]),
-                                    ("outcome", f["outcome"]), ("verdict", f["verdict"])) if v]
-    return f"/kids/{quote(key)}?{urlencode(q)}&"
+                                    ("outcome", f["outcome"]), ("verdict", f["verdict"]),
+                                    ("type", f.get("family"))) if v]
+    return q
+
+
+def _sort_base(key: str, f: dict) -> str:
+    """The URL the column headers sort: this page with its filters, ready for `sort=<x>`."""
+    return f"/kids/{quote(key)}?{urlencode(_filter_params(f))}&"
+
+
+def type_links(base: str, params: list[tuple[str, object]], counts: dict[str, int], current: str | None) -> list[dict]:
+    """The type filter as a row of links with counts (spec 2026-10-04 assignment types §6.3),
+    in the dashboard's outcome-link style: All, then each family that has work, keeping every
+    other filter in force."""
+    keep = [(k, v) for k, v in params if k != "type" and v not in (None, "")]
+
+    def href(family: str | None) -> str:
+        q = keep + ([("type", family)] if family else [])
+        return f"{base}?{urlencode(q)}" if q else base
+    out = [{"key": "copy.type_all", "n": sum(counts.values()), "href": href(None), "current": current is None}]
+    # Each family with work, and the one in force even when nothing under it is left to show:
+    # an empty page still says which type it is filtered to, and All is one tap away.
+    out += [{"key": f"copy.type_{fam}", "n": counts.get(fam, 0), "href": href(fam), "current": current == fam}
+            for fam in work_types.FAMILIES_BY_RANK if counts.get(fam) or fam == current]
+    return out
 
 
 def _is_open(v) -> bool:
@@ -98,15 +123,21 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
     s = student_or_404(conn, key)
     now, rules = state.now(), state.rules()
     f = _filters(request)
-    rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
-    # A question is open to the family whatever the record says, and on this page it is asked
-    # on its own line (the weekly pages): Open shows every asked row the other filters allow.
-    if f["show"] == "open":
-        shown = {v.id for v in rows}
-        asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
-                 if v.asks and v.id not in shown]
-        if asked:
-            rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
+
+    def page_rows(f: dict) -> list:
+        rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
+        # A question is open to the family whatever the record says, and on this page it is asked
+        # on its own line (the weekly pages): Open shows every asked row the other filters allow.
+        if f["show"] == "open":
+            shown = {v.id for v in rows}
+            asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
+                     if v.asks and v.id not in shown]
+            if asked:
+                rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
+        return rows
+    rows = page_rows(f)
+    # The type links count what each link would show: this page's rows with only the type lifted.
+    counts = Counter(v.family for v in (page_rows({**f, "family": None}) if f["family"] else rows))
     # The weeks are turned back through every row the other filters allow: a week with nothing
     # in the shown set still prints, folded, with its tally.
     listed = rows if f["show"] == "all" else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
@@ -136,6 +167,7 @@ def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
                   questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
                   sort=f["sort"], direction=f["direction"],
                   sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
+                  type_links=type_links(f"/kids/{quote(key)}", _filter_params(f), counts, f["family"]),
                   SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,
                   OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
 
@@ -147,6 +179,24 @@ def card_for(raw: str | None, item_id: int) -> str | None:
     only. The detail takes over that card's id, and its Close fetches the card back into it;
     anything else is a detail in a table row, which app.js closes by hiding the row."""
     return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}", f"nn-{item_id}") else None
+
+
+def type_offer(conn: sqlite3.Connection, s, v, now) -> dict:
+    """What the correction form can offer beyond this item (spec 2026-10-04 assignment types
+    §6.4): pin the gradebook name, or the name's prefix, for the whole class, each with how many
+    items it applies to. A prefix is offered only when it reaches two items besides this one."""
+    facts = type_store.facts_for(conn, v.id)
+    group = work_types.gradebook_name(facts)
+    prefix = work_types.prefix_suggestion(v.name)
+    prefix_n = type_store.rule_reach(conn, s["id"], v.course_id, "name_prefix", prefix, now) if prefix else 0
+    return {"group": group, "group_generic": work_types.is_generic(group),
+            "group_n": type_store.rule_reach(conn, s["id"], v.course_id, "group", group, now) if group else 0,
+            "prefix": prefix if prefix_n >= 3 else None, "prefix_n": prefix_n}
+
+
+def _grown_up(request: Request, conn: sqlite3.Connection) -> bool:
+    """Types are a grown-up's to set (§6.4): the chooser said "family" in this browser."""
+    return who_of(request, conn)[0] == FAMILY
 
 
 @router.get("/items/{item_id}")
@@ -161,7 +211,65 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
                           notes=notes.for_target(conn, "item", item_id), card=card_for(request.query_params.get("card"), item_id),
                           # `?tone=line`: a record opened under a log line (Changes) keeps the sheet's word at its
                           # head like one opened from a week's line, without a card for Close to put back.
-                          with_tone=request.query_params.get("tone") == "line")
+                          with_tone=request.query_params.get("tone") == "line",
+                          type_offer=type_offer(conn, s, v, now) if _grown_up(request, conn) else None)
+
+
+@router.post("/items/{item_id}/type")
+def set_item_type(item_id: int, request: Request, family: str = Form(...), also_group: str = Form(""),
+                  also_prefix: str = Form(""), card: str = Form(""), conn: sqlite3.Connection = Db, state=State):
+    """A grown-up's type for one item, and optionally a class rule made from it. A rule on a
+    generic bucket ("Assignments") is only for everyday work: pinning a whole class's catch-all
+    to tests would relabel every worksheet. The item's own correction is dropped whenever the
+    ladder (rules included) already gives the chosen family, so nothing redundant is stored."""
+    if not _grown_up(request, conn):
+        raise HTTPException(403, "a grown-up sets types")
+    s = students.owner_of_item(conn, item_id)
+    if s is None:
+        raise HTTPException(404, "no such item")
+    if family not in work_types.FAMILIES:
+        raise HTTPException(400, f"unknown type {family!r}")
+    now_s, now, rules = db.now_iso(state.tz), state.now(), state.rules()
+
+    def view():
+        return items.one(conn, s, item_id, now=now, rules=rules, prefs=state.sources(), **state.window())
+    v = view()
+    if v is None:
+        raise HTTPException(404, "no such item")
+    offer = type_offer(conn, s, v, now)
+    message = "Type saved"
+    with conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if also_group and offer["group"]:
+            if offer["group_generic"] and family != "practice":
+                message = f"Saved for this item only: a rule on “{offer['group']}” is only for everyday work."
+            else:
+                type_store.add_rule(conn, v.course_id, "group", offer["group"], family, now_s)
+        if also_prefix and offer["prefix"]:
+            type_store.add_rule(conn, v.course_id, "name_prefix", offer["prefix"], family, now_s)
+        type_store.clear_correction(conn, item_id)
+        if view().family != family:
+            type_store.set_correction(conn, item_id, family, now_s)
+    v = view()
+    return render_partial(request, conn, "_item_detail.html", student=s, item=v,
+                          item_history=changes.for_item(conn, s["id"], item_id, now=now, prefs=state.sources()), message=message,
+                          notes=notes.for_target(conn, "item", item_id), card=card_for(card, item_id),
+                          type_offer=type_offer(conn, s, v, now))
+
+
+@router.post("/kids/{key}/courses/{course_id}/type-rules/{rule_id}/remove")
+def remove_type_rule(key: str, course_id: int, rule_id: int, request: Request, conn: sqlite3.Connection = Db):
+    if not _grown_up(request, conn):
+        raise HTTPException(403, "a grown-up sets types")
+    s = student_or_404(conn, key)
+    c = students.course(conn, course_id)
+    if c is None or c["student_id"] != s["id"]:
+        raise HTTPException(404, "no such course")
+    rule = conn.execute("SELECT course_id FROM type_rules WHERE id = ?", (rule_id,)).fetchone()
+    if rule is None or rule["course_id"] not in type_store.pair(conn, course_id):
+        raise HTTPException(404, "no such rule")
+    type_store.remove_rule(conn, rule_id)
+    return RedirectResponse(f"/kids/{quote(key)}/courses/{course_id}", status_code=303)
 
 
 @router.get("/kids/{key}/courses/{course_id}")
@@ -189,7 +297,9 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
     # This course and its twin in the other source are one list to a parent: `list_items`
     # widens a course id to its pair itself and sorts the merged list, so it is asked once.
     # Asking again for the peer doubled every row of a paired class (#183).
-    rows = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
+    every = items.list_items(conn, s, now=now, rules=rules, show="all", course_id=course_id, sort=sort, direction=direction, prefs=prefs)
+    family = request.query_params.get("type") if request.query_params.get("type") in items.FAMILY_FILTER else None
+    rows = [v for v in every if not family or v.family == family]
     # The class's assignments as the weekly pages (the class's record, 2026-09-30): every row
     # from both gradebooks printed on the week it was due, settled ones checked off in place;
     # a record hides nothing behind a fold.
@@ -230,9 +340,13 @@ def course(key: str, course_id: int, request: Request, conn: sqlite3.Connection 
                   own_label="Canvas current" if c["source"] == "canvas" else "HAC average", own_official=pick == c["source"],
                   rows=rows, sort=sort, direction=direction, by_day=sort == "due",
                   weeks=weeks_of(rows, rows, now, by_day=sort == "due"), here=f"/kids/{quote(key)}/courses/{course_id}",
-                  sort_base=f"/kids/{quote(key)}/courses/{course_id}?",
+                  sort_base=f"/kids/{quote(key)}/courses/{course_id}?" + (f"type={family}&" if family else ""),
+                  type_links=type_links(f"/kids/{quote(key)}/courses/{course_id}", [("sort", sort), ("dir", direction)],
+                                        Counter(v.family for v in every), family),
                   grade_chart_json=chart_json(chart) if chart else None,
-                  notes=notes.for_target(conn, "course", course_id), **source_ctx)
+                  notes=notes.for_target(conn, "course", course_id),
+                  type_rules=type_store.rules_for(conn, type_store.pair(conn, course_id)), grown_up=_grown_up(request, conn),
+                  **source_ctx)
 
 
 @router.post("/kids/{key}/courses/{course_id}/sources")

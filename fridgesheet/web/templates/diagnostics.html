@@ -44,4 +44,13 @@
 <p class="muted not-run">Diagnostics have not been run yet.</p>
 {% endif %}
 </div>
+{# How each class's work was typed (spec 2026-10-04 assignment types §6.5). #}
+{% if types %}
+<section class="sec type-coverage">
+  <div class="sec-head"><h3>Types</h3><span class="count">{{ types | length }} class{{ 'es' if types | length != 1 }}</span></div>
+  <div class="table-wrap"><table class="items"><thead><tr><th>Kid</th><th>Class</th><th class="num">Items</th><th class="num">You set</th><th class="num">Your rules</th><th class="num">Canvas quiz</th><th class="num">Gradebook name</th><th class="num">Item name</th><th class="num">Everyday by default</th></tr></thead>
+  <tbody>{% for t in types %}<tr><td>{{ t.kid | nickname }}</td><td>{{ t.course }}</td><td class="num">{{ t.n }}</td>{% for r in range(1, 7) %}<td class="num">{{ t.rungs[r] }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  <p class="field-help">“Everyday by default” means nothing named a type. A class where that is every item has names the app cannot read: correct one item there and make it a rule.</p>
+</section>
+{% endif %}
 {% endblock %}

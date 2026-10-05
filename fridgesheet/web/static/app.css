@@ -131,6 +131,9 @@ header.status .short { display: none; }
 .outcome-line { font-size: var(--type-small); line-height: 1.7; }
 .outcome-line a { text-decoration: none; }
 .outcome-line a.warn { font-weight: 600; }
+.type-links { font-size: var(--type-small); line-height: 1.7; }
+.type-links a { text-decoration: none; }
+.type-links a.current { font-weight: 600; }
 table.items { width: 100%; border-collapse: collapse; background: var(--paper); }
 table.items th, table.items td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
 table.items th a { text-decoration: none; }
