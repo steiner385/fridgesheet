@@ -183,6 +183,14 @@ def test_planner_prose_keeps_to_the_measure_on_every_planner_page():
     assert ".planner-main .sec-head .lead" in rule.group(0) and ".planner-main .inset" in rule.group(0)
 
 
+def test_a_section_lead_keeps_the_measure_as_a_margin_not_padding():
+    """2026-10-05: under the planner's max-width cap, right padding of (100% - measure) left the
+    Must-finish lead a one-word column beside "Check Canvas again" once Check-in went to 1600px."""
+    lead = _rule(".sec-head .lead")
+    assert "margin-right: max(0px, calc(100% - var(--measure)))" in lead and "padding-right" not in lead
+    assert "margin-right: 0" in _rule(".sec-head .lead.inline")
+
+
 def test_the_strip_keeps_a_space_before_a_question_count():
     """"Alex1" on the phone: inline-flex drops the text node's space between the name and the count."""
     strip = re.search(r"@media \(max-width: 1023px\)\s*\{(.*?)\n\}", CSS, re.S).group(1)
