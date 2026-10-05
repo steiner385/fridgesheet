@@ -63,8 +63,10 @@ def type_links(base: str, params: list[tuple[str, object]], counts: dict[str, in
         q = keep + ([("type", family)] if family else [])
         return f"{base}?{urlencode(q)}" if q else base
     out = [{"key": "copy.type_all", "n": sum(counts.values()), "href": href(None), "current": current is None}]
-    out += [{"key": f"copy.type_{fam}", "n": counts[fam], "href": href(fam), "current": current == fam}
-            for fam in sorted(counts, key=work_types.RANK.__getitem__) if counts[fam]]
+    # Each family with work, and the one in force even when nothing under it is left to show:
+    # an empty page still says which type it is filtered to, and All is one tap away.
+    out += [{"key": f"copy.type_{fam}", "n": counts.get(fam, 0), "href": href(fam), "current": current == fam}
+            for fam in work_types.FAMILIES_BY_RANK if counts.get(fam) or fam == current]
     return out
 
 
@@ -179,16 +181,16 @@ def card_for(raw: str | None, item_id: int) -> str | None:
     return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}", f"nn-{item_id}") else None
 
 
-def type_offer(conn: sqlite3.Connection, s, v) -> dict:
+def type_offer(conn: sqlite3.Connection, s, v, now) -> dict:
     """What the correction form can offer beyond this item (spec 2026-10-04 assignment types
     §6.4): pin the gradebook name, or the name's prefix, for the whole class, each with how many
     items it applies to. A prefix is offered only when it reaches two items besides this one."""
     facts = type_store.facts_for(conn, v.id)
     group = work_types.gradebook_name(facts)
     prefix = work_types.prefix_suggestion(v.name)
-    prefix_n = type_store.rule_reach(conn, s["id"], v.course_id, "name_prefix", prefix) if prefix else 0
+    prefix_n = type_store.rule_reach(conn, s["id"], v.course_id, "name_prefix", prefix, now) if prefix else 0
     return {"group": group, "group_generic": work_types.is_generic(group),
-            "group_n": type_store.rule_reach(conn, s["id"], v.course_id, "group", group) if group else 0,
+            "group_n": type_store.rule_reach(conn, s["id"], v.course_id, "group", group, now) if group else 0,
             "prefix": prefix if prefix_n >= 3 else None, "prefix_n": prefix_n}
 
 
@@ -210,7 +212,7 @@ def item_detail(item_id: int, request: Request, conn: sqlite3.Connection = Db, s
                           # `?tone=line`: a record opened under a log line (Changes) keeps the sheet's word at its
                           # head like one opened from a week's line, without a card for Close to put back.
                           with_tone=request.query_params.get("tone") == "line",
-                          type_offer=type_offer(conn, s, v) if _grown_up(request, conn) else None)
+                          type_offer=type_offer(conn, s, v, now) if _grown_up(request, conn) else None)
 
 
 @router.post("/items/{item_id}/type")
@@ -234,7 +236,7 @@ def set_item_type(item_id: int, request: Request, family: str = Form(...), also_
     v = view()
     if v is None:
         raise HTTPException(404, "no such item")
-    offer = type_offer(conn, s, v)
+    offer = type_offer(conn, s, v, now)
     message = "Type saved"
     with conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -252,7 +254,7 @@ def set_item_type(item_id: int, request: Request, family: str = Form(...), also_
     return render_partial(request, conn, "_item_detail.html", student=s, item=v,
                           item_history=changes.for_item(conn, s["id"], item_id, now=now, prefs=state.sources()), message=message,
                           notes=notes.for_target(conn, "item", item_id), card=card_for(card, item_id),
-                          type_offer=type_offer(conn, s, v))
+                          type_offer=type_offer(conn, s, v, now))
 
 
 @router.post("/kids/{key}/courses/{course_id}/type-rules/{rule_id}/remove")

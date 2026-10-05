@@ -6,8 +6,10 @@ either applies to both, as a class filter does (`items.list_items`)."""
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 
 from ... import work_types
+from .. import reconcile
 from ...work_types import Facts, Rule, Typed
 
 
@@ -87,12 +89,13 @@ def remove_rule(conn: sqlite3.Connection, rule_id: int) -> sqlite3.Row | None:
     return row
 
 
-def rule_reach(conn: sqlite3.Connection, student_id: int, course_id: int, field: str, value: str) -> int:
-    """How many of the student's items in this class (both courses of the pair) the rule
-    would match: the "applies to N items" a grown-up sees before saving it."""
+def rule_reach(conn: sqlite3.Connection, student_id: int, course_id: int, field: str, value: str, now: datetime) -> int:
+    """How many of the student's live items in this class (both courses of the pair) the rule
+    would match: the "applies to N items" a grown-up sees before saving it. Live as the pages
+    count it (`reconcile.live_items`): dropped work and last year's copies stay in `items` for
+    the history, but no page lists them, so the count does not either."""
     ids = pair(conn, course_id)
-    marks = ",".join("?" * len(ids))
-    rows = conn.execute(f"SELECT * FROM items WHERE student_id = ? AND course_id IN ({marks})", (student_id, *ids)).fetchall()
+    rows = [r for r in reconcile.live_items(conn, student_id, now) if r["course_id"] in ids]
     cats = _categories(conn, [r["id"] for r in rows])
     probe = Rule(0, field, work_types.fold(value), "practice", "")
     return sum(1 for r in rows if work_types.matches(probe, _facts(r, cats.get(r["id"], {}))))

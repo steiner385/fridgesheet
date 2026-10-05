@@ -100,3 +100,20 @@ def test_coverage_counts_every_rung():
 
 def test_rank_orders_tests_first():
     assert sorted(wt.FAMILIES, key=wt.RANK.__getitem__) == ["assessment", "lab_project", "practice", "participation"]
+
+
+@pytest.mark.parametrize("name, family", [
+    ('"Where I\'m From" Final Draft', "practice"),                              # real items, 2026-10-04
+    ("Final Submission of Literary Analysis - MLA Formatting and Rubric Included", "practice"),
+    ("Final Update and Submission of Evidence Log", "practice"),
+    ("Final Exam", "assessment"),                                               # still a test, by "exam"
+])
+def test_final_alone_is_not_a_test(name, family):
+    assert wt.family_of(Facts(name)).family == family
+
+
+def test_the_rule_offer_skips_a_generic_hac_name_for_a_specific_canvas_one():
+    f = Facts("Quiz 1", canvas_group="Quizzes & Tests", hac_category="Assignments")
+    assert wt.gradebook_name(f) == "Quizzes & Tests"
+    assert wt.gradebook_name(Facts("x", hac_category="Assignments")) == "Assignments"   # only a generic one: offered as is
+    assert wt.gradebook_name(Facts("x", canvas_group="Homework", hac_category="Labs")) == "Labs"

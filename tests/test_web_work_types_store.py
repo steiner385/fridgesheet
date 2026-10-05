@@ -105,8 +105,8 @@ def test_rule_reach_counts_the_items_a_rule_would_cover(tmp_path):
     conn = seed(tmp_path)
     sid = students.by_key(conn, "Alex")["id"]
     canvas_eng = [c for c in _course(conn, "English") if c["source"] == "canvas"][0]
-    assert type_store.rule_reach(conn, sid, canvas_eng["id"], "group", "homework") == 6
-    assert type_store.rule_reach(conn, sid, canvas_eng["id"], "name_prefix", "quiz") == 1
+    assert type_store.rule_reach(conn, sid, canvas_eng["id"], "group", "homework", NOW) == 6
+    assert type_store.rule_reach(conn, sid, canvas_eng["id"], "name_prefix", "quiz", NOW) == 1
 
 
 def test_add_rule_folds_the_value_and_replaces_its_own_family(tmp_path):
@@ -125,3 +125,20 @@ def test_list_items_filters_by_family(tmp_path):
     assert [v.name for v in shown] == ["Participation"]
     every = items.list_items(conn, s, now=NOW, rules=RULES, show="all", family="nonsense")
     assert len(every) == len(_views(conn))
+
+
+def test_rule_reach_counts_only_live_items(tmp_path):
+    """Work the gradebooks have dropped stays in `items` (the change log's history) but is not
+    on any page, so "applies to N items" does not count it."""
+    conn = seed(tmp_path)
+    later = snapshot()
+    later["fetched_at"] = "2026-09-16T13:50:00-04:00"
+    eng = later["students"]["Alex"]["canvas"]["courses"][0]["assignments"]
+    later["students"]["Alex"]["canvas"]["courses"][0]["assignments"] = [a for a in eng if a["name"] != "Reading log"]
+    from datetime import timedelta
+    from fridgesheet.web import ingest
+    from web_fixtures import TZ
+    ingest.record(conn, later, tz=TZ, now=NOW + timedelta(days=1))
+    sid = students.by_key(conn, "Alex")["id"]
+    canvas_eng = [c for c in _course(conn, "English") if c["source"] == "canvas"][0]
+    assert type_store.rule_reach(conn, sid, canvas_eng["id"], "group", "homework", NOW + timedelta(days=1)) == 5

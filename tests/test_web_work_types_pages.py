@@ -49,7 +49,7 @@ def test_the_type_filter_shows_one_family_and_counts_each(tmp_path):
     page = app_for(tmp_path).get("/kids/Alex?show=all&type=assessment").text
     week = _pages(page)
     assert "Quiz 1" in week and "Essay draft" not in week
-    links = re.search(r'<p class="type-links">(.*?)</p>', page, re.S).group(1)
+    links = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', page, re.S).group(1)
     assert re.search(r"Tests &amp; quizzes 1<", links) and re.search(r"Labs &amp; projects 1<", links)
     assert re.search(r'aria-current="true"[^>]*>Tests &amp; quizzes', links)
 
@@ -171,7 +171,33 @@ def test_the_type_counts_are_what_each_link_shows(tmp_path):
     c = app_for(tmp_path)
     c.post(f"/items/{_item_ids(conn)['Participation']}/answer", data={"answer": "too_late", "prev": ""})
     page = c.get("/kids/Alex").text
-    links = re.search(r'<p class="type-links">(.*?)</p>', page, re.S)
+    links = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', page, re.S)
     assert links and "Participation" not in links.group(1)
     shown = int(re.search(r'id="all-count" class="count">(\d+)', page).group(1))
     assert re.search(rf">All {shown}<", links.group(1))
+
+
+def test_the_type_links_follow_an_htmx_filter_change(tmp_path):
+    """The filter form swaps only #items; the links ride along out of band, with the new filter
+    in their hrefs and counts, as the row count does."""
+    seed(tmp_path, _quiz_snapshot()).close()
+    r = app_for(tmp_path).get("/kids/Alex?show=all&source=canvas", headers={"HX-Request": "true"})
+    m = re.search(r'<p id="type-links" class="type-links" hx-swap-oob="true">(.*?)</p>', r.text, re.S)
+    assert m, r.text[:400]
+    assert "source=canvas" in m.group(1)
+    assert "Participation" not in m.group(1)                  # HAC-only: the new filter's counts
+
+
+def test_a_type_in_force_with_nothing_to_show_keeps_its_link_and_all(tmp_path):
+    seed(tmp_path, _quiz_snapshot()).close()
+    page = app_for(tmp_path).get("/kids/Alex?show=all&type=participation&outcome=on_time").text
+    links = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', page, re.S)
+    assert links, "the row stays while a type is in force"
+    assert re.search(r'aria-current="true"[^>]*>Participation 0<', links.group(1))
+    assert ">All " in links.group(1)
+
+
+def test_the_rule_offer_names_the_specific_gradebook_name(tmp_path):
+    conn = seed(tmp_path, _quiz_snapshot())       # Quiz 1: Canvas "Quizzes & Tests", HAC "Assignments"
+    detail = app_for(tmp_path).get(f"/items/{_item_ids(conn)['Quiz 1']}").text
+    assert "filed under “Quizzes &amp; Tests”" in detail

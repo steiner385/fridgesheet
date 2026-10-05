@@ -92,13 +92,16 @@ Participation" a project.
 
 | Family | Words |
 |---|---|
-| assessment | test, exam, final, midterm, quiz, quizzes, pre-test, pretest, assessment, assessments, checkpoint, summative |
+| assessment | test, exam, midterm, quiz, quizzes, pre-test, pretest, assessment, assessments, checkpoint, summative |
 | lab_project | lab, labs, project, presentation, research, essay |
 | participation | participation, attendance, concert, performance, performances, playing, seminar |
 | practice | homework, hmwk, hw, classwork, class work, daily, warm-up, bell ringer, exit ticket, worksheet, ws |
 
 `open_items.ASSESSMENT_WORDS` becomes the assessment row; `open_items` and `web.ingest` stop
 computing `is_assessment` from it once §6.4 lands.
+
+Not "final": on the household's data "Final Draft", "Final Submission" and "Final Update" are
+essays and logs, and a final exam says "exam" or "test" as well (final review, 2026-10-04).
 
 "Test Corrections", "Test Review" and "Quiz Retake" are deliberately left to the keywords (they
 read as assessment); a family that disagrees corrects them once with a name-prefix rule.

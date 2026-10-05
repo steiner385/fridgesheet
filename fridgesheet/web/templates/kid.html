@@ -61,6 +61,7 @@
   {# The count lives in the section head, outside this swap; the partial carries it out of band
      so a filter or sort change doesn't leave it stale. The <template> keeps it inert on a full
      page load (the head above already has the live one). #}
+  <template>{% set tier = student.key | tier_of %}{% with oob = true %}{% include "_type_links.html" %}{% endwith %}</template>
   <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span></template>
   {% endblock %}
   </div>

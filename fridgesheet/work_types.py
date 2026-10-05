@@ -26,12 +26,15 @@ from typing import Iterable, Sequence
 FAMILIES: tuple[str, ...] = ("assessment", "practice", "lab_project", "participation")
 #: The order the MCP server and (PR 2) Must-finish break ties in: tests first.
 RANK: dict[str, int] = {"assessment": 0, "lab_project": 1, "practice": 2, "participation": 3}
+FAMILIES_BY_RANK: tuple[str, ...] = tuple(sorted(FAMILIES, key=RANK.__getitem__))
 GENERIC: frozenset[str] = frozenset({"assignments", "imported assignments", "total points", ""})
 
 #: (family, word patterns), tried in this order, first match wins: "Lab Quiz" is a quiz.
 #: Each pattern must stand alone: no letter on either side ("lab" is not in "label").
 KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("assessment", ("tests?", "exams?", "finals?", "midterms?", "quiz", "quizzes", "pre-?tests?",
+    # Not "final": "Final Draft" and "Final Submission" are essays (2026-10-04); a final exam
+    # says "exam" or "test" as well.
+    ("assessment", ("tests?", "exams?", "midterms?", "quiz", "quizzes", "pre-?tests?",
                     "assessments?", "check ?points?", "summative")),
     ("lab_project", ("labs?", "projects?", "presentations?", "research", "essays?")),
     ("participation", ("participation", "attendance", "concerts?", "performances?", "playing", "seminars?")),
@@ -81,8 +84,11 @@ def keyword_family(text: str | None) -> str | None:
 
 
 def gradebook_name(facts: Facts) -> str | None:
-    """The name a group rule offers to pin: HAC's category, else Canvas's group."""
-    return next((n.strip() for n in (facts.hac_category, facts.canvas_group) if n and n.strip()), None)
+    """The name a group rule offers to pin: the first that names something, HAC's category
+    before Canvas's group, as the ladder reads them; a generic bucket only when it is all there
+    is (a rule on it is for everyday work)."""
+    names = [n.strip() for n in (facts.hac_category, facts.canvas_group) if n and n.strip()]
+    return next((n for n in names if not is_generic(n)), names[0] if names else None)
 
 
 def _rule_order(r: Rule) -> tuple:
