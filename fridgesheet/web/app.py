@@ -235,8 +235,12 @@ def _filters(state: AppState) -> dict:
             else:
                 said = verdicts.words("record.offline" if item.kind in ("paper", "outside Canvas") else "record.nothing", "")
             lines.append("Canvas: " + ", ".join(x for x in (said, score(c)) if x))
+        elif item.canvas_checked:
+            lines.append("Canvas: " + verdicts.words("record.not_listed", ""))
         if h is not None:
             lines.append("HAC: " + (score(h) or verdicts.words("record.no_grade", "")))
+        elif item.hac_checked:
+            lines.append("HAC: " + verdicts.words("record.not_listed", ""))
         if item.canvas_path:
             lines.append(state.settings.canvas_base + item.canvas_path)
         return "\n".join(lines)

@@ -135,6 +135,39 @@ def test_the_record_states_the_facts_the_sources_hold(tmp_path):
     assert "28/30" not in lines and "0/10" not in lines
 
 
+def test_the_record_names_both_gradebooks_and_says_which_has_no_score(tmp_path):
+    """An item one gradebook does not list used to show only the other's line, so "no HAC score"
+    read as nothing at all. Both lines show now; the absent one says so, stamped with when
+    Fridge Sheet last looked there."""
+    c = app_for(tmp_path)
+    essay = _sources(c.get(f"/items/{_id(tmp_path, 'Essay draft')}").text)    # Canvas only
+    part = _sources(c.get(f"/items/{_id(tmp_path, 'Participation')}").text)   # HAC only
+    assert [re.search(r'class="src">(\w+)<', l).group(1) for l in essay] == ["Canvas", "HAC"]
+    assert [re.search(r'class="src">(\w+)<', l).group(1) for l in part] == ["Canvas", "HAC"]
+    not_listed = phrasing.phrase("record.not_listed", "older")
+    assert not_listed in essay[1] and "checked " in essay[1] and not_listed not in essay[0]
+    assert not_listed in part[0] and "checked " in part[0] and not_listed not in part[1]
+
+
+def test_a_gradebook_never_read_says_so_rather_than_not_listed(tmp_path):
+    conn = seed(tmp_path)
+    iid = conn.execute("SELECT id FROM items WHERE name = 'Essay draft'").fetchone()["id"]
+    conn.execute("""UPDATE refreshes SET sources = '{"canvas": "ok", "hac": "error"}'""")
+    conn.commit()
+    conn.close()
+    essay = _sources(app_for(tmp_path).get(f"/items/{iid}").text)
+    assert phrasing.phrase("record.not_read", "older") in essay[1]
+    assert phrasing.phrase("record.not_listed", "older") not in essay[1] and "checked" not in essay[1]
+
+
+def test_the_email_to_the_teacher_says_which_gradebook_does_not_list_it(tmp_path):
+    from urllib.parse import unquote
+    c = app_for(tmp_path)
+    detail = c.get(f"/items/{_id(tmp_path, 'Essay draft')}").text
+    body = unquote(re.search(r"body=([^\"]+)", detail).group(1))
+    assert "HAC: " + phrasing.phrase("record.not_listed", "") in body
+
+
 @pytest.mark.parametrize("tier", list(tiers.TIERS) + [""])
 def test_every_tier_gets_every_source_line_the_oldest_gets(tmp_path_factory, tier):
     """The record is tiered now (persona review, 4.1); tiering changes the words, never the
