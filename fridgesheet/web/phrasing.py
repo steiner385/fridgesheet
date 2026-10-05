@@ -373,8 +373,10 @@ PHRASES: dict[str, dict[str, str]] = {
     "record.grade":        {"early": "grade {grade}", "middle": "grade {grade}", "older": "grade {grade}"},
     "record.no_grade":     {"early": "no grade", "middle": "no grade posted", "older": "no grade posted"},
     # The gradebook does not list the item at all: the record still names both, so a reader
-    # never has to guess whether the other one was looked at.
+    # never has to guess whether the other one was looked at. `not_read` when that gradebook has
+    # never been read, so an absence is never claimed from a look that did not happen.
     "record.not_listed":   {"early": "not there, so no score", "middle": "not listed, so no score", "older": "not listed, so no score"},
+    "record.not_read":     {"early": "not looked at yet", "middle": "not read yet", "older": "not read yet"},
     # --- who each surface speaks to (kids' UX audit F7). Assignments is the child's page and says
     # "you" to the child; the check-in and the plan are "we"; the two fields only a helping adult
     # fills in say so beside their label. The questions heading is swapped out of band after an
