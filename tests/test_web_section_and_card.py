@@ -135,6 +135,15 @@ def test_the_record_puts_each_sources_stamp_under_its_facts_and_carries_no_gloss
     assert "Open in Canvas (opens a new tab)" in inset
 
 
+@pytest.mark.parametrize("name, holds, lacks", [("Essay draft", "Canvas", "HAC"), ("Participation", "HAC", "Canvas")])
+def test_the_record_names_both_gradebooks_and_says_when_one_does_not_list_the_item(tmp_path, name, holds, lacks):
+    body = app_for(tmp_path).get(f"/items/{_id(tmp_path, name)}").text
+    inset = _element(body, '<div class="inset">')
+    assert re.search(rf'<span class="src">{holds}</span><span>[^<]*no grade posted</span>', inset)
+    assert re.search(rf'<span class="src">{lacks}</span><span>not listed, so no score</span>', inset)
+    assert inset.index('<span class="src">Canvas</span>') < inset.index('<span class="src">HAC</span>')
+
+
 # --- §4 the five slots, at card and detail density ------------------------------------------------
 
 def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_path):
