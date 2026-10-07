@@ -6,7 +6,7 @@
 {% set page_title = student.key | nickname %}
 {# "Jump to our next steps" used to sit here: beside a sidebar the plan is already in view, and
    stacked, the strip at the bottom of the screen (`.halves`) is the way between the halves (#189). #}
-{# Reset plan (2026-10-04): every triaged row in the window back to Needs you now, after a
+{# Reset plan (2026-10-04): every triaged row in the window back to the to-do list, after a
    confirm that counts them. The button sits in the head's actions, a paragraph, so its form is
    outside it and named by `form=`. #}
 {% set page_actions %}<a class="button-link" href="/kids/{{ student.key | urlencode }}/plan/print">Print plan</a>{% if triaged_n %} <button class="button-link" form="reset-plan">{{ 'copy.reset_plan' | say(student.key | tier_of) }}</button>{% endif %}{% endset %}

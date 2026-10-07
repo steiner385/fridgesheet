@@ -348,7 +348,7 @@ def with_reset(path: str, reset_id: int | None) -> str:
 
 
 def reset_notice(request: Request, conn: sqlite3.Connection) -> dict | None:
-    """`?reset=<id>`: what a Reset sent back to Needs you now, for the notice its one Undo sits
+    """`?reset=<id>`: what a Reset sent back to the to-do list, for the notice its one Undo sits
     in (`_reset_notice.html`). Nothing once it is undone, so Back after Undo offers no second."""
     raw = request.query_params.get("reset", "")
     if not raw.isdigit():

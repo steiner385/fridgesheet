@@ -121,13 +121,18 @@ def test_the_fold_is_the_same_at_every_tier(tmp_path):
 
 # --- the filters: two you use, the rest behind a second fold ------------------------------------------
 
-def test_the_rarely_used_filters_sit_behind_a_second_fold(tmp_path):
+def test_the_rarely_used_filters_are_gone_and_their_links_still_list(tmp_path):
+    """Assignments as a to-do list (spec 2026-10-06): one Class picker on To do, Class and
+    Outcome on Done; the gradebook, kind, answer and verdict filters left the page, and a link
+    that carries one still opens Done with it in force, kept through a class change."""
     seed(tmp_path).close()
-    head = app_for(tmp_path).get("/kids/Alex").text
-    more = re.search(r'<details class="more-filters"[^>]*>(.*?)</details>\s*<input type="hidden" name="sort"', head, re.S).group(1)
-    assert more.index("Outcome") < more.index("Your answer") < more.index('<details class="rare-filters">')
-    rare = more[more.index('<details class="rare-filters">'):]
-    assert "Which gradebook" in rare and "Kind of work" in rare and "What the app says" in rare
+    c = app_for(tmp_path)
+    head = c.get("/kids/Alex").text
+    for name in ("source", "kind", "flagged", "verdict", "outcome", "show"):
+        assert f'<select name="{name}"' not in head and f'name="{name}"' not in head, name
+    done = c.get("/kids/Alex?source=hac").text
+    assert 'id="done"' in done and '<input type="hidden" name="source" value="hac">' in done
+    assert '<select name="outcome"' in done
 
 
 # --- Today: the number first, the buttons after -------------------------------------------------------

@@ -55,7 +55,7 @@ def test_an_asked_item_keeps_its_date_and_email_everywhere(tmp_path):
     conn.close()
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
-    waiting = kid[kid.index("Waiting, nothing to do yet"):]          # the fold under the weekly pages
+    waiting = kid[kid.index('<details id="waiting"'):]               # the fold under To do
     assert "Participation" in waiting and "Asked the teacher on 9/15" in waiting and "mailto:hoch@example.org" in waiting
     q = c.get("/questions").text
     assert "Waiting on the teacher" in q and "Participation" in q

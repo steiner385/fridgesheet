@@ -114,8 +114,8 @@ def test_the_kid_table_has_the_three_columns_and_the_old_composite_words_are_gon
     from web_fixtures import app_for, seed
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    html = c.get("/kids/Alex", headers={"host": "127.0.0.1"}).text
-    table = html[html.index('id="items"'):html.index('class="legend sources-hint')]      # the weekly pages
+    html = c.get("/kids/Alex?show=all", headers={"host": "127.0.0.1"}).text
+    table = html[html.index('id="items"'):html.index('class="legend sources-hint')]      # the weekly pages (Done)
     # A sort key carries an arrow inside its link when it is the key doing the sorting
     # (#11 item 9), so the label is not always the whole of the element's text.
     for header in ("Due", "Assignment", "Where it stands"):

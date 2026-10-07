@@ -1,5 +1,5 @@
 """Reset (2026-10-04): a triage tap made the wrong way is taken back in one tap, and a kid's
-whole plan can be sent back to Needs you now. A reset deletes the open steps and clears the
+whole plan can be sent back to the to-do list. A reset deletes the open steps and clears the
 family's answers on the work it covers, and keeps a copy of both so its one Undo puts them back
 exactly as they were. Completed steps and check-in agreements are history and stay."""
 from __future__ import annotations
@@ -34,9 +34,14 @@ def _open_steps(conn, item_id):
 
 
 def _needs_now(body: str) -> list[int]:
-    start = body.index('id="needs-now"')
-    section = body[start:body.index("</section>", start)]
-    return [int(i) for i in re.findall(r'<div class="item[^"]*" id="nn-(\d+)"', section)]
+    """The rows Assignments asks about or answers in place (spec 2026-10-06): overdue, tonight,
+    tomorrow and Check with the teacher, each an `nn-<id>` row."""
+    return [int(i) for i in re.findall(r'<div class="item[^"]*" id="nn-(\d+)"', body)]
+
+
+def _row(body: str, item_id: int) -> str:
+    from tests.web_fixtures import needs_row
+    return needs_row(body, item_id)
 
 
 # --- the store -----------------------------------------------------------------------------
@@ -95,24 +100,26 @@ def test_nothing_to_reset_records_nothing(tmp_path):
 
 # --- one assignment ------------------------------------------------------------------------
 
-def test_reset_on_a_planned_row_puts_it_back_on_needs_you_now_with_an_undo(tmp_path):
+def test_reset_on_a_planned_row_takes_its_step_off_with_an_undo(tmp_path):
+    """A step never takes a row off the to-do list (spec 2026-10-06); Reset takes the step off
+    the row, which asks "When will you work on it?" again."""
     conn = seed(tmp_path)
     alex, worksheet = _kid(conn, "Alex"), _id(conn, "Worksheet 3")
-    _step(conn, alex, worksheet, "Worksheet 3")                 # tomorrow: in hand, off the triage
+    _step(conn, alex, worksheet, "Worksheet 3")                 # tomorrow: in hand
     conn.close()
     client = app_for(tmp_path)
     body = client.get("/kids/Alex").text
-    assert worksheet not in _needs_now(body)
+    assert "Our step: Work on it" in _row(body, worksheet)
     assert f'action="/items/{worksheet}/reset"' in body
     r = client.post(f"/items/{worksheet}/reset", data={"return_to": "/kids/Alex"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/kids/Alex?reset=")
     body = client.get(r.headers["location"]).text
-    assert worksheet in _needs_now(body)
+    assert "Our step" not in _row(body, worksheet) and 'class="ask-line plan"' in _row(body, worksheet)
     reset_id = int(r.headers["location"].rsplit("=", 1)[1])
-    assert "Worksheet 3 is back on Needs you now." in body and f'action="/resets/{reset_id}/undo"' in body
+    assert "Worksheet 3 is back on the to-do list." in body and f'action="/resets/{reset_id}/undo"' in body
     r = client.post(f"/resets/{reset_id}/undo", data={"return_to": "/kids/Alex"}, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/kids/Alex"
-    assert worksheet not in _needs_now(client.get("/kids/Alex").text)
+    assert "Our step: Work on it" in _row(client.get("/kids/Alex").text, worksheet)
 
 
 def test_an_answer_alone_is_reset_from_the_records_more_menu(tmp_path):
@@ -155,7 +162,7 @@ def test_reset_plan_sends_every_triaged_row_in_the_window_back_and_undo_restores
     conn.close()
     client = app_for(tmp_path)
     page = client.get("/kids/Alex/plan").text
-    assert 'action="/kids/Alex/plan/reset"' in page and "Send 3 items back to Needs you now?" in page
+    assert 'action="/kids/Alex/plan/reset"' in page and "Send 3 items back to the to-do list?" in page
     r = client.post("/kids/Alex/plan/reset", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/kids/Alex/plan?reset=")
     reset_id = int(r.headers["location"].rsplit("=", 1)[1])
@@ -164,7 +171,7 @@ def test_reset_plan_sends_every_triaged_row_in_the_window_back_and_undo_restores
     assert flags.active(conn, essay)["flag"] == "done"
     assert plans.one(conn, alex, finished)["state"] == "done" and plans.one(conn, alex, own) is not None
     conn.close()
-    assert "3 items are back on Needs you now." in client.get(r.headers["location"]).text
+    assert "3 items are back on the to-do list." in client.get(r.headers["location"]).text
     client.post(f"/resets/{reset_id}/undo", data={"return_to": "/kids/Alex/plan"})
     conn = db.connect(tmp_path / db.DB_NAME)
     assert len(_open_steps(conn, vocab)) == len(_open_steps(conn, worksheet)) == 1

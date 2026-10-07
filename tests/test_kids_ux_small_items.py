@@ -23,7 +23,7 @@ def test_every_filter_option_is_a_few_words(tmp_path):
     """"done, excused, let go, or too late to submit" was a sentence inside a <select>."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex").text
-    form = re.search(r'<form class="filters controls".*?</form>', body, re.S).group(0)
+    form = re.search(r'<form class="filters controls[^"]*".*?</form>', body, re.S).group(0)
     options = [re.sub(r"\s+", " ", o).strip() for o in re.findall(r"<option[^>]*>(.*?)</option>", form, re.S)]
     assert options, "no filter options found"
     long = [o for o in options if len(o.split()) > 4 and not o.startswith("Honors") and not o.startswith("Algebra")]
@@ -47,9 +47,9 @@ def test_the_apps_own_pace_reasoning_folds_away(tmp_path):
     the once-per-class banner that leads the paper section."""
     pid = _id(tmp_path, "Participation")
     c = app_for(tmp_path)
-    from tests.web_fixtures import week_line
+    from tests.web_fixtures import needs_row
     kid = c.get("/kids/Alex").text
-    card = week_line(kid, pid)                     # asked on its own line on the week's page
+    card = needs_row(kid, pid)                     # asked under To do, in Check with the teacher
     assert "allows 7 days" in card
     assert card.index("<summary>Record</summary>") < card.index("allows 7 days")
     checkin = c.get("/kids/Alex/check-in").text

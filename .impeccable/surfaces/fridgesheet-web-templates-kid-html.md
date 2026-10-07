@@ -19,9 +19,19 @@ Open work keep `_item_rows.html` unchanged. The world is settled (DESIGN.md, The
 this brief records composition only. Unresolved: whether the class page adopts the weekly pages;
 whether the three child tabs collapse.
 
+**Superseded in part, 2026-10-06** (maintainer; spec
+`docs/superpowers/specs/2026-10-06-assignments-to-do-design.md`): the page opens on **To do**,
+every open item once in deadline bands (overdue, tonight, tomorrow, later this week, later
+folded), with Check with the teacher under it and Waiting on a grade / Missed — too late for
+credit folded beneath. The weekly pages below are now the **Done** view (`?view=done`, and any
+old link's filter), newest week first. One partition, `items.assignments`, puts each row in
+exactly one place. The Needs you now section, Open · Everything and the More filters folds are
+gone; the job is "what is left to do", not "see everything". The world, the vocabulary and the
+constraints above stand.
+
 ## Direction contract
 
-THESIS: Assignments is the child's planner turned back page by page: every assignment sits on the
+THESIS (the Done view since 2026-10-06): Assignments is the child's planner turned back page by page: every assignment sits on the
 week it was due, this week's page first, earlier weeks beneath, settled weeks folded to one tally
 line. It refuses the filterable data table this category ships and its opposite, the card feed.
 

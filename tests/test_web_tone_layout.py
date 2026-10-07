@@ -33,14 +33,17 @@ def test_the_record_says_when_each_source_was_checked_and_when_it_changed(tmp_pa
 
 def test_old_decided_lines_fold_under_earlier(tmp_path):
     seed(tmp_path).close()
-    later = app_for(tmp_path, now=NOW + timedelta(days=10)).get("/kids/Alex").text
+    later = app_for(tmp_path, now=NOW + timedelta(days=10)).get("/kids/Alex?view=done").text
     assert re.search(r"<summary>Earlier \(1\)</summary>", later)          # Quiz 1, settled 10 days ago
-    assert "Earlier (" not in app_for(tmp_path).get("/kids/Alex").text     # today: still recent
+    assert "Earlier (" not in app_for(tmp_path).get("/kids/Alex?view=done").text     # today: still recent
 
 
-def test_a_kid_with_nothing_to_answer_is_told_so(tmp_path):
+def test_a_kid_with_nothing_to_answer_gets_no_empty_section(tmp_path):
+    """Assignments as a to-do list (spec 2026-10-06): Check with the teacher is drawn only with
+    a question in it; the to-do list says its own empty line to the child."""
     seed(tmp_path).close()
-    assert "Nothing to answer." in app_for(tmp_path).get("/kids/Sam").text     # said to the child (kids' UX audit F7)
+    body = app_for(tmp_path).get("/kids/Sam").text
+    assert 'id="check-teacher"' not in body and 'id="to-do"' in body
 
 
 # --- #77 ----------------------------------------------------------------------------------------
@@ -49,7 +52,7 @@ def test_the_app_does_not_speak_for_the_school(tmp_path):
     seed(tmp_path).close()
     assert "automatic" not in verdicts.say("facts.graded_in_hac", "", {"hac": "28 of 30"})
     assert verdicts.say("where.past_credit", "", {"school": "Canvas marks it missing"}).startswith("Canvas marks it missing")
-    body = app_for(tmp_path).get("/kids/Alex").text
+    body = app_for(tmp_path).get("/kids/Alex?view=done").text
     assert "Decided for you" not in body and "Settled by the records" in body
 
 
@@ -88,8 +91,9 @@ def test_layout_and_names(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     body = c.get("/kids/Alex").text
-    assert not re.search(r"<a [^>]*hx-post=", body), "a link that POSTs should be a button"
-    assert re.search(r'<button[^>]*aria-label="Not right\? Quiz 1"', body)
+    done = c.get("/kids/Alex?view=done").text
+    assert not re.search(r"<a [^>]*hx-post=", body + done), "a link that POSTs should be a button"
+    assert re.search(r'<button[^>]*aria-label="Not right\? Quiz 1"', done)
     assert "Asks you on" in body and "Asks you after" not in body
     conn = seed(tmp_path)
     qid = _id(conn, "Quiz 1")

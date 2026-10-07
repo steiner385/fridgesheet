@@ -635,18 +635,6 @@ def must_finish(work: OpenWork, today: date, covered: set[int] = frozenset()) ->
     )
 
 
-def needs_you_now(work: OpenWork, questions: list[ItemView], today: date) -> list[ItemView]:
-    """The top of Assignments (2026-10-04): Must finish's red rows -- tonight, tomorrow, then
-    overdue work closest to losing credit first -- and then the questions, each once. A step
-    still ahead covers its row, as on the Plan; a step whose day has passed has slipped, and
-    its row is back here."""
-    ahead = {v.id for v in work.fixable + work.upcoming
-             if v.step is not None and date.fromisoformat(v.step["planned_for"]) >= today}
-    red = must_finish(work, today, ahead).red
-    listed = {v.id for v in red}
-    return red + [v for v in questions if v.id not in listed]
-
-
 @dataclass(frozen=True)
 class Assignments:
     """Assignments' groups (spec 2026-10-06): each of a kid's rows in exactly one. The five

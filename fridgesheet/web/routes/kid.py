@@ -84,17 +84,18 @@ def _tally(views) -> list[tuple[str, int]]:
     return [(key, n) for key, n in parts if n] or [("copy.tally_listed", len(views))]
 
 
-def weeks_of(shown, everything, now, *, by_day: bool = False) -> list[dict]:
+def weeks_of(shown, everything, now, *, by_day: bool = False, always_this_week: bool = True) -> list[dict]:
     """The planner turned back a page at a time (the weekly pages, Assignments): every row the
     other filters allow, grouped by the week it was due, the newest week first, the list's own
     order kept inside each week; rows with no due date on a last page. A week with a row in
     the shown set (`shown`: the Open / Everything choice) is printed open with those rows; a
     week with none folds to its label and tally, its settled rows behind the fold. This week's
-    page is printed whether or not anything is written on it. `by_day` marks the first row of
-    each day, so a week sorted by due date reads as day rows."""
+    page is printed whether or not anything is written on it, unless `always_this_week` is off
+    (Assignments' Done view, where an empty this week would read as nothing due). `by_day` marks
+    the first row of each day, so a week sorted by due date reads as day rows."""
     this_week = week_start(now.date())
     shown_ids = {v.id for v in shown}
-    groups: dict = {this_week: []}
+    groups: dict = {this_week: []} if always_this_week else {}
     for v in everything:
         groups.setdefault(week_start(deadline_date(v.due)) if v.due else None, []).append(v)
     order = sorted((k for k in groups if k is not None), reverse=True) + ([None] if None in groups else [])
@@ -118,65 +119,78 @@ def weeks_of(shown, everything, now, *, by_day: bool = False) -> list[dict]:
     return out
 
 
+#: The old list's narrowing filters (spec 2026-10-06, "Old URLs"): any of them opens the Done
+#: view with it in force, so a link from Open work's "Not shown" counts, the dashboard or a
+#: bookmark still lists what it counted.
+_NARROWING = ("source", "kind", "flagged", "verdict", "outcome")
+
+
+def _narrowed(f: dict) -> bool:
+    return (f["show"] in items.SHOW and f["show"] != "open") or any(f[k] for k in _NARROWING)
+
+
+def _later_span(rows) -> dict:
+    """"8 due Mon 10/12 – Fri 10/16": the folded Later band's summary."""
+    days = [deadline_date(v.due) for v in rows if v.due]
+    return {"n": len(rows), "first": wd_md(min(days)) if days else "", "last": wd_md(max(days)) if days else ""}
+
+
 @router.get("/kids/{key}")
 def kid(key: str, request: Request, conn: sqlite3.Connection = Db, state=State):
+    """Assignments (spec 2026-10-06): To do, every open row once in deadline order with the
+    gradebook questions, waiting and missed work under it; or Done, the weekly pages of finished
+    work. One partition (`items.assignments`) decides where each row goes."""
     s = student_or_404(conn, key)
     now, rules = state.now(), state.rules()
     f = _filters(request)
-
-    def page_rows(f: dict) -> list:
-        rows = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **f)
-        # A question is open to the family whatever the record says, and on this page it is asked
-        # on its own line (the weekly pages): Open shows every asked row the other filters allow.
-        if f["show"] == "open":
-            shown = {v.id for v in rows}
-            asked = [v for v in items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
-                     if v.asks and v.id not in shown]
-            if asked:
-                rows = items.sorted_views(rows + asked, f["sort"], f["direction"])
-        return rows
-    rows = page_rows(f)
-    # The type links count what each link would show: this page's rows with only the type lifted.
-    counts = Counter(v.family for v in (page_rows({**f, "family": None}) if f["family"] else rows))
-    # The weeks are turned back through every row the other filters allow: a week with nothing
-    # in the shown set still prints, folded, with its tally.
-    listed = rows if f["show"] == "all" else items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window(), **{**f, "show": "all"})
-    # The sections under the pages cover all of the kid's work, whatever the pages show.
-    everything = items.list_items(conn, s, now=now, rules=rules, prefs=state.sources(), show="all", **state.window())
-    by_state = {st: [v for v in everything if v.verdict.state == st] for st in ("decided", "waiting")}
-    # Settled in the last week stays in view; older settled work folds under "Earlier" (#76).
-    week_ago = now - timedelta(days=7)
-    recent = [v for v in by_state["decided"] if items.changed_since(v, week_ago)]
-    by_state["decided_earlier"] = [v for v in by_state["decided"] if v not in recent]
-    by_state["decided"] = recent
-    # Asked the teacher, or following up: waiting too, with the date and the email (#73).
-    by_state["waiting"] += [v for v in everything if v.verdict.kind in ("asked", "following_up")]
-    by_state["question"] = [v for v in everything if v.asks]          # an agreed step already covers the rest
-    # Needs you now: the triage above the pages, the Plan's red rows and then the questions,
-    # answered in place; a line on the pages that is up there offers nothing a second time.
-    work = items.open_work(conn, s, now=now, rules=rules, prefs=state.sources(), **state.window())
-    needs_now = items.needs_you_now(work, by_state["question"], now.date())
+    kw = dict(now=now, rules=rules, prefs=state.sources(), **state.window())
+    narrowed = _narrowed(f)
+    page = "done" if (request.query_params.get("view") == "done" or narrowed or f["family"]
+                      or "sort" in request.query_params) else "to_do"
+    everything = items.list_items(conn, s, show="all", **kw)
     # What got done, in the dashboard's five outcomes (docs/outcomes.md): on time, late and done
-    # outside Canvas are done; not done and unknown are not, or not yet. One line above the questions.
+    # outside Canvas are done; not done and unknown are not, or not yet.
     record = items.record_for(everything)
-    return render(request, conn, "kid.html", current=f"kid:{key}", student=s, rows=rows, f=f, workspace="all",
-                  weeks=weeks_of(rows, listed, now, by_day=f["sort"] == "due"), by_day=f["sort"] == "due", here=f"/kids/{quote(key)}",
+    here = f"/kids/{quote(key)}"
+    common = dict(current=f"kid:{key}", student=s, f=f, workspace="all", here=here, page=page, narrowed=narrowed,
                   done_so_far={"done": record.on_time + record.late + record.done_offline, "total": record.total, "on_time": record.on_time},
-                  widened=items.widens_to_all(f["outcome"], f["flagged"], f["verdict"]),
-                  needs_now=needs_now, up_top={v.id for v in needs_now},
-                  questions=by_state["question"], decided=by_state["decided"], decided_earlier=by_state["decided_earlier"], waiting=by_state["waiting"],
-                  sort=f["sort"], direction=f["direction"],
-                  sort_base=_sort_base(key, f), course_options=students.course_options(conn, s["id"]),
-                  type_links=type_links(f"/kids/{quote(key)}", _filter_params(f), counts, f["family"]),
-                  SHOW=items.SHOW, FLAGGED=items.FLAGGED, SORTS=items.SORTS,
-                  OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
+                  course_options=students.course_options(conn, s["id"]),
+                  SHOW=items.SHOW, OUTCOMES=outcomes.ORDER, OUTCOME_LABELS=outcomes.LABELS)
+    if page == "to_do":
+        groups = items.assignments(items.list_items(conn, s, show="all", course_id=f["course_id"], **kw), now.date())
+        return render(request, conn, "kid.html", groups=groups, later_span=_later_span(groups.later), **common)
+
+    def done_rows(f: dict) -> tuple[list, list]:
+        """The Done view's rows and the rows its weeks are turned back through: the done group
+        by default; under an old narrowing filter, exactly what that filter lists."""
+        listed = items.list_items(conn, s, **kw, **{**f, "show": "all"})
+        if narrowed:
+            return items.list_items(conn, s, **kw, **f), listed
+        done = {v.id for v in items.assignments(listed, now.date()).done}
+        rows = [v for v in listed if v.id in done]
+        return rows, rows
+    rows, listed = done_rows(f)
+    # The type links count what each link would show: this page's rows with only the type lifted.
+    counts = Counter(v.family for v in (done_rows({**f, "family": None})[0] if f["family"] else rows))
+    # A record, newest first: this week's and last week's pages open, older weeks folded to
+    # their tally. A narrowing filter prints every week it matched, as the list it came from did.
+    since = week_start(now.date()) - timedelta(days=7)
+    shown = rows if narrowed else [v for v in rows if v.due and deadline_date(v.due) >= since]
+    week_ago = now - timedelta(days=7)
+    decided = [v for v in everything if v.verdict.state == "decided"]
+    recent = [v for v in decided if items.changed_since(v, week_ago)]     # older settled work folds (#76)
+    params = [("view", "done")] + _filter_params(f)
+    return render(request, conn, "kid.html", rows=rows, sort=f["sort"], direction=f["direction"], by_day=f["sort"] == "due",
+                  weeks=weeks_of(shown, listed, now, by_day=f["sort"] == "due", always_this_week=narrowed),
+                  sort_base=f"{here}?{urlencode(params)}&",
+                  type_links=type_links(here, params, counts, f["family"]),
+                  decided=recent, decided_earlier=[v for v in decided if v not in recent], **common)
 
 
 def card_for(raw: str | None, item_id: int) -> str | None:
     """The question card an item detail replaced (#126): "q-<id>" from a question list,
-    "qc-<id>" from a check-in, "row-<id>" from a week's page on Assignments or "nn-<id>" from
-    Needs you now, for this item
-    only. The detail takes over that card's id, and its Close fetches the card back into it;
+    "qc-<id>" from a check-in, "row-<id>" from a line on Assignments or "nn-<id>" from an urgent or
+    asked row there, for this item only. The detail takes over that card's id, and its Close fetches the card back into it;
     anything else is a detail in a table row, which app.js closes by hiding the row."""
     return raw if raw in (f"q-{item_id}", f"qc-{item_id}", f"row-{item_id}", f"nn-{item_id}") else None
 

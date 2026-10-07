@@ -1,0 +1,49 @@
+{# Assignments' To do view (spec 2026-10-06), from `items.assignments`: the list a child works down,
+   in deadline bands, then what is not theirs to do yet. Overdue, tonight and tomorrow are
+   `_needs_now_row.html` rows with the Plan's one-tap answers (`nn-<id>`, answers in `qn-<id>`);
+   the rest are `_week_line.html` lines (`row-<id>`), which ask only when the app asks. A step
+   never takes a row away: it is written under the row. #}
+{% set tier = student.key | tier_of %}
+<section id="to-do" class="sec to-do" aria-labelledby="todo-head">
+  <div class="sec-head"><h3 id="todo-head">{{ 'copy.to_do' | say(tier) }}</h3><span class="count">{{ groups.to_do | length }}</span></div>
+  {% set bands = [
+    ('overdue',   'copy.overdue_fixable', groups.overdue,   true),
+    ('tonight',   'copy.due_tonight',     groups.tonight,   true),
+    ('tomorrow',  'copy.due_tomorrow',    groups.tomorrow,  true),
+    ('this_week', 'copy.band_this_week',  groups.this_week, false),
+  ] %}
+  {% for key, label, rows, answers in bands if rows %}
+  <div class="mf-section" data-band="{{ key }}"><h4>{{ label | say(tier) }}</h4>
+    {% for view in rows %}{% if answers %}{% include "_needs_now_row.html" %}{% else %}{% set day = '' %}{% include "_week_line.html" %}{% endif %}{% endfor %}
+  </div>
+  {% endfor %}
+  {# Further out folds to one line: what is due, and over which days. #}
+  {% if groups.later %}
+  <details class="mf-section folded" data-band="later"><summary><h4>{{ 'copy.band_later' | say(tier, later_span) }}</h4></summary>
+    {% for view in groups.later %}{% set day = '' %}{% include "_week_line.html" %}{% endfor %}
+  </details>
+  {% endif %}
+  {% if not groups.to_do %}<p class="muted">{{ 'copy.nothing_to_do' | say(tier) }}</p>{% endif %}
+</section>
+{# The app's questions about the gradebooks: not homework, so under the list, answered in place. #}
+{% if groups.question %}
+<section id="check-teacher" class="sec check-teacher" aria-labelledby="ct-head">
+  <div class="sec-head"><h3 id="ct-head">{{ 'copy.check_with_teacher' | say(tier) }}</h3><span class="count">{{ groups.question | length }}</span></div>
+  {% for view in groups.question %}{% include "_needs_now_row.html" %}{% endfor %}
+</section>
+{% endif %}
+{# Nothing to do but wait on the school: one line each, saying what it waits on, with the date
+   and the teacher's email once the family has asked (#73). Folded, counted. #}
+{% if groups.waiting %}
+<details id="waiting" class="sec quiet">
+  <summary><h3>{{ 'copy.waiting_on_grade' | say(tier) }}</h3> <span class="count">{{ groups.waiting | length }}</span></summary>
+  <div class="lines">{% for item in groups.waiting %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = (('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts)) if item.verdict.state == 'waiting' else (item | standing(tier)) %}{% set line_action %}{% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher" aria-label="Ask the teacher now about {{ item.name }}">Ask now</button></form>{% endif %}{% endset %}{% include "_item.html" %}{% endfor %}</div>
+</details>
+{% endif %}
+{# Work past its late-work window: the school no longer takes it. Folded, counted. #}
+{% if groups.missed %}
+<details id="missed" class="sec quiet">
+  <summary><h3>{{ 'copy.missed_too_late' | say(tier) }}</h3> <span class="count">{{ groups.missed | length }}</span></summary>
+  {% for view in groups.missed %}{% set day = '' %}{% include "_week_line.html" %}{% endfor %}
+</details>
+{% endif %}

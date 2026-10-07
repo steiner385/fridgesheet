@@ -147,18 +147,19 @@ def test_the_record_names_both_gradebooks_and_says_when_one_does_not_list_the_it
 # --- §4 the five slots, at card and detail density ------------------------------------------------
 
 def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_path):
-    """The question is asked in Needs you now at the top of Assignments (2026-10-04), and its
-    line on the weekly pages keeps the rest (2026-09-30): the same five slots, the sheet's word
-    at the head's right, the day in the row above."""
+    """The question is asked in Check with the teacher on Assignments (spec 2026-10-06), and its
+    line on the weekly pages (a Done view under an old link) keeps the five slots too: the
+    sheet's word at the head's right, the day in the row above, asked on the line itself."""
     from tests.web_fixtures import needs_row, week_line
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
     asked = needs_row(body, pid)
     order = [asked.index(s) for s in ('class="item-head"', 'class="facts"', 'class="ask-line"', 'class="answers"', 'class="item-foot"')]
     assert order == sorted(order)
-    card = week_line(body, pid)
+    pages = app_for(tmp_path).get("/kids/Alex?show=all").text
+    card = week_line(pages, pid)
     assert card.startswith('<div class="item check" id="row-%d"' % pid)
-    assert card.index('class="facts"') < card.index('class="item-foot"') and 'class="answers"' not in card
+    assert card.index('class="facts"') < card.index('class="answers"') < card.index('class="item-foot"')
     assert 'class="ours"' not in card                                          # no step, no note, no answer yet
     head = _element(card, '<div class="item-head">')
     assert re.search(r'<span class="name"><a href="#row-%d"[^>]*data-focus-target>Participation</a></span>' % pid, head)
@@ -166,7 +167,7 @@ def test_a_question_card_has_head_says_ask_answers_and_foot_in_that_order(tmp_pa
     assert '<span class="when word check">HAC — NO GRADE</span>' in head        # the sheet's word, in the sheet's colour
     facts = re.search(r'<p class="facts">(.*?)</p>', card).group(1)
     assert "due" not in facts and "9/8" not in facts                              # said once, in the day row above
-    assert '<h5 class="day">Tue 9/8</h5>' in body[:body.index('id="row-%d"' % pid)]
+    assert '<h5 class="day">Tue 9/8</h5>' in pages[:pages.index('id="row-%d"' % pid)]
     foot = _element(card, '<div class="item-foot">')
     assert foot.index("<summary>Record</summary>") < foot.index("Plan a step")
     assert "Notes (" not in foot and "<summary>More</summary>" not in foot        # the record the name opens holds those
@@ -224,31 +225,34 @@ def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_pat
 
 # --- §3 the Assignments tab as sections -------------------------------------------------------------
 
-def test_the_assignments_tab_is_four_sections_with_the_filters_in_the_tables_head(tmp_path):
-    seed(tmp_path).close()
-    body = app_for(tmp_path).get("/kids/Alex").text
-    content = body.split('class="child-nav"', 1)[1]
-    heads = re.findall(r'<(?:section|details) class="sec[^"]*"[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>', content)
-    # The weekly pages (2026-09-30): the list first, the app's verdicts under it; a question is a
-    # line on its week's page, and the count is a lead line in the list's head.
-    assert heads == ["All assignments", "Settled by the records", "Waiting, nothing to do yet"]
-    assert re.search(r'<p id="q-lead" class="lead">1 question about your work</p>', content)
-    assert re.search(r'<details class="sec quiet">\s*<summary><h3>Waiting, nothing to do yet</h3> <span class="count">2</span></summary>', content)
-    table_head = re.search(r'<h3 id="all-head">All assignments</h3>(.*?)<div id="items">', content, re.S).group(1)
-    assert 'class="filters controls"' in table_head and 'name="course"' in table_head and "More filters" in table_head
-    assert re.search(r'<div class="lines">\s*<div class="line ok" id="q-\d+"><span class="glyph"', content)   # Settled, line density
+_HEADS = r'<(?:section|details)[^>]* class="sec[^"]*"[^>]*>\s*(?:<div class="sec-head">|<summary>)<h3[^>]*>([^<]*)</h3>'
 
 
-def test_a_filter_change_carries_the_tables_count_out_of_band(tmp_path):
-    """The count sits in the section head, outside the #items swap; the partial refreshes it."""
+def test_the_assignments_tab_is_sections_with_the_view_and_class_above_them(tmp_path):
+    """Assignments as a to-do list (spec 2026-10-06): To do, the question under it, waiting and
+    missed folded; the view words and the class picker above all of them, since the class
+    narrows them all. Done is the weekly pages and the records' settled lines."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    full = c.get("/kids/Alex").text
-    assert re.search(r'<span id="all-count" class="count">\d+ open</span>', full)
-    assert full.count('id="all-count"') == 2                        # the head, and the inert template copy
+    body = c.get("/kids/Alex").text
+    content = body.split('class="child-nav"', 1)[1]
+    assert re.findall(_HEADS, content) == ["To do", "Check with the teacher", "Waiting on a grade", "Missed — too late for credit"]
+    assert re.search(r'<details id="waiting" class="sec quiet">\s*<summary><h3>Waiting on a grade</h3> <span class="count">2</span></summary>', content)
+    bar = content[:content.index('<div id="items">')]
+    assert 'class="filters controls view-bar"' in bar and 'name="course"' in bar and "More filters" not in bar
+    done = c.get("/kids/Alex?view=done").text.split('class="child-nav"', 1)[1]
+    assert re.findall(_HEADS, done) == ["Done", "Settled by the records"]
+    assert re.search(r'<div class="lines">\s*<div class="line ok" id="q-\d+"><span class="glyph"', done)   # Settled, line density
+
+
+def test_a_class_change_swaps_the_lists_and_their_counts(tmp_path):
+    """The view bar stays put; #items carries every group, each with its count."""
+    seed(tmp_path).close()
+    c = app_for(tmp_path)
+    assert '<h3 id="todo-head">To do</h3><span class="count">3</span>' in c.get("/kids/Alex").text
     partial = c.get("/kids/Alex?course=999", headers={"HX-Request": "true", "HX-Current-URL": "http://127.0.0.1/kids/Alex"}).text
-    assert '<span id="all-count" class="count" hx-swap-oob="true">0 open</span>' in partial
-    assert 'class="sec-head"' not in partial
+    assert '<h3 id="todo-head">To do</h3><span class="count">0</span>' in partial
+    assert 'view-bar' not in partial
 
 
 def test_kid_mode_draws_the_state_line_without_the_tabs(tmp_path):
@@ -284,7 +288,7 @@ def test_a_waiting_line_still_says_its_kind_and_due_date(tmp_path):
     into a meta span of their own (final review finding 2), on every tier."""
     lid = _id(tmp_path, "Lab notebook")
     body = app_for(tmp_path).get("/kids/Alex").text
-    fold = body[body.index("Waiting, nothing to do yet"):]
+    fold = body[body.index('<details id="waiting"'):]
     line = _element(fold, '<div class="line grey" id="q-%d">' % lid)
     assert 'class="meta"' in line and "paper" in line and "due " in line
 
@@ -294,7 +298,7 @@ def test_a_waiting_line_still_says_its_kind_and_due_date(tmp_path):
         lid = _id(home, "Lab notebook")
         c = client_with_grades(home, **({"Alex": grade} if grade is not None else {}))
         body = c.get("/kids/Alex").text
-        fold = body[body.index("Waiting, nothing to do yet"):]
+        fold = body[body.index('<details id="waiting"'):]
         line = _element(fold, '<div class="line grey" id="q-%d">' % lid)
         assert "paper" in line and "due Thu 9/10" in line, (grade, line)
 

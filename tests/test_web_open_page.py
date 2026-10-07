@@ -95,8 +95,11 @@ def test_days_ahead_setting_governs_the_web_window(tmp_path):
     c.app.state.fridgesheet.reload()
     assert "Reading log" not in c.get("/open").text                   # 5 days out; the window is 3
     assert "Worksheet 3" in c.get("/open").text
-    assert "Reading log" not in c.get("/kids/Alex").text              # the Kid page's "open" agrees
-    assert "Reading log" in c.get("/kids/Alex?show=all").text
+    # Assignments' To do lists what is left however far out (spec 2026-10-06): past the sheet's
+    # window it is still on the list, in its own band (Sun 9/20: later this week), not tonight's.
+    kid = c.get("/kids/Alex").text
+    band = kid[kid.index('data-band="this_week"'):]
+    assert "Reading log" in band and "Reading log" not in kid[:kid.index('data-band="this_week"')]
 
 
 def test_the_credit_text_reaches_the_page_and_the_column(tmp_path):

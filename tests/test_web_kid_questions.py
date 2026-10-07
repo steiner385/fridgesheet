@@ -1,5 +1,5 @@
-"""The kid page's verdicts (spec 6.1) on the weekly pages: a question asked on its own line, the
-records' decisions and the waiting work in two quiet sections under the pages."""
+"""The kid page's verdicts (spec 6.1) on Assignments (spec 2026-10-06): a question asked in Check
+with the teacher, the waiting work folded under To do, the records' decisions under Done."""
 from __future__ import annotations
 
 import re
@@ -23,16 +23,19 @@ def _id(tmp_path, name):
 def test_alex_has_one_question_one_decided_and_two_waiting(tmp_path):
     pid = _id(tmp_path, "Participation")
     body = _page(tmp_path)
-    assert "1 question about" in body
-    assert '<p class="ask-line">' in needs_row(body, pid)                    # asked in Needs you now, at the top
-    decided = body[body.index("Settled by the records"):body.index("Waiting, nothing to do yet")]
-    assert "Quiz 1" in decided and "Not right?" in decided
-    waiting = body[body.index("Waiting, nothing to do yet"):]
+    ct = body[body.index('id="check-teacher"'):body.index('id="waiting"')]
+    assert '<p class="ask-line">' in needs_row(ct, pid)                      # asked under To do
+    waiting = body[body.index('<details id="waiting"'):]
     assert "Essay draft" in waiting and "Lab notebook" in waiting and "Ask now" in waiting
+    done = _page(tmp_path, "?view=done")
+    decided = done[done.index("Settled by the records"):]
+    assert "Quiz 1" in decided and "Not right?" in decided
 
 
-def test_sections_ignore_the_table_filter(tmp_path):
-    assert "1 question about" in _page(tmp_path, "?course=999")
+def test_the_class_picker_narrows_the_questions_too(tmp_path):
+    """One partition over the class in force: a class with no questions shows none."""
+    assert 'id="check-teacher"' in _page(tmp_path)
+    assert 'id="check-teacher"' not in _page(tmp_path, "?course=999")
 
 
 def test_the_work_list_has_three_columns_and_no_sources_or_actionable(tmp_path):
@@ -49,11 +52,10 @@ def test_red_marks_only_school_recorded_not_done(tmp_path):
     assert "red" not in rows["Quiz 1"]            # decided done
 
 
-def test_more_filters_keeps_the_old_selects_behind_a_disclosure(tmp_path):
-    body = _page(tmp_path)
-    more = body[body.index("<details class=\"more-filters\""):]
-    for name in ("source", "kind", "flagged", "outcome"):
-        assert f'name="{name}"' in more
+def test_an_old_link_keeps_its_filters_through_a_class_change(tmp_path):
+    body = _page(tmp_path, "?source=canvas&kind=paper&flagged=any")
+    for name, value in (("source", "canvas"), ("kind", "paper"), ("flagged", "any")):
+        assert f'<input type="hidden" name="{name}" value="{value}">' in body
 
 
 def test_the_course_page_asks_a_question_on_its_own_line(tmp_path):
@@ -79,7 +81,7 @@ def test_the_page_says_what_has_been_done_so_far(tmp_path):
     paper, Essay draft on time, Lab notebook and Participation unknown, Homework 4 not done."""
     body = _page(tmp_path)
     assert "Done so far: 2 of 5 due · 1 on time." in body
-    assert body.index("Done so far") < body.index("1 question about")     # above the questions
+    assert body.index("Done so far") < body.index('id="to-do"')            # above the list
 
 
 def test_nothing_done_yet_says_nothing(tmp_path):

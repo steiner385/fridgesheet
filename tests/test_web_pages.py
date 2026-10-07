@@ -112,21 +112,24 @@ def test_kid_page_lists_open_items_by_default_with_filters_and_sort_links(tmp_pa
     r = c.get("/kids/Alex")
     assert r.status_code == 200
     body = r.text
-    table = body[body.index('id="items"'):body.index('class="legend sources-hint')]      # the weekly pages
-    for name in ("Lab notebook", "Participation", "Vocabulary", "Worksheet 3", "Reading log", "Homework 4"):
-        assert name in table, name
-    assert "Quiz 1" not in table                                      # HAC's 28/30 settles it (docs/outcomes.md)
-    assert "Essay draft" not in table                                 # submitted: not open
-    # The weekly pages: Homework 4 is too late for credit (and red: Canvas marked it missing),
-    # today's work sits under today's day row, and the HAC-only Participation says in words
-    # that a week has gone by with no grade.
-    assert "Canvas marks it missing, and the late-work window has closed." in table and 'class="item red"' in table
-    assert '<h5 class="day">Tue 9/15</h5>' in table and ">DUE TODAY<" in table and "Still no grade anywhere, longer than grading usually takes." in table
-    assert 'name="show"' in body and 'value="all"' in body and 'name="course"' in body
-    assert "Honors English 9" in body and "Algebra I" in body        # course filter options
-    assert "&amp;sort=name" in body or "&sort=name" in body           # the column header sort links
+    # Assignments as a to-do list (spec 2026-10-06): the work left, in deadline bands; the
+    # question under it; waiting and missed work folded beneath.
+    todo = body[body.index('id="to-do"'):body.index('id="check-teacher"')]
+    for name in ("Vocabulary", "Worksheet 3", "Reading log"):
+        assert name in todo, name
+    assert ">DUE TODAY<" in todo
+    assert "Participation" in body[body.index('id="check-teacher"'):body.index('id="waiting"')]
+    assert "Lab notebook" in body[body.index('id="waiting"'):body.index('id="missed"')]   # following up: waiting
+    missed = body[body.index('id="missed"'):body.index('class="legend sources-hint')]
+    # Homework 4 is too late for credit, and red: Canvas marked it missing.
+    assert "Homework 4" in missed and "Canvas marks it missing, and the late-work window has closed." in missed
+    assert 'class="item red"' in missed
+    lists = body[body.index('id="items"'):body.index('class="legend sources-hint')]
+    assert "Quiz 1" not in lists                                      # HAC's 28/30 settles it (docs/outcomes.md)
+    assert 'name="course"' in body and "Honors English 9" in body and "Algebra I" in body   # course filter options
     assert ">All classes<" in body                                    # the class picker's "no filter"
-    assert ">answered or asked<" in body                              # FLAGGED's "any", in family words
+    done = c.get("/kids/Alex?view=done").text
+    assert "&amp;sort=name" in done or "&sort=name" in done           # the Done view's sort links
 
     flagged_only = c.get("/kids/Alex?show=all&flagged=any").text
     flagged_table = flagged_only[flagged_only.index('id="items"'):flagged_only.index('class="legend sources-hint')]

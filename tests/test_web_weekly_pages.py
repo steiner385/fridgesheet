@@ -1,6 +1,7 @@
-"""Assignments as the weekly pages (the Student Planner; surface brief for kid.html, seed d4a7b45f):
-every assignment on the week it was due, this week's page first, earlier weeks beneath, settled
-weeks folded to one line; a question asked on its own line; the sort as a run-in line."""
+"""The weekly pages (the Student Planner; surface brief for kid.html, seed d4a7b45f), now
+Assignments' Done view and any old link's filtered list (spec 2026-10-06): every assignment on
+the week it was due, newest week first, settled weeks folded to one line; the sort as a run-in
+line. The To do view above them is tested in test_web_assignments_to_do.py."""
 from __future__ import annotations
 
 import re
@@ -47,36 +48,35 @@ def test_this_week_is_named_and_highlighted_and_earlier_weeks_are_dated(tmp_path
 def test_a_week_sorted_by_due_date_reads_as_day_rows(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    body = items_block(c.get("/kids/Alex").text)
+    body = items_block(c.get("/kids/Alex?show=all").text)
     this_week = body[body.index('data-week="2026-09-14"'):body.index("</section>", body.index('data-week="2026-09-14"'))]
-    assert re.findall(r'<h5 class="day">([^<]+)</h5>', this_week) == ["Tue 9/15", "Wed 9/16", "Sun 9/20"]
+    assert re.findall(r'<h5 class="day">([^<]+)</h5>', this_week) == ["Mon 9/14", "Tue 9/15", "Wed 9/16", "Sun 9/20"]   # every row, Essay draft too
     assert "· by 11:59pm" in this_week and "due Tue 9/15" not in this_week           # the day is the row; the line keeps its hour
-    by_name = items_block(c.get("/kids/Alex?sort=name").text)
+    by_name = items_block(c.get("/kids/Alex?show=all&sort=name").text)
     assert '<h5 class="day">' not in by_name and "due Tue 9/15 11:59pm" in by_name    # any other sort: the date on the line
 
 
-def test_a_line_keeps_the_rows_id_and_the_answers_are_up_top(tmp_path):
-    """Re-critique 2026-09-30: every open line carried the plan prompt and three answers, so the
-    lead's "1 question" stood over 24 buttons. Then only a line the app asked about offered its
-    answers; now (2026-10-04) those are asked in Needs you now above the pages, and no line
-    below offers answers a second time; the rest plan from "Plan a step" in the foot."""
+def test_a_line_keeps_the_rows_id_and_only_an_asked_line_answers(tmp_path):
+    """Re-critique 2026-09-30: every open line carried the plan prompt and three answers, so a
+    single question stood over 24 buttons. On the pages only a line the app asks about offers its
+    answers; the rest plan from "Plan a step" in the foot."""
     vid, pid = _id(tmp_path, "Vocabulary"), _id(tmp_path, "Participation")
-    body = app_for(tmp_path).get("/kids/Alex").text
+    body = app_for(tmp_path).get("/kids/Alex?show=all").text
     line = week_line(body, vid)
     assert line.startswith('<div class="item due" id="row-%d"' % vid)
     assert '<span class="when word due">DUE TODAY</span>' in line
     assert 'class="answers"' not in line and "ask-line" not in line and 'id="q-%d"' % vid not in line
     assert ">Plan a step</a>" in line
-    asked = needs_row(body, pid)
+    asked = week_line(body, pid)
     assert '<p class="ask-line">Was it handed in?</p>' in asked
-    assert 'hx-post="/items/%d/answer"' % pid in asked and 'name="slot" value="qn-%d"' % pid in asked and 'hx-target="#qn-%d"' % pid in asked
-    assert 'class="answers"' not in items_block(body)                                  # nothing asked twice
+    assert 'hx-post="/items/%d/answer"' % pid in asked and 'hx-target="#qw-%d"' % pid in asked
+    assert items_block(body).count('class="answers"') == 1                             # the one question
 
 
-def test_a_question_is_asked_up_top_and_counted_in_the_lead(tmp_path):
+def test_a_question_is_asked_under_to_do_and_counted(tmp_path):
     pid = _id(tmp_path, "Participation")
     body = app_for(tmp_path).get("/kids/Alex").text
-    assert '<p id="q-lead" class="lead">1 question about your work</p>' in body
+    assert '<h3 id="ct-head">Check with the teacher</h3><span class="count">1</span>' in body
     asked = needs_row(body, pid)
     assert '<p class="ask-line">Was it handed in?</p>' in asked and 'value="done"' in asked
     assert 'id="q-%d"' % pid not in body                                                # no second card for the same question
@@ -101,9 +101,9 @@ def test_a_week_with_nothing_shown_folds_and_this_week_is_always_printed(tmp_pat
 
 def test_the_verdict_sections_follow_the_pages(tmp_path):
     seed(tmp_path).close()
-    body = app_for(tmp_path).get("/kids/Alex").text
-    assert body.index('class="legend sources-hint') < body.index("Settled by the records") < body.index("Waiting, nothing to do yet")
-    assert "1 question about your work" not in body[body.index("Settled by the records"):]
+    body = app_for(tmp_path).get("/kids/Alex?view=done").text
+    assert body.index('class="legend sources-hint') < body.index("Settled by the records")
+    assert "Check with the teacher" not in body
 
 
 def test_a_detail_opened_from_a_line_closes_back_to_the_line(tmp_path):
@@ -119,14 +119,13 @@ def test_a_detail_opened_from_a_line_closes_back_to_the_line(tmp_path):
     assert 'class="answers"' not in line                                                        # not asked: no answers on the line
 
 
-def test_a_child_with_one_class_keeps_the_class_picker_behind_more_filters(tmp_path):
+def test_a_child_with_one_class_gets_no_class_picker(tmp_path):
+    """One class is no choice (re-critique 2026-09-30: controls before the first line on a
+    nine-year-old's phone); a child with two classes gets the picker."""
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    sam = c.get("/kids/Sam").text
-    head = sam[sam.index('class="filters controls"'):sam.index('<details class="more-filters"')]
-    assert 'name="course"' not in head and 'name="course"' in sam.split('<details class="more-filters"')[1]
-    alex = c.get("/kids/Alex").text
-    assert 'name="course"' in alex[alex.index('class="filters controls"'):alex.index('<details class="more-filters"')]
+    assert 'name="course"' not in c.get("/kids/Sam").text
+    assert 'name="course"' in c.get("/kids/Alex").text
 
 
 def test_the_pages_share_the_planners_rules():

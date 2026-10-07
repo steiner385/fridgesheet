@@ -1,8 +1,8 @@
 {# One question (or decided/waiting) card: the item surface at card density (spec 2026-09-28 §4.2).
    `slot` names the element the answer buttons swap: "q-<id>" in a page's question list, "qd-<id>"
    inside the item detail, "qc-<id>" on the check-in, "qt-<id>" on a Today line, "qw-<id>" on a
-   week's line on Assignments, "qm-<id>" on a Must-finish row, "qn-<id>" on a Needs you now row.
-   "nn-<id>" is a Needs you now row itself, put back by its record's Close. Routes render this after Not
+   week's line on Assignments, "qm-<id>" on a Must-finish row, "qn-<id>" on an Assignments to-do row.
+   "nn-<id>" is an Assignments to-do row itself, put back by its record's Close. Routes render this after Not
    right? (`reopened`) and Undo (`undone`). A slot inside a line, a row or a detail ("qd-", "qm-", "qn-",
    "qt-", "qw-") draws only the `answers` density -- the ask line and the answers in their
    wrapper -- so Undo and Not right? put back what the line's own card drew inside, not a second
@@ -15,7 +15,7 @@
 {% set view = item %}{% include "_needs_now_row.html" %}
 {% else %}
 {% set density = 'answers' if slot is defined and slot.startswith(('qd-', 'qm-', 'qn-', 'qt-', 'qw-')) else 'card' %}
-{# A Must-finish or Needs you now row's answers come back as the row drew them: the plan's own
+{# A Must-finish or Assignments to-do row's answers come back as the row drew them: the plan's own
    prompt over a red row's answers, and "Let it go" left off a row that is not a question. #}
 {% if slot is defined and slot.startswith(('qm-', 'qn-')) %}{% set plan_prompt = true %}{% set exclude = [] if item.asks else ['ignore'] %}{% endif %}
 {% include "_item.html" %}

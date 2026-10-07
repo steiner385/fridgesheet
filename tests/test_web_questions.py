@@ -315,7 +315,7 @@ def _followed_up_then_graded(tmp_path):
 
 def test_not_right_on_a_settled_follow_up_keeps_the_familys_reason(tmp_path):
     c, lid = _followed_up_then_graded(tmp_path)
-    page = c.get("/kids/Alex").text
+    page = c.get("/kids/Alex?view=done").text
     assert "Lab notebook" in page[page.index("Settled by the records"):]
     r = _not_right(c, page, lid)
     assert r.status_code == 200
@@ -346,7 +346,7 @@ def test_not_right_on_a_line_the_records_settled_alone_asks_the_family(tmp_path)
     qid = _id(conn, "Quiz 1")
     conn.close()
     c = app_for(tmp_path)
-    r = _not_right(c, c.get("/kids/Alex").text, qid)
+    r = _not_right(c, c.get("/kids/Alex?view=done").text, qid)
     assert r.status_code == 200
     assert "answer undone" not in r.text
     assert f'id="q-{qid}"' in r.text

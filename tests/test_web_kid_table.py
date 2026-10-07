@@ -156,7 +156,7 @@ def test_the_sort_and_its_direction_survive_a_filter_change(tmp_path):
     with it, or narrowing to one course silently flips the list back over."""
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex?sort=name&dir=desc").text
-    form = re.search(r'<form class="filters controls".*?</form>', body, re.S).group(0)
+    form = re.search(r'<form class="filters controls[^"]*".*?</form>', body, re.S).group(0)
     assert 'name="sort" value="name"' in form
     assert 'name="dir" value="desc"' in form
 

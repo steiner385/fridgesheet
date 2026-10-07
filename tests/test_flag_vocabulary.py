@@ -70,8 +70,6 @@ def test_every_surface_says_a_flag_with_the_same_words(tmp_path, flag):
     kid = c.get("/kids/Alex?show=all").text
     row = week_line(kid, lab)
     assert re.search(rf'class="badge flag"[^>]*>{re.escape(state)} \d+/\d+<', row), row
-    option = re.search(rf'<option value="{flag}"[^>]*>(.*?)</option>', kid).group(1)
-    assert option == state
     step = c.get(f"/kids/Alex/check-in/step?item_id={lab}").text
     assert f"Your answer: {state} · because" in _text(step)
     changes = c.get("/changes").text

@@ -48,7 +48,8 @@ def _question_ids(tmp_path_factory, tier: str) -> set[str]:
     home = tmp_path_factory.mktemp(f"questions-{tier or 'none'}")
     seed(home).close()
     c = client_with_grades(home, Alex=GRADE_OF[tier]) if GRADE_OF[tier] is not None else client_with_grades(home)
-    return set(re.findall(r'id="q-(\d+)"', c.get("/kids/Alex").text))
+    # To do asks the questions and folds the waiting lines; Done holds the records' settled lines.
+    return {i for path in ("/kids/Alex", "/kids/Alex?view=done") for i in re.findall(r'id="qn?-(\d+)"', c.get(path).text)}
 
 
 @pytest.mark.parametrize("tier", list(tiers.TIERS) + [""])
@@ -68,7 +69,7 @@ def _ids_and_actions(client, path: str) -> tuple[set[str], int, int]:
     return ids, len(re.findall(r"<form", body)), len(re.findall(r"<button", body))
 
 
-@pytest.mark.parametrize("path", ["/kids/Alex?show=all", "/kids/Alex/plan", "/kids/Alex/check-in"])
+@pytest.mark.parametrize("path", ["/kids/Alex", "/kids/Alex?show=all", "/kids/Alex/plan", "/kids/Alex/check-in"])
 def test_kid_mode_and_family_mode_render_the_same_rows_and_actions(tmp_path, path):
     """Final review, finding 1: `test_web_tier_parity.py` ran only in family mode now that
     `app_for` defaults to a grown-up, so the parity rule this module is about (see the module

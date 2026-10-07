@@ -1,0 +1,11 @@
+{# Assignments' Done view (spec 2026-10-06): the weekly pages over finished work, newest week
+   first, older weeks folded to their tally; or, under an old link's narrowing filter, every row
+   that filter lists. The type links and the sort narrow the same pages. #}
+{% set tier = student.key | tier_of %}
+<section id="done" class="sec all-work" aria-labelledby="done-head">
+  <div class="sec-head"><h3 id="done-head">{{ 'copy.done_view' | say(tier) }}</h3><span class="count">{{ rows | length }}</span>
+    {% if narrowed %}<p class="lead" role="note">{{ 'copy.filtered_list' | say(tier) }} <a href="{{ here }}">{{ 'copy.back_to_to_do' | say(tier) }}</a></p>{% endif %}
+    {% include "_type_links.html" %}
+  </div>
+  {% include "_weeks.html" %}
+</section>
