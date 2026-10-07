@@ -46,23 +46,28 @@ page first"). The weekly pages survive as the Done view; the brief is updated to
 A new `items.assignments(views, today) -> Assignments` sorts each of the kid's items into exactly
 one group. The first rule that matches wins:
 
-1. **to_do**: open and the child can still act on it. This is every `upcoming` row, plus every
-   `_fixable` row whose outcome is `not_done`. A Plan step does not remove a row; the step is
-   shown under it.
+1. **to_do**: open and the child can still act on it. This is every row that is coming due
+   (`reconcile.upcoming`'s rule, a Canvas deadline with nothing handed in, *without* its
+   days-ahead cap, so a test three weeks out sits folded under Later), plus every `_fixable` row
+   whose outcome is `not_done`. A Plan step does not remove a row; the step is shown under it.
 2. **question**: `v.asks`, and not in to_do. A to-do row that asks keeps its question on its own
    row, as Needs you now does today.
 3. **waiting**: nothing to do but wait on the school. This is `_fixable` rows with outcome
    `unknown` (paper, outside Canvas) or `late` (handed in late, not yet graded), plus verdict state
    `waiting` and the flags `asked` / `following_up`.
 4. **missed**: `_past_window`, meaning overdue, not handled and past the late-work window.
-5. **done**: everything else, including rows the family handled (done, let go, excused, too late).
+5. **not_yet**: not due and not handled, but with no Canvas deadline (HAC's placeholder rows
+   such as "Week 9", whose dates the app invents, and undated Canvas work). Neither view lists
+   these, as the old Open list did not; `?show=all` still does. (Added during the build: on
+   Doug's data they were landing in Done.)
+6. **done**: everything else, including rows the family handled (done, let go, excused, too late).
 
 `Assignments` exposes `to_do` already split into bands: overdue (closest to losing credit
-first), tonight, tomorrow, later this week, and later (inside `days_ahead`). These are the
+first), tonight, tomorrow, later this week, and later. These are the
 `must_finish` boundaries without the step filter. It also has `question`, `waiting`, `missed`
 and `done`.
 
-**Invariant, tested:** the five groups are disjoint, and together they hold every row of
+**Invariant, tested:** the six groups are disjoint, and together they hold every row of
 `list_items(show="all")`. A second test reruns Doug's case from the table above as a fixture:
 each of those rows lands where this spec says.
 
@@ -96,8 +101,8 @@ CHECK WITH THE TEACHER  2      answered in place (_needs_now_row / _question as 
 - Rows reuse `_item.html` at `line` density, with the answers from `_needs_now_row.html` for the
   overdue, tonight and tomorrow bands. No new card shape (section-and-card standard).
 - The step line is the existing "Our step: … Edit" partial already used on the weekly pages.
-- **Missed** rows say "Too late for credit since Mon 10/5." The contradictory "Late work is
-  usually accepted until …" sentence is dropped for rows past the window. That fix is in
+- **Missed** rows say "Late work was accepted until Mon 10/5." in place of the contradictory
+  present-tense "Late work is usually accepted until …". That fix is in
   `guidance`/`phrasing`, so it applies on every page.
 - **Done view:** the current `_weeks.html` over the done group, newest week first (it is a
   record, so newest-first is correct here). It keeps the Class picker, the type links, Outcome

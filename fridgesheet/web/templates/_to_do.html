@@ -19,7 +19,7 @@
   {% endfor %}
   {# Further out folds to one line: what is due, and over which days. #}
   {% if groups.later %}
-  <details class="mf-section folded" data-band="later"><summary><h4>{{ 'copy.band_later' | say(tier, later_span) }}</h4></summary>
+  <details class="mf-section folded later" data-band="later"><summary><h4>{{ 'copy.band_later' | say(tier, later_span) }}</h4></summary>
     {% for view in groups.later %}{% set day = '' %}{% include "_week_line.html" %}{% endfor %}
   </details>
   {% endif %}

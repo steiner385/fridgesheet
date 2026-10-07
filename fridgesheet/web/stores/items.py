@@ -639,8 +639,10 @@ def must_finish(work: OpenWork, today: date, covered: set[int] = frozenset()) ->
 class Assignments:
     """Assignments' groups (spec 2026-10-06): each of a kid's rows in exactly one. The five
     bands are the to-do list, in deadline order; `question`, `waiting` and `missed` are folded
-    beneath it, and `done` is the Done view's. A step never takes a row off the list: the step
-    is written under it."""
+    beneath it, and `done` is the Done view's. `not_yet` has not come due and has no Canvas
+    deadline to come due by (HAC's placeholder rows, undated Canvas work): neither view lists
+    it, as the old Open list did not. A step never takes a row off the list: it is written
+    under it."""
     overdue: list[ItemView]
     tonight: list[ItemView]
     tomorrow: list[ItemView]
@@ -649,6 +651,7 @@ class Assignments:
     question: list[ItemView]
     waiting: list[ItemView]
     missed: list[ItemView]
+    not_yet: list[ItemView]
     done: list[ItemView]
 
     @property
@@ -658,7 +661,7 @@ class Assignments:
     @property
     def groups(self) -> dict[str, list[ItemView]]:
         return {"to_do": self.to_do, "question": self.question, "waiting": self.waiting,
-                "missed": self.missed, "done": self.done}
+                "missed": self.missed, "not_yet": self.not_yet, "done": self.done}
 
 
 def _group(v: ItemView) -> str:
@@ -677,6 +680,8 @@ def _group(v: ItemView) -> str:
         return "waiting"
     if _past_window(v):
         return "missed"
+    if not v.handled and v.outcome == outcomes.NOT_DUE:
+        return "not_yet"
     return "done"
 
 
@@ -684,7 +689,7 @@ def assignments(views: list[ItemView], today: date) -> Assignments:
     """`views` (any order, already narrowed to the class in force) sorted into Assignments'
     groups. The bands use the evening each deadline belongs to (`deadline_date`, #139); the
     week ends on Sunday, as the weekly pages' weeks do."""
-    by: dict[str, list[ItemView]] = {"to_do": [], "question": [], "waiting": [], "missed": [], "done": []}
+    by: dict[str, list[ItemView]] = {"to_do": [], "question": [], "waiting": [], "missed": [], "not_yet": [], "done": []}
     for v in views:
         by[_group(v)].append(v)
     due_key = _sort_key("due")
@@ -705,6 +710,7 @@ def assignments(views: list[ItemView], today: date) -> Assignments:
         question=sorted(by["question"], key=due_key),
         waiting=sorted(by["waiting"], key=due_key),
         missed=sorted(by["missed"], key=due_key),
+        not_yet=sorted(by["not_yet"], key=due_key),
         done=sorted(by["done"], key=due_key),
     )
 

@@ -27,7 +27,7 @@ def _names(rows):
 
 
 def _where(a: items.Assignments, name: str) -> list[str]:
-    fields = ("overdue", "tonight", "tomorrow", "this_week", "later", "question", "waiting", "missed", "done")
+    fields = ("overdue", "tonight", "tomorrow", "this_week", "later", "question", "waiting", "missed", "not_yet", "done")
     return [f for f in fields if name in _names(getattr(a, f))]
 
 
@@ -103,3 +103,13 @@ def test_a_to_do_row_that_asks_stays_in_to_do(tmp_path):
     for v in asking:
         assert v not in a.question
     assert not any(v.asks for v in a.waiting + a.missed + a.done)
+
+
+def test_work_with_no_deadline_yet_is_neither_to_do_nor_done(tmp_path):
+    """HAC's placeholder rows and undated Canvas work have not come due and are not finished:
+    the old Open list hid them too. They wait in `not_yet`, listed only under Everything."""
+    snap = snapshot()
+    snap["students"]["Alex"]["hac"]["classes"][0]["assignments"].append(_h("Week 3", "09/18/2026", None))
+    snap["students"]["Alex"]["canvas"]["courses"][0]["assignments"].append(_a(84, "Optional video", "09-30", due_at=None))
+    _, a = _groups(tmp_path, "Alex", snap=snap)
+    assert _where(a, "Week 3") == ["not_yet"] and _where(a, "Optional video") == ["not_yet"]
