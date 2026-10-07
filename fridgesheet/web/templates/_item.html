@@ -64,8 +64,10 @@
   {% if message is defined and message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
   {% set late = (late_line is defined and late_line and item.open_in and item.due and item.late_until) %}
   {# When credit ends: the app's sentence on a working page; on a read-only page the sheet's own
-     sub-line form, "until Wed 10/7", in pencil after the facts (finish review 2026-09-30). #}
-  {% set until %}{% if late %}{% if ro %}<span class="until muted">{{ 'copy.until' | say(tier, {'when': item.late_until | wd_md}) }}</span>{% else %}{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}{% endif %}{% endset %}
+     sub-line form, "until Wed 10/7", in pencil after the facts (finish review 2026-09-30). Once
+     the window has closed (open, not handled, no longer actionable) it says so in the past tense. #}
+  {% set closed = late and not item.actionable and not item.handled %}
+  {% set until %}{% if late %}{% if closed %}{{ 'copy.late_closed' | say(tier, {'when': item.late_until | wd_md}) }}{% elif ro %}<span class="until muted">{{ 'copy.until' | say(tier, {'when': item.late_until | wd_md}) }}</span>{% else %}{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}{% endif %}{% endset %}
   {% if says is defined and says %}<p class="facts">{{ says }}{% if late %} {{ until }}{% endif %}</p>
   {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ until }}{% endif %}</p>
   {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ until }}{% endif %}</p>

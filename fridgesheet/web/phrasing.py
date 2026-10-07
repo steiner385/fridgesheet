@@ -334,6 +334,11 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.late_until":       {"early": "The school usually still takes late work until {when}. Ask the teacher if you need more time.",
                               "middle": "The school usually accepts late work until {when} (from your late-work rules). Ask the teacher if you need longer.",
                               "older": "Late work is usually accepted until {when} (from your late-work rules). Ask the teacher if you need longer."},
+    # A row past its late-work window: the date is gone, so the sentence is in the past tense
+    # (Doug's Protist Lab read "is usually accepted until Mon 10/5" on 10/6, spec 2026-10-06).
+    "copy.late_closed":      {"early": "The school took late work until {when}.",
+                              "middle": "Late work was accepted until {when}.",
+                              "older": "Late work was accepted until {when}."},
     "copy.until":            {"early": "until {when}", "middle": "until {when}", "older": "until {when}"},   # the sheet's sub-line: the last day the teacher still takes it (Open work)
     "copy.browse_all_link":  {"early": "Browse all work", "middle": "Browse all work", "older": "Browse all work"},
     "copy.browse_all_rest":  {"early": "to plan something outside this list.", "middle": "to plan something outside this list.",
