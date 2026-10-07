@@ -11,7 +11,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from ...dates import day_part, deadline_date, due_time
+from ...dates import day_part, deadline_date, due_time, week_start
 from ... import config, sources, work_types
 from ...matching import norm_name, same_item
 from ...open_items import HANDLED_FLAGS, MARKED_FLAGS
@@ -635,16 +635,84 @@ def must_finish(work: OpenWork, today: date, covered: set[int] = frozenset()) ->
     )
 
 
-def needs_you_now(work: OpenWork, questions: list[ItemView], today: date) -> list[ItemView]:
-    """The top of Assignments (2026-10-04): Must finish's red rows -- tonight, tomorrow, then
-    overdue work closest to losing credit first -- and then the questions, each once. A step
-    still ahead covers its row, as on the Plan; a step whose day has passed has slipped, and
-    its row is back here."""
-    ahead = {v.id for v in work.fixable + work.upcoming
-             if v.step is not None and date.fromisoformat(v.step["planned_for"]) >= today}
-    red = must_finish(work, today, ahead).red
-    listed = {v.id for v in red}
-    return red + [v for v in questions if v.id not in listed]
+@dataclass(frozen=True)
+class Assignments:
+    """Assignments' groups (spec 2026-10-06): each of a kid's rows in exactly one. The five
+    bands are the to-do list, in deadline order; `question`, `waiting` and `missed` are folded
+    beneath it, and `done` is the Done view's. `not_yet` has not come due and has no Canvas
+    deadline to come due by (HAC's placeholder rows, undated Canvas work): neither view lists
+    it, as the old Open list did not. A step never takes a row off the list: it is written
+    under it."""
+    overdue: list[ItemView]
+    tonight: list[ItemView]
+    tomorrow: list[ItemView]
+    this_week: list[ItemView]
+    later: list[ItemView]
+    question: list[ItemView]
+    waiting: list[ItemView]
+    missed: list[ItemView]
+    not_yet: list[ItemView]
+    done: list[ItemView]
+
+    @property
+    def to_do(self) -> list[ItemView]:
+        return self.overdue + self.tonight + self.tomorrow + self.this_week + self.later
+
+    @property
+    def groups(self) -> dict[str, list[ItemView]]:
+        return {"to_do": self.to_do, "question": self.question, "waiting": self.waiting,
+                "missed": self.missed, "not_yet": self.not_yet, "done": self.done}
+
+
+def _group(v: ItemView) -> str:
+    """Which of Assignments' groups a row is in: the first rule that matches. Coming due is to do
+    however far ahead (`reconcile.upcoming` without its days-ahead cap: a Canvas deadline with
+    nothing handed in; HAC's dates are invented and a row with no date is not coming due);
+    overdue is to do only while the work can still earn credit and the school says it is not
+    in. A row already on the list keeps its question on its own line."""
+    if not v.handled and not v.overdue and (v.upcoming or (v.outcome == outcomes.NOT_DUE and v.due and v.canvas is not None)):
+        return "to_do"
+    if v.overdue and not v.handled and v.actionable and v.outcome == outcomes.NOT_DONE:
+        return "to_do"
+    if v.asks:
+        return "question"
+    if _fixable(v) or v.verdict.state == "waiting" or v.verdict.kind in ("asked", "following_up"):
+        return "waiting"
+    if _past_window(v):
+        return "missed"
+    if not v.handled and v.outcome == outcomes.NOT_DUE:
+        return "not_yet"
+    return "done"
+
+
+def assignments(views: list[ItemView], today: date) -> Assignments:
+    """`views` (any order, already narrowed to the class in force) sorted into Assignments'
+    groups. The bands use the evening each deadline belongs to (`deadline_date`, #139); the
+    week ends on Sunday, as the weekly pages' weeks do."""
+    by: dict[str, list[ItemView]] = {"to_do": [], "question": [], "waiting": [], "missed": [], "not_yet": [], "done": []}
+    for v in views:
+        by[_group(v)].append(v)
+    due_key = _sort_key("due")
+    tomorrow, sunday = today + timedelta(days=1), week_start(today) + timedelta(days=6)
+    overdue = sorted((v for v in by["to_do"] if v.overdue),
+                     key=lambda v: (v.late_until.replace(tzinfo=None) if v.late_until else _FAR, due_key(v)))
+    ahead = sorted((v for v in by["to_do"] if not v.overdue), key=due_key)
+
+    def band(lo: date | None, hi: date | None) -> list[ItemView]:
+        return [v for v in ahead if v.due and (lo is None or deadline_date(v.due) >= lo)
+                and (hi is None or deadline_date(v.due) <= hi)]
+    return Assignments(
+        overdue=overdue,
+        tonight=band(None, today),
+        tomorrow=band(tomorrow, tomorrow),
+        this_week=band(tomorrow + timedelta(days=1), sunday),
+        later=band(max(sunday, tomorrow) + timedelta(days=1), None) + [v for v in ahead if not v.due],
+        question=sorted(by["question"], key=due_key),
+        waiting=sorted(by["waiting"], key=due_key),
+        missed=sorted(by["missed"], key=due_key),
+        not_yet=sorted(by["not_yet"], key=due_key),
+        done=sorted(by["done"], key=due_key),
+    )
 
 
 @dataclass(frozen=True)

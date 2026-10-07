@@ -1,4 +1,4 @@
-{# What a Reset sent back to Needs you now (2026-10-04), at the top of the page it came back to,
+{# What a Reset sent back to the to-do list (2026-10-04), at the top of the page it came back to,
    with its one Undo: `reset_notice` from `app.page_context`, drawn by `base.html`. #}
 {% set rn = reset_notice %}{% set tier = rn.kid | tier_of %}
 <form class="notice reset-notice" method="post" action="/resets/{{ rn.id }}/undo" role="status">

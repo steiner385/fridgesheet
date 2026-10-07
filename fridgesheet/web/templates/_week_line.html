@@ -11,8 +11,6 @@
 {% set tier = (student.key | tier_of) if student is defined and student else "" %}
 {% set item = view %}{% set density = 'card' %}{% set slot = 'qw-' ~ view.id %}{% set box_id = 'row-' ~ view.id %}
 {% set opens_detail = true %}{% set linked = false %}{% set class_link = not (on_class_page is defined and on_class_page) %}{% set only_asked = true %}
-{# A line already in Needs you now is answered there, not twice on one page. #}
-{% set above = up_top is defined and view.id in up_top %}
 {% set lt = view | line_tone(tier) %}
 {% set word = lt.word %}{% set word_tone = lt.word_tone %}{% set tone = lt.tone %}{% set late_line = lt.open %}
 {# The answer as it stands ("let go 9/12"): the one label table, never the stored name (#129). #}

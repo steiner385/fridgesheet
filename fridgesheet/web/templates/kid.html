@@ -1,74 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{{ student.key | nickname }} · Fridge Sheet{% endblock %}
 {% block content %}
-{# The weekly pages (the Student Planner, Assignments; the surface brief in .impeccable/surfaces/):
-   every assignment on the week it was due, this week's page first, earlier weeks beneath, settled
-   weeks folded to one line. The controls stay in the section head; the sort and the pages swap
-   together in #items. #}
+{# Assignments (spec 2026-10-06): To do, every open row once in deadline order with the gradebook
+   questions, waiting and missed work beneath it; or Done, the weekly pages of finished work.
+   `items.assignments` puts each row in exactly one place. The view words and the class picker
+   stand above the lists; a class change swaps #items, where every group lives, so the class
+   narrows them all. #}
 {% set page_title = student.key | nickname %}{% include "_page_head.html" %}
 {% include "_child_nav.html" %}
-{# The triage first, above the list and its filters (2026-10-04). #}
-{% include "_needs_now.html" %}
-<section class="sec all-work" aria-labelledby="all-head">
-  <div class="sec-head"><h3 id="all-head">All assignments</h3><span id="all-count" class="count">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span>
-    {# The list's own controls live in its head (spec 2026-09-28 §3). The form re-asks for the whole
-       list; the hidden sort inputs keep the sort a parent chose when they narrow to one course. #}
-    <form class="filters controls" hx-get="/kids/{{ student.key | urlencode }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
-      {# The view as words in the sort line's grammar, the chosen one in ink, the other a link:
-         ballpoint fills nothing on this page (finish review 2026-09-30). #}
-      <span class="seg words" role="group" aria-label="Show"><span class="muted">Show</span>
-        {# Open work's "Not shown" links open exactly the set they count (#125); the choice stays
-           checked here so narrowing by class keeps it. #}
-        {% set narrowed = {'past_window': 'Past the late-work window', 'handled': 'Handled'}.get(f.show) %}
-        <label><input type="radio" name="show" value="open" {{ 'checked' if f.show not in ('all', 'past_window', 'handled') }}> Open</label><span class="sep muted">·</span>
-        <label><input type="radio" name="show" value="all" {{ 'checked' if f.show == 'all' }}> Everything</label>
-        {% if narrowed %}<span class="sep muted">·</span><label><input type="radio" name="show" value="{{ f.show }}" checked> {{ narrowed }}</label>{% endif %}
-      </span>
-      {# The class picker stands in the head when there is a choice to make; a child with one
-         class keeps it behind More filters (re-critique 2026-09-30: seven controls before the
-         first line on a nine-year-old's phone). #}
-      {% set class_pick %}<label>Class <select name="course"><option value="">All classes</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>{% endset %}
-      {% if course_options | length > 1 %}{{ class_pick }}{% endif %}
-      {# Two filters a parent reaches for (the outcome, their own answer) and, behind a second
-         fold, the three that are rarely needed: five selects at once were a wall (critique
-         2026-09-29). Either fold opens itself when one of its filters is in force. #}
-      <details class="more-filters"{{ ' open' if f.source or f.kind or f.flagged or f.outcome or f.verdict or (f.course_id and course_options | length <= 1) }}><summary>More filters</summary>
-        {% if course_options | length <= 1 %}{{ class_pick }}{% endif %}
-        <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
-        <label>Your answer <select name="flagged"><option value="">any</option><option value="any" {{ 'selected' if f.flagged == 'any' }}>answered or asked</option><option value="handled" {{ 'selected' if f.flagged == 'handled' }}>handled</option><option value="marked" {{ 'selected' if f.flagged == 'marked' }}>asked or following up</option><option value="none" {{ 'selected' if f.flagged == 'none' }}>not answered</option>
-          {# Each answer, as it stands: the one label table's state column, in the menu's order (#129). #}
-          {% for v, _ in FLAG_CHOICES %}<option value="{{ v }}" {{ 'selected' if f.flagged == v }}>{{ v | flag_label('state', student.key | tier_of) }}</option>{% endfor %}</select></label>
-        <details class="rare-filters"{{ ' open' if f.source or f.kind or f.verdict }}><summary>Rarely needed</summary>
-          <label>Which gradebook <select name="source"><option value="">either</option><option value="canvas" {{ 'selected' if f.source == 'canvas' }}>in Canvas</option><option value="hac" {{ 'selected' if f.source == 'hac' }}>in HAC</option><option value="both" {{ 'selected' if f.source == 'both' }}>in both</option></select></label>
-          <label>Kind of work <select name="kind"><option value="">any</option>{% for v in ("online", "paper", "outside Canvas") %}<option value="{{ v }}" {{ 'selected' if f.kind == v }}>{{ v }}</option>{% endfor %}</select></label>
-          <label>What the app says <select name="verdict"><option value="">anything</option>{% for v, label in (("question", "needs your answer"), ("decided", "decided for you"), ("waiting", "waiting")) %}<option value="{{ v }}" {{ 'selected' if f.verdict == v }}>{{ label }}</option>{% endfor %}</select></label>
-        </details>
-      </details>
-      <input type="hidden" name="sort" value="{{ f.sort }}">
-      <input type="hidden" name="dir" value="{{ f.direction }}">
-      {% if f.family %}<input type="hidden" name="type" value="{{ f.family }}">{% endif %}
-    </form>
-    {% if widened %}<p class="lead" role="note">Showing everything that matches, not only open work.</p>{% endif %}
-    {# The app's questions, counted over all of the child's work and asked on their own lines
-       below; the line follows an answer out of band (_after_answer.html). #}
-    {% set tier = student.key | tier_of %}
-    <p id="q-lead" class="lead">{% if questions %}{{ 'copy.questions_head' | say(tier, {'n': questions | length, 's': 's' if questions | length != 1 else ''}) }}{% else %}{{ 'copy.no_questions' | say(tier) }}{% endif %}</p>
-    {% include "_type_links.html" %}
-  </div>
-  <div id="items">
-  {% block partial %}
-  {% include "_weeks.html" %}
-  {# The count lives in the section head, outside this swap; the partial carries it out of band
-     so a filter or sort change doesn't leave it stale. The <template> keeps it inert on a full
-     page load (the head above already has the live one). #}
-  <template>{% set tier = student.key | tier_of %}{% with oob = true %}{% include "_type_links.html" %}{% endwith %}</template>
-  <template><span id="all-count" class="count" hx-swap-oob="true">{{ rows | length }} {{ 'shown' if (f.show == 'all' or widened) else 'open' }}</span></template>
-  {% endblock %}
-  </div>
-  {# What the two words in a line's standing mean, once, under the pages (spec 2026-09-28 §2). #}
-  {% include "_sources_hint.html" %}
-</section>
-{# What the records settled and what is waiting on the school: the app's verdicts, below the
-   pages, quiet. A question is not a section here: it is asked on its own line above. #}
-{% include "_verdict_sections.html" %}
+{% set tier = student.key | tier_of %}
+<form class="filters controls view-bar" hx-get="{{ here }}" hx-target="#items" hx-push-url="true" hx-trigger="change">
+  {# The two views as words in the sort line's grammar, the one in force in ink: ballpoint fills
+     nothing on this page (finish review 2026-09-30). #}
+  <span class="seg words" role="group" aria-label="{{ 'copy.view_label' | say(tier) }}"><a href="{{ here }}"{% if page == 'to_do' %} aria-current="page"{% endif %}>{{ 'copy.to_do' | say(tier) }}</a><span class="sep muted">·</span><a href="{{ here }}?view=done"{% if page == 'done' %} aria-current="page"{% endif %}>{{ 'copy.done_view' | say(tier) }}</a></span>
+  {# One class is no choice: the picker stands only when there are two (re-critique 2026-09-30). #}
+  {% if course_options | length > 1 %}<label>{{ 'copy.class_label' | say(tier) }} <select name="course"><option value="">{{ 'copy.all_classes' | say(tier) }}</option>{% for cid, label in course_options %}<option value="{{ cid }}" {{ 'selected' if f.course_id == cid }}>{{ label }}</option>{% endfor %}</select></label>{% endif %}
+  {% if page == 'done' %}
+  <label>Outcome <select name="outcome"><option value="">any</option>{% for v in OUTCOMES %}<option value="{{ v }}" {{ 'selected' if f.outcome == v }}>{{ OUTCOME_LABELS[v] }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="view" value="done">
+  <input type="hidden" name="sort" value="{{ f.sort }}">
+  <input type="hidden" name="dir" value="{{ f.direction }}">
+  {% if f.family %}<input type="hidden" name="type" value="{{ f.family }}">{% endif %}
+  {# An old link's narrowing stays in force when the class changes. #}
+  {% if f.show in SHOW and f.show != 'open' %}<input type="hidden" name="show" value="{{ f.show }}">{% endif %}
+  {% for k in ('source', 'kind', 'flagged', 'verdict') if f[k] %}<input type="hidden" name="{{ k }}" value="{{ f[k] }}">{% endfor %}
+  {% endif %}
+</form>
+<div id="items">
+{% block partial %}
+{% if page == 'to_do' %}{% include "_to_do.html" %}{% else %}{% include "_done.html" %}{% endif %}
+{% endblock %}
+</div>
+{% include "_sources_hint.html" %}
+{% if page == 'done' %}{% include "_verdict_sections.html" %}{% endif %}
 {% endblock %}

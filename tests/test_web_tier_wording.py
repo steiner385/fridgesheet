@@ -213,9 +213,10 @@ def test_assignments_speaks_to_the_child(tmp_path):
     home.mkdir()
     seed(home).close()
     alex = client_with_grades(home).get("/kids/Alex").text
-    assert "1 question about your work" in alex and "about Alex's work" not in alex
+    assert ">Check with the teacher</h3>" in alex and "about Alex's work" not in alex
+    assert "When will you work on it?" in alex                       # the row asks the child
     sam = client_with_grades(home).get("/kids/Sam").text
-    assert "Nothing to answer." in sam and "for Sam" not in sam
+    assert ">To do</h3>" in sam and "for Sam" not in sam
 
 
 def test_the_heading_swapped_in_after_an_answer_speaks_to_the_child_too(tmp_path):

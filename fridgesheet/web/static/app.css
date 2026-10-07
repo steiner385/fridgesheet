@@ -997,6 +997,15 @@ details.mf-fold > .mf-section { margin-top: var(--s2); }
 .all-work .seg.words label { background: none; border: 0; padding: 0; font-size: inherit; color: var(--accent); text-decoration: underline; }
 .all-work .seg.words label:has(input:checked) { background: none; border: 0; color: var(--ink); font-weight: 650; text-decoration: none; }
 .all-work .seg.words label:has(input:focus-visible) { outline-offset: 2px; }
+/* Assignments' two views (spec 2026-10-06): To do · Done as words, the one in force in ink. */
+.view-bar .seg.words { gap: var(--s2); align-items: baseline; }
+.view-bar .seg.words a[aria-current] { color: var(--ink); font-weight: 650; text-decoration: none; }
+@media (pointer: coarse) { .view-bar .seg.words a { display: inline-flex; align-items: center; min-height: 44px; } }
+/* To do's folded Later band: its label is the summary line, as a folded week's is. */
+details.later > summary { list-style: none; cursor: pointer; }
+details.later > summary::-webkit-details-marker { display: none; }
+details.later > summary > h4::before { content: "▸ "; }
+details.later[open] > summary > h4::before { content: "▾ "; }
 /* The pages sit on the ruling with room between them for it to show (finish review 2026-09-30). */
 .pages { padding-bottom: var(--s4); }
 .weeks { display: grid; gap: var(--s5); max-width: var(--page-max); }              /* the pages fill the content column */

@@ -46,10 +46,11 @@ def test_the_table_marks_a_row_that_is_in_the_plan(tmp_path):
 
 
 def test_an_item_with_an_agreed_step_is_not_asked_about_again(tmp_path):
-    from tests.web_fixtures import week_line
     c, iid = _with_step(tmp_path)
     kid = c.get("/kids/Alex").text
-    assert '<p class="ask-line">' not in week_line(kid, iid) and "question about" not in kid
+    # Not a question any more: on paper with no grade, it waits on the school (spec 2026-10-06).
+    assert 'id="check-teacher"' not in kid
+    assert f'id="q-{iid}"' in kid[kid.index('<details id="waiting"'):]
     assert "Participation" not in c.get("/questions").text
 
 
@@ -60,7 +61,7 @@ def test_a_completed_step_does_not_hide_the_question(tmp_path):
                follow_redirects=False)
     assert r.status_code == 303
     from tests.web_fixtures import needs_row
-    assert '<p class="ask-line">' in needs_row(c.get("/kids/Alex").text, iid)      # asked again, in Needs you now
+    assert '<p class="ask-line">' in needs_row(c.get("/kids/Alex").text, iid)      # asked again, under To do
 
 
 # --- #48: planning a step returns to where you were -------------------------------------------

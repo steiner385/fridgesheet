@@ -22,7 +22,8 @@ def _item_ids(conn):
 def test_the_row_says_the_family_and_everyday_work_says_nothing(tmp_path):
     conn = seed(tmp_path, _quiz_snapshot())
     ids = _item_ids(conn)
-    page = app_for(tmp_path).get("/kids/Alex?show=all").text
+    c = app_for(tmp_path)
+    page = c.get("/kids/Alex").text + c.get("/kids/Alex?view=done").text     # waiting lines, then settled ones
     def line(name):
         # The week's line for the item: its name, then its meta, up to the line's end.
         m = re.search(rf'<b>{re.escape(name)}</b>.*?</div>', page, re.S)
@@ -165,24 +166,24 @@ def test_diagnostics_shows_how_each_class_was_typed(tmp_path):
 
 
 def test_the_type_counts_are_what_each_link_shows(tmp_path):
-    """The links count the rows this page shows, not every row the kid has: a handled row is
-    off the open list, so it is off the counts too, and All is the page's own count."""
+    """The links count the rows the Done view shows, not every row the kid has, and All is the
+    view's own count; a narrowing filter's links count what that filter lists."""
     conn = seed(tmp_path, _quiz_snapshot())
     c = app_for(tmp_path)
     c.post(f"/items/{_item_ids(conn)['Participation']}/answer", data={"answer": "too_late", "prev": ""})
-    page = c.get("/kids/Alex").text
-    links = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', page, re.S)
-    assert links and "Participation" not in links.group(1)
-    shown = int(re.search(r'id="all-count" class="count">(\d+)', page).group(1))
-    assert re.search(rf">All {shown}<", links.group(1))
+    for path in ("/kids/Alex?view=done", "/kids/Alex?show=all&source=canvas"):
+        page = c.get(path).text
+        links = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', page, re.S)
+        shown = int(re.search(r'<h3 id="done-head">Done</h3><span class="count">(\d+)', page).group(1))
+        assert links and re.search(rf">All {shown}<", links.group(1)), path
 
 
 def test_the_type_links_follow_an_htmx_filter_change(tmp_path):
-    """The filter form swaps only #items; the links ride along out of band, with the new filter
-    in their hrefs and counts, as the row count does."""
+    """The filter form swaps #items, and the links live inside it, with the new filter in their
+    hrefs and counts, as the row count does."""
     seed(tmp_path, _quiz_snapshot()).close()
     r = app_for(tmp_path).get("/kids/Alex?show=all&source=canvas", headers={"HX-Request": "true"})
-    m = re.search(r'<p id="type-links" class="type-links" hx-swap-oob="true">(.*?)</p>', r.text, re.S)
+    m = re.search(r'<p id="type-links" class="type-links">(.*?)</p>', r.text, re.S)
     assert m, r.text[:400]
     assert "source=canvas" in m.group(1)
     assert "Participation" not in m.group(1)                  # HAC-only: the new filter's counts

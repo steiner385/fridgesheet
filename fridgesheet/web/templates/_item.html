@@ -3,7 +3,7 @@
              line and the answers, for `_question.html` to put back inside a detail or a
              Must-finish row without drawing a second card around it)
    slot      the id the answers swap ('q-<id>' by default; 'qd-<id>' in a detail; 'qc-<id>' on the check-in;
-             'qm-<id>' / 'qn-<id>' a Must-finish / Needs you now row's answers)
+             'qm-<id>' / 'qn-<id>' a Must-finish / a to-do row's answers on Assignments)
    box_id    the element's own id ('' for none). Must finish gives the row 'mf-<id>' and keeps the
              answers in a div with the slot id, so an answer swaps the answers, not the row.
    tone      'ask' | 'red' | 'late' | 'check' | 'due' | 'ok' | 'grey' | ''
@@ -27,10 +27,7 @@
 {# An agreed step means the question is being handled: it is not asked again (`ItemView.asks`);
    the step is written beneath the line instead. #}
 {% set is_q = (vd.state == 'question' and not item.step) or (asked_again and ('ask.' ~ vd.kind) | has_phrase) %}
-{# `above` (a week's line already in Needs you now at the top of Assignments): asked and answered
-   up there, so the line here offers no second ask line or answers. #}
-{% set above = above is defined and above %}
-{% set ro = read_only is defined and read_only %}{% set show_ask = is_q and not ro and not above %}
+{% set ro = read_only is defined and read_only %}{% set show_ask = is_q and not ro %}
 {% set tone = tone if tone is defined and tone else ('ask' if is_q else 'grey' if vd.state == 'waiting' else '') %}
 {% set has_word = word is defined and word %}
 {% set at = (item | due_at(tier)) if item.due else '' %}
@@ -51,7 +48,7 @@
    done-line's are. #}
 <div class="line{{ ' ' ~ tone if tone }}"{% if box %} id="{{ box }}"{% endif %}>{% if tone == 'ok' %}<span class="glyph" aria-hidden="true"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 6.5l2.5 2.5L10 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{% else %}<span class="glyph" aria-hidden="true"><svg viewBox="0 0 12 12" width="12" height="12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4V6l1.9 1.3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>{% endif %}<span><b>{{ item.name }}</b>{% if line_meta %} · <span class="meta">{{ line_meta }}</span>{% endif %}{% if badges is defined %}{% for b in badges %} <span class="badge">{{ b }}</span>{% endfor %}{% endif %} · <span class="muted">{% if says is defined and says %}{{ says }}{% elif ('facts.' ~ vd.kind) | has_phrase %}{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% else %}{{ item | standing(tier) }}{% endif %}{% if vd.asks_on %} Asks you on {{ vd.asks_on | wd_md }}.{% endif %}</span>{% if vd.kind == 'asked' and item.teacher_email %} · <a href="mailto:{{ item.teacher_email }}?subject={{ ('About ' ~ item.name) | urlencode }}&amp;body={{ item | mailto_body | urlencode }}">Email</a>{% endif %}</span>{{ line_action if line_action is defined else '' }}</div>
 {% elif density == 'answers' %}
-{# `plan_prompt` (a Must-finish or Needs you now row's answers): the plan's own prompt over a
+{# `plan_prompt` (a Must-finish or Assignments to-do row's answers): the plan's own prompt over a
    red row's plan answers, as the card drew it (`plan_ask` below). #}
 <div id="{{ qid }}" data-focus{% if undone is defined and undone %} data-announce="{{ item.name }}: answer undone, the question is back"{% elif asked_again %} data-announce="{{ item.name }}: say what's right below"{% endif %}>{% if is_q %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_prompt is defined and plan_prompt and vd.answers and vd.state != 'waiting' and not item.step %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if vd.answers %}{% include "_answers.html" %}{% endif %}</div>
 {% else %}
@@ -64,8 +61,10 @@
   {% if message is defined and message %}<p data-announce="{{ message }}"><strong>{{ message }}</strong></p>{% endif %}
   {% set late = (late_line is defined and late_line and item.open_in and item.due and item.late_until) %}
   {# When credit ends: the app's sentence on a working page; on a read-only page the sheet's own
-     sub-line form, "until Wed 10/7", in pencil after the facts (finish review 2026-09-30). #}
-  {% set until %}{% if late %}{% if ro %}<span class="until muted">{{ 'copy.until' | say(tier, {'when': item.late_until | wd_md}) }}</span>{% else %}{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}{% endif %}{% endset %}
+     sub-line form, "until Wed 10/7", in pencil after the facts (finish review 2026-09-30). Once
+     the window has closed (open, not handled, no longer actionable) it says so in the past tense. #}
+  {% set closed = late and not item.actionable and not item.handled %}
+  {% set until %}{% if late %}{% if closed %}{{ 'copy.late_closed' | say(tier, {'when': item.late_until | wd_md}) }}{% elif ro %}<span class="until muted">{{ 'copy.until' | say(tier, {'when': item.late_until | wd_md}) }}</span>{% else %}{{ 'copy.late_until' | say(tier, {'when': item.late_until | wd_md}) }}{% endif %}{% endif %}{% endset %}
   {% if says is defined and says %}<p class="facts">{{ says }}{% if late %} {{ until }}{% endif %}</p>
   {% elif ('facts.' ~ vd.kind) | has_phrase %}<p class="facts">{{ ('facts.' ~ vd.kind) | say(tier, vd.facts) }}{% if late %} {{ until }}{% endif %}</p>
   {% elif not has_word %}<p class="facts">{{ item | standing(tier) }}{% if late %} {{ until }}{% endif %}</p>
@@ -76,7 +75,7 @@
      (waiting) offers no plan answers and gets no prompt. #}
   {# `only_asked` (a week's line on Assignments): a line that is not a question offers nothing
      here; its foot's "Plan a step" is the way to plan it, so the school's list is not a form. #}
-  {% set offers = vd.answers and not ro and not above and not (only_asked is defined and only_asked and not is_q) %}
+  {% set offers = vd.answers and not ro and not (only_asked is defined and only_asked and not is_q) %}
   {% set plan_ask = (not is_q) and has_word and tone != 'grey' and offers and not item.step %}
   {% if box == qid %}{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}{% else %}<div id="{{ qid }}">{% if show_ask %}<p class="ask-line">{{ ('ask.' ~ vd.kind) | say(tier) }}</p>{% elif plan_ask %}<p class="ask-line plan">{{ 'ask.plan' | say(tier) }}</p>{% endif %}{% if offers %}{% include "_answers.html" %}{% endif %}</div>{% endif %}
   {% if item.step %}<p class="ours">{{ 'copy.ours_step' | say(tier) }}: {{ item.step.next_step }} · {{ item.step.owner }} · {{ item.step.planned_for | wd_md }}{% if not ro %} <a href="/kids/{{ student.key | urlencode }}/check-in/step?step_id={{ item.step.id }}&amp;return_to={{ here | urlencode }}">Edit</a>{% endif %}</p>{% endif %}

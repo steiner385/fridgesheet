@@ -1,4 +1,4 @@
-"""Reset (2026-10-04): send one assignment, or a kid's whole plan, back to Needs you now, and
+"""Reset (2026-10-04): send one assignment, or a kid's whole plan, back to the to-do list, and
 Undo it. Plain form POSTs that come back to the page they were made on with `?reset=<id>`, where
 the notice with the one Undo is drawn (`app.page_context`, `_reset_notice.html`)."""
 from __future__ import annotations

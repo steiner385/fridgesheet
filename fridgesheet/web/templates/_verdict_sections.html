@@ -1,7 +1,6 @@
-{# The app's verdicts under a kid's weekly pages (spec 2026-09-23 §6.1; drawn as spec 2026-09-28 §3
-   sections): what the records settled, and what is waiting on the school. Computed over all of
-   the kid's work, whatever the pages above are filtered to. A question is not a section here:
-   it is asked on its own line on the week's page (the weekly pages, 2026-09-30). #}
+{# The app's verdicts under the Done view's weekly pages (spec 2026-09-23 §6.1; drawn as spec 2026-09-28 §3
+   sections): what the records settled, computed over all of the kid's work. What is waiting on
+   the school is folded under To do (spec 2026-10-06), and a question is asked there too. #}
 {% set tier = student.key | tier_of %}
 {% if decided or decided_earlier %}
 <section class="sec quiet decided" aria-labelledby="d-head">
@@ -12,10 +11,4 @@
   {% if decided_earlier %}<details class="quiet"><summary>Earlier ({{ decided_earlier | length }})</summary>
     <div class="lines">{% for item in decided_earlier %}{% set density = 'line' %}{% set tone = 'ok' %}{% set line_action %}<button type="button" class="link" hx-get="/items/{{ item.id }}/reopen" hx-target="#q-{{ item.id }}" hx-swap="outerHTML" aria-label="Not right? {{ item.name }}">Not right?</button>{% endset %}{% include "_item.html" %}{% endfor %}</div></details>{% endif %}
 </section>
-{% endif %}
-{% if waiting %}
-<details class="sec quiet">
-  <summary><h3>Waiting, nothing to do yet</h3> <span class="count">{{ waiting | length }}</span></summary>
-  <div class="lines">{% for item in waiting %}{% set density = 'line' %}{% set tone = 'grey' %}{% set says = (('facts.' ~ item.verdict.kind) | say(tier, item.verdict.facts)) if item.verdict.state == 'waiting' else (item | standing(tier)) %}{% set line_action %}{% if item.verdict.answers %}<form hx-post="/items/{{ item.id }}/answer" hx-target="#q-{{ item.id }}" hx-swap="outerHTML"><input type="hidden" name="prev" value=""><button class="link" name="answer" value="ask_teacher" aria-label="Ask the teacher now about {{ item.name }}">Ask now</button></form>{% endif %}{% endset %}{% include "_item.html" %}{% endfor %}</div>
-</details>
 {% endif %}

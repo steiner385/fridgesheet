@@ -45,16 +45,16 @@ def week_line(body: str, item_id: int) -> str:
 
 
 def needs_row(body: str, item_id: int) -> str:
-    """One row of Needs you now at the top of Assignments: from its `nn-<id>` box to the next
-    row or the end of the section."""
+    """One row on Assignments that answers in place (overdue, tonight, tomorrow, or Check with
+    the teacher; spec 2026-10-06): from its `nn-<id>` box to the next row or the section's end."""
     m = re.search(rf'<div class="item[^"]*" id="nn-{item_id}".*?(?=<div class="item[ "]|</section>)', body, re.S)
-    assert m, f"no Needs you now row for item {item_id}"
+    assert m, f"no answering row for item {item_id}"
     return m.group(0)
 
 
 def items_block(body: str) -> str:
-    """The kid page's weekly pages: from #items to the sources legend under them (the
-    verdict sections that follow are not the list)."""
+    """The kid page's lists: from #items to the sources legend under them (on the Done view,
+    the verdict sections that follow are not the list)."""
     return body[body.index('id="items"'):body.index('class="legend sources-hint')]
 
 

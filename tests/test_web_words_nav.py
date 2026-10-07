@@ -38,7 +38,9 @@ def test_you_can_filter_to_one_answer_such_as_asked_the_teacher(tmp_path):
     flags.set_flag(conn, lab, "ask_teacher", now="2026-09-15T08:00:00-04:00")
     conn.close()
     body = app_for(tmp_path).get("/kids/Alex?flagged=ask_teacher").text
-    assert '<option value="ask_teacher" selected>' in body
+    # The answer filter left the page (spec 2026-10-06); a link that carries it opens Done with
+    # it in force and keeps it through a class change.
+    assert '<input type="hidden" name="flagged" value="ask_teacher">' in body
     table = _table(body)
     assert "Lab notebook" in table and "Vocabulary" not in table
 
@@ -46,7 +48,7 @@ def test_you_can_filter_to_one_answer_such_as_asked_the_teacher(tmp_path):
 def test_you_can_filter_by_what_the_app_says(tmp_path):
     seed(tmp_path).close()
     body = app_for(tmp_path).get("/kids/Alex?verdict=waiting").text
-    assert 'name="verdict"' in body and '<option value="waiting" selected>' in body
+    assert '<input type="hidden" name="verdict" value="waiting">' in body
     table = _table(body)
     assert "Essay draft" in table and "Lab notebook" in table
     assert "Vocabulary" not in table and "Participation" not in table
@@ -56,8 +58,9 @@ def test_a_filter_that_widens_to_everything_says_so(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
     for q in ("?outcome=not_done", "?verdict=decided", "?flagged=done"):
-        assert "Showing everything that matches" in c.get("/kids/Alex" + q).text, q
-    assert "Showing everything that matches" not in c.get("/kids/Alex").text
+        assert "Showing a filtered list." in c.get("/kids/Alex" + q).text, q
+    assert "Showing a filtered list." not in c.get("/kids/Alex").text
+    assert "Showing a filtered list." not in c.get("/kids/Alex?view=done").text
 
 
 # --- #34: on the Open page, red is only the school's not-done ---------------------------------

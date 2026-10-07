@@ -259,17 +259,29 @@ PHRASES: dict[str, dict[str, str]] = {
     "badge.worth":      {"early": "worth +{worth}", "middle": "+{worth} on the average", "older": "+{worth} on the average"},
     # --- the plan page that fills itself (spec 2026-09-27 §4-§9, §11) ------------------------
     "copy.must_finish":      {"early": "Must finish", "middle": "Must finish", "older": "Must finish"},
-    # The triage at the top of Assignments (2026-10-04), and its one line when there is none.
-    "copy.needs_you_now":    {"early": "Needs you now", "middle": "Needs you now", "older": "Needs you now"},
-    "copy.nothing_needs_you": {"early": "Nothing needs you now.", "middle": "Nothing needs you now.", "older": "Nothing needs you now."},
+    # Assignments as a to-do list (spec 2026-10-06): the two views, the bands, the groups under
+    # the list, and the Done view's note when an old link's filter is in force.
+    "copy.view_label":       {"early": "Show", "middle": "View", "older": "View"},
+    "copy.to_do":            {"early": "To do", "middle": "To do", "older": "To do"},
+    "copy.done_view":        {"early": "Done", "middle": "Done", "older": "Done"},
+    "copy.class_label":      {"early": "Class", "middle": "Class", "older": "Class"},
+    "copy.all_classes":      {"early": "All classes", "middle": "All classes", "older": "All classes"},
+    "copy.band_this_week":   {"early": "Later this week", "middle": "Later this week", "older": "Later this week"},
+    "copy.band_later":       {"early": "Later · {n} due {first} – {last}", "middle": "Later · {n} due {first} – {last}", "older": "Later · {n} due {first} – {last}"},
+    "copy.nothing_to_do":    {"early": "Nothing left to do.", "middle": "Nothing left to do.", "older": "Nothing left to do."},
+    "copy.check_with_teacher": {"early": "Check with the teacher", "middle": "Check with the teacher", "older": "Check with the teacher"},
+    "copy.waiting_on_grade": {"early": "Waiting for a grade", "middle": "Waiting on a grade", "older": "Waiting on a grade"},
+    "copy.missed_too_late":  {"early": "Missed, too late to hand in", "middle": "Missed — too late for credit", "older": "Missed — too late for credit"},
+    "copy.filtered_list":    {"early": "This list is filtered.", "middle": "Showing a filtered list.", "older": "Showing a filtered list."},
+    "copy.back_to_to_do":    {"early": "Back to To do", "middle": "Back to To do", "older": "Back to To do"},
     # Reset (2026-10-04): a triage taken back, one row or the whole plan, and the notice it leaves.
     "copy.reset":            {"early": "Reset", "middle": "Reset", "older": "Reset"},
     "copy.reset_plan":       {"early": "Reset plan", "middle": "Reset plan", "older": "Reset plan"},
-    "copy.reset_plan_confirm": {"early": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Done steps stay, and Undo puts it all back.",
-                                "middle": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back.",
-                                "older": "Send {n} {items} back to Needs you now? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back."},
-    "copy.reset_one":        {"early": "{name} is back on Needs you now.", "middle": "{name} is back on Needs you now.", "older": "{name} is back on Needs you now."},
-    "copy.reset_many":       {"early": "{n} items are back on Needs you now.", "middle": "{n} items are back on Needs you now.", "older": "{n} items are back on Needs you now."},
+    "copy.reset_plan_confirm": {"early": "Send {n} {items} back to the to-do list? Their plan steps are removed and the answers cleared. Done steps stay, and Undo puts it all back.",
+                                "middle": "Send {n} {items} back to the to-do list? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back.",
+                                "older": "Send {n} {items} back to the to-do list? Their plan steps are removed and the answers cleared. Completed steps stay, and Undo puts it all back."},
+    "copy.reset_one":        {"early": "{name} is back on the to-do list.", "middle": "{name} is back on the to-do list.", "older": "{name} is back on the to-do list."},
+    "copy.reset_many":       {"early": "{n} items are back on the to-do list.", "middle": "{n} items are back on the to-do list.", "older": "{n} items are back on the to-do list."},
     # One sentence: with the second ("They leave when it says they are, or when you say so.")
     # the lead was three lines on a phone above the first row (critique 2026-09-29).
     "copy.must_finish_hint": {"early": "The school says these aren't in yet.",
@@ -334,6 +346,11 @@ PHRASES: dict[str, dict[str, str]] = {
     "copy.late_until":       {"early": "The school usually still takes late work until {when}. Ask the teacher if you need more time.",
                               "middle": "The school usually accepts late work until {when} (from your late-work rules). Ask the teacher if you need longer.",
                               "older": "Late work is usually accepted until {when} (from your late-work rules). Ask the teacher if you need longer."},
+    # A row past its late-work window: the date is gone, so the sentence is in the past tense
+    # (Doug's Protist Lab read "is usually accepted until Mon 10/5" on 10/6, spec 2026-10-06).
+    "copy.late_closed":      {"early": "The school took late work until {when}.",
+                              "middle": "Late work was accepted until {when}.",
+                              "older": "Late work was accepted until {when}."},
     "copy.until":            {"early": "until {when}", "middle": "until {when}", "older": "until {when}"},   # the sheet's sub-line: the last day the teacher still takes it (Open work)
     "copy.browse_all_link":  {"early": "Browse all work", "middle": "Browse all work", "older": "Browse all work"},
     "copy.browse_all_rest":  {"early": "to plan something outside this list.", "middle": "to plan something outside this list.",
