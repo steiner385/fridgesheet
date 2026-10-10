@@ -24,9 +24,17 @@ jobs:
     # A tag push or manual dispatch always runs; a `ci`-triggered run only proceeds when ci
     # succeeded. Whether the merge commit opted out with [skip release] needs the checkout
     # below (packaging/skip_release.py), so that check is a step, not part of this condition.
+    #
+    # A `ci`-triggered run must also be a PUSH to THIS repository. `branches: [main]` above
+    # matches on the branch NAME only, so a fork PR from a branch called `main` would pass
+    # it -- and this job checks out that run's head_sha (the fork's code), runs it, and
+    # publishes a release with a contents: write token.
     if: >-
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.event_name != 'workflow_run' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
     runs-on: windows-latest
     permissions:
       contents: write     # needed by both the version-picking step's tag push and Publish, below
