@@ -52,7 +52,7 @@ assignments = "canvas"        # household defaults; these are the built-in value
 grades = "hac"
 
 [[sources.rule]]              # kid and course are optional and matched like late-rules:
-kid = "Douglas"               #   kid is a prefix match either way (Alex ~ Alexander)
+kid = "Dominic"               #   kid is a prefix match either way (Alex ~ Alexander)
 course = "Honors Algebra II"  #   course is a case-insensitive substring of the class name
 assignments = "hac"           #   or of its short name; a rule may set one field or both
 ```

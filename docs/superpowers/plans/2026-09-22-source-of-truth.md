@@ -26,8 +26,8 @@
 ## Deviations from the spec (decided while planning)
 
 - **Rules match courses on whole words.** The spec reused late-rules' plain substring match. Plain substring lets a rule for `Algebra I` also catch `Algebra II`, and a source rule silently flipping a second class's grades is worse than a late-days rule doing it. `SourceRule` matches the pattern only where it is bounded by non-alphanumerics. Late rules keep their current behaviour.
-- **The course-page control writes the class's short name**, not the Canvas full name. The full Canvas name (`Honors Algebra II S1-2027-Hoch`) is not a substring of the paired HAC name (`Honors Algebra II - 3`), so a rule written from it would miss every HAC-only row in that class. The short name is contained in both.
-- **The sheet resolves the kid by first name, not by printed label.** `open_items` receives the nickname as `kid`; a rule for `Douglas` must still apply when the sheet prints `Dougie`.
+- **The course-page control writes the class's short name**, not the Canvas full name. The full Canvas name (`Honors Algebra II S1-2027-Hart`) is not a substring of the paired HAC name (`Honors Algebra II - 3`), so a rule written from it would miss every HAC-only row in that class. The short name is contained in both.
+- **The sheet resolves the kid by first name, not by printed label.** `open_items` receives the nickname as `kid`; a rule for `Dominic` must still apply when the sheet prints `Dommy`.
 
 ## Review Focus
 
@@ -106,7 +106,7 @@ def prefs(text: str) -> sources.SourcePrefs:
 
 def test_no_table_means_canvas_assignments_hac_grades():
     p = sources.from_doc({})
-    assert p.resolve("Alex", "Honors Biology S1-2027-Nance") == sources.Choice("canvas", "hac")
+    assert p.resolve("Alex", "Honors Biology S1-2027-Noble") == sources.Choice("canvas", "hac")
     assert p == sources.DEFAULT
 
 
@@ -117,19 +117,19 @@ def test_household_default_applies_everywhere():
 
 def test_fields_resolve_independently():
     p = prefs('[sources]\n'
-              '[[sources.rule]]\nkid = "Douglas"\ngrades = "canvas"\n\n'
+              '[[sources.rule]]\nkid = "Dominic"\ngrades = "canvas"\n\n'
               '[[sources.rule]]\ncourse = "Band"\nassignments = "hac"\n')
-    assert p.resolve("Douglas", "Concert Band S1-2027-Desmond") == sources.Choice("hac", "canvas")
-    assert p.resolve("Douglas", "Honors English 9") == sources.Choice("canvas", "canvas")
-    assert p.resolve("Melanie", "Concert Band") == sources.Choice("hac", "hac")
+    assert p.resolve("Dominic", "Concert Band S1-2027-Desmond") == sources.Choice("hac", "canvas")
+    assert p.resolve("Dominic", "Honors English 9") == sources.Choice("canvas", "canvas")
+    assert p.resolve("Matilda", "Concert Band") == sources.Choice("hac", "hac")
 
 
 def test_first_matching_rule_that_sets_the_field_wins():
     p = prefs('[sources]\n'
-              '[[sources.rule]]\nkid = "Douglas"\ncourse = "Honors Algebra II"\nassignments = "hac"\n\n'
+              '[[sources.rule]]\nkid = "Dominic"\ncourse = "Honors Algebra II"\nassignments = "hac"\n\n'
               '[[sources.rule]]\ncourse = "Honors Algebra II"\nassignments = "canvas"\ngrades = "canvas"\n')
-    assert p.resolve("Douglas", "Honors Algebra II S1-2027-Ho") == sources.Choice("hac", "canvas")
-    assert p.resolve("Kayla", "Honors Algebra II - 2") == sources.Choice("canvas", "canvas")
+    assert p.resolve("Dominic", "Honors Algebra II S1-2027-Ho") == sources.Choice("hac", "canvas")
+    assert p.resolve("Keira", "Honors Algebra II - 2") == sources.Choice("canvas", "canvas")
 
 
 def test_kid_is_a_prefix_match_either_way():
@@ -144,15 +144,15 @@ def test_course_pattern_matches_whole_words_only():
     p = prefs('[[sources.rule]]\ncourse = "Algebra I"\ngrades = "canvas"\n')
     assert p.resolve("Alex", "Algebra I S1-2027-Lee").grades == "canvas"
     assert p.resolve("Alex", "Algebra I - 2").grades == "canvas"
-    assert p.resolve("Alex", "Algebra II S1-2027-Hoch").grades == "hac"
+    assert p.resolve("Alex", "Algebra II S1-2027-Hart").grades == "hac"
     assert p.resolve("Alex", "Honors Algebra II - 3").grades == "hac"
 
 
 def test_short_name_rule_matches_both_sources_names():
     """Review focus 2: the course-page control writes the short name; HAC-only rows carry HAC's name."""
-    p = sources.DEFAULT.with_rule("Douglas", "Honors Algebra II", "hac", None)
-    assert p.resolve("Douglas", "Honors Algebra II S1-2027-Hoch").assignments == "hac"
-    assert p.resolve("Douglas", "Honors Algebra II - 3").assignments == "hac"
+    p = sources.DEFAULT.with_rule("Dominic", "Honors Algebra II", "hac", None)
+    assert p.resolve("Dominic", "Honors Algebra II S1-2027-Hart").assignments == "hac"
+    assert p.resolve("Dominic", "Honors Algebra II - 3").assignments == "hac"
 
 
 def test_bad_values_warn_and_fall_through(caplog):
@@ -209,7 +209,7 @@ def test_shared_matchers_keep_late_rules_semantics():
     assert kid_matches("", "anyone") and kid_matches("Alex", "Al") and not kid_matches("Alex", "Sam")
     assert course_matches("Algebra I", "Algebra II")                          # late rules: plain substring, unchanged
     assert not course_matches("Algebra I", "Algebra II", whole_words=True)
-    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch", whole_words=True)
+    assert course_matches("English 9", "Honors English 9 S1-2027-Hart", whole_words=True)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -277,7 +277,7 @@ both have one, and the other still fills gaps. Configured in config.toml:
     grades = "hac"
 
     [[sources.rule]]              # kid and course optional; first rule that sets a field wins
-    kid = "Douglas"               #   prefix match either way (Alex ~ Alexander)
+    kid = "Dominic"               #   prefix match either way (Alex ~ Alexander)
     course = "Honors Algebra II"  #   whole words of the class name or its short name
     assignments = "hac"
 
@@ -1025,7 +1025,7 @@ def test_hac_preference_without_a_hac_score_changes_nothing(rules):
 def test_rules_resolve_by_first_name_not_the_printed_nickname(rules):
     p = sources.DEFAULT.with_rule("Alex", "Honors Biology", "hac", None)
     e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
-    assert open_items.open_items(e, "Dougie", NOW, rules=rules, prefs=p).items == []
+    assert open_items.open_items(e, "Dommy", NOW, rules=rules, prefs=p).items == []
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -1327,7 +1327,7 @@ def graded(monkeypatch, tmp_path):
         "fetched_at": _iso(0), "fetched_at_epoch": 10**12, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
         "students": {"Alex": {
             "name": "Alex Example",
-            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [], "staff": [],
+            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [], "staff": [],
                                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False}}]},
             "hac": {"week_view": [], "classes": [
                 {"name": "Honors Biology - 3", "marking_period_avg": 88.0, "last_updated": "9/11/2026", "categories": [], "assignments": []},
@@ -1343,12 +1343,12 @@ def graded(monkeypatch, tmp_path):
 def test_grades_official_follows_the_grades_source(graded, monkeypatch):
     monkeypatch.setattr(server._settings, "sources", sources.DEFAULT)
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
-    bio = out["Honors Biology S1-2027-Nance"]
+    bio = out["Honors Biology S1-2027-Noble"]
     assert (bio["official"], bio["official_source"]) == (88.0, "hac")
     assert (bio["hac_official"], bio["canvas_current"]) == (88.0, 91.2)          # both still there
     monkeypatch.setattr(server._settings, "sources", sources.DEFAULT.with_default("canvas", "canvas"))
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
-    assert (out["Honors Biology S1-2027-Nance"]["official"], out["Honors Biology S1-2027-Nance"]["official_source"]) == (91.2, "canvas")
+    assert (out["Honors Biology S1-2027-Noble"]["official"], out["Honors Biology S1-2027-Noble"]["official_source"]) == (91.2, "canvas")
     assert (out["Hawk Time"]["official"], out["Hawk Time"]["official_source"]) == (100.0, "hac")   # HAC-only fills the gap
 ```
 

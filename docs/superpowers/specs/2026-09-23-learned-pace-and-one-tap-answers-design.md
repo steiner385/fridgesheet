@@ -8,12 +8,12 @@ puts the app's own guess in the school's mouth.
 
 ## 1. Goal
 
-Doug opens his check-in and sees twenty-one cards. He already knows which ones he handed
+Dom opens his check-in and sees twenty-one cards. He already knows which ones he handed
 in. He also knows that his AP Human Geography teacher grades reading guides in a batch a
 week or two after they are due, and that Concert Band never records a Canvas submission
 for anything. The app knows none of this, so it waits the same seven days on every class
 and then asks "was it handed in?" about work that is simply on the teacher's desk. And when
-Doug wants to say "I'll do that tonight", the only way is a link to a form on another page.
+Dom wants to say "I'll do that tonight", the only way is a link to a form on another page.
 
 After this change:
 
@@ -23,11 +23,11 @@ After this change:
    they say so: "This class usually has a grade within about 5 days, so look for it by Fri
    9/26." The estimate is always labelled as Fridge Sheet's own count.
 2. **Every disposition is one tap on the card.** "Today", "Tomorrow", "It's handed in" and
-   "Ask the teacher" each record the answer where Doug is standing, on every card that can
+   "Ask the teacher" each record the answer where Dom is standing, on every card that can
    take one, not only the ones the app has a question about.
 
 The kid is the primary reader. Everything on the card is said in the reading tier the
-household set (`phrasing.py`), and the page is meant to be usable by Doug alone as well as
+household set (`phrasing.py`), and the page is meant to be usable by Dom alone as well as
 in a parent-and-kid check-in.
 
 ## 2. Decisions taken in discussion
@@ -41,13 +41,13 @@ in a parent-and-kid check-in.
 | The wrap-up's "What we agreed" box | Unchanged; still typed |
 | Pooling history across kids | By exact teacher name only, and only as a fallback |
 
-## 3. What Doug sees today
+## 3. What Dom sees today
 
-The live check-in (`/kids/Douglas/check-in`) sorts work into Questions, Waiting on the
+The live check-in (`/kids/Dominic/check-in`) sorts work into Questions, Waiting on the
 school and To do. Questions and the school's own not-done rows carry answer buttons
 (`_answers.html`). Every other card, including all twelve upcoming ones, ends in a single
-link to the plan-step form. Five of Doug's eight questions are paper work from classes whose
-teachers post grades late, asked after a fixed seven days. One card shows 5 of 5 with Doug
+link to the plan-step form. Five of Dom's eight questions are paper work from classes whose
+teachers post grades late, asked after a fixed seven days. One card shows 5 of 5 with Dom
 still "following up since 9/20" and asks him whether it is settled.
 
 ## 4. The learned pace

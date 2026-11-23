@@ -47,8 +47,8 @@ A new key in `[kids]`, beside the nicknames already there:
 
 ```toml
 [kids]
-nicknames = { Douglas = "Doug" }
-grades    = { Douglas = 9, Melanie = 7, Kayla = 5 }
+nicknames = { Dominic = "Dom" }
+grades    = { Dominic = 9, Matilda = 7, Keira = 5 }
 ```
 
 Parsed in `config.settings_from_doc` alongside `nicknames` (`config.py:308`) and with the
@@ -82,9 +82,9 @@ def tier(grade: int | None) -> str:
 | grade | tier | reader |
 |---|---|---|
 | unset, or unparseable | `""` | today's interface |
-| K–5 | `early` | Kayla |
-| 6–8 | `middle` | Melanie |
-| 9–12 | `older` | Douglas |
+| K–5 | `early` | Keira |
+| 6–8 | `middle` | Matilda |
+| 9–12 | `older` | Dominic |
 | outside 0–12 | `""` | a typo must not silently pick a tier |
 
 Three tiers rather than thirteen because school structure already clusters this way, the

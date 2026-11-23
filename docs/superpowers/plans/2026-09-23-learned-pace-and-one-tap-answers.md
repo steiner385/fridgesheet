@@ -6,7 +6,7 @@
 
 **Architecture:** A new `pace` module turns the observation history into per-class grade-lag and HAC-lag estimates at render time (no schema change). `verdicts.verdict` takes a `Pace` the way it takes late-work `rules`, uses it for the two grace-period rules, and attaches a `pace` fact the templates phrase in the kid's tier. The answer endpoint gains `plan:today` / `plan:tomorrow`, which create a plan step with defaults and swap the plan panel in out of band.
 
-**Tech Stack:** Python 3.12, FastAPI + Jinja2 + htmx, SQLite, pytest. Run tests with the main checkout's venv: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q`.
+**Tech Stack:** Python 3.12, FastAPI + Jinja2 + htmx, SQLite, pytest. Run tests with the main checkout's venv: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q`.
 
 **Spec:** `docs/superpowers/specs/2026-09-23-learned-pace-and-one-tap-answers-design.md`
 
@@ -74,7 +74,7 @@ def test_floor_and_cap():
 def test_zeros_are_not_samples():
     """Review Focus 1: the store never feeds zeros in, and a table of nothing is the default."""
     pace = P.Pace(grade={(5, "offline"): []}, hac={}, classes={5: 5}, teachers={})
-    assert pace.grade_days({"course_id": 5, "kind": "paper", "teacher": "Hoch"}) == P.Estimate(7, 0, "default")
+    assert pace.grade_days({"course_id": 5, "kind": "paper", "teacher": "Hart"}) == P.Estimate(7, 0, "default")
 
 
 def test_kind_group():
@@ -83,29 +83,29 @@ def test_kind_group():
         assert P.kind_group(kind) == "offline", kind
 
 
-def _item(course_id=5, kind="paper", teacher="Michael Hoch"):
+def _item(course_id=5, kind="paper", teacher="Michael Hart"):
     return {"course_id": course_id, "kind": kind, "teacher": teacher}
 
 
 def test_the_course_and_kind_group_come_first():
-    pace = P.Pace(grade={(5, "offline"): [9, 10, 12], (5, "online"): [1, 1, 1]}, hac={}, classes={5: 5}, teachers={5: "michael hoch"})
+    pace = P.Pace(grade={(5, "offline"): [9, 10, 12], (5, "online"): [1, 1, 1]}, hac={}, classes={5: 5}, teachers={5: "michael hart"})
     assert pace.grade_days(_item(kind="paper")) == P.Estimate(12, 3, "course_kind")
     assert pace.grade_days(_item(kind="online")) == P.Estimate(1, 3, "course_kind")
 
 
 def test_then_the_whole_course_pooled_across_kinds():
-    pace = P.Pace(grade={(5, "offline"): [9], (5, "online"): [1, 2]}, hac={}, classes={5: 5}, teachers={5: "michael hoch"})
+    pace = P.Pace(grade={(5, "offline"): [9], (5, "online"): [1, 2]}, hac={}, classes={5: 5}, teachers={5: "michael hart"})
     assert pace.grade_days(_item(kind="paper")) == P.Estimate(9, 3, "course")
 
 
 def test_then_the_same_teacher_across_the_household_same_kind():
     pace = P.Pace(grade={(5, "offline"): [2], (8, "offline"): [6, 7], (9, "offline"): [40, 40, 40]}, hac={},
-                  classes={5: 5, 8: 8, 9: 9}, teachers={5: "michael hoch", 8: "michael hoch", 9: "dana lee"})
-    assert pace.grade_days(_item(course_id=5, kind="paper", teacher=" Michael HOCH ")) == P.Estimate(7, 3, "teacher")
+                  classes={5: 5, 8: 8, 9: 9}, teachers={5: "michael hart", 8: "michael hart", 9: "dana lee"})
+    assert pace.grade_days(_item(course_id=5, kind="paper", teacher=" Michael HART ")) == P.Estimate(7, 3, "teacher")
 
 
 def test_a_different_teacher_is_never_pooled():
-    pace = P.Pace(grade={(9, "offline"): [40, 40, 40]}, hac={}, classes={5: 5, 9: 9}, teachers={5: "michael hoch", 9: "dana lee"})
+    pace = P.Pace(grade={(9, "offline"): [40, 40, 40]}, hac={}, classes={5: 5, 9: 9}, teachers={5: "michael hart", 9: "dana lee"})
     assert pace.grade_days(_item(course_id=5)) == P.Estimate(7, 0, "default")
 
 
@@ -116,7 +116,7 @@ def test_an_unknown_course_and_a_blank_teacher_are_the_default():
 
 
 def test_a_hac_twin_shares_its_canvas_course_history():
-    pace = P.Pace(grade={(5, "offline"): [9, 10, 12]}, hac={}, classes={5: 5, 6: 5}, teachers={5: "michael hoch"})
+    pace = P.Pace(grade={(5, "offline"): [9, 10, 12]}, hac={}, classes={5: 5, 6: 5}, teachers={5: "michael hart"})
     assert pace.grade_days(_item(course_id=6, kind="")) == P.Estimate(12, 3, "course_kind")
 
 
@@ -133,7 +133,7 @@ def test_the_default_pace_object_always_answers_seven():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace.py`
 Expected: FAIL with `ModuleNotFoundError: No module named 'fridgesheet.web.pace'`
 
 - [ ] **Step 3: Write the module**
@@ -233,7 +233,7 @@ DEFAULT = Pace({}, {}, {}, {})
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace.py`
 Expected: 13 passed
 
 - [ ] **Step 5: Commit**
@@ -272,7 +272,7 @@ def _refresh(conn, at):
     return conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES (?, '{}', 1)", (at,)).lastrowid
 
 
-def _course(conn, sid, source, name, teacher="Michael Hoch", peer=None):
+def _course(conn, sid, source, name, teacher="Michael Hart", peer=None):
     return conn.execute("INSERT INTO courses(student_id, source, name, short_name, teacher, peer_course_id) VALUES (?, ?, ?, ?, ?, ?)",
                         (sid, source, name, name[:4], teacher, peer)).lastrowid
 
@@ -361,19 +361,19 @@ def test_hac_lag_is_days_between_the_two_first_scored_refreshes(tmp_path):
 
 def test_teachers_are_keyed_by_class_and_normalised(tmp_path):
     conn, sid, cid, _ = _home(tmp_path)
-    assert store.load(conn).teachers == {cid: "michael hoch"}
+    assert store.load(conn).teachers == {cid: "michael hart"}
 
 
 def test_a_hac_only_item_borrows_its_twins_teacher(tmp_path):
     conn, sid, cid, (r1, r2, r3) = _home(tmp_path)
     hac = _course(conn, sid, "hac", "Honors English 9 S1", teacher=None, peer=cid)
     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hac, cid))
-    assert store.load(conn).teachers[cid] == "michael hoch"
+    assert store.load(conn).teachers[cid] == "michael hart"
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace_store.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace_store.py`
 Expected: FAIL with `ImportError: cannot import name 'pace' from 'fridgesheet.web.stores'`
 
 - [ ] **Step 3: Write the store**
@@ -444,7 +444,7 @@ def load(conn: sqlite3.Connection) -> P.Pace:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace_store.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_pace_store.py`
 Expected: 9 passed
 
 - [ ] **Step 5: Commit**
@@ -550,7 +550,7 @@ def test_one_day_elapsed_is_singular():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py -k "pace or learned or singular or scope"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py -k "pace or learned or singular or scope"`
 Expected: FAIL with `TypeError: verdict() got an unexpected keyword argument 'pace'`
 
 - [ ] **Step 3: Change `verdicts.py`**
@@ -674,7 +674,7 @@ and in the `verdicts.verdict(...)` call add `pace=pace`.
 
 - [ ] **Step 5: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_checkin_verdicts.py tests/test_web_questions.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_checkin_verdicts.py tests/test_web_questions.py`
 Expected: all pass. (`ANSWERS["teacher_grading"]` needs a `facts.teacher_grading` phrase for `test_the_table_covers_the_words_a_child_actually_meets`; that phrase already exists.)
 
 - [ ] **Step 6: Commit**
@@ -738,7 +738,7 @@ def test_the_pace_sentence_shows_on_the_question_card_too(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_phrasing.py tests/test_web_checkin_verdicts.py -k "pace"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_phrasing.py tests/test_web_checkin_verdicts.py -k "pace"`
 Expected: FAIL, `assert 'pace.expect' in PHRASES` and the check-in body lacks the sentence.
 
 - [ ] **Step 3: Add the phrases** (in `phrasing.PHRASES`, after the `where.stale_answer` row)
@@ -787,7 +787,7 @@ In `_question.html`, after the `facts` paragraph and before the `ask` line:
 
 - [ ] **Step 6: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_phrasing.py tests/test_web_checkin_verdicts.py tests/test_web_questions.py tests/test_web_kid_questions.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_phrasing.py tests/test_web_checkin_verdicts.py tests/test_web_questions.py tests/test_web_kid_questions.py`
 Expected: all pass, including `test_no_phrase_invents_a_number_a_date_or_a_time` for every tier.
 
 - [ ] **Step 7: Commit**
@@ -858,7 +858,7 @@ def test_an_ask_overtaken_by_good_news_is_still_a_question():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py -k "follow_up or overtaken"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py -k "follow_up or overtaken"`
 Expected: FAIL, `(QUESTION, "followed_up_then_graded") != (DECIDED, ...)`
 
 - [ ] **Step 3: Change `_stale_change` to say whether the news is good**
@@ -915,7 +915,7 @@ And the answers row, so "not settled" is the first (primary) tap:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_web_answer_trail.py tests/test_web_kid_questions.py tests/test_checkin_queue.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_web_answer_trail.py tests/test_web_kid_questions.py tests/test_checkin_queue.py`
 Expected: all pass. If `test_web_answer_trail.py` asserts a graded follow-up is a question, read its docstring: it was written for #81 before spec 5, so update its expectation to the decided state and say so in the test's comment.
 
 - [ ] **Step 5: Commit**
@@ -1016,7 +1016,7 @@ def test_every_answer_form_carries_a_request_key(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_questions.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_questions.py`
 Expected: FAIL with `AttributeError: 'Answer' object has no attribute 'action'` and the missing keys.
 
 - [ ] **Step 3: Change the model and the table** (`verdicts.py`)
@@ -1105,7 +1105,7 @@ ENV.globals["request_key"] = lambda: str(uuid4())      # one token per rendered 
 
 - [ ] **Step 6: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_questions.py tests/test_web_checkin_verdicts.py tests/test_web_kid_questions.py tests/test_web_questions_page.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_verdicts.py tests/test_phrasing.py tests/test_web_questions.py tests/test_web_checkin_verdicts.py tests/test_web_kid_questions.py tests/test_web_questions_page.py`
 Expected: all pass. `test_the_question_card_offers_the_record_and_plan_links` still finds `check-in/step?item_id=` through the new "Plan a step" link. The route does not accept `plan:*` yet; nothing posts it until Task 8.
 
 - [ ] **Step 7: Commit**
@@ -1160,7 +1160,7 @@ def test_the_plan_panel_is_one_partial_with_its_id(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin_verdicts.py -k "upcoming or waiting_card or panel"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin_verdicts.py -k "upcoming or waiting_card or panel"`
 Expected: FAIL: the upcoming card has no `plan:today` button.
 
 - [ ] **Step 3: Extract the panel**
@@ -1193,7 +1193,7 @@ The queue already leaves out items an active step covers, so no `view.step` chec
 
 - [ ] **Step 5: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin_verdicts.py tests/test_web_checkin.py tests/test_print_sheet.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin_verdicts.py tests/test_web_checkin.py tests/test_print_sheet.py`
 Expected: all pass. `test_one_name_for_planning_a_step` still finds `>Plan a step<` on the card.
 
 - [ ] **Step 6: Commit**
@@ -1331,7 +1331,7 @@ def test_a_planned_item_leaves_the_check_in_queue(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_questions.py -k "plan or undo_deletes or undo_leaves or another_kids or request_key or panel"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_questions.py -k "plan or undo_deletes or undo_leaves or another_kids or request_key or panel"`
 Expected: FAIL with 400 `unknown answer 'plan:today'`.
 
 - [ ] **Step 3: The route**
@@ -1473,7 +1473,7 @@ def by_request_key(conn, student_id, request_key):
 
 - [ ] **Step 5: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_questions.py tests/test_web_checkin_verdicts.py tests/test_web_checkin.py tests/test_web_kid_questions.py tests/test_web_answer_trail.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_questions.py tests/test_web_checkin_verdicts.py tests/test_web_checkin.py tests/test_web_kid_questions.py tests/test_web_answer_trail.py`
 Expected: all pass.
 
 - [ ] **Step 6: Commit**
@@ -1510,7 +1510,7 @@ what this class's history says it usually takes (web/pace.py), and the card says
 
 - [ ] **Step 3: Run the whole suite**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q 2>&1 | tee /tmp/fridgesheet-pace-suite.log | tail -5`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q 2>&1 | tee /tmp/fridgesheet-pace-suite.log | tail -5`
 Expected: all pass, 0 failed. Fix anything that fails before going on; do not skip.
 
 - [ ] **Step 4: See it on a real database**

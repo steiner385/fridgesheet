@@ -383,7 +383,7 @@ has it"; `copy.tonight_unpicked` is "{n} not picked yet".
 ### 13.1 Who is looking
 
 Today `/` is the household's Today page and the rail names every child on every page; a
-child's page folds the rest under **App** (kids' UX audit F5), but Doug is still one tap from
+child's page folds the rest under **App** (kids' UX audit F5), but Dom is still one tap from
 Settings and from his sister's plan, and typing the app's address on his phone lands him on
 his parents' dashboard.
 

@@ -16,7 +16,7 @@
 - A chart config is plain JSON: no functions, so both the browser and `chart_render.py` can draw it.
 - Chart.js stays at 4.5.1. The adapter is the only new vendored file.
 - Copy stays the app's: "No grades recorded yet.", "Work due that week", "On paper", "· official".
-- Tests run with `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/2c151b67/.venv/bin/python -m pytest` (the worktree has no venv of its own; `PYTHONPATH` shadows the tests package).
+- Tests run with `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/2c151b67/.venv/bin/python -m pytest` (the worktree has no venv of its own; `PYTHONPATH` shadows the tests package).
 - One commit per task, on the branch `viberpit/main-754567a0`, ending in `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
 ## Review Focus
@@ -58,7 +58,7 @@ def test_the_chart_vocabulary_lives_in_charts_and_views_re_exports_it():
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/2c151b67/.venv/bin/python -m pytest tests/test_web_charts.py -q`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/2c151b67/.venv/bin/python -m pytest tests/test_web_charts.py -q`
 Expected: FAIL with `ImportError: cannot import name 'charts'`.
 
 - [ ] **Step 3: Create `charts.py` with the moved code, verbatim**
@@ -693,7 +693,7 @@ def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
     """Review finding: grade_series resolved each twin by its own name, so a rule matching only the
     Canvas name made both the Canvas and the HAC series official."""
     history(tmp_path).close()
-    labels = _grade_labels(client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text)
+    labels = _grade_labels(client(tmp_path, '[[sources.rule]]\ncourse = "Hart"\ngrades = "canvas"\n').get("/trends").text)
     assert "Honors English 9 (Canvas current) · official" in labels and "Honors English 9 (HAC average)" in labels
 ```
 

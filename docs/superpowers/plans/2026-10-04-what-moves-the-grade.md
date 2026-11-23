@@ -6,7 +6,7 @@
 
 **Architecture:** `fridgesheet/guidance.py` is a pure engine over `grading.Account` and a list of open rows; it never decides what is open. `web/stores/guidance.py` builds those rows from `items.open_work` (the one definition of what is still to do) and the class's account, and chooses the report card's sentence. Three templates render it; the MCP `grades()` tool carries the same engine's output from the snapshot. No schema or config change.
 
-**Tech Stack:** Python 3.12, FastAPI + Jinja2, SQLite, pytest. Tests: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q <paths>` from the worktree root (PYTHONPATH must be unset; check the venv path still exists at the start of each task, `ls -d /home/tony/GitHub/fridgesheet/.venv /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/*/.venv`).
+**Tech Stack:** Python 3.12, FastAPI + Jinja2, SQLite, pytest. Tests: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q <paths>` from the worktree root (PYTHONPATH must be unset; check the venv path still exists at the start of each task, `ls -d /home/parent/GitHub/fridgesheet/.venv /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/*/.venv`).
 
 **Spec:** `docs/superpowers/specs/2026-10-04-what-moves-the-grade-design.md`
 
@@ -54,7 +54,7 @@ def test_each_subtotal_line_carries_its_own_zero_points():
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_grading.py -k own_zero_points`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_grading.py -k own_zero_points`
 Expected: FAIL, `TypeError`/`AttributeError`: `Line` has no `zero_points`.
 
 - [ ] **Step 3: Implement.** In `grading.py`, add to `Line` after `share`:
@@ -91,7 +91,7 @@ In `account_canvas`, the `_lines` call gains `0.0` as the sixth member: `(g, gro
 
 - [ ] **Step 4: Run the grading tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_grading.py tests/test_web_grades_store.py tests/test_server_tools.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_grading.py tests/test_web_grades_store.py tests/test_server_tools.py`
 Expected: all pass (`asdict` gains a key; nothing asserts the exact key set).
 
 - [ ] **Step 5: Commit**
@@ -127,7 +127,7 @@ def test_credit_fraction_reads_a_percentage_and_nothing_else():
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_late_rules.py -k credit_fraction`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_late_rules.py -k credit_fraction`
 Expected: `AttributeError: module 'fridgesheet.late_rules' has no attribute 'credit_fraction'`.
 
 - [ ] **Step 3: Implement.** In `late_rules.py` (it already imports `re`; add it if not):
@@ -145,7 +145,7 @@ In `verdicts.py`, replace the body of `_credit_fraction` with `return late_rules
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_late_rules.py tests/test_verdicts.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_late_rules.py tests/test_verdicts.py`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
@@ -302,7 +302,7 @@ def test_with_article():
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_guidance.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_guidance.py`
 Expected: collection error, no module `fridgesheet.guidance`.
 
 - [ ] **Step 3: Write `fridgesheet/guidance.py`**
@@ -451,7 +451,7 @@ def with_article(letter: str) -> str:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_guidance.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_guidance.py`
 Expected: 13 passed. If `test_zero_allocation_is_oldest_due_first_within_the_category` fails because "Newer" was taken (budget 25 − 5 − 15 = 5 < 15, so it must not be), check the `>= pts - 1e-9` comparison; a partial budget never makes a zero.
 
 - [ ] **Step 5: Commit**
@@ -582,7 +582,7 @@ def test_every_gd_phrase_has_three_tiers_and_the_same_placeholders():
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_guidance_store.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_guidance_store.py`
 Expected: collection error (`cannot import name 'guidance'` from stores).
 
 - [ ] **Step 3: Add the phrases** to `PHRASES` after `copy.rc_how_canvas`:
@@ -749,7 +749,7 @@ def sentence_for(g: guidance.Guidance) -> list[tuple[str, dict]]:
 
 - [ ] **Step 5: Run the tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_guidance_store.py tests/test_phrasing.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_guidance_store.py tests/test_phrasing.py`
 Expected: pass. If `test_rows_are_deduplicated...` lists a different set, print `[(v.name, v.overdue, v.upcoming, v.actionable) for v in work.fixable + work.upcoming]` and adjust the expected set only if the open-work definition (not the row builder) explains the difference; record it in the ledger.
 
 - [ ] **Step 6: Commit**
@@ -797,7 +797,7 @@ The `{letter}` placeholder in `gd.zeros_reach`, `gd.reach`, `gd.reach_far`, `gd.
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_report_card.py -k "would_move or without_cant or pencil_under"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_report_card.py -k "would_move or without_cant or pencil_under"`
 Expected: 3 failed.
 
 - [ ] **Step 3: Route.** In `routes/report_card.py`:
@@ -827,7 +827,7 @@ from ..stores import grades, guidance as guidance_store, items
 
 - [ ] **Step 4: Run the report card tests and parity**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_report_card.py tests/test_web_tier_parity.py tests/test_web_page_layout.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_report_card.py tests/test_web_tier_parity.py tests/test_web_page_layout.py`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
@@ -884,7 +884,7 @@ def test_a_class_with_nothing_open_is_one_sentence(tmp_path):
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_class_page.py -k "what_moves or unsound_class or nothing_open"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_class_page.py -k "what_moves or unsound_class or nothing_open"`
 Expected: 3 failed, "no What moves it section".
 
 - [ ] **Step 3: Route.** In `kid.py::course`, after `accounts = sorted(...)`:
@@ -939,7 +939,7 @@ Check `_item.html`'s `line` density draws `says` (it does for the detail/card; i
 
 - [ ] **Step 4: Run the class page tests and the section/layout tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_class_page.py tests/test_web_section_and_card.py tests/test_web_page_layout.py tests/test_phrasing.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_class_page.py tests/test_web_section_and_card.py tests/test_web_page_layout.py tests/test_phrasing.py`
 Expected: pass. The `.when` word on a read-only line is the sheet's word; the note must appear under it (`says`), not replace it.
 
 - [ ] **Step 5: Commit**
@@ -983,7 +983,7 @@ def test_a_kid_with_nothing_open_gets_no_badges(tmp_path):
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin.py -k "worth_on_the_average or nothing_open_gets_no_badges"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin.py -k "worth_on_the_average or nothing_open_gets_no_badges"`
 Expected: the first fails (no badge); the second may pass already (keep it: it pins the empty case).
 
 - [ ] **Step 3: Implement.** In `_context`, after `must = items.must_finish(work, now.date(), covered)`:
@@ -1001,7 +1001,7 @@ Expected: the first fails (no badge); the second may pass already (keep it: it p
 
 - [ ] **Step 4: Run the plan tests, parity, and the printed plan**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin.py tests/test_open_work_parity.py tests/test_web_tier_parity.py tests/test_must_finish.py tests/test_web_plan_steps_everywhere.py tests/test_web_today_planner.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_web_checkin.py tests/test_open_work_parity.py tests/test_web_tier_parity.py tests/test_must_finish.py tests/test_web_plan_steps_everywhere.py tests/test_web_today_planner.py`
 Expected: pass (`plan_print.html` shares `_context`, so the printed plan carries the badge too).
 
 - [ ] **Step 5: Commit**
@@ -1024,7 +1024,7 @@ git commit -m "Every Must-finish row says what it is worth on the class average;
 ```python
 def test_grades_carries_what_moves_it(graded, monkeypatch):
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
-    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]
     g = bio["guidance"]
     assert g["sound"] and g["letter"] == "B"
     assert g["reach"]["letter"] == "A" and g["levers"] == []           # nothing open in the fixture: reach only
@@ -1034,7 +1034,7 @@ Then extend the fixture's Canvas course with one upcoming assignment (`due_at` t
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_server_tools.py -k what_moves_it`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_server_tools.py -k what_moves_it`
 Expected: `KeyError: 'guidance'`.
 
 - [ ] **Step 3: Implement** in `server.py`:
@@ -1079,7 +1079,7 @@ Check `open_items` exports `parse_hac_date` and `norm_name` (`matching.norm_name
 
 - [ ] **Step 4: Run the server tests**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_server_tools.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q tests/test_server_tools.py`
 Expected: pass.
 
 - [ ] **Step 5: Commit**
@@ -1123,7 +1123,7 @@ In §6.2 (Plan), add a bullet: `- Every Must-finish row carries what it is worth
 
 ```bash
 git add -A docs DESIGN.md .impeccable
-env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest -q -p no:cacheprovider tests/ 2>&1 | tee /tmp/fridgesheet-guidance-suite.log | tail -3
+env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest -q -p no:cacheprovider tests/ 2>&1 | tee /tmp/fridgesheet-guidance-suite.log | tail -3
 ```
 
 Expected: all pass (`test_rebrand` scans every tracked file; `test_user_guide_defects` reads the guide).

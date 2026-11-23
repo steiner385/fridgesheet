@@ -5,9 +5,9 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 3
-target_identity: "file:/home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/kid.html"
+target_identity: "file:/home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/kid.html"
 target_fingerprint: "sha256:ad85fc0f73296e7c12febb23e682db5f0413bb99473386f78a02af7795f0f7eb"
-target_path: /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/kid.html
+target_path: /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/kid.html
 timestamp: 2026-09-29T12-32-28Z
 slug: fridgesheet-web-templates-kid-html
 closed: true

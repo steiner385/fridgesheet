@@ -100,7 +100,7 @@ WCAG 2.2's floor is 24 px. **Now:** 24 px.
 ### L10. A select wider than the phone — low
 
 On the Assignments page the Class filter's `<select>` took the width of its longest option
-("Honors English 9 S1-2027-Hoch"), 423 px on a 390 px page. **Now:** capped at 100 %.
+("Honors English 9 S1-2027-Hart"), 423 px on a 390 px page. **Now:** capped at 100 %.
 
 ### L11. The status bar wrapped beside a tablet's sidebar — low
 

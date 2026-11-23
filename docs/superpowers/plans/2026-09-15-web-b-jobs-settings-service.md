@@ -1116,13 +1116,13 @@ def test_password_is_set_on_this_computer_only(tmp_path):
 
 def test_save_round_trips_reloads_settings_and_stores_the_password(tmp_path):
     c, app = _client(tmp_path)
-    r = c.post("/settings", data={**FORM, "password": "hunter2", "nicknames": "Alex=Dougie", "scheduled": "on"})
+    r = c.post("/settings", data={**FORM, "password": "hunter2", "nicknames": "Alex=Dommy", "scheduled": "on"})
     assert r.status_code == 200 and "Settings saved" in r.text and "Password stored" in r.text
     assert app.state.fridgesheet.extra["credstore"].written == [("parent@example.org", "hunter2")]
     doc = config.load_config_doc(tmp_path / "config.toml")
     assert doc["print"]["printer"] == "Canon" and doc["reports"]["open-work"]["time"] == "15:30" and doc["web"]["port"] == 8433
-    assert app.state.fridgesheet.settings.nicknames == {"Alex": "Dougie"}    # reloaded
-    assert ">Dougie<" in c.get("/").text                                     # the rail uses the new nickname
+    assert app.state.fridgesheet.settings.nicknames == {"Alex": "Dommy"}    # reloaded
+    assert ">Dommy<" in c.get("/").text                                     # the rail uses the new nickname
     assert "Test login" in r.text                                           # scheduled is on but no login has passed yet: save still ok, the message says so
     (tmp_path / "login-ok.txt").write_text("2026-09-15T14:00:00-04:00")
     r = c.post("/settings", data={**FORM, "scheduled": "on"})
@@ -1348,10 +1348,10 @@ def _recorder(results=None):
 
 
 def test_unit_text_is_a_restarting_user_service():
-    text = service_linux.unit_text("/opt/venv/bin/python", "-m fridgesheet.cli web --no-browser", "/home/tony")
+    text = service_linux.unit_text("/opt/venv/bin/python", "-m fridgesheet.cli web --no-browser", "/home/parent")
     assert "[Unit]" in text and "Description=Fridge Sheet web app" in text
     assert "ExecStart=/opt/venv/bin/python -m fridgesheet.cli web --no-browser" in text
-    assert "WorkingDirectory=/home/tony" in text and "Restart=on-failure" in text and "RestartSec=5" in text
+    assert "WorkingDirectory=/home/parent" in text and "Restart=on-failure" in text and "RestartSec=5" in text
     assert "WantedBy=default.target" in text
 
 

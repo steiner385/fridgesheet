@@ -78,10 +78,10 @@ def test_grades_default_to_empty():
 
 def test_grades_are_read_beside_the_nicknames():
     s = config.Settings()
-    config.settings_from_doc({"kids": {"nicknames": {"Douglas": "Doug"},
-                                       "grades": {"Douglas": 9, "Kayla": 5}}}, s)
-    assert s.grades == {"Douglas": 9, "Kayla": 5}
-    assert s.nicknames == {"Douglas": "Doug"}          # the neighbour still works
+    config.settings_from_doc({"kids": {"nicknames": {"Dominic": "Dom"},
+                                       "grades": {"Dominic": 9, "Keira": 5}}}, s)
+    assert s.grades == {"Dominic": 9, "Keira": 5}
+    assert s.nicknames == {"Dominic": "Dom"}          # the neighbour still works
 
 
 @pytest.mark.parametrize("bad", ["five", 5.5, None, [], True])
@@ -89,8 +89,8 @@ def test_a_grade_that_is_not_a_whole_number_is_dropped_not_raised(bad):
     """A child with an unreadable grade falls back to today's interface. Raising here would
     traceback out of `schedule remove --all`, which the uninstaller runs hidden."""
     s = config.Settings()
-    config.settings_from_doc({"kids": {"grades": {"Douglas": bad, "Kayla": 5}}}, s)
-    assert s.grades == {"Kayla": 5}
+    config.settings_from_doc({"kids": {"grades": {"Dominic": bad, "Keira": 5}}}, s)
+    assert s.grades == {"Keira": 5}
 
 
 def test_a_grades_value_that_is_not_a_table_keeps_the_default():
@@ -119,7 +119,7 @@ And parse it beside the nicknames (after line 309):
 
 ```python
     raw_grades = kids.get("grades")
-    # `bool` is an `int` subclass, so `grades = { Kayla = true }` would otherwise read as 1.
+    # `bool` is an `int` subclass, so `grades = { Keira = true }` would otherwise read as 1.
     s.grades = {str(k): v for k, v in raw_grades.items()
                 if isinstance(v, int) and not isinstance(v, bool)} if isinstance(raw_grades, dict) else {}
 ```
@@ -191,16 +191,16 @@ def test_anything_unreadable_is_the_interface_that_shipped(bad):
 
 def test_for_student_reads_the_setting():
     s = config.Settings()
-    s.grades = {"Douglas": 9, "Melanie": 7, "Kayla": 5}
-    assert tiers.for_student(s, "Douglas") == "older"
-    assert tiers.for_student(s, "Melanie") == "middle"
-    assert tiers.for_student(s, "Kayla") == "early"
+    s.grades = {"Dominic": 9, "Matilda": 7, "Keira": 5}
+    assert tiers.for_student(s, "Dominic") == "older"
+    assert tiers.for_student(s, "Matilda") == "middle"
+    assert tiers.for_student(s, "Keira") == "early"
 
 
 def test_a_child_with_no_grade_set_gets_the_shipped_interface():
     s = config.Settings()
-    s.grades = {"Douglas": 9}
-    assert tiers.for_student(s, "Kayla") == ""
+    s.grades = {"Dominic": 9}
+    assert tiers.for_student(s, "Keira") == ""
     assert tiers.for_student(s, "") == ""
     assert tiers.for_student(s, None) == ""
 
@@ -1116,12 +1116,12 @@ Add to the `[kids]` section of the example:
 
 ```toml
 [kids]
-nicknames = { Douglas = "Doug" }
+nicknames = { Dominic = "Dom" }
 # Each child's school grade (0 = kindergarten). The pages a child reads -- their own page,
 # Open work, the check-in and the plan -- use it to pick type size, density, colour and
 # wording. A child not listed here sees exactly the interface that shipped before this
 # existed, so leaving it out changes nothing.
-grades = { Douglas = 9, Melanie = 7, Kayla = 5 }
+grades = { Dominic = 9, Matilda = 7, Keira = 5 }
 ```
 
 - [ ] **Step 2: Add a row to `docs/outcomes.md`**

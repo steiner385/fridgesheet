@@ -6,7 +6,7 @@ renders every page at 1440×900 and at 390×844 (2×, touch) with Playwright.
 
 | File | What it shows |
 |---|---|
-| `plan-kid.html` | Doug's plan in kid mode (older tier): the kid rail, Must finish in its sections, a step the school has, Asked the school, Worth checking open on a graded-since-asked item |
+| `plan-kid.html` | Dom's plan in kid mode (older tier): the kid rail, Must finish in its sections, a step the school has, Asked the school, Worth checking open on a graded-since-asked item |
 | `who.html` | The chooser at `/who` |
 | `today-parent.html` | The grown-up Today page with one headline per kid and "Switch to a kid's view" |
 

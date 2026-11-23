@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- The test command is `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest` (a set `PYTHONPATH` shadows the `tests` package; worktrees have no `.venv` of their own). Every "Run:" line below uses it; it is abbreviated `PYTEST` from here on.
+- The test command is `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest` (a set `PYTHONPATH` shadows the `tests` package; worktrees have no `.venv` of their own). Every "Run:" line below uses it; it is abbreviated `PYTEST` from here on.
 - No test may run the real `systemctl` or `schtasks`; `tests/conftest.py`'s `_no_real_scheduler` enforces it. Every OS call takes an injectable `run=`.
 - `config.toml` stays the only record of what is scheduled: `[reports.<key>]` (`enabled`, `time`, `days`, `printer`, `print`) and `[refresh]` (`enabled`, `every_hours`, `start`, `end`, `days`), formats unchanged.
 - Schedule keys are unchanged: a report key (`open-work`, `view:3`) and `host.DATA_REFRESH_KEY` (`"data-refresh"`) for the refresh. The refresh's *runs* are recorded under report key `"refresh"`.

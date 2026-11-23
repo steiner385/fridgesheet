@@ -156,6 +156,6 @@ this work.
 
 ### Task 5: Check it on prod's data, then ship
 
-- Rerun `/tmp/fs-audit/dump_doug.py` (adapted to `items.assignments`) against `/tmp/prodsnap/home`: Doug's four rows land where the spec's table says.
-- Screenshot `/kids/Douglas` with venv Playwright at 390px and 1280px, run from the worktree.
+- Rerun `/tmp/fs-audit/dump_doug.py` (adapted to `items.assignments`) against `/tmp/prodsnap/home`: Dom's four rows land where the spec's table says.
+- Screenshot `/kids/Dominic` with venv Playwright at 390px and 1280px, run from the worktree.
 - Push the branch, `gh pr create`, then `gh pr merge --auto --squash`.

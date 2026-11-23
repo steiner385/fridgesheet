@@ -5,9 +5,9 @@ max_score: 40
 na_heuristics: 
 p0_count: 1
 p1_count: 3
-target_identity: "file:/home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/checkin.html"
+target_identity: "file:/home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/checkin.html"
 target_fingerprint: "sha256:4aaf845ee62fc019973cabab73b442eb107b71aed6e52de15166db9c0f372d25"
-target_path: /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/checkin.html
+target_path: /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/checkin.html
 timestamp: 2026-09-30T03-23-44Z
 slug: fridgesheet-web-templates-checkin-html
 ---

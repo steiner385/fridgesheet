@@ -123,7 +123,7 @@ answer string passes through the tier phrase table. The fabrication guard applie
 entries too.
 
 `ask_teacher` keeps the item visible as an **asked** line: "Asked Wed 9/23 · waiting on
-Mr. Hoch". The line has an optional note and a mailto link when the course has a teacher
+Mr. Hart". The line has an optional note and a mailto link when the course has a teacher
 email (`courses.teacher_email`). It leaves the question list and returns as `stale_answer`
 if the record later changes. (#44 in part, #42's date.)
 
