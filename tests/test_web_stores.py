@@ -28,11 +28,11 @@ def conn(tmp_path):
 
 
 def test_notes_round_trip_and_student_view(conn):
-    n1 = notes.add(conn, "item", 1, "emailed Mr. Nance", now="2026-09-14T10:00:00")
+    n1 = notes.add(conn, "item", 1, "emailed Mr. Noble", now="2026-09-14T10:00:00")
     n2 = notes.add(conn, "course", 1, "late work 50% for a week", now="2026-09-14T11:00:00")
     n3 = notes.add(conn, "student", 1, "check planner Fridays", now="2026-09-14T12:00:00")
-    assert [r["body"] for r in notes.for_target(conn, "item", 1)] == ["emailed Mr. Nance"]
-    notes.edit(conn, n1, "emailed Mr. Nance; he replied", now="2026-09-14T13:00:00")
+    assert [r["body"] for r in notes.for_target(conn, "item", 1)] == ["emailed Mr. Noble"]
+    notes.edit(conn, n1, "emailed Mr. Noble; he replied", now="2026-09-14T13:00:00")
     row = notes.for_target(conn, "item", 1)[0]
     assert row["body"].endswith("replied") and row["updated_at"] == "2026-09-14T13:00:00" and row["created_at"] == "2026-09-14T10:00:00"
     all_rows = notes.for_student(conn, 1)

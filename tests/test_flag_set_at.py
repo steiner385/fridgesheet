@@ -21,9 +21,9 @@ def test_resetting_the_same_flag_keeps_its_date_and_updates_its_reason(tmp_path)
     conn = seed(tmp_path)
     qid = _item_id(conn, "Quiz 1")
     flags.set_flag(conn, qid, "ask_teacher", now=ASKED)
-    flags.set_flag(conn, qid, "ask_teacher", now="2026-09-14T20:00:00-04:00", text="emailed Mr Hoch")
+    flags.set_flag(conn, qid, "ask_teacher", now="2026-09-14T20:00:00-04:00", text="emailed Mr Hart")
     active = flags.active(conn, qid)
-    assert active["set_at"] == ASKED and active["text"] == "emailed Mr Hoch"
+    assert active["set_at"] == ASKED and active["text"] == "emailed Mr Hart"
     assert len(flags.history(conn, qid)) == 1
 
 

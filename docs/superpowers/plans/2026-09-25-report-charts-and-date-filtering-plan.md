@@ -106,7 +106,7 @@ def test_window_start_reads_the_custom_range():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -k custom -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -k custom -v`
 Expected: FAIL — `date_from`/`date_to` are not attributes of `Definition` yet.
 
 - [ ] **Step 3: Add the fields, `validate()` rule and `window_start` case**
@@ -184,7 +184,7 @@ def window_start(d: Definition, now: datetime) -> datetime | None:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -v`
 Expected: PASS, including the pre-existing window tests (no regression).
 
 - [ ] **Step 5: Commit**
@@ -238,7 +238,7 @@ def test_the_preview_names_a_custom_range(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -k custom -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -k custom -v`
 Expected: FAIL — the new tests bound by date_to but nothing enforces an upper bound yet.
 
 - [ ] **Step 3: Add `window_end`, `_on_or_before`, and wire every source**
@@ -351,7 +351,7 @@ existing `from .. import reconcile, verdicts` import.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_window.py -v`
 Expected: PASS, all of them, including the Task 1 tests.
 
 - [ ] **Step 5: Commit**
@@ -396,7 +396,7 @@ def test_the_builder_shows_the_custom_range_problem(tmp_path):
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k custom_range -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k custom_range -v`
 Expected: FAIL — the form has no `date_from`/`date_to` fields, so nothing round-trips them.
 
 - [ ] **Step 3: Add the fields**
@@ -440,7 +440,7 @@ Expected: FAIL — the form has no `date_from`/`date_to` fields, so nothing roun
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k custom_range -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k custom_range -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -456,7 +456,7 @@ git commit -m "Add a custom date-range control to the report builder"
 
 - [ ] **Step 1: Run the full suite**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/ -v 2>&1 | tee /tmp/fridgesheet-part1-tests.log`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/ -v 2>&1 | tee /tmp/fridgesheet-part1-tests.log`
 Expected: every test passes, including `test_report_window.py`, `test_web_reports_page.py`,
 `test_web_views.py`, `test_report_view.py`, `test_reports.py`.
 
@@ -520,7 +520,7 @@ def test_a_chart_round_trips_through_json():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_views.py -k chart -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_views.py -k chart -v`
 Expected: FAIL — `ChartSpec` does not exist yet.
 
 - [ ] **Step 3: Add `ChartSpec` and wire it through**
@@ -596,7 +596,7 @@ def _chart_from(raw: dict) -> ChartSpec | None:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_views.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_views.py -v`
 Expected: PASS, all of them.
 
 - [ ] **Step 5: Commit**
@@ -639,7 +639,7 @@ def test_month_start_is_the_first_of_that_month():
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_dates.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_dates.py -v`
 Expected: FAIL — `dates.week_start`/`dates.month_start` do not exist yet.
 
 - [ ] **Step 4: Add the two helpers and dedup `trends.py`**
@@ -672,7 +672,7 @@ from ... import dates as _dates
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_dates.py tests/test_web_trends_store.py tests/test_web_trends_page.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_dates.py tests/test_web_trends_store.py tests/test_web_trends_page.py -v`
 Expected: PASS — the Trends page's own tests confirm the dedup changed no behavior.
 
 - [ ] **Step 6: Commit**
@@ -771,7 +771,7 @@ def test_a_chart_field_need_not_be_a_displayed_column(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -v`
 Expected: FAIL — `rendered.chart` does not exist on `Rendered` yet, and `_save`'s `chart` dict
 is silently dropped by `from_json` until Task 5/7 land (Task 5 already landed; this task wires
 the data through).
@@ -887,7 +887,7 @@ def _chart_data(source: str, spec: ChartSpec, kept: list[tuple[dict, dict]]) -> 
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py tests/test_web_views.py tests/test_report_window.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py tests/test_web_views.py tests/test_report_window.py -v`
 Expected: PASS, all of them.
 
 - [ ] **Step 5: Commit**
@@ -931,7 +931,7 @@ def test_chart_config_is_one_shape_for_every_chart_type():
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -k chart_config -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -k chart_config -v`
 Expected: FAIL — `views.chart_config` does not exist yet.
 
 - [ ] **Step 3: Add `chart_config()`**
@@ -973,7 +973,7 @@ def chart_config(data: ChartData) -> dict:
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_chart.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1029,7 +1029,7 @@ def test_a_table_only_report_shows_no_chart_markup(tmp_path):
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k report_chart -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k report_chart -v`
 Expected: FAIL — nothing emits `data-report-chart` yet.
 
 - [ ] **Step 4: Wire the route and templates**
@@ -1110,7 +1110,7 @@ document.addEventListener("htmx:afterSwap", function (e) { attachReportCharts(e.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -v`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1175,7 +1175,7 @@ precedent rather than adding a new dependency.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_chart_render.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_chart_render.py -v`
 Expected: FAIL — `fridgesheet.chart_render` does not exist yet.
 
 - [ ] **Step 3: Write `chart_render.py`**
@@ -1232,7 +1232,7 @@ def render_chart_png(config: dict, *, width_px: int = 1400, height_px: int = 500
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_chart_render.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_chart_render.py -v`
 Expected: PASS (or a clean, explicit skip on a machine with no Chromium installed).
 
 - [ ] **Step 5: Commit**
@@ -1283,7 +1283,7 @@ import NOW, seed`).
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -k embeds_a_chart -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -k embeds_a_chart -v`
 Expected: FAIL — `build_table_pdf` has no `chart_png` parameter yet.
 
 - [ ] **Step 3: Add the parameter and the flowable**
@@ -1318,7 +1318,7 @@ if either module's defaults ever change, change both together.)
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -v`
 Expected: PASS, all of them (no regression on reports built without a chart).
 
 - [ ] **Step 5: Commit**
@@ -1380,7 +1380,7 @@ def test_a_broken_chart_renderer_still_produces_a_built_report(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -k chart -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -k chart -v`
 Expected: FAIL — `ViewReport.build` does not import or call `chart_render` yet.
 
 - [ ] **Step 3: Wire it up**
@@ -1430,7 +1430,7 @@ log = logging.getLogger("fridgesheet.reports.view")
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_report_view.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1490,7 +1490,7 @@ def test_changing_source_clears_a_chart_that_no_longer_fits(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k "saves_a_chart or clears_a_chart" -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -k "saves_a_chart or clears_a_chart" -v`
 Expected: FAIL — no chart fields exist in the form yet.
 
 - [ ] **Step 3: Add the controls and wiring**
@@ -1573,7 +1573,7 @@ def definition_from_form(form) -> views.Definition:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -v`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/test_web_reports_page.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -1589,13 +1589,13 @@ git commit -m "Add chart controls to the report builder, dropped when a source c
 
 - [ ] **Step 1: Run the full suite**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m pytest tests/ -v 2>&1 | tee /tmp/fridgesheet-part2-tests.log`
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m pytest tests/ -v 2>&1 | tee /tmp/fridgesheet-part2-tests.log`
 Expected: every test passes; `test_chart_render.py`'s browser test either passes or skips
 cleanly with "no Playwright browser here".
 
 - [ ] **Step 2: Manual check — build a chart report end to end**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/fridgesheet/.venv/bin/python -m fridgesheet.web` from
+Run: `env -u PYTHONPATH /home/parent/GitHub/fridgesheet/.venv/bin/python -m fridgesheet.web` from
 outside the worktree (per this project's own convention for browser checks against main, or
 inside the worktree if checking this branch's own code) and, in a browser:
 1. Create a view report with `source=items`, a `stacked_bar` chart (`x=due`, `series=status`,

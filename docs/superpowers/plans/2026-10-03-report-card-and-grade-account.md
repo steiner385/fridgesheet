@@ -6,7 +6,7 @@
 
 **Architecture:** `fridgesheet/grading.py` is a pure module that turns a reported average, HAC's category subtotal rows and the class's assignment rows into an `Account` (lines, rebuilt total, a match check, what the gap is made of) and turns a number into a letter through a `GradeScale`. Schema v10 adds `category_observations` (HAC subtotals per refresh, written on change) and `item_categories` (which category each gradebook files an item under). `web/stores/grades.py` reads those into accounts and report-card lines; a new route renders the page; the class page gains a section; the MCP server's `grades()` tool and the doctor gain the same account.
 
-**Tech Stack:** Python 3.12, FastAPI + Jinja2, SQLite, pytest. Tests run with `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q` from the worktree root (PYTHONPATH shadows the `tests` package otherwise).
+**Tech Stack:** Python 3.12, FastAPI + Jinja2, SQLite, pytest. Tests run with `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q` from the worktree root (PYTHONPATH shadows the `tests` package otherwise).
 
 **Spec:** `docs/superpowers/specs/2026-10-03-report-card-and-grade-account-design.md`
 
@@ -185,7 +185,7 @@ def test_number_formatting_for_phrases():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading.py`
 Expected: FAIL at import, `ModuleNotFoundError: No module named 'fridgesheet.grading'`.
 
 - [ ] **Step 3: Write `fridgesheet/grading.py`**
@@ -391,7 +391,7 @@ def fmt_avg(x) -> str:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading.py`
 Expected: 15 passed. If `test_straight_points_rebuild_matches_hac_within_a_hundredth` fails on `a.earned == 368.91`, check the `round(..., 2)` on `earned`/`possible` is present.
 
 - [ ] **Step 5: Commit**
@@ -454,7 +454,7 @@ def test_fold_item_carries_categories_and_prefers_the_twins(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_db.py -k "schema_10 or version_9 or fold_item_carries"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_db.py -k "schema_10 or version_9 or fold_item_carries"`
 Expected: 3 failed (`SCHEMA_VERSION == 10` false; no such table).
 
 - [ ] **Step 3: Add the migration**
@@ -512,7 +512,7 @@ In `tests/test_schedule_fires.py` change both `== 9` to `== 10` (lines 15 and 39
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_db.py tests/test_schedule_fires.py tests/test_migrate.py tests/test_doctor.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_db.py tests/test_schedule_fires.py tests/test_migrate.py tests/test_doctor.py`
 Expected: all pass (doctor's database probe follows `db.SCHEMA_VERSION`).
 
 - [ ] **Step 5: Commit**
@@ -592,7 +592,7 @@ Check the test file's `snapshot()` HAC class (lines 48-60 of `tests/test_web_ing
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_ingest.py -k "subtotals or own_category_name or relabelled"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_ingest.py -k "subtotals or own_category_name or relabelled"`
 Expected: 3 failed (`IngestResult` has no `categories`; empty tables).
 
 - [ ] **Step 3: Implement in `fridgesheet/web/ingest.py`**
@@ -663,7 +663,7 @@ Then run the whole web suite to see what the fixture change moved: `env -u PYTHO
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_ingest.py tests/test_web_stores.py tests/test_web_official_grade.py tests/test_web_class_page.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_ingest.py tests/test_web_stores.py tests/test_web_official_grade.py tests/test_web_class_page.py`
 Expected: all pass.
 
 - [ ] **Step 6: Commit**
@@ -807,7 +807,7 @@ def test_how_for_picks_the_sentence_in_the_specs_order():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_grades_store.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_grades_store.py`
 Expected: FAIL at import (`cannot import name 'grades'`).
 
 - [ ] **Step 3: Write `fridgesheet/web/stores/grades.py`**
@@ -964,7 +964,7 @@ Note `rc.no_breakdown` is a key the spec's §6 table did not list: a class with 
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_grades_store.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_grades_store.py`
 Expected: 10 passed. If `test_hac_rows_come_from_the_twin_course_too` returns no rows, check that the seed's Quiz 1 HAC row paired to the Canvas item (it does in `test_web_official_grade.py`) and that `_file_category` ran in the twin branch.
 
 - [ ] **Step 5: Commit**
@@ -1013,7 +1013,7 @@ def test_a_bad_grading_section_keeps_the_default_without_raising(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading_config.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading_config.py`
 Expected: `AttributeError: 'Settings' object has no attribute 'grading'`.
 
 - [ ] **Step 3: Implement**
@@ -1034,7 +1034,7 @@ At the end of `settings_from_doc`, after `s.sources = _sources.from_doc(doc)` (l
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading_config.py tests/test_config.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_grading_config.py tests/test_config.py`
 Expected: pass (if `tests/test_config.py` does not exist, run `tests/ -k config`).
 
 - [ ] **Step 5: Commit**
@@ -1114,7 +1114,7 @@ def test_the_account_is_drawn_in_the_planners_rules():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_class_page.py -k "figured or twins_page_leads or no_breakdown or nothing_possible or planners_rules"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_class_page.py -k "figured or twins_page_leads or no_breakdown or nothing_possible or planners_rules"`
 Expected: 5 failed, "no How it's figured section".
 
 - [ ] **Step 3: Add the phrases** to `PHRASES` in `fridgesheet/web/phrasing.py` (after `copy.sources_hint`):
@@ -1242,7 +1242,7 @@ The `{% set tier %}` must come before `_chart_scripts.html`; `SOURCE_LABELS` is 
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_class_page.py tests/test_phrasing.py tests/test_web_section_and_card.py tests/test_web_page_layout.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_class_page.py tests/test_phrasing.py tests/test_web_section_and_card.py tests/test_web_page_layout.py`
 Expected: all pass. If `test_how_its_figured_...` fails on the ✓ line, print `sec` and align the regex to the exact whitespace the template emits rather than loosening the assertion's words.
 
 - [ ] **Step 8: Commit**
@@ -1371,7 +1371,7 @@ Add `"/kids/Alex/report-card"` to the `path` parametrize list in `tests/test_web
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_report_card.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_report_card.py`
 Expected: 9 failed (404 on the route, no CSS rules).
 
 - [ ] **Step 3: The route** `fridgesheet/web/routes/report_card.py`:
@@ -1489,7 +1489,7 @@ In `_child_nav.html`, after the Assignments link (line 5) add:
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_report_card.py tests/test_web_tier_parity.py tests/test_web_shell.py tests/test_web_who.py tests/test_web_words_nav.py tests/test_web_checkin.py tests/test_web_page_layout.py tests/test_web_section_and_card.py tests/test_phrasing.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_web_report_card.py tests/test_web_tier_parity.py tests/test_web_shell.py tests/test_web_who.py tests/test_web_words_nav.py tests/test_web_checkin.py tests/test_web_page_layout.py tests/test_web_section_and_card.py tests/test_phrasing.py`
 Expected: all pass. `test_web_shell.py:95` asserts `/kids/Sam` comes before `rail-more` before `check-in`; the new tab sits between the first two and keeps that order.
 
 - [ ] **Step 8: Look at it in a browser** (the phone viewport in particular, Risk 4 in the spec). From the worktree: `python -m fridgesheet.web` with a seeded home is awkward; use the test client's HTML instead: write `app_for(tmp).get("/kids/Alex/report-card").text` to `/tmp/report-card.html` from a one-off script and open it with the venv's Playwright at 390px and 1280px, screenshotting to `/tmp/report-card-phone.png` and `/tmp/report-card-desk.png`. Check the four kid tabs fit on one ruled row at 390px. If they wrap, add `.rail nav.kid a { padding-inline: var(--s1); }` under the existing phone breakpoint (`@media (max-width: 1023px)`, line 233) rather than shortening the label.
@@ -1521,7 +1521,7 @@ Append to `tests/test_server_tools.py` (uses the `graded` fixture at line 60; ex
 ```python
 def test_grades_carries_the_account_of_each_number(graded, monkeypatch):
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
-    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]
     assert bio["account"]["source"] == "hac" and bio["account"]["match"] == "exact"
     assert bio["account"]["lines"][0]["category"] == "Labs" and bio["account"]["earned"] == 44.0
     assert bio["canvas_account"]["source"] == "canvas" and bio["canvas_account"]["reported"] == 91.2
@@ -1543,7 +1543,7 @@ def test_averages_probe_counts_the_classes_that_add_up(tmp_path):
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_server_tools.py tests/test_doctor.py -k "account or averages or real_probes"`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_server_tools.py tests/test_doctor.py -k "account or averages or real_probes"`
 Expected: KeyError `'account'`; the names list differs.
 
 - [ ] **Step 3: `server.py`.** Add `from . import grading` to the imports. In `grades()`, inside the Canvas-courses loop, before `out["classes"].append(...)`:
@@ -1600,7 +1600,7 @@ and insert `("averages", _averages),` after `("database", _database),` in `PROBE
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_server_tools.py tests/test_doctor.py tests/test_web_diagnostics_page.py tests/test_web_diagnostics_planner.py`
+Run: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q tests/test_server_tools.py tests/test_doctor.py tests/test_web_diagnostics_page.py tests/test_web_diagnostics_planner.py`
 Expected: all pass.
 
 - [ ] **Step 6: Commit**
@@ -1684,7 +1684,7 @@ In §6.4's bullets add after the Sources line: `- **How it's figured** — HAC's
 
 ```bash
 git add -A docs DESIGN.md .impeccable
-env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q 2>&1 | tee /tmp/fridgesheet-report-card-suite.log | tail -5
+env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q 2>&1 | tee /tmp/fridgesheet-report-card-suite.log | tail -5
 ```
 
 Expected: all pass. `test_rebrand` scans every tracked file, `test_tokens` holds DESIGN.md's frontmatter to `tokens.py` (untouched), `test_user_guide_defects` reads the guide.
@@ -1700,7 +1700,7 @@ git commit -m "Docs: the report card and how an average is figured; Trends is th
 
 ### Task 10: Finish the branch
 
-- [ ] **Step 1:** Run the whole suite once more from a clean tree and confirm the tail reads `passed` with no failures: `env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q 2>&1 | tail -3`.
+- [ ] **Step 1:** Run the whole suite once more from a clean tree and confirm the tail reads `passed` with no failures: `env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python -m pytest -q 2>&1 | tail -3`.
 - [ ] **Step 2:** `gh pr list --search "grading.py"` and `--search "report_card"` for in-flight PRs touching the same files; rebase on `origin/main` if any merged since `1f9f278`.
 - [ ] **Step 3:** Push and open the PR against `main` with a title in the repo's voice ("The report card: every class one line with its official average and how it is figured; the class page's 'How it's figured'; HAC's category subtotals kept per refresh") and a body that lists the spec path, the §1 finding, the schema bump, and the follow-ups from spec §13. End the body with the attribution line. Arm auto-merge at once: `gh pr merge <n> --auto --squash`.
 - [ ] **Step 4:** Share the PR URL as an artifact.

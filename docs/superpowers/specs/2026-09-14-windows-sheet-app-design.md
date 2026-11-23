@@ -21,7 +21,7 @@ working from the same code with one documented migration step (section 10).
 | `Alex=Al` default nickname | Tony's family | Removed; nicknames come only from config |
 | Late-rules seed naming Tony's kids' classes | Tony's family | Seed shrinks to `[default]`, `[quarters]`, and one commented example rule |
 | `Brother_MFC_J4335DW` default printer | Tony's family | Default becomes the system default printer; blank config means "system default" |
-| Drive archive path in `env.example`; `/home/tony` in `.desktop` files | Tony's machine | Replaced with placeholders |
+| Drive archive path in `env.example`; `/home/parent` in `.desktop` files | Tony's machine | Replaced with placeholders |
 | "for the Stein kids" in `pyproject.toml` | Tony's family | Reworded |
 | `secret-tool` credentials | Linux | Stays on Linux; Windows uses Credential Manager |
 | `lp` / `lpstat` printing | Linux | Stays on Linux; Windows uses SumatraPDF |

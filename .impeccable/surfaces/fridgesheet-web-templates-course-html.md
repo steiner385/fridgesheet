@@ -47,8 +47,8 @@ answers in place.
 
 FIRST VIEWPORT: The crumb back to the child, the class's short name with the long name in
 pencil. The grade strip: OFFICIAL · HAC AVERAGE 88.0 updated 9/26, MON 9/28 93.0 A-, WED 9/30
-· CANVAS CURRENT 91.2 A- on the yellow stroke. Beneath it one pencil line: Michael Hoch ·
-hoch@example.org · Also in HAC as Honors English 9 S1, and the fold "Sources for this class:
+· CANVAS CURRENT 91.2 A- on the yellow stroke. Beneath it one pencil line: Michael Hart ·
+hart@example.org · Also in HAC as Honors English 9 S1, and the fold "Sources for this class:
 Canvas for scores, HAC for the average · change" opening the two selects and Save. Then the
 folds "How it moved" and "Notes", then "Assignments" with its count, the sort line and the
 weekly pages, this week first. No primary on this page (Save lives inside the fold).

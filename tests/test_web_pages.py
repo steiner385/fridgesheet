@@ -155,14 +155,14 @@ def test_unknown_kid_is_404(tmp_path):
 def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     conn = seed(tmp_path)
     qid = _item_id(conn, "Quiz 1")
-    notes.add(conn, "item", qid, "Asked Mr Hoch about the missing mark", now="2026-09-15T14:30:00-04:00")
+    notes.add(conn, "item", qid, "Asked Mr Hart about the missing mark", now="2026-09-15T14:30:00-04:00")
     conn.close()
     r = app_for(tmp_path).get(f"/items/{qid}")
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
     assert "Canvas" in body and "marked missing" in body and "HAC" in body and "28 of 30" in body   # the record
     assert "HAC has 28 of 30. Canvas still says missing" in body          # the verdict: decided, with its reason
-    assert "Asked Mr Hoch" in body
+    assert "Asked Mr Hart" in body
     for f in ("done", "excused", "ignore", "follow_up", "ask_teacher", "too_late"):
         assert f'value="{f}"' in body, f
     assert f'hx-post="/items/{qid}/flag"' in body and f'hx-post="/notes"' in body
@@ -243,7 +243,7 @@ def test_course_page_shows_grades_teacher_and_course_notes(tmp_path):
     r = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}")
     assert r.status_code == 200
     body = r.text
-    assert "Honors English 9" in body and "Michael Hoch" in body and "hoch@example.org" in body
+    assert "Honors English 9" in body and "Michael Hart" in body and "hart@example.org" in body
     assert "91.2" in body and "A-" in body and "88" in body          # Canvas current, letter, HAC average via the peer course
     assert "Syllabus says" in body and 'name="target_type" value="course"' in body
     assert "Quiz 1" in body                                          # the course's items

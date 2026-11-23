@@ -5,9 +5,9 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 2
-target_identity: "file:/home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/dashboard.html"
+target_identity: "file:/home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/dashboard.html"
 target_fingerprint: "sha256:edac1da755036e20a213f3b191fd1b87122e646023de439969b0ad1110f12ceb"
-target_path: /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/dashboard.html
+target_path: /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/6ab5c602/fridgesheet/web/templates/dashboard.html
 timestamp: 2026-09-29T18-22-18Z
 slug: fridgesheet-web-templates-dashboard-html
 ---

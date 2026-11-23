@@ -43,9 +43,9 @@ Snapshot shape (what `ingest.record` reads; the test fixture in Task 3 builds on
 ```
 {"fetched_at": "2026-09-15T06:02:11-04:00", "fetched_at_epoch": 1789..., "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
  "students": {"Alex": {"name": "Alex Example", "canvas_id": 123, "hac_name": "Alex Example",
-   "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "...",
+   "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "...",
        "grade": {"current_score": 91.2, "final_score": null, "current_grade": "A-", "hidden": false},
-       "staff": [{"name": "Michael Hoch", "email": null, "roles": ["TeacherEnrollment"]}],
+       "staff": [{"name": "Michael Hart", "email": null, "roles": ["TeacherEnrollment"]}],
        "assignments": [{"id": 77, "name": "Quiz 1", "due_at": "2026-09-12T23:59:00-04:00", "unlock_at": null, "created_at": "...",
            "points_possible": 10.0, "submission_types": ["online_upload"], "group": "Homework", "group_weight": null,
            "published": true, "score": null, "grade": null, "state": "unsubmitted", "late": false, "missing": true,
@@ -362,9 +362,9 @@ def _snapshot(ok=True):
         "fetched_at": "2026-09-15T06:02:11-04:00", "fetched_at_epoch": 1789000000,
         "sources": {"canvas": "ok", "hac": "ok" if ok else "login_required: portal timeout"}, "stale": {},
         "students": {"Alex": {"name": "Alex Example", "canvas_id": 1, "hac_name": "Alex Example",
-            "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+            "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                 "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                "staff": [{"name": "Michael Hoch", "email": None, "roles": ["TeacherEnrollment"]}], "assignments": []}]},
+                "staff": [{"name": "Michael Hart", "email": None, "roles": ["TeacherEnrollment"]}], "assignments": []}]},
             "hac": {"week_view": [], "classes": [{"code": "13001 - 5", "name": "Honors English 9 S1", "marking_period_avg": 88.0,
                 "last_updated": "9/11/2026", "assignments": [], "categories": []}]}}}}
 
@@ -403,7 +403,7 @@ def test_stores_read_the_seeded_database(home):
     assert al["name"] == "Alex Example" and [s["key"] for s in students.visible(conn)] == ["Alex"]
     cs = students.courses(conn, al["id"])
     assert [(c["source"], c["short_name"]) for c in cs] == [("canvas", "Honors English 9"), ("hac", "Honors English 9")]
-    assert cs[0]["peer_course_id"] == cs[1]["id"] and cs[0]["teacher"] == "Michael Hoch"
+    assert cs[0]["peer_course_id"] == cs[1]["id"] and cs[0]["teacher"] == "Michael Hart"
     grades = students.latest_grades(conn, al["id"])
     assert grades[cs[0]["id"]]["current"] == 91.2 and grades[cs[1]["id"]]["average"] == 88.0
     conn.close()
@@ -1255,9 +1255,9 @@ def snapshot() -> dict:
         "students": {
             "Alex": {"name": "Alex Example", "canvas_id": 1, "hac_name": "Alex Example",
                 "canvas": {"courses": [
-                    {"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+                    {"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                      "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                     "staff": [{"name": "Michael Hoch", "email": "hoch@example.org", "roles": ["TeacherEnrollment"]}],
+                     "staff": [{"name": "Michael Hart", "email": "hart@example.org", "roles": ["TeacherEnrollment"]}],
                      "assignments": [
                          _a(77, "Quiz 1", "09-12", missing=True, points_possible=30.0),
                          _a(78, "Essay draft", "09-14", state="submitted", submitted_at="2026-09-14T20:00:00-04:00"),
@@ -1742,14 +1742,14 @@ def test_unknown_kid_is_404(tmp_path):
 def test_item_detail_shows_both_sources_cases_notes_and_the_flag_menu(tmp_path):
     conn = seed(tmp_path)
     qid = _item_id(conn, "Quiz 1")
-    notes.add(conn, "item", qid, "Asked Mr Hoch about the missing mark", now="2026-09-15T14:30:00-04:00")
+    notes.add(conn, "item", qid, "Asked Mr Hart about the missing mark", now="2026-09-15T14:30:00-04:00")
     conn.close()
     r = app_for(tmp_path).get(f"/items/{qid}")
     assert r.status_code == 200 and "<html" not in r.text
     body = r.text
     assert "Canvas" in body and "Missing" in body and "HAC" in body and "28/30" in body
     assert "Canvas says MISSING, HAC shows 28" in body              # the reconcile reason (reconcile._score_text prints the bare score)
-    assert "Asked Mr Hoch" in body
+    assert "Asked Mr Hart" in body
     for f in ("done", "excused", "ignore", "follow_up", "ask_teacher"):
         assert f'value="{f}"' in body, f
     assert f'hx-post="/items/{qid}/flag"' in body and f'hx-post="/notes"' in body
@@ -1799,7 +1799,7 @@ def test_course_page_shows_grades_teacher_and_course_notes(tmp_path):
     r = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}")
     assert r.status_code == 200
     body = r.text
-    assert "Honors English 9" in body and "Michael Hoch" in body and "hoch@example.org" in body
+    assert "Honors English 9" in body and "Michael Hart" in body and "hart@example.org" in body
     assert "91.2" in body and "A-" in body and "88" in body          # Canvas current, letter, HAC average via the peer course
     assert "Syllabus says" in body and 'name="target_type" value="course"' in body
     assert "Quiz 1" in body                                          # the course's items

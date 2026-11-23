@@ -716,7 +716,7 @@ q4 = 2027-05-20
 # Most settings can also live in ~/.fridgesheet/config.toml; the environment wins.
 ```
 
-Both `desktop/*.desktop`: `Exec=/home/tony/fridgesheet/scripts/fridgesheet-desktop.sh pdf` becomes `Exec=bash -c '"$HOME/fridgesheet/scripts/fridgesheet-desktop.sh" pdf'` (and `print` in the other). `.desktop` files do not expand `$HOME` themselves, hence the explicit `bash -c`.
+Both `desktop/*.desktop`: `Exec=/home/parent/fridgesheet/scripts/fridgesheet-desktop.sh pdf` becomes `Exec=bash -c '"$HOME/fridgesheet/scripts/fridgesheet-desktop.sh" pdf'` (and `print` in the other). `.desktop` files do not expand `$HOME` themselves, hence the explicit `bash -c`.
 
 `systemd/fridgesheet-print-sheet.service` line 9-10 become:
 

@@ -57,7 +57,7 @@ def test_the_twins_page_reads_its_own_number_and_names_the_other(tmp_path):
 def test_the_teacher_and_the_sources_are_pencil_lines_under_the_strip(tmp_path):
     cid = _course(tmp_path)
     body = app_for(tmp_path).get(f"/kids/Alex/courses/{cid}").text
-    assert '<p class="teacher-line muted">Michael Hoch · <a href="mailto:hoch@example.org">hoch@example.org</a> · Also in HAC as Honors English 9 S1</p>' in body
+    assert '<p class="teacher-line muted">Michael Hart · <a href="mailto:hart@example.org">hart@example.org</a> · Also in HAC as Honors English 9 S1</p>' in body
     assert re.search(r'<details class="sources-fold"><summary>Sources for this class: Canvas for scores, HAC for the average · <span class="change">change</span></summary>\s*<form class="sources-form" method="post" action="/kids/Alex/courses/\d+/sources">', body)
     assert body.count("<button>Save</button>") == 1 and 'class="primary"' not in body       # no filled primary on this page
 

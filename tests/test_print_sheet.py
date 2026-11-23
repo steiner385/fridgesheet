@@ -37,7 +37,7 @@ def _snapshot(fetched: datetime, stale: dict | None = None) -> dict:
         "fetched_at": fetched.isoformat(), "fetched_at_epoch": fetched.timestamp(),
         "sources": {"canvas": "ok" if not stale else "login_required: x", "hac": "ok"}, "stale": stale or {},
         "students": {
-            "Alex": {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [a]}]}, "hac": {"classes": []}},
+            "Alex": {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [a]}]}, "hac": {"classes": []}},
             "Sam": {"name": "Sam Example", "canvas": {"courses": []}, "hac": {"classes": []}},
         },
     }

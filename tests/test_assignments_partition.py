@@ -1,5 +1,5 @@
 """Assignments' one partition (spec 2026-10-06): every one of a kid's rows lands in exactly one
-group, so the page's sections cannot disagree. Doug's page on 2026-10-06 showed due-tonight
+group, so the page's sections cannot disagree. Dom's page on 2026-10-06 showed due-tonight
 work under This week that Needs you now left out; the groups below are the cure."""
 from __future__ import annotations
 

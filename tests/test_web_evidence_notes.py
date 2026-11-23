@@ -57,13 +57,13 @@ def test_the_check_in_evidence_shows_the_latest_note_and_a_new_step_starts_from_
     conn = seed(tmp_path)
     lab = _id(conn, "Lab notebook")
     notes.add(conn, "item", lab, "Handed it in on paper Tuesday", now="2026-09-15T08:00:00-04:00")
-    flags.set_flag(conn, lab, "follow_up", now="2026-09-15T08:05:00-04:00", text="check with Mr Hoch")
+    flags.set_flag(conn, lab, "follow_up", now="2026-09-15T08:05:00-04:00", text="check with Mr Hart")
     conn.close()
     c = app_for(tmp_path)
     form = c.get(f"/kids/Alex/check-in/step?item_id={lab}").text
     assert "Handed it in on paper Tuesday" in form                                  # the evidence card
     family = re.search(r'<textarea name="family_account"[^>]*>(.*?)</textarea>', form, re.S).group(1)
-    assert "Handed it in on paper Tuesday" in family and "check with Mr Hoch" in family
+    assert "Handed it in on paper Tuesday" in family and "check with Mr Hart" in family
 
 
 # --- #51: a grade says which gradebook it came from --------------------------------------------

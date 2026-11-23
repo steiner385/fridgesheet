@@ -64,7 +64,7 @@ today = date.today()
 alex = conn.execute("SELECT id FROM students WHERE key = 'Alex'").fetchone()["id"]
 quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
 lab = conn.execute("SELECT id FROM items WHERE name = 'Lab notebook'").fetchone()["id"]
-step = dict(title="Quiz 1", next_step="Ask Mr Hoch whether the paper quiz was recorded", owner="Alex", state="planned",
+step = dict(title="Quiz 1", next_step="Ask Mr Hart whether the paper quiz was recorded", owner="Alex", state="planned",
             planned_for=today.isoformat(), minutes=10, position=1, family_account="Handed it in on paper Friday.", recorded_by="Mom",
             evidence="")
 plans.save(conn, alex, step, now=now, request_key="audit-step-1", item_id=quiz)

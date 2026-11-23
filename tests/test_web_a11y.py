@@ -52,7 +52,7 @@ def test_answering_and_note_changes_carry_an_announcement(tmp_path):
     conn.close()
     c = app_for(tmp_path)
     assert 'data-announce="' in c.post(f"/items/{pid}/answer", data={"answer": "done", "prev": ""}).text
-    added = c.post("/notes", data={"target_type": "item", "target_id": pid, "body": "Asked Mr Hoch"}).text
+    added = c.post("/notes", data={"target_type": "item", "target_id": pid, "body": "Asked Mr Hart"}).text
     assert 'data-announce="Note added"' in added
 
 
@@ -81,11 +81,11 @@ def test_the_flag_menu_is_a_labelled_group_with_the_current_flag_pressed(tmp_pat
 def test_notes_have_a_label_and_edit_in_place_with_the_text_already_there(tmp_path):
     conn = seed(tmp_path)
     qid = _id(conn, "Quiz 1")
-    notes.add(conn, "item", qid, "Asked Mr Hoch about the missing mark", now="2026-09-15T14:30:00-04:00")
+    notes.add(conn, "item", qid, "Asked Mr Hart about the missing mark", now="2026-09-15T14:30:00-04:00")
     conn.close()
     body = app_for(tmp_path).get(f"/items/{qid}").text
     assert "hx-prompt" not in body
-    assert re.search(r'<textarea name="body"[^>]*>Asked Mr Hoch about the missing mark</textarea>', body)   # the edit form
+    assert re.search(r'<textarea name="body"[^>]*>Asked Mr Hart about the missing mark</textarea>', body)   # the edit form
     assert re.search(r'<label[^>]*>\s*<span[^>]*>Add a note</span>\s*<textarea name="body"[^>]*required', body)
     assert re.search(r'aria-label="Delete the note from [^"]+"', body)
 

@@ -15,7 +15,7 @@ with desktop and phone renderings, are in `2026-09-28-sections-and-items-mockups
 
 ## 1. What was wrong
 
-Measured on Doug's Assignments tab (screenshot of 2026-09-28) and traced to the templates.
+Measured on Dom's Assignments tab (screenshot of 2026-09-28) and traced to the templates.
 
 - **Seven box styles on one page.** The question card (`.q`, 10 px radius), the settled lines
   (`.lines`, 10 px), the item detail (`.card`, 8 px), the record (`.record`, 8 px, wash), the
@@ -144,7 +144,7 @@ this order and omits a slot that is empty. Each slot belongs to one layer.
    school has draws "Mark step complete" here.
 4. **Ours** (`.ours`, small, with the family's rule at the left). The family's layer, one line
    each, only when present, in this order: the active step ("Our step: Finish before dinner ·
-   Doug · today", with Edit); the note the family attached to its answer (`flag_text`); the
+   Dom · today", with Edit); the note the family attached to its answer (`flag_text`); the
    latest note ("Note, Tue 9/22: …"). The answer itself is not repeated here: the head's word
    already says "Asked the teacher on 9/23" or "Marked done on 9/12". On a family step this
    slot is the step's own line: owner · minutes, and "not counted tonight" on a greyed step.

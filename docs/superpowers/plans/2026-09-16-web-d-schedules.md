@@ -404,12 +404,12 @@ def test_unit_names_come_from_the_key_alone():
 
 def test_the_service_is_a_oneshot_that_is_given_time_to_finish():
     text = sl.service_text("open-work", "Open Work Sheet", "/venv/bin/fridgesheet", "run open-work",
-                           "/home/tony", "/home/tony/.fridgesheet")
+                           "/home/parent", "/home/parent/.fridgesheet")
     assert "Description=Fridge Sheet: Open Work Sheet" in text
     assert "Type=oneshot" in text
     assert "ExecStart=/venv/bin/fridgesheet run open-work" in text
-    assert "WorkingDirectory=/home/tony" in text
-    assert "Environment=FRIDGESHEET_HOME=/home/tony/.fridgesheet" in text
+    assert "WorkingDirectory=/home/parent" in text
+    assert "Environment=FRIDGESHEET_HOME=/home/parent/.fridgesheet" in text
     # The refresh inside is 3 kids x 2 sites plus a possible login: 1-3 minutes. systemd's
     # default 90 s start timeout would SIGTERM it partway through every run.
     assert "TimeoutStartSec=900" in text
@@ -611,8 +611,8 @@ def _recorder(results=None):
 
 def test_install_writes_both_units_and_enables_only_the_timer(tmp_path):
     calls, run = _recorder({("is-enabled", "fridgesheet-print-sheet.timer"): (1, "disabled\n")})
-    sl.install("open-work", "14:00", ["Mon", "Fri"], "/venv/bin/fridgesheet", "run open-work", "/home/tony",
-               run=run, title="Open Work Sheet", home="/home/tony/.fridgesheet",
+    sl.install("open-work", "14:00", ["Mon", "Fri"], "/venv/bin/fridgesheet", "run open-work", "/home/parent",
+               run=run, title="Open Work Sheet", home="/home/parent/.fridgesheet",
                timezone="America/New_York", unit_dir=tmp_path)
 
     service = (tmp_path / "fridgesheet-open-work.service").read_text()

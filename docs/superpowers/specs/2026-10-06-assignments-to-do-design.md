@@ -4,7 +4,7 @@ Date: 2026-10-06. Status: approved in conversation, awaiting spec review.
 
 ## Why
 
-On 2026-10-06 the maintainer checked Doug's Assignments page and found rows in "This week" that
+On 2026-10-06 the maintainer checked Dom's Assignments page and found rows in "This week" that
 "Needs you now" did not have. Checked against a copy of prod's database (Tue 10/6, 8:18pm),
 every row followed a rule, but the rules were not visible on the page:
 
@@ -59,7 +59,7 @@ one group. The first rule that matches wins:
 5. **not_yet**: not due and not handled, but with no Canvas deadline (HAC's placeholder rows
    such as "Week 9", whose dates the app invents, and undated Canvas work). Neither view lists
    these, as the old Open list did not; `?show=all` still does. (Added during the build: on
-   Doug's data they were landing in Done.)
+   Dom's data they were landing in Done.)
 6. **done**: everything else, including rows the family handled (done, let go, excused, too late).
 
 `Assignments` exposes `to_do` already split into bands: overdue (closest to losing credit
@@ -68,7 +68,7 @@ first), tonight, tomorrow, later this week, and later. These are the
 and `done`.
 
 **Invariant, tested:** the six groups are disjoint, and together they hold every row of
-`list_items(show="all")`. A second test reruns Doug's case from the table above as a fixture:
+`list_items(show="all")`. A second test reruns Dom's case from the table above as a fixture:
 each of those rows lands where this spec says.
 
 The Class filter is applied to the views before the partition, so the counts match what is shown.
@@ -76,7 +76,7 @@ The Class filter is applied to the views before the partition, so the counts mat
 ## The page
 
 ```
-Doug                                   Check-in · Plan · Assignments · Report card
+Dom                                   Check-in · Plan · Assignments · Report card
 Done so far: 168 of 191 due · 85 on time.
 
 [ To do ]  ·  Done                                         Class [All classes ▾]
@@ -133,7 +133,7 @@ that shows what they counted.
 ## Testing
 
 - Unit: the partition invariant; band boundaries at midnight (`deadline_date`, #139); a step
-  never removes a row; the question rule for a to-do row; each row of Doug's table.
+  never removes a row; the question rule for a to-do row; each row of Dom's table.
 - Web: To do is the default, `?view=done` shows the weekly pages, old filter URLs open Done, an
   answer in place still swaps the row (`hx-target="#q-{id}"`), tier parity, and the
   page-layout and section-and-card guard tests.
@@ -141,7 +141,7 @@ that shows what they counted.
   check the new behaviour, not deleted. `test_web_kid_questions`, `test_web_kid_table`,
   `test_web_tier_parity` and `test_web_section_and_card` are the main ones.
 - A browser check on prod's copied database with venv Playwright: the first viewport on a phone
-  and on a desk shows To do, and Doug's four "missing" rows are where the table says.
+  and on a desk shows To do, and Dom's four "missing" rows are where the table says.
 
 ## Out of scope
 

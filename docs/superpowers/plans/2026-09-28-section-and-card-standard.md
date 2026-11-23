@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Run tests as `env -u PYTHONPATH $PYTEST ...` where `PYTEST=/home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/pytest` (this worktree has no venv; `PYTHONPATH` shadows the `tests` package). Run from the worktree root `/home/tony/GitHub/.ccswitch/worktrees/fridgesheet/bda39e1d`.
+- Run tests as `env -u PYTHONPATH $PYTEST ...` where `PYTEST=/home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/pytest` (this worktree has no venv; `PYTHONPATH` shadows the `tests` package). Run from the worktree root `/home/parent/GitHub/.ccswitch/worktrees/fridgesheet/bda39e1d`.
 - The parity rule: every tier and kid mode render the same rows and actions (`tests/test_web_tier_parity.py` compares `row-`/`q-`/`qc-` ids and the counts of `<form` and `<button`). Never add or drop a form or button for one tier.
 - Every phrase key has all three tiers (`early`, `middle`, `older`) with the same `{placeholders}`; no tier states a number, a day word or a span of days the older text lacks (`tests/test_phrasing.py`).
 - The `?card=q-<id>` / `/items/{id}/question?slot=` round trip, the `qd-` slot prefix inside a detail, and the `qc-` slot on the check-in are unchanged (`tests/test_web_ui_flow.py`, `tests/test_web_checkin_verdicts.py`).
@@ -518,7 +518,7 @@ def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_pat
     from fridgesheet.web.stores import notes
     pid = _id(tmp_path, "Participation")
     conn = db.open_db(tmp_path)
-    notes.add(conn, "item", pid, "Doug says he played it Friday", now="2026-09-14T19:00:00-04:00")
+    notes.add(conn, "item", pid, "Dom says he played it Friday", now="2026-09-14T19:00:00-04:00")
     conn.close()
     c = app_for(tmp_path)
     r = c.post(f"/items/{pid}/answer", data={"answer": "plan:today", "prev": "", "slot": f"q-{pid}"})
@@ -1444,7 +1444,7 @@ One section: an h3, a count, one lead sentence, the section's own controls at th
 ## Success metrics
 
 - `tests/test_web_section_and_card.py` holds it: the tokens, the section head, each density's slots in order, the facts sentence never restating the due date, the glossary at most once per page, no retired class in any template or rule, and every radius a token.
-- Doug's Assignments tab, which prompted this, draws MakeMusic #4 once as a card, once as a row, and the row opens flat.
+- Dom's Assignments tab, which prompted this, draws MakeMusic #4 once as a card, once as a row, and the row opens flat.
 - The parity rule still holds: the tier tests and kid mode render the same rows, forms and buttons.
 
 ## Non-goals
@@ -1482,9 +1482,9 @@ Make sure the guide still says what Canvas and HAC are (the glossary sentence) o
 - [ ] **Step 3: Re-run the browser measurements by hand**
 
 ```bash
-env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python scripts/layout_audit_seed.py 2>&1 | tee /tmp/layout-seed.log | tail -3
+env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python scripts/layout_audit_seed.py 2>&1 | tee /tmp/layout-seed.log | tail -3
 # start the app on the seeded home as the seed script's output says (port 8577), in its own Bash call, then:
-VIEWPORTS=phone,desktop env -u PYTHONPATH /home/tony/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python scripts/layout_audit_measure.py 2>&1 | tee /tmp/layout-measure.log | tail -30
+VIEWPORTS=phone,desktop env -u PYTHONPATH /home/parent/GitHub/.ccswitch/worktrees/fridgesheet/0783798f/.venv/bin/python scripts/layout_audit_measure.py 2>&1 | tee /tmp/layout-measure.log | tail -30
 ```
 
 Read the phone numbers for `/kids/Alex`, `/kids/Alex/check-in` and `/kids/Alex/plan`: the first content must land at or above 117 px (the standard's number) and no target under 44 px. Kill the server in its own Bash call (`pkill -f "fridgesheet web --port 8577"`). If a target is under 44 px, it is a new selector missing from the coarse-pointer block in Task 1; add it there and re-measure.

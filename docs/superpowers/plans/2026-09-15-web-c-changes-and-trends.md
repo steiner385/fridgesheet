@@ -235,10 +235,10 @@ def test_now_missing_and_cleared_are_opposites(tmp_path):
 def test_flags_appear_and_disappear(tmp_path):
     conn = history(tmp_path)
     quiz = conn.execute("SELECT id FROM items WHERE name = 'Quiz 1'").fetchone()["id"]
-    flags.set_flag(conn, quiz, "follow_up", now="2026-09-15T15:00:00-04:00", text="emailed Mr Hoch")
+    flags.set_flag(conn, quiz, "follow_up", now="2026-09-15T15:00:00-04:00", text="emailed Mr Hart")
     events = changes.since(conn, since=_at(2))
     (f,) = _find(events, "flag_set", "Quiz 1")
-    assert f.flag == "follow_up" and "emailed Mr Hoch" in f.detail and f.at == datetime.fromisoformat("2026-09-15T15:00:00-04:00")
+    assert f.flag == "follow_up" and "emailed Mr Hart" in f.detail and f.at == datetime.fromisoformat("2026-09-15T15:00:00-04:00")
     flags.clear(conn, quiz, now="2026-09-15T16:00:00-04:00")
     events = changes.since(conn, since=_at(2))
     assert _find(events, "flag_cleared", "Quiz 1")

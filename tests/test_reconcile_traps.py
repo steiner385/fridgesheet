@@ -55,19 +55,19 @@ def test_enter_on_a_flagged_item_resaves_its_current_flag(tmp_path):
 # -- #38: the flag's reason shows on a plain load ---------------------------------------------
 
 def test_the_flag_reason_shows_without_a_just_saved_message(tmp_path):
-    c, qid = _setup(tmp_path, "ask_teacher", text="emailed Mr Hoch")
+    c, qid = _setup(tmp_path, "ask_teacher", text="emailed Mr Hart")
     body = c.get(f"/items/{qid}").text
-    assert re.search(r"Your answer: asked the teacher[^<]*emailed Mr Hoch", body), body
+    assert re.search(r"Your answer: asked the teacher[^<]*emailed Mr Hart", body), body
 
 
 def test_the_reason_is_not_printed_twice_after_saving(tmp_path):
     c, qid = _setup(tmp_path)
-    body = c.post(f"/items/{qid}/flag", data={"flag": "ask_teacher", "text": "emailed Mr Hoch"}).text
+    body = c.post(f"/items/{qid}/flag", data={"flag": "ask_teacher", "text": "emailed Mr Hart"}).text
     visible = re.sub(r'value="[^"]*"', "", body)
     visible = re.sub(r'<details class="history">.*?</details>', "", visible, flags=re.S)   # History lists the flag too, by design
     visible = re.sub(r"<details><summary>More</summary>.*?</details>", "", visible, flags=re.S)   # the flag menu quotes the note as the input's context
     visible = re.sub(r"<template>.*?</template>", "", visible, flags=re.S)   # the row's out-of-band copy (#3), swapped elsewhere           # the input keeps it for editing; that is not a display
-    assert visible.count("emailed Mr Hoch") == 1
+    assert visible.count("emailed Mr Hart") == 1
 
 
 # -- #40: a swap focuses the card, not its first input ---------------------------------------

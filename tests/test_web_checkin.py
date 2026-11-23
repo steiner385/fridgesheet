@@ -31,7 +31,7 @@ def _step_rows(home):
 
 
 def _form(**over):
-    base = dict(title="Quiz 1", family_account="", next_step="Ask Mr. Hoch to clear the missing flag", owner="Alex",
+    base = dict(title="Quiz 1", family_account="", next_step="Ask Mr. Hart to clear the missing flag", owner="Alex",
                 planned_for="2026-09-16", minutes="", state="planned", position="10", request_key=str(uuid4()), revision="1")
     base.update(over)
     return base
@@ -221,7 +221,7 @@ def test_saving_a_step_moves_the_assignment_from_review_into_the_plan(tmp_path):
     # Quiz 1 is done_offline from the seed fixture itself (HAC's 28/30 beats Canvas's automatic
     # missing flag), so the step the family just saved is shown as "The school has it" (spec
     # 2026-09-27 §6) -- that card still carries the family account, same as a plain plan card.
-    assert "Ask Mr. Hoch to clear the missing flag" in page and "Took it in class Friday" in page
+    assert "Ask Mr. Hart to clear the missing flag" in page and "Took it in class Friday" in page
     assert "The school has it" in page
     assert "Quiz 1" not in _queues(page)["Worth checking"]      # covered by an active step
     rows = _step_rows(tmp_path)
@@ -307,18 +307,18 @@ def test_a_repeated_post_does_not_duplicate_a_step(tmp_path):
 def test_concurrent_edits_do_not_overwrite_one_another(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch to check the bin"))
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hart to check the bin"))
     sid = _step_rows(tmp_path)[0]["id"]
     parent = c.get(f"/kids/Alex/check-in/step?step_id={sid}").text
     assert 'name="revision" value="1"' in parent
-    first = _post_step(c, "Alex", _form(title="Lab notebook", next_step="Parent: emailed Mr. Hoch", revision="1"), step_id=sid)
+    first = _post_step(c, "Alex", _form(title="Lab notebook", next_step="Parent: emailed Mr. Hart", revision="1"), step_id=sid)
     assert first.status_code == 303
     second = _post_step(c, "Alex", _form(title="Lab notebook", next_step="Grandma: saw the notebook", family_account="Showed me Wed", revision="1"), step_id=sid)
     assert second.status_code == 409
     assert "changed in another window" in second.text and "Showed me Wed" in second.text   # nothing typed is lost
     assert f'href="/kids/Alex/check-in/step?step_id={sid}"' in second.text          # and the latest is one click away
     row = _step_rows(tmp_path)[0]
-    assert row["next_step"] == "Parent: emailed Mr. Hoch" and row["revision"] == 2
+    assert row["next_step"] == "Parent: emailed Mr. Hart" and row["revision"] == 2
     # With the fresh revision the second person's save goes through.
     assert _post_step(c, "Alex", _form(title="Lab notebook", next_step="Grandma: saw the notebook", revision="2"), step_id=sid).status_code == 303
     assert _step_rows(tmp_path)[0]["revision"] == 3
@@ -482,12 +482,12 @@ def test_each_childs_pages_show_only_their_own_steps_even_with_shared_canvas_ids
     conn.close()
     assert alex_quiz != zoe_quiz
     c = app_for(tmp_path)
-    assert _post_step(c, "Alex", _form(next_step="Alex asks Mr. Hoch"), item_id=alex_quiz).status_code == 303
-    assert _post_step(c, "Zo%C3%AB%20Q", _form(next_step="Zoë asks Mr. Hoch", owner="Zoë"), item_id=zoe_quiz).status_code == 303
+    assert _post_step(c, "Alex", _form(next_step="Alex asks Mr. Hart"), item_id=alex_quiz).status_code == 303
+    assert _post_step(c, "Zo%C3%AB%20Q", _form(next_step="Zoë asks Mr. Hart", owner="Zoë"), item_id=zoe_quiz).status_code == 303
     alex = c.get("/kids/Alex/check-in").text
     zoe = c.get("/kids/Zo%C3%AB%20Q/check-in").text
-    assert "Alex asks Mr. Hoch" in alex and "Zoë asks Mr. Hoch" not in alex
-    assert "Zoë asks Mr. Hoch" in zoe and "Alex asks Mr. Hoch" not in zoe
+    assert "Alex asks Mr. Hart" in alex and "Zoë asks Mr. Hart" not in alex
+    assert "Zoë asks Mr. Hart" in zoe and "Alex asks Mr. Hart" not in zoe
     assert "Quiz 1" not in _queues(zoe)["Worth checking"]
     assert 'href="/kids/Zo%C3%ABQ' not in zoe and 'href="/kids/Zo%C3%AB%20Q/plan"' in zoe   # the key survives every link
     assert 'href="/kids/Zo%C3%AB%20Q/check-in"' in c.get("/").text
@@ -687,14 +687,14 @@ def test_the_plan_tells_the_agreed_steps_from_later_additions_and_edits(tmp_path
 def test_a_conflict_shows_what_was_saved_meanwhile(tmp_path):
     seed(tmp_path).close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch"))
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hart"))
     sid = _step_rows(tmp_path)[0]["id"]
-    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Mr. Hoch has it, grade next week", state="done", revision="1"), step_id=sid)
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Mr. Hart has it, grade next week", state="done", revision="1"), step_id=sid)
     r = _post_step(c, "Alex", _form(title="Lab notebook", next_step="Grandma saw it", family_account="Showed me Wed", revision="1"), step_id=sid)
     assert r.status_code == 409
-    assert "Saved meanwhile" in r.text and "Mr. Hoch has it, grade next week" in r.text and "Step complete" in r.text
+    assert "Saved meanwhile" in r.text and "Mr. Hart has it, grade next week" in r.text and "Step complete" in r.text
     assert "Showed me Wed" in r.text and 'name="revision" value="2"' in r.text       # mine kept, and one more Save applies it
-    assert _step_rows(tmp_path)[0]["next_step"] == "Mr. Hoch has it, grade next week"
+    assert _step_rows(tmp_path)[0]["next_step"] == "Mr. Hart has it, grade next week"
 
 
 def test_today_shows_each_childs_next_check_in_and_todays_load(tmp_path):
@@ -723,13 +723,13 @@ def test_completed_steps_keep_their_account_and_review_cards_count_earlier_steps
     lid = _item_id(conn, "Lab notebook")
     conn.close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=lid)
+    _post_step(c, "Alex", _form(title="Lab notebook", next_step="Ask Mr. Hart", family_account="Mr. Hart emailed: he has it.", state="done"), item_id=lid)
     page = c.get("/kids/Alex/check-in").text
     completed = page.split("Completed steps")[1]
-    assert "Mr. Hoch emailed: he has it." in completed
+    assert "Mr. Hart emailed: he has it." in completed
     row = re.search(r'<div class="item[^"]*" id="mf-%d".*?(?=<div class="item[ "]|</div><!-- /\w+ -->)' % lid,
                     page, re.S).group(0)
-    assert "1 completed step" in row and "Mr. Hoch emailed: he has it." in row
+    assert "1 completed step" in row and "Mr. Hart emailed: he has it." in row
 
 
 def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
@@ -739,12 +739,12 @@ def test_a_review_card_still_counts_earlier_steps_too(tmp_path):
     eid = _item_id(conn, "Essay draft")
     conn.close()
     c = app_for(tmp_path)
-    _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hoch", family_account="Mr. Hoch emailed: he has it.", state="done"), item_id=eid)
+    _post_step(c, "Alex", _form(title="Essay draft", next_step="Ask Mr. Hart", family_account="Mr. Hart emailed: he has it.", state="done"), item_id=eid)
     page = c.get("/kids/Alex/check-in").text
     card = _queues(page)["Waiting on the school"]
     essay = card.split('<div class="item')
     essay = next(x for x in essay if "Essay draft" in x)
-    assert "1 completed step" in essay and "Mr. Hoch emailed: he has it." in essay
+    assert "1 completed step" in essay and "Mr. Hart emailed: he has it." in essay
 
 
 def test_the_manual_task_form_says_what_it_is_for(tmp_path):
@@ -810,15 +810,15 @@ def test_the_same_token_with_different_words_is_refused_rather_than_silently_dro
     seed(tmp_path).close()
     c = app_for(tmp_path)
     token = str(uuid4())
-    first = _post_step(c, "Alex", _form(request_key=token, next_step="Ask Mr. Hoch to clear the flag"))
+    first = _post_step(c, "Alex", _form(request_key=token, next_step="Ask Mr. Hart to clear the flag"))
     assert first.status_code == 303
 
-    changed = _post_step(c, "Alex", _form(request_key=token, next_step="Email Mr. Hoch instead"))
+    changed = _post_step(c, "Alex", _form(request_key=token, next_step="Email Mr. Hart instead"))
     assert changed.status_code == 409, "a changed replay must not report success"
     assert "already saved" in changed.text
 
     rows = _step_rows(tmp_path)
-    assert len(rows) == 1 and rows[0]["next_step"] == "Ask Mr. Hoch to clear the flag"
+    assert len(rows) == 1 and rows[0]["next_step"] == "Ask Mr. Hart to clear the flag"
 
 
 def test_an_identical_replay_is_still_one_step(tmp_path):

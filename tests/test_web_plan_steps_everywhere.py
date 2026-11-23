@@ -13,7 +13,7 @@ def _id(conn, name):
 
 
 def _form(title, **over):
-    base = dict(title=title, family_account="", next_step="Ask Mr. Hoch whether it was collected", owner="Alex",
+    base = dict(title=title, family_account="", next_step="Ask Mr. Hart whether it was collected", owner="Alex",
                 planned_for="2026-09-16", minutes="", state="planned", position="10", request_key=str(uuid4()), revision="1")
     base.update(over)
     return base
@@ -34,7 +34,7 @@ def _with_step(tmp_path, name="Participation"):
 def test_the_item_detail_shows_the_agreed_step(tmp_path):
     c, iid = _with_step(tmp_path)
     body = c.get(f"/items/{iid}").text
-    assert "Our step:" in body and "Ask Mr. Hoch whether it was collected" in body and "Alex" in body
+    assert "Our step:" in body and "Ask Mr. Hart whether it was collected" in body and "Alex" in body
     assert re.search(r'href="/kids/Alex/check-in/step\?step_id=\d+[^"]*">Edit', body)
 
 
@@ -42,7 +42,7 @@ def test_the_table_marks_a_row_that_is_in_the_plan(tmp_path):
     from tests.web_fixtures import week_line
     c, iid = _with_step(tmp_path)
     row = week_line(c.get("/kids/Alex?show=all").text, iid)
-    assert "Our step:" in row and "Ask Mr. Hoch whether it was collected" in row      # the step, on the line
+    assert "Our step:" in row and "Ask Mr. Hart whether it was collected" in row      # the step, on the line
 
 
 def test_an_item_with_an_agreed_step_is_not_asked_about_again(tmp_path):

@@ -32,9 +32,9 @@ snapshot = {
     "Alex": {                                  # key: first name as the collector chose it
       "name": "Alex Example", "canvas_id": 123, "hac_name": "Alex Example",
       "canvas": {"courses": [
-        {"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "...",
+        {"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "...",
          "grade": {"current_score": 91.2, "final_score": null, "current_grade": "A-", "hidden": false},
-         "staff": [{"name": "Michael Hoch", "email": null, "roles": ["TeacherEnrollment"]}],
+         "staff": [{"name": "Michael Hart", "email": null, "roles": ["TeacherEnrollment"]}],
          "assignments": [
            {"id": 77, "name": "Quiz 1", "due_at": "2026-09-12T23:59:00-04:00", "unlock_at": null, "created_at": "...",
             "points_possible": 10.0, "submission_types": ["online_upload"], "group": "Homework", "group_weight": null,
@@ -518,9 +518,9 @@ def snapshot(fetched: datetime) -> dict:
             "Alex": {
                 "name": "Alex Example", "canvas_id": 123, "hac_name": "Alex Example",
                 "canvas": {"courses": [{
-                    "id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+                    "id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                    "staff": [{"name": "Michael Hoch", "email": None, "roles": ["TeacherEnrollment"]}],
+                    "staff": [{"name": "Michael Hart", "email": None, "roles": ["TeacherEnrollment"]}],
                     "assignments": [_assignment(77, "Quiz 1"), _assignment(78, "Essay draft")],
                 }]},
                 "hac": {"week_view": [], "classes": [{
@@ -553,7 +553,7 @@ def test_first_ingest_creates_everything_and_links_hac_to_canvas(tmp_path):
     hac_course = conn.execute("SELECT * FROM courses WHERE source='hac'").fetchone()
     canvas_course = conn.execute("SELECT * FROM courses WHERE source='canvas'").fetchone()
     assert hac_course["peer_course_id"] == canvas_course["id"] and canvas_course["peer_course_id"] == hac_course["id"]
-    assert canvas_course["teacher"] == "Michael Hoch" and canvas_course["short_name"] == "Honors English 9"
+    assert canvas_course["teacher"] == "Michael Hart" and canvas_course["short_name"] == "Honors English 9"
     grades = conn.execute("SELECT * FROM grade_observations ORDER BY course_id").fetchall()
     assert [(g["current"], g["average"]) for g in grades] == [(91.2, None), (None, 75.67)]
     reading = conn.execute("SELECT * FROM items WHERE key LIKE 'hac:%'").fetchone()
@@ -840,11 +840,11 @@ def conn(tmp_path):
 
 
 def test_notes_round_trip_and_student_view(conn):
-    n1 = notes.add(conn, "item", 1, "emailed Mr. Nance", now="2026-09-14T10:00:00")
+    n1 = notes.add(conn, "item", 1, "emailed Mr. Noble", now="2026-09-14T10:00:00")
     n2 = notes.add(conn, "course", 1, "late work 50% for a week", now="2026-09-14T11:00:00")
     n3 = notes.add(conn, "student", 1, "check planner Fridays", now="2026-09-14T12:00:00")
-    assert [r["body"] for r in notes.for_target(conn, "item", 1)] == ["emailed Mr. Nance"]
-    notes.edit(conn, n1, "emailed Mr. Nance; he replied", now="2026-09-14T13:00:00")
+    assert [r["body"] for r in notes.for_target(conn, "item", 1)] == ["emailed Mr. Noble"]
+    notes.edit(conn, n1, "emailed Mr. Noble; he replied", now="2026-09-14T13:00:00")
     row = notes.for_target(conn, "item", 1)[0]
     assert row["body"].endswith("replied") and row["updated_at"] == "2026-09-14T13:00:00" and row["created_at"] == "2026-09-14T10:00:00"
     all_rows = notes.for_student(conn, 1)
@@ -1024,7 +1024,7 @@ def _entry_with_two_missing():
     a = lambda i, name: {"id": i, "name": name, "due_at": (NOW - timedelta(days=2)).isoformat(), "unlock_at": None, "created_at": None,  # noqa: E731
                          "points_possible": 10.0, "submission_types": ["online_upload"], "group": "Homework", "published": True,
                          "score": None, "grade": None, "state": "unsubmitted", "late": False, "missing": True, "excused": False}
-    return {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [a(1, "WS 1"), a(2, "WS 2")]}]}, "hac": {"classes": []}}
+    return {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [a(1, "WS 1"), a(2, "WS 2")]}]}, "hac": {"classes": []}}
 
 
 def test_handled_flags_remove_items_and_marked_flags_annotate():

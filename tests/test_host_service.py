@@ -19,10 +19,10 @@ def _recorder(results=None):
 
 
 def test_unit_text_is_a_restarting_user_service():
-    text = service_linux.unit_text("/opt/venv/bin/python", "-m fridgesheet.cli web --no-browser", "/home/tony")
+    text = service_linux.unit_text("/opt/venv/bin/python", "-m fridgesheet.cli web --no-browser", "/home/parent")
     assert "[Unit]" in text and "Description=Fridge Sheet web app" in text
     assert "ExecStart=/opt/venv/bin/python -m fridgesheet.cli web --no-browser" in text
-    assert "WorkingDirectory=/home/tony" in text and "Restart=on-failure" in text and "RestartSec=5" in text
+    assert "WorkingDirectory=/home/parent" in text and "Restart=on-failure" in text and "RestartSec=5" in text
     assert "WantedBy=default.target" in text
     assert "network-online" not in text          # not a real ordering in the user manager's unit graph
 
@@ -185,10 +185,10 @@ def test_unit_text_carries_the_home_the_timers_run_against():
     """Every report timer writes `FRIDGESHEET_HOME` into its unit; the web server's did not, so
     a custom home reached the timers and not the server -- two data folders (#151). Quoted
     the way `scheduling_linux.service_text` quotes it, so a path with a space loads."""
-    text = service_linux.unit_text("/py", "x", "/wd", home="/home/tony/.fridgesheet")
-    assert "Environment=FRIDGESHEET_HOME=/home/tony/.fridgesheet\n" in text
-    spaced = service_linux.unit_text("/py", "x", "/wd", home="/home/tony/My Data/.fridgesheet")
-    assert 'Environment="FRIDGESHEET_HOME=/home/tony/My Data/.fridgesheet"\n' in spaced
+    text = service_linux.unit_text("/py", "x", "/wd", home="/home/parent/.fridgesheet")
+    assert "Environment=FRIDGESHEET_HOME=/home/parent/.fridgesheet\n" in text
+    spaced = service_linux.unit_text("/py", "x", "/wd", home="/home/parent/My Data/.fridgesheet")
+    assert 'Environment="FRIDGESHEET_HOME=/home/parent/My Data/.fridgesheet"\n' in spaced
     assert "FRIDGESHEET_HOME" not in service_linux.unit_text("/py", "x", "/wd")   # nothing known: nothing written
 
 

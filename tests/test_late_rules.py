@@ -29,8 +29,8 @@ def test_first_matching_rule_wins_on_course_words_and_kid_short_form(tmp_path):
         '[[rule]]\nkid = "Al"\nlate_days = 10\ncredit = "50%"\n'
     )
     rules = late_rules.load(p)
-    assert rules.resolve("Alex", "Honors English 9 S1-2027-Hoch").late_days == 7
-    assert rules.resolve("Alex", "Honors Biology S1-2027-Nance").late_days == 10
+    assert rules.resolve("Alex", "Honors English 9 S1-2027-Hart").late_days == 7
+    assert rules.resolve("Alex", "Honors Biology S1-2027-Noble").late_days == 10
     assert rules.resolve("Sam", "Science 5th Gr-2027-Penewit").late_days == 14
     assert rules.resolve("Alex", "Honors English 9").credit == "50%"
 
@@ -134,7 +134,7 @@ def _one_rule(tmp_path, body: str, **load_kw):
 def test_course_is_matched_on_whole_words_so_algebra_i_is_not_algebra_ii(tmp_path):
     rules = _one_rule(tmp_path, 'course = "Algebra I"\n')
     assert rules.resolve("Alex", "Algebra I - 2").late_days == 2
-    assert rules.resolve("Alex", "Algebra II S1-2027-Hoch").late_days == 14
+    assert rules.resolve("Alex", "Algebra II S1-2027-Hart").late_days == 14
 
 
 def test_a_rule_written_against_either_name_of_a_paired_class_applies(tmp_path):

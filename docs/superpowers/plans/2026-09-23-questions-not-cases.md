@@ -200,7 +200,7 @@ def test_a_hac_zero_keeps_the_missing_row():
 - [ ] **Step 2: Run and confirm the first test fails**
 
 Run: `env -u PYTHONPATH .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_open_items.py -k "auto_missing or keeps_the_missing"`
-Expected: the first FAILS because WS 1 is still listed. The second PASSES. If the second fails because the two course names don't pair, check `matching.match_course("Honors Biology S1-2027-Nance", {"Honors Biology - 3": ...})` and use the HAC name it pairs with.
+Expected: the first FAILS because WS 1 is still listed. The second PASSES. If the second fails because the two course names don't pair, check `matching.match_course("Honors Biology S1-2027-Noble", {"Honors Biology - 3": ...})` and use the HAC name it pairs with.
 
 - [ ] **Step 3: Implement**
 
@@ -876,7 +876,7 @@ def test_views_carry_as_of_times_and_the_teacher_email(tmp_path):
     quiz = next(v for v in items.list_items(conn, alex, now=NOW, rules=RULES, show="all") if v.name == "Quiz 1")
     started = conn.execute("SELECT started_at FROM refreshes ORDER BY id DESC LIMIT 1").fetchone()["started_at"]
     assert quiz.canvas_as_of == started and quiz.hac_as_of == started
-    assert quiz.teacher_email == "hoch@example.org"
+    assert quiz.teacher_email == "hart@example.org"
 ```
 
 Use whatever `seed`, `NOW` and `RULES` names the file already imports. If it has no `RULES`, build `late_rules.LateRules(late_rules.Rule(), [], [])`. The default window is 14 days, and Homework 4 at 8/20 is past it.
@@ -1052,7 +1052,7 @@ def test_asking_the_teacher_offers_their_email(tmp_path):
     """Spec 5: the asked line carries a mailto when the course has a teacher email."""
     conn = seed(tmp_path); pid = _id(conn, "Participation"); conn.close()
     body = app_for(tmp_path).post(f"/items/{pid}/answer", data={"answer": "ask_teacher", "prev": ""}).text
-    assert "mailto:hoch@example.org" in body
+    assert "mailto:hart@example.org" in body
 
 
 def test_the_record_says_as_of_when(tmp_path):
@@ -1207,7 +1207,7 @@ button.link { border: none; background: none; color: var(--muted); text-decorati
 - [ ] **Step 5: Run and confirm the tests pass**
 
 Run: `env -u PYTHONPATH .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_web_questions.py`
-Expected: PASS. After an answer, Participation's verdict is `answered`, and `where.answered` renders "Answered". The HAC-only Participation row has no email of its own, so `teacher_email` comes from the peer Canvas course, which is Mr. Hoch's.
+Expected: PASS. After an answer, Participation's verdict is `answered`, and `where.answered` renders "Answered". The HAC-only Participation row has no email of its own, so `teacher_email` comes from the peer Canvas course, which is Mr. Hart's.
 
 - [ ] **Step 6: Commit**
 

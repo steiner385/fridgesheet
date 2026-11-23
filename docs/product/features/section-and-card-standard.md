@@ -29,7 +29,7 @@ One section: an h3, a count, one lead sentence, the section's own controls at th
 ## Success metrics
 
 - `tests/test_web_section_and_card.py` holds it: the tokens, the section head, each density's slots in order, the facts sentence never restating the due date, the glossary at most once per page, no retired class in any template or rule, and every radius a token.
-- Doug's Assignments tab, which prompted this, draws MakeMusic #4 once as a card, once as a row, and the row opens flat.
+- Dom's Assignments tab, which prompted this, draws MakeMusic #4 once as a card, once as a row, and the row opens flat.
 - The parity rule still holds: the tier tests and kid mode render the same rows, forms and buttons.
 
 ## Non-goals

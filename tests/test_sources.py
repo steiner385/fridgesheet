@@ -16,7 +16,7 @@ def prefs(text: str) -> sources.SourcePrefs:
 
 def test_no_table_means_canvas_assignments_hac_grades():
     p = sources.from_doc({})
-    assert p.resolve("Alex", "Honors Biology S1-2027-Nance") == sources.Choice("canvas", "hac")
+    assert p.resolve("Alex", "Honors Biology S1-2027-Noble") == sources.Choice("canvas", "hac")
     assert p == sources.DEFAULT
 
 
@@ -27,19 +27,19 @@ def test_household_default_applies_everywhere():
 
 def test_fields_resolve_independently():
     p = prefs('[sources]\n'
-              '[[sources.rule]]\nkid = "Douglas"\ngrades = "canvas"\n\n'
+              '[[sources.rule]]\nkid = "Dominic"\ngrades = "canvas"\n\n'
               '[[sources.rule]]\ncourse = "Band"\nassignments = "hac"\n')
-    assert p.resolve("Douglas", "Concert Band S1-2027-Desmond") == sources.Choice("hac", "canvas")
-    assert p.resolve("Douglas", "Honors English 9") == sources.Choice("canvas", "canvas")
-    assert p.resolve("Melanie", "Concert Band") == sources.Choice("hac", "hac")
+    assert p.resolve("Dominic", "Concert Band S1-2027-Desmond") == sources.Choice("hac", "canvas")
+    assert p.resolve("Dominic", "Honors English 9") == sources.Choice("canvas", "canvas")
+    assert p.resolve("Matilda", "Concert Band") == sources.Choice("hac", "hac")
 
 
 def test_first_matching_rule_that_sets_the_field_wins():
     p = prefs('[sources]\n'
-              '[[sources.rule]]\nkid = "Douglas"\ncourse = "Honors Algebra II"\nassignments = "hac"\n\n'
+              '[[sources.rule]]\nkid = "Dominic"\ncourse = "Honors Algebra II"\nassignments = "hac"\n\n'
               '[[sources.rule]]\ncourse = "Honors Algebra II"\nassignments = "canvas"\ngrades = "canvas"\n')
-    assert p.resolve("Douglas", "Honors Algebra II S1-2027-Ho") == sources.Choice("hac", "canvas")
-    assert p.resolve("Kayla", "Honors Algebra II - 2") == sources.Choice("canvas", "canvas")
+    assert p.resolve("Dominic", "Honors Algebra II S1-2027-Ho") == sources.Choice("hac", "canvas")
+    assert p.resolve("Keira", "Honors Algebra II - 2") == sources.Choice("canvas", "canvas")
 
 
 def test_kid_is_the_name_or_a_short_form_of_it():
@@ -56,15 +56,15 @@ def test_course_pattern_matches_whole_words_only():
     p = prefs('[[sources.rule]]\ncourse = "Algebra I"\ngrades = "canvas"\n')
     assert p.resolve("Alex", "Algebra I S1-2027-Lee").grades == "canvas"
     assert p.resolve("Alex", "Algebra I - 2").grades == "canvas"
-    assert p.resolve("Alex", "Algebra II S1-2027-Hoch").grades == "hac"
+    assert p.resolve("Alex", "Algebra II S1-2027-Hart").grades == "hac"
     assert p.resolve("Alex", "Honors Algebra II - 3").grades == "hac"
 
 
 def test_short_name_rule_matches_both_sources_names():
     """Review focus 2: the course-page control writes the short name; HAC-only rows carry HAC's name."""
-    p = sources.DEFAULT.with_rule("Douglas", "Honors Algebra II", "hac", None)
-    assert p.resolve("Douglas", "Honors Algebra II S1-2027-Hoch").assignments == "hac"
-    assert p.resolve("Douglas", "Honors Algebra II - 3").assignments == "hac"
+    p = sources.DEFAULT.with_rule("Dominic", "Honors Algebra II", "hac", None)
+    assert p.resolve("Dominic", "Honors Algebra II S1-2027-Hart").assignments == "hac"
+    assert p.resolve("Dominic", "Honors Algebra II - 3").assignments == "hac"
 
 
 def test_bad_values_warn_and_fall_through(caplog):
@@ -123,15 +123,15 @@ def test_late_rules_and_source_rules_share_one_matcher():
     assert kid_matches("", "anyone") and kid_matches("Alex", "Alexander") and not kid_matches("Alex", "Al")
     assert not kid_matches("Alex", "Sam")
     assert not course_matches("Algebra I", "Algebra II")
-    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch")
+    assert course_matches("English 9", "Honors English 9 S1-2027-Hart")
 
 
 def test_a_course_page_rule_beats_a_broader_rule_earlier_in_the_file():
     """Review finding: with_rule appended, so a hand-written class-wide rule above it still won."""
     p = prefs('[[sources.rule]]\ncourse = "Honors English 9"\ngrades = "hac"\n')
     p = p.with_rule("Alex", "Honors English 9", None, "canvas")
-    assert p.resolve("Alex", "Honors English 9 S1-2027-Hoch").grades == "canvas"
-    assert p.resolve("Sam", "Honors English 9 S1-2027-Hoch").grades == "hac"        # the broad rule still holds for others
+    assert p.resolve("Alex", "Honors English 9 S1-2027-Hart").grades == "canvas"
+    assert p.resolve("Sam", "Honors English 9 S1-2027-Hart").grades == "hac"        # the broad rule still holds for others
     p = p.with_rule("Alex", "Honors English 9", None, "hac").with_rule("Alex", "Honors English 9", None, "canvas")
     assert p.resolve("Alex", "Honors English 9").grades == "canvas" and len(p.rules) == 2
 

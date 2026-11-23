@@ -443,7 +443,7 @@ def settings_from_doc(doc: dict, s: Settings) -> None:
     nick = kids.get("nicknames") or {}
     s.nicknames = {str(k): str(v) for k, v in nick.items()} if isinstance(nick, dict) else {}
     raw_grades = kids.get("grades")
-    # `bool` is an `int` subclass, so `grades = { Kayla = true }` would otherwise read as 1.
+    # `bool` is an `int` subclass, so `grades = { Keira = true }` would otherwise read as 1.
     s.grades = {str(k): v for k, v in raw_grades.items()
                 if isinstance(v, int) and not isinstance(v, bool)} if isinstance(raw_grades, dict) else {}
     raw_web = doc.get("web")
