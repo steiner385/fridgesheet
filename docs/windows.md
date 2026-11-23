@@ -1,5 +1,7 @@
 # Fridge Sheet for Windows
 
+New to it? The [quick start](quick-start-windows.md) is the short version of this page.
+
 Fridge Sheet prints a one-page-per-kid list of open schoolwork every school day at a time you choose, pulled from Canvas and Home Access Center with your own OneLogin parent login (the district defaults are Lakota's; another district's addresses go in `.env`, see "Your files"). Everything runs on your PC. The app talks only to OneLogin, Canvas and Home Access Center — and, once a day, asks GitHub whether a newer version exists, which sends nothing and can be switched off on Settings. Nothing about your kids leaves your computer.
 
 ## Before you start
@@ -10,9 +12,9 @@ Fridge Sheet prints a one-page-per-kid list of open schoolwork every school day 
 
 ## Install
 
-1. Download `FridgeSheet-Setup-<version>.exe` from the Releases page.
+1. Download `FridgeSheet-Setup-<version>.exe` from the [latest release](https://github.com/steiner385/fridgesheet/releases/latest) (under **Assets**).
 2. Run it. Windows **SmartScreen** will say "Windows protected your PC" because the installer is not code-signed. Click **More info**, then **Run anyway**.
-3. The installer needs no administrator password; it installs for your Windows user only and offers a desktop shortcut. It registers a task that starts Fridge Sheet quietly whenever you sign in, and opens the app when it finishes.
+3. The installer needs no administrator password; it installs for your Windows user only and offers a desktop shortcut. Install it while signed in to a Windows account that is an administrator if you can: on a standard account the task that starts Fridge Sheet at sign-in sometimes cannot be created, and a plainer shortcut that does not restart the app takes its place (issue #10). It registers a task that starts Fridge Sheet quietly whenever you sign in, and opens the app when it finishes.
 4. If Windows Defender or another antivirus quarantines the installer or the app, restore it and add an exclusion; unsigned programs built from Python sometimes trip these heuristics.
 
 ## First run

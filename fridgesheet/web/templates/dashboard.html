@@ -98,7 +98,7 @@
   {% else %}
   {# The button, not a command: `fridgesheet refresh` without --record never fills the database
      this page reads, and on Windows there is no terminal step at all (#153). #}
-  <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
+  <div class="card"><h3>Nothing here yet</h3><p class="muted">{% if refresh %}The last refresh found no students.{% elif jobs %}No refresh yet. Save your school login on <a href="/settings">Settings</a> and click Test login, then Refresh now and this page fills in.{% else %}No refresh yet. <code>fridgesheet refresh --record</code> fills this page in.{% endif %}</p>
     {% if jobs %}<p class="actions"><button hx-post="/jobs/refresh" hx-target="#job" hx-swap="outerHTML">Refresh now</button></p>{% endif %}</div>
   {% endfor %}
 </div>
