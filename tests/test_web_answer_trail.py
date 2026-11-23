@@ -56,7 +56,7 @@ def test_an_asked_item_keeps_its_date_and_email_everywhere(tmp_path):
     c = app_for(tmp_path)
     kid = c.get("/kids/Alex").text
     waiting = kid[kid.index('<details id="waiting"'):]               # the fold under To do
-    assert "Participation" in waiting and "Asked the teacher on 9/15" in waiting and "mailto:hoch@example.org" in waiting
+    assert "Participation" in waiting and "Asked the teacher on 9/15" in waiting and "mailto:hart@example.org" in waiting
     q = c.get("/questions").text
     assert "Waiting on the teacher" in q and "Participation" in q
     assert "You asked the teacher on 9/15" in c.get(f"/items/{pid}").text
@@ -65,8 +65,8 @@ def test_an_asked_item_keeps_its_date_and_email_everywhere(tmp_path):
 def test_the_record_names_the_teacher_with_a_prefilled_email(tmp_path):
     c, qid = _setup(tmp_path, "Quiz 1")
     body = c.get(f"/items/{qid}").text
-    assert "Michael Hoch" in body
-    m = re.search(r'href="mailto:hoch@example\.org\?subject=([^"&]+)&amp;body=([^"]+)"', body)
+    assert "Michael Hart" in body
+    m = re.search(r'href="mailto:hart@example\.org\?subject=([^"&]+)&amp;body=([^"]+)"', body)
     assert m and "Quiz 1" in unquote(m.group(1))
     text = unquote(m.group(2))
     assert "Due" in text and "Canvas:" in text and "HAC:" in text and "/assignments/77" in text

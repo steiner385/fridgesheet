@@ -209,7 +209,7 @@ def test_a_note_and_a_step_show_in_the_family_slot_and_count_in_the_foot(tmp_pat
     from fridgesheet.web.stores import notes
     pid = _id(tmp_path, "Participation")
     conn = db.open_db(tmp_path)
-    notes.add(conn, "item", pid, "Doug says he played it Friday", now="2026-09-14T19:00:00-04:00")
+    notes.add(conn, "item", pid, "Dom says he played it Friday", now="2026-09-14T19:00:00-04:00")
     conn.close()
     c = app_for(tmp_path)
     r = c.post(f"/items/{pid}/answer", data={"answer": "plan:today", "prev": "", "slot": f"q-{pid}", "request_key": str(uuid4())})

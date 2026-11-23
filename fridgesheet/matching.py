@@ -105,7 +105,7 @@ def twin_by_date_and_points(name: str, due: date | None, points, candidates: Seq
     return found[0] if len(found) == 1 else None
 
 
-# HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1-2027-Hoch"
+# HAC labels a class "Algebra II - 3" (section); Canvas labels it "Algebra II S1-2027-Hart"
 # (term, year, teacher). Trim both tails so the two systems' names for one class compare equal.
 _COURSE_TAIL_RE = re.compile(r"\s*(?:-\s*\d+|\bS[12]\b|\bSem\s*[12]\b|-\s*20\d\d.*)$", re.I)
 

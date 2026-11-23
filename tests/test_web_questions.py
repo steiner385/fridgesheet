@@ -61,7 +61,7 @@ def test_asking_the_teacher_offers_their_email(tmp_path):
     """Spec 5: the asked line carries a mailto when the course has a teacher email."""
     c, pid = _setup(tmp_path)
     body = c.post(f"/items/{pid}/answer", data={"answer": "ask_teacher", "prev": ""}).text
-    assert "mailto:hoch@example.org" in body
+    assert "mailto:hart@example.org" in body
 
 
 def test_the_record_says_as_of_when(tmp_path):

@@ -8,7 +8,7 @@ both have one, and the other still fills gaps. Configured in config.toml:
     grades = "hac"
 
     [[sources.rule]]              # kid and course optional; first rule that sets a field wins
-    kid = "Douglas"               #   the student's first name, or a short form (Alex ~ Alexander)
+    kid = "Dominic"               #   the student's first name, or a short form (Alex ~ Alexander)
     course = "Honors Algebra II"  #   whole words of the class name or its short name
     assignments = "hac"
 

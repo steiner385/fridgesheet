@@ -34,9 +34,9 @@ def _snapshot(ok=True):
         "fetched_at": "2026-09-15T06:05:11-04:00", "fetched_at_epoch": 1789000000,
         "sources": {"canvas": "ok", "hac": "ok" if ok else "login_required: portal timeout"}, "stale": {},
         "students": {"Alex": {"name": "Alex Example", "canvas_id": 1, "hac_name": "Alex Example",
-            "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+            "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                 "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                "staff": [{"name": "Michael Hoch", "email": None, "roles": ["TeacherEnrollment"]}], "assignments": []}]},
+                "staff": [{"name": "Michael Hart", "email": None, "roles": ["TeacherEnrollment"]}], "assignments": []}]},
             "hac": {"week_view": [], "classes": [{"code": "13001 - 5", "name": "Honors English 9 S1", "marking_period_avg": 88.0,
                 "last_updated": "9/11/2026", "assignments": [], "categories": []}]}}}}
 
@@ -75,7 +75,7 @@ def test_stores_read_the_seeded_database(home):
     assert al["name"] == "Alex Example" and [s["key"] for s in students.visible(conn)] == ["Alex"]
     cs = students.courses(conn, al["id"])
     assert [(c["source"], c["short_name"]) for c in cs] == [("canvas", "Honors English 9"), ("hac", "Honors English 9")]
-    assert cs[0]["peer_course_id"] == cs[1]["id"] and cs[0]["teacher"] == "Michael Hoch"
+    assert cs[0]["peer_course_id"] == cs[1]["id"] and cs[0]["teacher"] == "Michael Hart"
     grades = students.latest_grades(conn, al["id"])
     assert grades[cs[0]["id"]]["current"] == 91.2 and grades[cs[1]["id"]]["average"] == 88.0
     conn.close()

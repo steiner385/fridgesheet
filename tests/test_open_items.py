@@ -32,7 +32,7 @@ def canvas_item(**over) -> dict:
     return a
 
 
-def entry(assignments: list[dict], course="Honors Biology S1-2027-Nance", hac_classes=None) -> dict:
+def entry(assignments: list[dict], course="Honors Biology S1-2027-Noble", hac_classes=None) -> dict:
     return {
         "name": "Alex Example",
         "canvas": {"courses": [{"id": 5, "name": course, "assignments": assignments}]},
@@ -197,7 +197,7 @@ def _entry_with_two_missing():
     a = lambda i, name: {"id": i, "name": name, "due_at": (NOW - timedelta(days=2)).isoformat(), "unlock_at": None, "created_at": None,  # noqa: E731
                          "points_possible": 10.0, "submission_types": ["online_upload"], "group": "Homework", "published": True,
                          "score": None, "grade": None, "state": "unsubmitted", "late": False, "missing": True, "excused": False}
-    return {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [a(1, "WS 1"), a(2, "WS 2")]}]}, "hac": {"classes": []}}
+    return {"name": "Alex Example", "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [a(1, "WS 1"), a(2, "WS 2")]}]}, "hac": {"classes": []}}
 
 
 def test_handled_flags_remove_items_and_marked_flags_annotate():
@@ -265,7 +265,7 @@ def test_hac_preference_without_a_hac_score_changes_nothing(rules):
 def test_rules_resolve_by_first_name_not_the_printed_nickname(rules):
     p = sources.DEFAULT.with_rule("Alex", "Honors Biology", "hac", None)
     e = entry([canvas_item(missing=True)], hac_classes=hac_class([hac_row("WS 1", 9.0)]))
-    assert open_items.open_items(e, "Dougie", NOW, rules=rules, prefs=p).items == []
+    assert open_items.open_items(e, "Dommy", NOW, rules=rules, prefs=p).items == []
 
 
 # --- a HAC grade beats Canvas's automatic missing on the sheet too (docs/outcomes.md) -------------

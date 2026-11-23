@@ -10,7 +10,7 @@ from fridgesheet.matching import (course_matches, hac_item_key, hac_only_key, ki
 
 def test_short_course_strips_term_year_and_teacher_tails():
     assert short_course("Adv Social Studies 7-2027-Collett") == "Adv Social Studies 7"
-    assert short_course("Honors Algebra II S1-2027-Hoch") == "Honors Algebra II"
+    assert short_course("Honors Algebra II S1-2027-Hart") == "Honors Algebra II"
     assert short_course("Math Plus 5th Gr-2027-Pene") == "Math Plus 5th Gr"
     assert short_course("Algebra II - 3") == "Algebra II"
 
@@ -86,7 +86,7 @@ def test_kid_matches_the_name_or_a_short_form_of_it_never_a_longer_one():
 
 def test_course_matches_whole_words_for_every_rule():
     assert not course_matches("Algebra I", "Algebra II")
-    assert course_matches("English 9", "Honors English 9 S1-2027-Hoch")
+    assert course_matches("English 9", "Honors English 9 S1-2027-Hart")
     assert course_matches("", "anything")
 
 

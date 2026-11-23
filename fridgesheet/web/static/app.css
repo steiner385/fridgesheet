@@ -167,7 +167,7 @@ tr.detail td { background: var(--wash); }
 .muted { color: var(--muted); } .warn { color: var(--warn); } .ok { color: var(--ok); }
 .filters { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0 12px; align-items: center; }
 .filters label { color: var(--ink); max-width: 100%; }
-/* A select is as wide as its longest option ("Honors English 9 S1-2027-Hoch"), which on a
+/* A select is as wide as its longest option ("Honors English 9 S1-2027-Hart"), which on a
    phone ran 30px past the page's edge. */
 .filters select { max-width: 100%; }
 /* Rows of a graphical config editor (Settings: late-rules, no-print-days): one row per quarter,

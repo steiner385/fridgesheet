@@ -40,9 +40,9 @@ def snapshot(fetched: datetime) -> dict:
             "Alex": {
                 "name": "Alex Example", "canvas_id": 123, "hac_name": "Alex Example",
                 "canvas": {"courses": [{
-                    "id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+                    "id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                    "staff": [{"name": "Michael Hoch", "email": "hoch@example.org", "roles": ["TeacherEnrollment"]}],
+                    "staff": [{"name": "Michael Hart", "email": "hart@example.org", "roles": ["TeacherEnrollment"]}],
                     "assignments": [_assignment(77, "Quiz 1"), _assignment(78, "Essay draft")],
                 }]},
                 "hac": {"week_view": [], "classes": [{
@@ -75,8 +75,8 @@ def test_first_ingest_creates_everything_and_links_hac_to_canvas(tmp_path):
     hac_course = conn.execute("SELECT * FROM courses WHERE source='hac'").fetchone()
     canvas_course = conn.execute("SELECT * FROM courses WHERE source='canvas'").fetchone()
     assert hac_course["peer_course_id"] == canvas_course["id"] and canvas_course["peer_course_id"] == hac_course["id"]
-    assert canvas_course["teacher"] == "Michael Hoch" and canvas_course["short_name"] == "Honors English 9"
-    assert canvas_course["teacher_email"] == "hoch@example.org"
+    assert canvas_course["teacher"] == "Michael Hart" and canvas_course["short_name"] == "Honors English 9"
+    assert canvas_course["teacher_email"] == "hart@example.org"
     grades = conn.execute("SELECT * FROM grade_observations ORDER BY course_id").fetchall()
     assert [(g["current"], g["average"]) for g in grades] == [(91.2, None), (None, 75.67)]
     reading = conn.execute("SELECT * FROM items WHERE key LIKE 'hac:%'").fetchone()
@@ -239,7 +239,7 @@ def test_two_kids_in_like_named_classes_keep_separate_items(tmp_path):
     conn = db.open_db(tmp_path)
     kid = lambda cid: {                                                                   # noqa: E731
         "name": "Rivera", "canvas_id": cid,
-        "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+        "canvas": {"courses": [{"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                                 "grade": {}, "staff": [], "assignments": [_assignment(77, "Quiz 1")]}]},
         "hac": {"week_view": [], "classes": [_hac_class("Honors English 9 S1", "13001 - 5", [_reading_log()])]},
     }
@@ -280,12 +280,12 @@ def test_a_renamed_course_takes_its_items_with_it(tmp_path):
     snap = snapshot(T1)
     ingest.record(conn, snap, tz=TZ, now=T1)
     renamed = snapshot(T2)
-    renamed["students"]["Alex"]["canvas"]["courses"][0]["name"] = "Honors English 9 S2-2027-Hoch"
+    renamed["students"]["Alex"]["canvas"]["courses"][0]["name"] = "Honors English 9 S2-2027-Hart"
     ingest.record(conn, renamed, tz=TZ, now=T2)
     assert conn.execute("SELECT count(*) FROM items").fetchone()[0] == 3     # the same three, not six
     row = conn.execute("""SELECT c.name AS course, i.first_seen, i.last_seen FROM items i JOIN courses c ON c.id = i.course_id
                           WHERE i.key = 'canvas:77'""").fetchall()
-    assert len(row) == 1 and row[0]["course"] == "Honors English 9 S2-2027-Hoch"
+    assert len(row) == 1 and row[0]["course"] == "Honors English 9 S2-2027-Hart"
     assert (row[0]["first_seen"], row[0]["last_seen"]) == (1, 2)            # one history, not two
 
 
@@ -324,7 +324,7 @@ def test_two_hac_rows_matching_one_canvas_twin_attach_only_the_first(tmp_path):
             "Alex": {
                 "name": "Alex Example", "canvas_id": 123, "hac_name": "Alex Example",
                 "canvas": {"courses": [{
-                    "id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+                    "id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
                     "staff": [],
                     "assignments": [_assignment(77, "Quiz 1")],
@@ -360,11 +360,11 @@ def test_the_teacher_of_record_supplies_both_the_name_and_the_address(tmp_path):
     snap = snapshot(T1)
     snap["students"]["Alex"]["canvas"]["courses"][0]["staff"] = [
         {"name": "Avery Aide", "email": "ta@x", "roles": ["TaEnrollment"]},
-        {"name": "Michael Hoch", "email": "t@x", "roles": ["TeacherEnrollment"]},
+        {"name": "Michael Hart", "email": "t@x", "roles": ["TeacherEnrollment"]},
     ]
     ingest.record(conn, snap, tz=TZ, now=T1)
     course = conn.execute("SELECT * FROM courses WHERE source='canvas'").fetchone()
-    assert (course["teacher"], course["teacher_email"]) == ("Michael Hoch", "t@x")
+    assert (course["teacher"], course["teacher_email"]) == ("Michael Hart", "t@x")
 
 
 def _snap_with(canvas_assignments, hac_rows):

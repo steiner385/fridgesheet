@@ -347,7 +347,7 @@ PHRASES: dict[str, dict[str, str]] = {
                               "middle": "The school usually accepts late work until {when} (from your late-work rules). Ask the teacher if you need longer.",
                               "older": "Late work is usually accepted until {when} (from your late-work rules). Ask the teacher if you need longer."},
     # A row past its late-work window: the date is gone, so the sentence is in the past tense
-    # (Doug's Protist Lab read "is usually accepted until Mon 10/5" on 10/6, spec 2026-10-06).
+    # (Dom's Protist Lab read "is usually accepted until Mon 10/5" on 10/6, spec 2026-10-06).
     "copy.late_closed":      {"early": "The school took late work until {when}.",
                               "middle": "Late work was accepted until {when}.",
                               "older": "Late work was accepted until {when}."},

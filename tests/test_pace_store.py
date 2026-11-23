@@ -10,7 +10,7 @@ def _refresh(conn, at):
     return conn.execute("INSERT INTO refreshes(started_at, sources, ok) VALUES (?, '{}', 1)", (at,)).lastrowid
 
 
-def _course(conn, sid, source, name, teacher="Michael Hoch", peer=None):
+def _course(conn, sid, source, name, teacher="Michael Hart", peer=None):
     return conn.execute("INSERT INTO courses(student_id, source, name, short_name, teacher, peer_course_id) VALUES (?, ?, ?, ?, ?, ?)",
                         (sid, source, name, name[:4], teacher, peer)).lastrowid
 
@@ -99,14 +99,14 @@ def test_hac_lag_is_days_between_the_two_first_scored_refreshes(tmp_path):
 
 def test_teachers_are_keyed_by_class_and_normalised(tmp_path):
     conn, sid, cid, _ = _home(tmp_path)
-    assert store.load(conn).teachers == {cid: "michael hoch"}
+    assert store.load(conn).teachers == {cid: "michael hart"}
 
 
 def test_a_hac_only_item_borrows_its_twins_teacher(tmp_path):
     conn, sid, cid, (r1, r2, r3) = _home(tmp_path)
     hac = _course(conn, sid, "hac", "Honors English 9 S1", teacher=None, peer=cid)
     conn.execute("UPDATE courses SET peer_course_id = ? WHERE id = ?", (hac, cid))
-    assert store.load(conn).teachers[cid] == "michael hoch"
+    assert store.load(conn).teachers[cid] == "michael hart"
 
 
 # --- review: one grade sample per item, censored and anchored across both sources ------------------

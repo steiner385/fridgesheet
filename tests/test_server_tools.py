@@ -21,7 +21,7 @@ def snapshot(monkeypatch, tmp_path):
         "fetched_at": _iso(0), "fetched_at_epoch": 10**12, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
         "students": {"Alex": {
             "name": "Alex Example",
-            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [
+            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [
                 {"id": 1, "name": "WS 1", "due_at": _iso(-2), "unlock_at": None, "created_at": _iso(-9), "points_possible": 10.0,
                  "submission_types": ["online_upload"], "group": "Homework", "published": True, "score": None, "grade": None,
                  "state": "unsubmitted", "late": False, "missing": True, "excused": False},
@@ -60,7 +60,7 @@ def graded(monkeypatch, tmp_path):
         "fetched_at": _iso(0), "fetched_at_epoch": 10**12, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
         "students": {"Alex": {
             "name": "Alex Example",
-            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Nance", "assignments": [], "staff": [],
+            "canvas": {"courses": [{"id": 5, "name": "Honors Biology S1-2027-Noble", "assignments": [], "staff": [],
                                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False}}]},
             "hac": {"week_view": [], "classes": [
                 {"name": "Honors Biology - 3", "marking_period_avg": 88.0, "last_updated": "9/11/2026",
@@ -78,7 +78,7 @@ def graded(monkeypatch, tmp_path):
 
 def test_grades_carries_the_account_of_each_number(graded, monkeypatch):
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
-    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    bio = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]
     assert bio["account"]["source"] == "hac" and bio["account"]["match"] == "exact"
     assert bio["account"]["lines"][0]["category"] == "Labs" and bio["account"]["earned"] == 44.0
     assert bio["canvas_account"]["source"] == "canvas" and bio["canvas_account"]["reported"] == 91.2
@@ -89,12 +89,12 @@ def test_grades_carries_the_account_of_each_number(graded, monkeypatch):
 def test_grades_official_follows_the_grades_source(graded, monkeypatch):
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT)
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
-    bio = out["Honors Biology S1-2027-Nance"]
+    bio = out["Honors Biology S1-2027-Noble"]
     assert (bio["official"], bio["official_source"]) == (88.0, "hac")
     assert (bio["hac_official"], bio["canvas_current"]) == (88.0, 91.2)          # both still there
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT.with_default("canvas", "canvas"))
     out = {c["course"]: c for c in server.grades("Alex")["classes"]}
-    assert (out["Honors Biology S1-2027-Nance"]["official"], out["Honors Biology S1-2027-Nance"]["official_source"]) == (91.2, "canvas")
+    assert (out["Honors Biology S1-2027-Noble"]["official"], out["Honors Biology S1-2027-Noble"]["official_source"]) == (91.2, "canvas")
     assert (out["Hawk Time"]["official"], out["Hawk Time"]["official_source"]) == (100.0, "hac")   # HAC-only fills the gap
 
 
@@ -172,7 +172,7 @@ def hac_only(monkeypatch, tmp_path):
         "fetched_at": _iso(0), "fetched_at_epoch": 10**12, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
         "students": {"Maya": {
             "name": "RIVERA, MAYA", "hac_name": "RIVERA, MAYA", "canvas_id": None,
-            "canvas": {"courses": [{"id": 9, "name": "Honors Biology S1-2027-Nance", "assignments": [], "staff": [],
+            "canvas": {"courses": [{"id": 9, "name": "Honors Biology S1-2027-Noble", "assignments": [], "staff": [],
                                     "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False}}]},
             "hac": {"week_view": [], "classes": [
                 {"name": "Honors Biology - 3", "marking_period_avg": 88.0, "last_updated": None, "categories": [], "assignments": [
@@ -201,7 +201,7 @@ def test_late_rules_resolve_by_the_students_key_not_the_first_word_of_her_name(h
 def test_source_rules_resolve_by_the_students_key(hac_only, monkeypatch):
     prefs = sources.DEFAULT.with_default("canvas", "canvas").with_rule("Maya", "Honors Biology", None, "hac")
     monkeypatch.setattr(server._settings(), "sources", prefs)
-    bio = {c["course"]: c for c in server.grades("Maya")["classes"]}["Honors Biology S1-2027-Nance"]
+    bio = {c["course"]: c for c in server.grades("Maya")["classes"]}["Honors Biology S1-2027-Noble"]
     assert (bio["official"], bio["official_source"]) == (88.0, "hac")
 
 
@@ -222,7 +222,7 @@ def test_grades_carries_what_moves_it(graded, monkeypatch, tmp_path):
          "submission_types": ["online_upload"], "group": "Labs", "published": True, "score": None, "grade": None,
          "state": "unsubmitted", "late": False, "missing": False, "excused": False}]
     classes = {c["course"]: c for c in server.grades("Alex")["classes"]}
-    g = classes["Honors Biology S1-2027-Nance"]["guidance"]
+    g = classes["Honors Biology S1-2027-Noble"]["guidance"]
     assert g["sound"] and g["letter"] == "B" and g["reach"]["letter"] == "A"
     assert g["levers"][0]["kind"] == "upcoming" and g["best"]["points"] == 20.0 and g["best"]["worth"] > 0
     assert classes["Hawk Time"]["guidance"]["sound"] is False                    # no breakdown: points, never average points
@@ -243,7 +243,7 @@ def test_grades_guidance_spends_the_zero_budget_on_old_blank_rows_and_keeps_expl
         {"name": "Old sheet", "due": day(-30), "assigned": day(-35), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""},
         {"name": "Zeroed quiz", "due": day(-3), "assigned": day(-6), "category": "Labs", "score": 0.0, "score_raw": "0.00", "points": 10.0, "percent": ""},
         {"name": "New sheet", "due": day(-2), "assigned": day(-5), "category": "Labs", "score": None, "score_raw": "", "points": 10.0, "percent": ""}]
-    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]["guidance"]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]["guidance"]
     kinds = {l["name"]: l["kind"] for l in g["levers"]}
     assert kinds == {"Zeroed quiz": "zero", "New sheet": "missing"}
 
@@ -264,9 +264,9 @@ def test_grades_guidance_follows_the_official_source_window_and_twins(graded, mo
         return base
     graded["students"]["Alex"]["canvas"]["courses"][0]["assignments"] = [
         a(1, "Lab 1", -3), a(2, "Lab 2", 3), a(3, "Lab 3", 60), a(4, "Lab 4", 4, state="submitted")]
-    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]
     assert [l["name"] for l in g["guidance"]["levers"]] == ["Lab 2"]       # Lab 1 is Lab #1's twin; Lab 3 is past the window; Lab 4 is handed in
     assert g["account"]["lines"][0]["percent"] == 88.0
     monkeypatch.setattr(server._settings(), "sources", sources.DEFAULT.with_default("canvas", "canvas"))
-    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Nance"]
+    g = {c["course"]: c for c in server.grades("Alex")["classes"]}["Honors Biology S1-2027-Noble"]
     assert g["guidance"]["sound"] is False                                   # Canvas's own groups do not rebuild its 91.2

@@ -376,13 +376,13 @@ def test_a_blank_password_field_keeps_the_stored_one(tmp_path):
 
 def test_save_round_trips_reloads_settings_and_stores_the_password(tmp_path):
     c, app = _client(tmp_path)
-    r = c.post("/settings", data={**FORM, "password": "hunter2", "nicknames": "Alex=Dougie"})
+    r = c.post("/settings", data={**FORM, "password": "hunter2", "nicknames": "Alex=Dommy"})
     assert r.status_code == 200 and "Settings saved" in r.text and "Password stored" in r.text
     assert app.state.fridgesheet.extra["credstore"].written == [("parent@example.org", "hunter2")]
     doc = config.load_config_doc(tmp_path / "config.toml")
     assert doc["print"]["printer"] == "Canon" and doc["web"]["port"] == 8433
-    assert app.state.fridgesheet.settings.nicknames == {"Alex": "Dougie"}    # reloaded
-    assert ">Dougie<" in c.get("/").text                                     # the rail uses the new nickname
+    assert app.state.fridgesheet.settings.nicknames == {"Alex": "Dommy"}    # reloaded
+    assert ">Dommy<" in c.get("/").text                                     # the rail uses the new nickname
 
 
 def test_invalid_form_shows_errors_and_writes_nothing(tmp_path):

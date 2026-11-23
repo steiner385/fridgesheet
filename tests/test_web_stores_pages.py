@@ -128,7 +128,7 @@ def test_views_carry_as_of_times_and_the_teacher_email(tmp_path):
     quiz = next(v for v in items.list_items(conn, _doug(conn), now=NOW, rules=RULES, show="all") if v.name == "Quiz 1")
     started = conn.execute("SELECT started_at FROM refreshes ORDER BY id DESC LIMIT 1").fetchone()["started_at"]
     assert quiz.canvas_as_of == started and quiz.hac_as_of == started
-    assert quiz.teacher_email == "hoch@example.org"
+    assert quiz.teacher_email == "hart@example.org"
 
 
 def test_near_twins_lists_a_missed_pairing_and_not_unrelated_work(tmp_path):

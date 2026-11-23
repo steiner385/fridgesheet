@@ -346,10 +346,10 @@ def test_grades_default_to_empty():
 
 def test_grades_are_read_beside_the_nicknames():
     s = config.Settings()
-    config.settings_from_doc({"kids": {"nicknames": {"Douglas": "Doug"},
-                                       "grades": {"Douglas": 9, "Kayla": 5}}}, s)
-    assert s.grades == {"Douglas": 9, "Kayla": 5}
-    assert s.nicknames == {"Douglas": "Doug"}          # the neighbour still works
+    config.settings_from_doc({"kids": {"nicknames": {"Dominic": "Dom"},
+                                       "grades": {"Dominic": 9, "Keira": 5}}}, s)
+    assert s.grades == {"Dominic": 9, "Keira": 5}
+    assert s.nicknames == {"Dominic": "Dom"}          # the neighbour still works
 
 
 @pytest.mark.parametrize("bad", ["five", 5.5, None, [], True])
@@ -357,8 +357,8 @@ def test_a_grade_that_is_not_a_whole_number_is_dropped_not_raised(bad):
     """A child with an unreadable grade falls back to today's interface. Raising here would
     traceback out of `schedule remove --all`, which the uninstaller runs hidden."""
     s = config.Settings()
-    config.settings_from_doc({"kids": {"grades": {"Douglas": bad, "Kayla": 5}}}, s)
-    assert s.grades == {"Kayla": 5}
+    config.settings_from_doc({"kids": {"grades": {"Dominic": bad, "Keira": 5}}}, s)
+    assert s.grades == {"Keira": 5}
 
 
 def test_a_grades_value_that_is_not_a_table_keeps_the_default():

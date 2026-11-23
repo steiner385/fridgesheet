@@ -84,9 +84,9 @@ def snapshot() -> dict:
         "students": {
             "Alex": {"name": "Alex Example", "canvas_id": 1, "hac_name": "Alex Example",
                 "canvas": {"courses": [
-                    {"id": 5, "name": "Honors English 9 S1-2027-Hoch", "course_code": "ENG9",
+                    {"id": 5, "name": "Honors English 9 S1-2027-Hart", "course_code": "ENG9",
                      "grade": {"current_score": 91.2, "final_score": None, "current_grade": "A-", "hidden": False},
-                     "staff": [{"name": "Michael Hoch", "email": "hoch@example.org", "roles": ["TeacherEnrollment"]}],
+                     "staff": [{"name": "Michael Hart", "email": "hart@example.org", "roles": ["TeacherEnrollment"]}],
                      "assignments": [
                          _a(77, "Quiz 1", "09-12", missing=True, points_possible=30.0),
                          _a(78, "Essay draft", "09-14", state="submitted", submitted_at="2026-09-14T20:00:00-04:00"),

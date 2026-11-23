@@ -19,7 +19,7 @@ def _id(tmp_path, name):
 
 
 def test_a_missed_row_says_the_window_in_the_past_tense(tmp_path):
-    """Protist Lab on Doug's page read "the late-work window has closed. Late work is usually
+    """Protist Lab on Dom's page read "the late-work window has closed. Late work is usually
     accepted until Mon 10/5." -- a date already gone, in the present tense."""
     safety = _id(tmp_path, "Safety quiz")
     body = app_for(tmp_path, now=NOW + timedelta(days=30)).get("/kids/Sam?show=all").text

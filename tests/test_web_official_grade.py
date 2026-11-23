@@ -113,7 +113,7 @@ def test_only_one_twin_is_official_when_a_rule_names_one_twin(tmp_path):
     Canvas name made both the Canvas and the HAC series official -- and now that Trends draws
     only the official line, that would have drawn both again."""
     history(tmp_path).close()
-    body = client(tmp_path, '[[sources.rule]]\ncourse = "Hoch"\ngrades = "canvas"\n').get("/trends").text
+    body = client(tmp_path, '[[sources.rule]]\ncourse = "Hart"\ngrades = "canvas"\n').get("/trends").text
     assert sorted(_grade_label_list(body)) == ["Algebra I", "Honors English 9", "Science 7"]     # one line each
     first = {d["label"]: d["data"][0]["y"] for c in chart_configs(body) if c["options"]["scales"]["x"].get("type") == "time"
              for d in c["data"]["datasets"]}

@@ -51,7 +51,7 @@ def _h(name, due, score, points=10.0, raw=None):
 def snap(canvas_assign, hac_rows, when=T[2]):
     return {"fetched_at": when, "sources": {"canvas": "ok", "hac": "ok"}, "stale": {},
             "students": {"Alex": {"name": "Alex Example", "canvas": {"courses": [
-                {"id": 5, "name": "Honors English 9 S1-2027-Hoch", "grade": {}, "staff": [], "assignments": canvas_assign}]},
+                {"id": 5, "name": "Honors English 9 S1-2027-Hart", "grade": {}, "staff": [], "assignments": canvas_assign}]},
                 "hac": {"classes": [{"code": "1", "name": "Honors English 9 S1", "marking_period_avg": 90.0,
                                      "last_updated": None, "assignments": hac_rows}]}}}}
 
@@ -430,7 +430,7 @@ def test_migrating_a_v5_database_dates_every_hac_only_key_and_folds_an_orphans_t
         conn.executemany("INSERT INTO refreshes(id, started_at, sources, ok) VALUES (?, ?, '{}', 1)", [(i, T[i]) for i in (1, 2, 3)])
         conn.execute("INSERT INTO students(id, key, name) VALUES (1, 'Alex', 'Alex Example')")
         conn.execute("INSERT INTO courses(id, student_id, source, name, short_name) VALUES (1, 1, 'hac', 'Honors English 9 S1', 'Honors English 9')")
-        conn.execute("INSERT INTO courses(id, student_id, source, name, short_name) VALUES (2, 1, 'canvas', 'Honors English 9 S1-2027-Hoch', 'Honors English 9')")
+        conn.execute("INSERT INTO courses(id, student_id, source, name, short_name) VALUES (2, 1, 'canvas', 'Honors English 9 S1-2027-Hart', 'Honors English 9')")
         conn.executemany("INSERT INTO items(id, student_id, course_id, key, name, due, first_seen, last_seen) VALUES (?, 1, ?, ?, ?, ?, ?, ?)", [
             (1, 1, "hac:Honors English 9:participation", "Participation", "2026-09-05T23:59:00-04:00", 1, 1),
             (2, 1, "hac:Honors English 9:participation:2026-09-05", "Participation", "2026-09-05T23:59:00-04:00", 2, 3),

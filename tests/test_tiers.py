@@ -34,16 +34,16 @@ def test_anything_unreadable_is_the_interface_that_shipped(bad):
 
 def test_for_student_reads_the_setting():
     s = config.Settings()
-    s.grades = {"Douglas": 9, "Melanie": 7, "Kayla": 5}
-    assert tiers.for_student(s, "Douglas") == "older"
-    assert tiers.for_student(s, "Melanie") == "middle"
-    assert tiers.for_student(s, "Kayla") == "early"
+    s.grades = {"Dominic": 9, "Matilda": 7, "Keira": 5}
+    assert tiers.for_student(s, "Dominic") == "older"
+    assert tiers.for_student(s, "Matilda") == "middle"
+    assert tiers.for_student(s, "Keira") == "early"
 
 
 def test_a_child_with_no_grade_set_gets_the_shipped_interface():
     s = config.Settings()
-    s.grades = {"Douglas": 9}
-    assert tiers.for_student(s, "Kayla") == ""
+    s.grades = {"Dominic": 9}
+    assert tiers.for_student(s, "Keira") == ""
     assert tiers.for_student(s, "") == ""
     assert tiers.for_student(s, None) == ""
 
