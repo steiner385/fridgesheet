@@ -4,6 +4,13 @@ The sheet on the fridge: a parent's daily list of open school work, pulled from 
 
 **Using it?** Start with the [user guide](docs/user-guide.md): setup, every page, the printed sheet, schedules and troubleshooting, for parents rather than developers. This README is the developer and operator reference.
 
+**Start here:**
+
+- **On Windows:** download `FridgeSheet-Setup-<version>.exe` from the [latest release](https://github.com/steiner385/fridgesheet/releases/latest) and run it; [docs/windows.md](docs/windows.md) walks through the rest.
+- **On Linux:** follow the user guide's [Linux install](docs/user-guide.md#22-linux), or [a server with no desktop](docs/user-guide.md#23-a-server-with-no-desktop-linux).
+- **Not in the district the defaults are for:** the user guide's [Another school district](docs/user-guide.md#24-another-school-district). Your district needs Canvas and Home Access Center behind a OneLogin parent login without a code on every sign-in.
+- **Want to help:** [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Through version 0.3 the app was called Lakota Sheet. The `lakota-grades` command is a one-release shim that prints a notice and runs `fridgesheet`; the first run of the new name moves an old data directory to the new one (`fridgesheet/migrate.py`), and the Windows installer upgrades an old install in place ([docs/windows.md](docs/windows.md), "Upgrading from Lakota Sheet").
 
 Design goals:
