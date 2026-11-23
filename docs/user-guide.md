@@ -97,6 +97,8 @@ already running.
 
 ### 2.2 Linux
 
+For a step-by-step first install, start with the [Linux quick start](quick-start-linux.md).
+
 ```bash
 git clone https://github.com/steiner385/fridgesheet ~/fridgesheet
 cd ~/fridgesheet
