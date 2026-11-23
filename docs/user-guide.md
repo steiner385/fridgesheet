@@ -167,7 +167,7 @@ Do these once, in this order. Each takes a minute or two.
 |---|---|---|
 | 1 | **Settings → School login** | Enter your **OneLogin username** and **OneLogin password**. Click **Save** at the bottom of the form. |
 | 2 | **Settings → Test login** | **Save first** — Test login uses what you *saved*, not what is typed in the boxes. Takes up to a minute; progress appears on the page. Both lines must say OK. Nothing can be scheduled until this has passed once. |
-| 3 | **Today → Refresh now** | Until the first refresh, each child's card says *No refresh yet* (and mentions a terminal command — ignore it on Windows). The **Refresh now** button is in the *Today's sheet* card further down. Reload the page when the job says OK. |
+| 3 | **Today → Refresh now** | Until the first refresh, the page says *No refresh yet*. The **Refresh now** button is in the *Today's sheet* card further down. Reload the page when the job says OK. |
 | 4 | **Settings → Printing** | Pick the **Printer** (or leave *System default*), **Days ahead** (how far forward the sheet looks, default 14) and **Overdue days** (how far back, default 14). If the sheet should say "Al" rather than "Alexander", add a line `Alexander=Al` under **Nicknames** (one per line, first name as the school lists it). **Save**. |
 | 5 | **Schedules → Refresh the data** | Tick **Refresh on a schedule**. The default (every 3 hours, 06:00–21:00, every day) is a good start. **Save**. *Do not skip this* — see the box below. |
 | 6 | **Schedules → Open Work Sheet** | Tick **Run this on a schedule**, set **Time** — it is a 24-hour clock, so 3 pm is **15:00** — and the **Days**, tick **Print it** (untick to keep only a PDF), **Save**. The state line should now say *next run …*. |
